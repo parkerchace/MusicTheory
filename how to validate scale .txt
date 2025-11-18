@@ -1,0 +1,5 @@
+cd to the folder containing the app
+
+run:
+
+node ".\tools\validate-citations.js"

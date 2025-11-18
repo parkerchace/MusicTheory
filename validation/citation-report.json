@@ -1,0 +1,1734 @@
+{
+  "generatedAt": "2025-10-31T20:20:09.402Z",
+  "totals": {
+    "citations": 141,
+    "ok": 141,
+    "contentMatch": 141
+  },
+  "problems": {
+    "networkOrStatus": [],
+    "contentMismatch": [],
+    "disallowedHost": []
+  },
+  "byScale": {
+    "major": [
+      {
+        "scaleId": "major",
+        "refTitle": "Ionian Mode - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Ionian_mode",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Ionian_mode",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "major",
+        "refTitle": "Major Scale - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Major_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Major_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "lydian": [
+      {
+        "scaleId": "lydian",
+        "refTitle": "Lydian Chromatic Concept",
+        "url": "https://en.wikipedia.org/wiki/Lydian_Chromatic_Concept_of_Tonal_Organization",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Lydian_Chromatic_Concept_of_Tonal_Organization",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "lydian",
+        "refTitle": "Lydian Mode - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Lydian_mode",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Lydian_mode",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "phrygian": [
+      {
+        "scaleId": "phrygian",
+        "refTitle": "Phrygian Mode - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Phrygian_mode",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Phrygian_mode",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "phrygian",
+        "refTitle": "Church Modes - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Mode_(music)#Modern_modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Mode_(music)",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "dorian": [
+      {
+        "scaleId": "dorian",
+        "refTitle": "Dorian Mode - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Dorian_mode",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Dorian_mode",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "dorian",
+        "refTitle": "Modes - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Mode_(music)#Modern_modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Mode_(music)",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "mixolydian": [
+      {
+        "scaleId": "mixolydian",
+        "refTitle": "Mixolydian Mode - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Mixolydian_mode",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Mixolydian_mode",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "mixolydian",
+        "refTitle": "Mode (music) - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Mode_(music)#Modern_modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Mode_(music)",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "aeolian": [
+      {
+        "scaleId": "aeolian",
+        "refTitle": "Aeolian Mode - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Aeolian_mode",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Aeolian_mode",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "aeolian",
+        "refTitle": "Minor Scale - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Minor_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Minor_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "locrian": [
+      {
+        "scaleId": "locrian",
+        "refTitle": "Half-Diminished Scale - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Half-diminished_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Half-diminished_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "locrian",
+        "refTitle": "Locrian Mode - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Locrian_mode",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Locrian_mode",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "melodic": [
+      {
+        "scaleId": "melodic",
+        "refTitle": "Jazz Minor Scale",
+        "url": "https://en.wikipedia.org/wiki/Jazz_scale#Modes_of_the_melodic_minor_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Jazz_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "melodic",
+        "refTitle": "Melodic Minor Scale",
+        "url": "https://en.wikipedia.org/wiki/Minor_scale#Melodic_minor_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Minor_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "dorian_b2": [
+      {
+        "scaleId": "dorian_b2",
+        "refTitle": "Modes of Melodic Minor",
+        "url": "https://en.wikipedia.org/wiki/Jazz_scale#Modes_of_the_melodic_minor_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Jazz_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "lydian_augmented": [
+      {
+        "scaleId": "lydian_augmented",
+        "refTitle": "Lydian Augmented",
+        "url": "https://en.wikipedia.org/wiki/Lydian_augmented_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Lydian_augmented_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "lydian_dominant": [
+      {
+        "scaleId": "lydian_dominant",
+        "refTitle": "Acoustic Scale",
+        "url": "https://en.wikipedia.org/wiki/Acoustic_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Acoustic_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "lydian_dominant",
+        "refTitle": "Lydian Dominant Scale",
+        "url": "https://en.wikipedia.org/wiki/Lydian_dominant_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Lydian_dominant_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "locrian_nat2": [
+      {
+        "scaleId": "locrian_nat2",
+        "refTitle": "Half-Diminished Scale",
+        "url": "https://en.wikipedia.org/wiki/Half-diminished_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Half-diminished_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "altered": [
+      {
+        "scaleId": "altered",
+        "refTitle": "Super Locrian Scale",
+        "url": "https://en.wikipedia.org/wiki/Altered_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Altered_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "altered",
+        "refTitle": "Altered Scale",
+        "url": "https://en.wikipedia.org/wiki/Altered_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Altered_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "mixolydian_b6": [
+      {
+        "scaleId": "mixolydian_b6",
+        "refTitle": "Melodic Minor Modes",
+        "url": "https://en.wikipedia.org/wiki/Jazz_scale#Modes_of_the_melodic_minor_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Jazz_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "harmonic": [
+      {
+        "scaleId": "harmonic",
+        "refTitle": "Harmonic Minor Scale",
+        "url": "https://en.wikipedia.org/wiki/Minor_scale#Harmonic_minor_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Minor_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "harmonic",
+        "refTitle": "Classical Harmony",
+        "url": "https://en.wikipedia.org/wiki/Harmony",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmony",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "locrian_nat6": [
+      {
+        "scaleId": "locrian_nat6",
+        "refTitle": "Harmonic Minor Modes",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_minor_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_minor_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "ionian_augmented": [
+      {
+        "scaleId": "ionian_augmented",
+        "refTitle": "Harmonic Minor Modes",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_minor_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_minor_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "phrygian_dominant": [
+      {
+        "scaleId": "phrygian_dominant",
+        "refTitle": "Phrygian Dominant Scale",
+        "url": "https://en.wikipedia.org/wiki/Phrygian_dominant_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Phrygian_dominant_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "phrygian_dominant",
+        "refTitle": "Spanish Music Theory",
+        "url": "https://en.wikipedia.org/wiki/Flamenco_mode",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Flamenco_mode",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "dorian_sharp4": [
+      {
+        "scaleId": "dorian_sharp4",
+        "refTitle": "Romanian Minor Scale",
+        "url": "https://en.wikipedia.org/wiki/Romanian_minor_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Romanian_minor_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "lydian_sharp2": [
+      {
+        "scaleId": "lydian_sharp2",
+        "refTitle": "Harmonic Minor Modes",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_minor_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_minor_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "harmonic_major": [
+      {
+        "scaleId": "harmonic_major",
+        "refTitle": "Harmonic Major Scale",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_major_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_major_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "altered_diminished": [
+      {
+        "scaleId": "altered_diminished",
+        "refTitle": "Harmonic Minor Modes",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_minor_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_minor_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "dorian_b5": [
+      {
+        "scaleId": "dorian_b5",
+        "refTitle": "Harmonic Major Modes",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_major_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_major_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "phrygian_b4": [
+      {
+        "scaleId": "phrygian_b4",
+        "refTitle": "Harmonic Major Modes",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_major_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_major_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "lydian_b3": [
+      {
+        "scaleId": "lydian_b3",
+        "refTitle": "Harmonic Major Modes",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_major_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_major_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "mixolydian_b2": [
+      {
+        "scaleId": "mixolydian_b2",
+        "refTitle": "Harmonic Major Modes",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_major_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_major_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "aeolian_b1": [
+      {
+        "scaleId": "aeolian_b1",
+        "refTitle": "Harmonic Major Modes",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_major_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_major_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "locrian_bb7": [
+      {
+        "scaleId": "locrian_bb7",
+        "refTitle": "Harmonic Major Modes",
+        "url": "https://en.wikipedia.org/wiki/Harmonic_major_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Harmonic_major_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "double_harmonic_major": [
+      {
+        "scaleId": "double_harmonic_major",
+        "refTitle": "Double Harmonic Scale",
+        "url": "https://en.wikipedia.org/wiki/Double_harmonic_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Double_harmonic_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "double_harmonic_major",
+        "refTitle": "Byzantine Music Theory",
+        "url": "https://en.wikipedia.org/wiki/Byzantine_music",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Byzantine_music",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "lydian_sharp2_sharp6": [
+      {
+        "scaleId": "lydian_sharp2_sharp6",
+        "refTitle": "Double Harmonic Modes",
+        "url": "https://en.wikipedia.org/wiki/Double_harmonic_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Double_harmonic_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "hungarian_minor": [
+      {
+        "scaleId": "hungarian_minor",
+        "refTitle": "Hungarian Minor Scale",
+        "url": "https://en.wikipedia.org/wiki/Hungarian_minor_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Hungarian_minor_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "hungarian_minor",
+        "refTitle": "Gypsy Scale",
+        "url": "https://en.wikipedia.org/wiki/Hungarian_Gypsy_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Hungarian_Gypsy_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "ultraphrygian": [
+      {
+        "scaleId": "ultraphrygian",
+        "refTitle": "Double Harmonic Modes",
+        "url": "https://en.wikipedia.org/wiki/Double_harmonic_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Double_harmonic_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "oriental": [
+      {
+        "scaleId": "oriental",
+        "refTitle": "Double Harmonic Modes",
+        "url": "https://en.wikipedia.org/wiki/Double_harmonic_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Double_harmonic_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "ionian_augmented_sharp2": [
+      {
+        "scaleId": "ionian_augmented_sharp2",
+        "refTitle": "Double Harmonic Modes",
+        "url": "https://en.wikipedia.org/wiki/Double_harmonic_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Double_harmonic_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "locrian_bb3_bb7": [
+      {
+        "scaleId": "locrian_bb3_bb7",
+        "refTitle": "Double Harmonic Modes",
+        "url": "https://en.wikipedia.org/wiki/Double_harmonic_scale#Modes",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Double_harmonic_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "whole_tone": [
+      {
+        "scaleId": "whole_tone",
+        "refTitle": "Whole Tone Scale",
+        "url": "https://en.wikipedia.org/wiki/Whole_tone_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Whole_tone_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "whole_tone",
+        "refTitle": "Impressionist Music",
+        "url": "https://en.wikipedia.org/wiki/Musical_impressionism",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Musical_impressionism",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "octatonic_dim": [
+      {
+        "scaleId": "octatonic_dim",
+        "refTitle": "Diminished Harmony",
+        "url": "https://en.wikipedia.org/wiki/Diminished_chord",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Diminished_chord",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "octatonic_dim",
+        "refTitle": "Octatonic Scale",
+        "url": "https://en.wikipedia.org/wiki/Octatonic_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Octatonic_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "augmented": [
+      {
+        "scaleId": "augmented",
+        "refTitle": "Augmented Scale",
+        "url": "https://en.wikipedia.org/wiki/Augmented_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Augmented_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "octatonic_dom": [
+      {
+        "scaleId": "octatonic_dom",
+        "refTitle": "Octatonic Scale",
+        "url": "https://en.wikipedia.org/wiki/Octatonic_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Octatonic_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "octatonic_dom",
+        "refTitle": "Dominant Diminished Scale",
+        "url": "https://en.wikipedia.org/wiki/Octatonic_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Octatonic_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "tritone": [
+      {
+        "scaleId": "tritone",
+        "refTitle": "Petrushka Chord",
+        "url": "https://en.wikipedia.org/wiki/Petrushka_chord",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Petrushka_chord",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "tritone",
+        "refTitle": "Stravinsky - Britannica",
+        "url": "https://www.britannica.com/biography/Igor-Stravinsky",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/biography/Igor-Stravinsky",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "prometheus": [
+      {
+        "scaleId": "prometheus",
+        "refTitle": "Prometheus Scale",
+        "url": "https://en.wikipedia.org/wiki/Mystic_chord",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Mystic_chord",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "prometheus",
+        "refTitle": "Scriabin Theory",
+        "url": "https://www.britannica.com/biography/Aleksandr-Scriabin",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/biography/Aleksandr-Scriabin",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "major_pentatonic": [
+      {
+        "scaleId": "major_pentatonic",
+        "refTitle": "Pentatonic Scale",
+        "url": "https://en.wikipedia.org/wiki/Pentatonic_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Pentatonic_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "major_pentatonic",
+        "refTitle": "Pentatonic Music",
+        "url": "https://en.wikipedia.org/wiki/Pentatonic_scale#Popular_music",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Pentatonic_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "minor_pentatonic": [
+      {
+        "scaleId": "minor_pentatonic",
+        "refTitle": "Minor Pentatonic Scale",
+        "url": "https://en.wikipedia.org/wiki/Pentatonic_scale#Minor_pentatonic_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Pentatonic_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "minor_pentatonic",
+        "refTitle": "Blues Scale",
+        "url": "https://en.wikipedia.org/wiki/Blues_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Blues_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "blues_major_pentatonic": [
+      {
+        "scaleId": "blues_major_pentatonic",
+        "refTitle": "Blues scale - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Blues_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Blues_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "blues_minor_pentatonic": [
+      {
+        "scaleId": "blues_minor_pentatonic",
+        "refTitle": "Blues Scale",
+        "url": "https://en.wikipedia.org/wiki/Blues_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Blues_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "blues_minor_pentatonic",
+        "refTitle": "Blue note",
+        "url": "https://en.wikipedia.org/wiki/Blue_note",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Blue_note",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "egyptian_pentatonic": [
+      {
+        "scaleId": "egyptian_pentatonic",
+        "refTitle": "Egyptian Pentatonic",
+        "url": "https://en.wikipedia.org/wiki/Pentatonic_scale#Other_pentatonic_scales",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Pentatonic_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "hirajoshi": [
+      {
+        "scaleId": "hirajoshi",
+        "refTitle": "Hirajoshi Scale",
+        "url": "https://en.wikipedia.org/wiki/Hirajoshi_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Hirajoshi_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "hirajoshi",
+        "refTitle": "Japanese Music Theory",
+        "url": "https://en.wikipedia.org/wiki/Japanese_music",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Japanese_music",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "iwato": [
+      {
+        "scaleId": "iwato",
+        "refTitle": "Iwato Scale",
+        "url": "https://en.wikipedia.org/wiki/Iwato_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Iwato_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "iwato",
+        "refTitle": "Japanese Music Theory",
+        "url": "https://www.britannica.com/art/Japanese-music",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/art/Japanese-music",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "insen": [
+      {
+        "scaleId": "insen",
+        "refTitle": "In Sen Scale",
+        "url": "https://en.wikipedia.org/wiki/In_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/In_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "insen",
+        "refTitle": "Japanese musical scales",
+        "url": "https://en.wikipedia.org/wiki/Japanese_musical_scales",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Japanese_musical_scales",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "yo": [
+      {
+        "scaleId": "yo",
+        "refTitle": "Yo Scale",
+        "url": "https://en.wikipedia.org/wiki/Yo_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Yo_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "yo",
+        "refTitle": "Japanese music - Britannica",
+        "url": "https://www.britannica.com/art/Japanese-music",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/art/Japanese-music",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "blues_hexatonic": [
+      {
+        "scaleId": "blues_hexatonic",
+        "refTitle": "Blues Scale",
+        "url": "https://en.wikipedia.org/wiki/Blues_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Blues_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "blues_hexatonic",
+        "refTitle": "Blue Note",
+        "url": "https://en.wikipedia.org/wiki/Blue_note",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Blue_note",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "whole_tone_hexatonic": [
+      {
+        "scaleId": "whole_tone_hexatonic",
+        "refTitle": "Whole Tone Scale",
+        "url": "https://en.wikipedia.org/wiki/Whole_tone_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Whole_tone_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "augmented_hexatonic": [
+      {
+        "scaleId": "augmented_hexatonic",
+        "refTitle": "Augmented Scale",
+        "url": "https://en.wikipedia.org/wiki/Augmented_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Augmented_scale",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "prometheus_hexatonic": [
+      {
+        "scaleId": "prometheus_hexatonic",
+        "refTitle": "Prometheus Scale",
+        "url": "https://en.wikipedia.org/wiki/Mystic_chord",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Mystic_chord",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "hijaz_kar": [
+      {
+        "scaleId": "hijaz_kar",
+        "refTitle": "Hijaz Family",
+        "url": "https://maqamworld.com/en/maqam/f_hijaz.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/f_hijaz.php",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "hijaz_kar",
+        "refTitle": "Maqam Hijaz Kar",
+        "url": "https://maqamworld.com/en/maqam/hijazkar.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/hijazkar.php",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "maqam_bayati": [
+      {
+        "scaleId": "maqam_bayati",
+        "refTitle": "Maqam Bayati",
+        "url": "https://maqamworld.com/en/maqam/bayati.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/bayati.php",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "maqam_bayati",
+        "refTitle": "Bayati Family",
+        "url": "https://maqamworld.com/en/maqam/f_bayati.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/f_bayati.php",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "hijaz": [
+      {
+        "scaleId": "hijaz",
+        "refTitle": "Hijaz Family",
+        "url": "https://maqamworld.com/en/maqam/f_hijaz.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/f_hijaz.php",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "hijaz",
+        "refTitle": "Maqam Hijaz",
+        "url": "https://maqamworld.com/en/maqam/hijaz.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/hijaz.php",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "maqam_rast": [
+      {
+        "scaleId": "maqam_rast",
+        "refTitle": "Maqam Rast",
+        "url": "https://maqamworld.com/en/maqam/rast.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/rast.php",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "maqam_rast",
+        "refTitle": "Rast Family",
+        "url": "https://maqamworld.com/en/maqam/f_rast.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/f_rast.php",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "maqam_ajam": [
+      {
+        "scaleId": "maqam_ajam",
+        "refTitle": "Maqam Ajam",
+        "url": "https://maqamworld.com/en/maqam/ajam.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/ajam.php",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "maqam_ajam",
+        "refTitle": "Ajam Family",
+        "url": "https://maqamworld.com/en/maqam/f_ajam.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/f_ajam.php",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "persian": [
+      {
+        "scaleId": "persian",
+        "refTitle": "Persian Scale",
+        "url": "https://en.wikipedia.org/wiki/Persian_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Persian_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "persian",
+        "refTitle": "Persian traditional music - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Persian_traditional_music",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Persian_traditional_music",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "raga_bhairav": [
+      {
+        "scaleId": "raga_bhairav",
+        "refTitle": "Raga Bhairav",
+        "url": "https://en.wikipedia.org/wiki/Bhairav_(raga)",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Bhairav_(raga)",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "raga_bhairav",
+        "refTitle": "Indian Classical Music",
+        "url": "https://www.britannica.com/art/raga",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/art/raga",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "maqam_nahawand": [
+      {
+        "scaleId": "maqam_nahawand",
+        "refTitle": "Nahawand Family",
+        "url": "https://maqamworld.com/en/maqam/f_nahawand.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/f_nahawand.php",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "maqam_nahawand",
+        "refTitle": "Maqam Nahawand",
+        "url": "https://maqamworld.com/en/maqam/nahawand.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/nahawand.php",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "maqam_kurd": [
+      {
+        "scaleId": "maqam_kurd",
+        "refTitle": "Kurd Family",
+        "url": "https://maqamworld.com/en/maqam/f_kurd.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/f_kurd.php",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "maqam_kurd",
+        "refTitle": "Maqam Kurd",
+        "url": "https://maqamworld.com/en/maqam/kurd.php",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://maqamworld.com/en/maqam/kurd.php",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "raga_todi": [
+      {
+        "scaleId": "raga_todi",
+        "refTitle": "Raga Todi",
+        "url": "https://en.wikipedia.org/wiki/Todi_(raga)",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Todi_(raga)",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "raga_todi",
+        "refTitle": "Hindustani Ragas",
+        "url": "https://www.britannica.com/art/Hindustani-music",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/art/Hindustani-classical-music",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "raga_marwa": [
+      {
+        "scaleId": "raga_marwa",
+        "refTitle": "Raga Marwa",
+        "url": "https://en.wikipedia.org/wiki/Marwa_(raga)",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Marwa_(raga)",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "raga_marwa",
+        "refTitle": "Raga Time Theory",
+        "url": "https://www.britannica.com/art/raga",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/art/raga",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "raga_kafi": [
+      {
+        "scaleId": "raga_kafi",
+        "refTitle": "Raga Kafi",
+        "url": "https://en.wikipedia.org/wiki/Kafi_(raga)",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Kafi_(raga)",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "raga_kafi",
+        "refTitle": "Thaat System",
+        "url": "https://en.wikipedia.org/wiki/Thaat",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Thaat",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "raga_bhairavi": [
+      {
+        "scaleId": "raga_bhairavi",
+        "refTitle": "Raga Bhairavi",
+        "url": "https://en.wikipedia.org/wiki/Bhairavi_(raga)",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Bhairavi_(raga)",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "raga_bhairavi",
+        "refTitle": "Hindustani Classical",
+        "url": "https://www.britannica.com/art/Hindustani-music",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/art/Hindustani-classical-music",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "raga_purvi": [
+      {
+        "scaleId": "raga_purvi",
+        "refTitle": "Purvi (thaat) - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Purvi_(thaat)",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Purvi_(thaat)",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "raga_purvi",
+        "refTitle": "Indian Music Theory",
+        "url": "https://www.britannica.com/art/Indian-music",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/art/Indian-music",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "spanish_phrygian": [
+      {
+        "scaleId": "spanish_phrygian",
+        "refTitle": "Spanish Phrygian Scale",
+        "url": "https://en.wikipedia.org/wiki/Phrygian_dominant_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Phrygian_dominant_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "spanish_phrygian",
+        "refTitle": "Flamenco Music Theory",
+        "url": "https://www.britannica.com/art/flamenco",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/art/flamenco",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "spanish_gypsy": [
+      {
+        "scaleId": "spanish_gypsy",
+        "refTitle": "Spanish Gypsy Scale",
+        "url": "https://en.wikipedia.org/wiki/Phrygian_dominant_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Phrygian_dominant_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "spanish_gypsy",
+        "refTitle": "Romani music - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Romani_music",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Romani_music",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "flamenco": [
+      {
+        "scaleId": "flamenco",
+        "refTitle": "Flamenco Mode",
+        "url": "https://en.wikipedia.org/wiki/Flamenco_mode",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Flamenco_mode",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "flamenco",
+        "refTitle": "Flamenco Theory",
+        "url": "https://www.britannica.com/art/flamenco",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/art/flamenco",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "bebop_major": [
+      {
+        "scaleId": "bebop_major",
+        "refTitle": "Bebop Scale",
+        "url": "https://en.wikipedia.org/wiki/Bebop_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Bebop_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "bebop_major",
+        "refTitle": "Bebop Music",
+        "url": "https://en.wikipedia.org/wiki/Bebop",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Bebop",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "bebop_dominant": [
+      {
+        "scaleId": "bebop_dominant",
+        "refTitle": "Bebop Dominant Scale",
+        "url": "https://en.wikipedia.org/wiki/Bebop_scale#Bebop_dominant_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Bebop_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "bebop_dominant",
+        "refTitle": "Chromatic Passing Tones",
+        "url": "https://en.wikipedia.org/wiki/Chromaticism",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Chromaticism",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "bebop_minor": [
+      {
+        "scaleId": "bebop_minor",
+        "refTitle": "Bebop Minor Scale",
+        "url": "https://en.wikipedia.org/wiki/Bebop_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Bebop_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "bebop_minor",
+        "refTitle": "Jazz Harmony",
+        "url": "https://en.wikipedia.org/wiki/Jazz_harmony",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Jazz_harmony",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "bebop_dorian": [
+      {
+        "scaleId": "bebop_dorian",
+        "refTitle": "Bebop Dorian Scale",
+        "url": "https://en.wikipedia.org/wiki/Bebop_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Bebop_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "bebop_dorian",
+        "refTitle": "Modal Jazz",
+        "url": "https://en.wikipedia.org/wiki/Modal_jazz",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Modal_jazz",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "enigmatic": [
+      {
+        "scaleId": "enigmatic",
+        "refTitle": "Enigmatic Scale",
+        "url": "https://en.wikipedia.org/wiki/Enigmatic_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Enigmatic_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "enigmatic",
+        "refTitle": "Giuseppe Verdi - Britannica",
+        "url": "https://www.britannica.com/biography/Giuseppe-Verdi",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://www.britannica.com/biography/Giuseppe-Verdi",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "neapolitan_major": [
+      {
+        "scaleId": "neapolitan_major",
+        "refTitle": "Neapolitan Scale",
+        "url": "https://en.wikipedia.org/wiki/Neapolitan_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Neapolitan_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "neapolitan_major",
+        "refTitle": "Neapolitan chord",
+        "url": "https://en.wikipedia.org/wiki/Neapolitan_chord",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Neapolitan_chord",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "neapolitan_minor": [
+      {
+        "scaleId": "neapolitan_minor",
+        "refTitle": "Neapolitan Minor Scale",
+        "url": "https://en.wikipedia.org/wiki/Neapolitan_scale#Neapolitan_minor_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Neapolitan_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "neapolitan_minor",
+        "refTitle": "Neapolitan chord",
+        "url": "https://en.wikipedia.org/wiki/Neapolitan_chord",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Neapolitan_chord",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "romanian_minor": [
+      {
+        "scaleId": "romanian_minor",
+        "refTitle": "Romanian Minor Scale",
+        "url": "https://en.wikipedia.org/wiki/Romanian_minor_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Romanian_minor_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "romanian_minor",
+        "refTitle": "Music of Romania - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Music_of_Romania",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Music_of_Romania",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "ukrainian_dorian": [
+      {
+        "scaleId": "ukrainian_dorian",
+        "refTitle": "Ukrainian Dorian Scale",
+        "url": "https://en.wikipedia.org/wiki/Ukrainian_Dorian_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Ukrainian_Dorian_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "ukrainian_dorian",
+        "refTitle": "Music of Ukraine - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Music_of_Ukraine",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Music_of_Ukraine",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "leading_whole_tone": [
+      {
+        "scaleId": "leading_whole_tone",
+        "refTitle": "Whole Tone Scale - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Whole_tone_scale",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Whole_tone_scale",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "leading_whole_tone",
+        "refTitle": "Leading-tone - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Leading-tone",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://en.wikipedia.org/wiki/Leading-tone",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "barry_dom7dim": [
+      {
+        "scaleId": "barry_dom7dim",
+        "refTitle": "Evolutionary Voicings – Part 2 (Howard Rees Jazz Workshops)",
+        "url": "https://jazzworkshops.com/evolutionary-voicings-part-2/",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://jazzworkshops.com/evolutionary-voicings-part-2/",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "barry_dom7dim",
+        "refTitle": "Diminished Dimensions (Howard Rees Jazz Workshops)",
+        "url": "https://jazzworkshops.com/diminished-dimensions/",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://jazzworkshops.com/diminished-dimensions/",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "barry_major6dim": [
+      {
+        "scaleId": "barry_major6dim",
+        "refTitle": "Evolutionary Voicings – Part 1 (Howard Rees Jazz Workshops)",
+        "url": "https://jazzworkshops.com/evolutionary-voicings-part-1/",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://jazzworkshops.com/evolutionary-voicings-part-1/",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "barry_major6dim",
+        "refTitle": "Evolutionary Voicings – Part 2 (Howard Rees Jazz Workshops)",
+        "url": "https://jazzworkshops.com/evolutionary-voicings-part-2/",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://jazzworkshops.com/evolutionary-voicings-part-2/",
+        "contentMatch": true,
+        "notes": []
+      }
+    ],
+    "barry_minor6dim": [
+      {
+        "scaleId": "barry_minor6dim",
+        "refTitle": "Evolutionary Voicings – Part 2 (Howard Rees Jazz Workshops)",
+        "url": "https://jazzworkshops.com/evolutionary-voicings-part-2/",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://jazzworkshops.com/evolutionary-voicings-part-2/",
+        "contentMatch": true,
+        "notes": []
+      },
+      {
+        "scaleId": "barry_minor6dim",
+        "refTitle": "Evolutionary Voicings – Part 1 (Howard Rees Jazz Workshops)",
+        "url": "https://jazzworkshops.com/evolutionary-voicings-part-1/",
+        "hostAllowed": true,
+        "status": 200,
+        "ok": true,
+        "finalUrl": "https://jazzworkshops.com/evolutionary-voicings-part-1/",
+        "contentMatch": true,
+        "notes": []
+      }
+    ]
+  }
+}
