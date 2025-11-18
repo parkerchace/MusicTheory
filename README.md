@@ -46,17 +46,60 @@ Originally a single 5600+ line HTML file that was way too difficult to manage, n
 - Accurate 2-octave piano keyboard rendering
 - Scale degree and chord visualization
 - Interactive note clicking
+
 ### 🎯 Progression Builder
 - Convert scale degrees to chord progressions
 - Reharmonization techniques (secondary dominants, tritone substitutions)
 - Interactive progression editing
 - Direction controls (to tonic, away from tonic, circle of fifths)
+
+### 🔍 Container Chord Tool
+- Find chords containing specific notes
+- Advanced filtering (triads, sevenths, extended, scale-based)
+- Chord grading system (★★★ Perfect, ★★ Excellent, ★ Good)
+- Detailed chord role information
+- Piano visualization integration
+
+### 🌐 Scale Circle Explorer
+- Interactive circle of fifths/fourths/chromatic visualization
+- Key relationship exploration
+- Scale degree highlighting
+- Chord progression visualization on circle
+- Real-time updates with scale library integration
+
+### 🎼 Sheet Music Generator
+- Live-rendering staff notation (treble or grand staff)
+- 4-bar display with customizable layouts
+- Automatic note placement and accidentals
+- Integration with key/scale and chord selections
+- SVG-based lightweight rendering
+
+### 🪐 Solar System Visualizer
+- Planetary orbit visualization of scale degrees
+- Central sun represents current key
+- Expandable satellites for secondary functions
+- Interactive planet selection
+- Customizable sizing and speed modes
+- Trajectory visualization
+
+### 🎵 Audio Visualizer
+- Real-time microphone input visualization
+- Multiple visualization modes (bars, waves)
+- Fullscreen overlay with gradient effects
+- Web Audio API integration
+
+## 🏗️ Module Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
 │                    ModularMusicTheoryApp                    │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │
+│  │ Number Gen  │ │Scale Library│ │Chord        │ │Progress │ │
+│  │             │ │             │ │Analyzer     │ │Builder  │ │
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘ │
 │           │              │              │              │      │
 │           └──────────────┼──────────────┼──────────────┘      │
-│                          │              │                    │
+│                          │              │                     │
 │           ┌──────────────┼──────────────┼─────────────┐      │
 │           │              │              │             │      │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │
@@ -68,19 +111,41 @@ Originally a single 5600+ line HTML file that was way too difficult to manage, n
 │  │• Analysis  │ │• Interactive│ │• Examples   │ │• Responsive││
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘ │
 └─────────────────────────────────────────────────────────────┘
+
+┌──────────── Advanced Visualizers & Tools ────────────────────┐
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐         │
+│  │Container     │ │Scale Circle  │ │Sheet Music   │         │
+│  │Chord Tool    │ │Explorer      │ │Generator     │         │
+│  └──────────────┘ └──────────────┘ └──────────────┘         │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐         │
+│  │Solar System  │ │Audio         │ │Aperture      │         │
+│  │Visualizer    │ │Visualizer    │ │Theme (CSS)   │         │
+│  └──────────────┘ └──────────────┘ └──────────────┘         │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ### Module Dependencies
 
 ```
-Number Generator      → (standalone)
-Scale Library         → Music Theory Engine
-Piano Visualizer      → (standalone)
-Chord Analyzer        → Music Theory Engine
-Progression Builder   → Music Theory Engine
-Test Integration      → All modules
-HTML Interface        → All modules
+Number Generator        → (standalone)
+Scale Library           → Music Theory Engine
+Piano Visualizer        → (standalone)
+Chord Analyzer          → Music Theory Engine
+Progression Builder     → Music Theory Engine
+Container Chord Tool    → Music Theory Engine, Piano Visualizer
+Scale Circle Explorer   → Music Theory Engine
+Sheet Music Generator   → Music Theory Engine
+Solar System Visualizer → Music Theory Engine
+Audio Visualizer        → (standalone, Web Audio API)
+Test Integration        → All modules
+HTML Interface          → All modules
 ```
+
+## 📦 Installation
+
+1. **Clone or download** the repository
+
+2. **Open** `modular-music-theory.html` in a modern web browser
 
 3. **Initialize** the modules you need
 ```html
@@ -90,6 +155,11 @@ HTML Interface        → All modules
 <script src="piano-visualizer.js"></script>
 <script src="chord-analyzer.js"></script>
 <script src="progression-builder.js"></script>
+<script src="container-chord-tool.js"></script>
+<script src="scale-circle-explorer.js"></script>
+<script src="sheet-music-generator.js"></script>
+<script src="solar-system-visualizer.js"></script>
+<script src="audio-visualizer.js"></script>
 ```
 
 ### Node.js Usage
@@ -232,19 +302,124 @@ progression.ensureCadence()
 progression.on('progressionChanged', callback)
 ```
 
+### ContainerChordTool
+```javascript
+const containerTool = new ContainerChordTool(theory);
+
+// Find chords containing specific notes
+containerTool.setInputNotes(['C', 'E']);
+containerTool.setKeyAndScale('C', 'major');
+containerTool.findContainerChords();
+
+// Set filter and grade
+containerTool.setFilter('sevenths'); // 'all', 'triads', 'sevenths', 'extended'
+containerTool.setGradeFilter('excellent'); // 'all', 'perfect', 'excellent', 'good'
+
+// Event handling
+containerTool.on('chordSelected', callback);
+```
+
+### ScaleCircleExplorer
+```javascript
+const circleExplorer = new ScaleCircleExplorer(theory);
+
+// Set mode and key
+circleExplorer.setMode('fifths'); // 'fifths', 'fourths', 'chromatic'
+circleExplorer.setKey('C', 'major');
+
+// Highlight relationships
+circleExplorer.highlightRelatedKeys();
+circleExplorer.showScaleLines(true);
+
+// Event handling
+circleExplorer.on('keySelected', callback);
+```
+
+### SheetMusicGenerator
+```javascript
+const sheetMusic = new SheetMusicGenerator(theory);
+
+// Render notation
+sheetMusic.setKeyAndScale('C', 'major');
+sheetMusic.setChord({root: 'C', chordType: 'maj7'});
+sheetMusic.setStaffType('grand'); // 'treble' or 'grand'
+sheetMusic.renderStaff();
+
+// Event handling
+sheetMusic.on('staffRendered', callback);
+```
+
+### SolarSystemVisualizer
+```javascript
+const solarSystem = new SolarSystemVisualizer(theory);
+
+// Configure and render
+solarSystem.setKeyAndScale('C', 'major');
+solarSystem.setSizingMode('theory'); // 'theory' or 'uniform'
+solarSystem.showTrajectories(true);
+solarSystem.start();
+
+// Interact with planets
+solarSystem.expandPlanet(1); // Expand planet at index 1
+solarSystem.on('planetClicked', callback);
+```
+
+### AudioVisualizer
+```javascript
+const audioViz = new AudioVisualizer();
+
+// Open and start visualization
+await audioViz.open(); // Requests microphone permission
+audioViz.setMode('bars'); // 'bars' or 'waves'
+
+// Close when done
+audioViz.close();
+```
+
 ## 📁 File Structure
 
 ```
 music-theory-system/
-├── 📄 modular-music-theory.html      # Complete application
-├── 📄 test-integration.js            # Integration tests
-├── 🎼 music-theory-engine.js         # Core calculations (847 lines)
-├── 🎲 number-generator.js            # Number transformations (234 lines)
-├── 🎼 scale-library.js               # Scale management (189 lines)
-├── 🎹 piano-visualizer.js            # Keyboard rendering (245 lines)
-├── 🔍 chord-analyzer.js              # Chord analysis (298 lines)
-├── 🎯 progression-builder.js         # Progression tools (412 lines)
-└── 📖 README.md                      # This documentation
+├── 📄 modular-music-theory.html         # Complete application
+├── 📄 test-integration.js               # Integration tests
+│
+├── 🎼 Core Modules
+│   ├── music-theory-engine.js           # Core calculations (847 lines)
+│   ├── number-generator.js              # Number transformations (234 lines)
+│   ├── scale-library.js                 # Scale management (189 lines)
+│   ├── piano-visualizer.js              # Keyboard rendering (245 lines)
+│   ├── chord-analyzer.js                # Chord analysis (298 lines)
+│   └── progression-builder.js           # Progression tools (412 lines)
+│
+├── 🎨 Advanced Tools
+│   ├── container-chord-tool.js          # Container chord finder (1078 lines)
+│   ├── scale-circle-explorer.js         # Circle visualization (843 lines)
+│   ├── sheet-music-generator.js         # Staff notation (1306 lines)
+│   ├── solar-system-visualizer.js       # Orbital visualization (544 lines)
+│   ├── solar-system-visualizer.v2.js    # Enhanced version
+│   └── audio-visualizer.js              # Real-time audio viz (198 lines)
+│
+├── 🎨 Styling
+│   └── aperture-theme.css               # Complete theme system
+│
+├── � Documentation
+│   ├── README.md                        # This documentation
+│   ├── TESTING_GUIDE.md                 # Testing procedures
+│   ├── IMPLEMENTATION_SUMMARY.md        # Implementation notes
+│   ├── PIANO_ENHANCEMENTS.md            # Piano feature docs
+│   ├── SCALE_VERIFICATION.md            # Scale validation
+│   ├── SHEET_MUSIC_IMPLEMENTATION.md    # Sheet music docs
+│   ├── SHEET_MUSIC_QUICKSTART.md        # Quick start guide
+│   ├── BEFORE_AFTER_COMPARISON.md       # Refactoring notes
+│   └── UI_CLEANUP_PLAN.md               # UI planning
+│
+├── 🔧 Tools & Utilities
+│   ├── tools/                           # Utility scripts
+│   ├── validation/                      # Validation reports
+│   └── windows xp visualizer/           # Additional visualizers
+│
+└── 🗑️ Legacy
+    └── genius.html.old                  # Original monolithic file
 ```
 
 ## 🧪 Testing
@@ -312,15 +487,74 @@ piano.renderScale({
 });
 ```
 
+### Example 5: Container Chord Analysis
+```javascript
+const containerTool = new ContainerChordTool(theory);
+containerTool.setInputNotes(['C', 'E']);
+containerTool.setKeyAndScale('C', 'major');
+containerTool.findContainerChords();
+
+// Results include graded chords (Perfect, Excellent, Good)
+containerTool.on('resultsUpdated', (data) => {
+    console.log('Found chords:', data.results);
+});
+```
+
+### Example 6: Circle of Fifths Visualization
+```javascript
+const circle = new ScaleCircleExplorer(theory);
+circle.setMode('fifths');
+circle.setKey('C', 'major');
+circle.showScaleLines(true);
+
+circle.on('keySelected', (data) => {
+    console.log('Selected key:', data.key);
+});
+```
+
+### Example 7: Sheet Music Rendering
+```javascript
+const sheetMusic = new SheetMusicGenerator(theory);
+sheetMusic.setKeyAndScale('C', 'major');
+sheetMusic.setChord({root: 'C', chordType: 'maj7'});
+sheetMusic.setStaffType('grand');
+sheetMusic.renderStaff();
+```
+
+### Example 8: Solar System Scale Visualization
+```javascript
+const solarSystem = new SolarSystemVisualizer(theory);
+solarSystem.setKeyAndScale('C', 'major');
+solarSystem.setSizingMode('theory');
+solarSystem.start();
+
+// Click planets to expand secondary functions
+solarSystem.on('planetClicked', (data) => {
+    console.log('Planet:', data.note, 'Index:', data.index);
+});
+```
+
+### Example 9: Audio Visualization
+```javascript
+const audioViz = new AudioVisualizer();
+await audioViz.open(); // Request mic permission
+audioViz.setMode('bars');
+// Fullscreen visualization with real-time audio
+```
+
 ## 🎨 CSS Framework
 
-The system includes a complete CSS framework with:
+The system includes a complete CSS framework (`aperture-theme.css`) with:
 - Responsive grid system
 - Consistent button styles
 - Piano keyboard styling
 - Chord card layouts
 - Progress visualization
+- Circle and orbital visualization styles
+- Sheet music SVG styling
+- Audio visualizer gradient effects
 - Mobile-friendly design
+- Dark theme support
 
 ## 🤝 Contributing
 

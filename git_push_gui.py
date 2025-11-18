@@ -94,6 +94,7 @@ class GitPushGUI:
         rframe.pack(fill=tk.X)
         ttk.Entry(rframe, textvariable=self.remote_var).pack(side=tk.LEFT, fill=tk.X, expand=True)
         ttk.Button(rframe, text="Set Remote", command=self.set_remote).pack(side=tk.LEFT, padx=6)
+        ttk.Button(rframe, text="Open origin", command=self.open_origin_in_browser).pack(side=tk.LEFT, padx=6)
 
         # Troubleshooting controls
         tst = ttk.LabelFrame(right, text="Troubleshoot SSH/HTTPS")
@@ -105,6 +106,7 @@ class GitPushGUI:
         ttk.Button(tbtn_row, text="Add default key to agent", command=self.add_key_to_agent).pack(side=tk.LEFT, padx=6)
         ttk.Button(tbtn_row, text="Copy pubkey to clipboard", command=self.copy_pubkey_to_clipboard).pack(side=tk.LEFT, padx=6)
         ttk.Button(tbtn_row, text="Switch origin → HTTPS", command=self.switch_remote_to_https).pack(side=tk.LEFT, padx=6)
+        ttk.Button(tbtn_row, text="Create GitHub repo", command=self.open_github_new_repo).pack(side=tk.LEFT, padx=6)
         self.ssh_keys_label = ttk.Label(tst, text="")
         self.ssh_keys_label.pack(anchor=tk.W, padx=6)
 
@@ -271,6 +273,18 @@ class GitPushGUI:
             p = subprocess.run(["ssh", "-T", "-o", "BatchMode=yes", "git@github.com"], capture_output=True, text=True)
             out = p.stdout.strip() or p.stderr.strip()
             self.append_output("ssh test: returncode={} output={}".format(p.returncode, out))
+            # Try to detect deploy key vs user key based on greeting
+            # Example: "Hi username! ..." or "Hi owner/repo! ..."
+            if "Hi " in out and "!" in out:
+                try:
+                    greet = out.split("Hi ", 1)[1].split("!", 1)[0]
+                    if "/" in greet:
+                        self.append_output("Note: This looks like a deploy key identity ({}). Deploy keys may be read-only unless 'Allow write' is enabled.".format(greet))
+                        self.append_output("Tip: Use a personal SSH key added to your GitHub account for full access, or switch origin to HTTPS.")
+                    else:
+                        self.append_output("Authenticated as GitHub user: {}".format(greet))
+                except Exception:
+                    pass
         except FileNotFoundError:
             self.append_output("ssh not found on PATH")
 
@@ -379,6 +393,22 @@ class GitPushGUI:
             self.append_output("Remote origin switched to {}".format(https))
         else:
             self.append_output("Failed to set remote to HTTPS: {} {}".format(out, err))
+
+    def open_origin_in_browser(self):
+        url = self.remote_var.get().strip()
+        if not url:
+            messagebox.showinfo("No remote", "No origin URL configured")
+            return
+        if url.startswith('git@github.com:'):
+            path = url.split(':', 1)[1]
+            url = 'https://github.com/' + path
+        webbrowser.open(url)
+
+    def open_github_new_repo(self):
+        # Prefill the repo name from folder or origin
+        repo_name = os.path.basename(REPO_ROOT).strip() or 'MusicTheory'
+        url = f"https://github.com/new?name={repo_name}"
+        webbrowser.open(url)
 
     # ---------------- Connect Wizard ----------------
     def open_wizard(self):
