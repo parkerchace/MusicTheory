@@ -18,14 +18,14 @@ A comprehensive, modular music theory application broken down into independent, 
 
 This system provides professional-grade music theory tools including:
 
-- **60+ authentic scales** from Western, Eastern, and world music traditions
+- **60+ authentic scales** from around the world
 - **Complete chord analysis** with functional harmony
 - **Interactive piano visualization** with scale degree highlighting
 - **Advanced chord progression building** with reharmonization
 - **Container chord analysis** with filtering and grading
 - **Scale degree transformations** (retrograde, invert, rotate, randomize)
 
-Originally a single 5600+ line HTML file, now modularized into independent components that can be used separately or together.
+Originally a single 5600+ line HTML file that was way too difficult to manage, now modularized into independent components that can be used separately or together.
 
 ## ✨ Features
 
