@@ -1,6 +1,6 @@
 # 🎵 Modular Music Theory System
 
-A comprehensive, modular music theory application broken down into independent, reusable JavaScript modules. Extracted from a 5600+ line monolithic HTML file into clean, focused components.
+A comprehensive, modular music theory application broken down into independent, reusable JavaScript modules.
 
 ## 📋 Table of Contents
 
