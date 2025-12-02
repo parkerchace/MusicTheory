@@ -61,7 +61,7 @@ OPTION B: Manual Setup (5 Minutes)
 
   Step 1: Download VST3 SDK
       URL: https://github.com/steinbergmedia/vst3sdk
-    Extract to: C:\Users\spark\OneDrive - american.edu\music theory app\VST3_SDK
+    Extract to: %USERPROFILE%\OneDrive - american.edu\music theory app\VST3_SDK
 
   Step 2: Install vcpkg + curl
     cd C:\
@@ -72,7 +72,7 @@ OPTION B: Manual Setup (5 Minutes)
     .\vcpkg install curl:x64-windows
 
   Step 3: Verify Everything
-    cd "C:\Users\spark\OneDrive - american.edu\music theory app\music theory v11"
+    cd "$env:USERPROFILE\OneDrive - american.edu\music theory app\music theory v11"
     .\SETUP_CHECK.bat
 
   Step 4: Build Plugin

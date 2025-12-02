@@ -223,4 +223,4 @@ All source code is complete and ready to compile. You just need to:
 
 **Quick Start**: Run `MASTER_SETUP.bat` and follow the wizard!
 
-Last Updated: November 22, 2025
+Last Updated: December 2, 2025

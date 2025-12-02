@@ -39,7 +39,7 @@
 ### 1. Download VST3 SDK (2 minutes)
 ```
 URL: https://github.com/steinbergmedia/vst3sdk
-Extract to: C:\Users\spark\OneDrive - american.edu\music theory app\VST3_SDK
+Extract to: "%USERPROFILE%\OneDrive - american.edu\music theory app\VST3_SDK"
 ```
 
 ### 2. Install vcpkg + curl (5 minutes)
@@ -54,7 +54,7 @@ cd vcpkg
 
 ### 3. Verify Everything (1 minute)
 ```powershell
-cd "C:\Users\spark\OneDrive - american.edu\music theory app\music theory v11"
+cd "$env:USERPROFILE\OneDrive - american.edu\music theory app\music theory v11"
 .\SETUP_CHECK.bat
 ```
 
@@ -179,7 +179,7 @@ Breakdown:
 Check these in order:
 
 1. **"VST3_SDK_ROOT not set"**
-   - Verify folder exists at: `C:\Users\spark\OneDrive - american.edu\music theory app\VST3_SDK`
+   - Verify folder exists at: `"%USERPROFILE%\OneDrive - american.edu\music theory app\VST3_SDK"`
    - Should contain: `pluginterfaces/`, `public.sdk/`, `base/`
 
 2. **"Could not find CURL"**

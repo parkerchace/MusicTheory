@@ -24,7 +24,7 @@ Workflow:
 
 ```powershell
 # Navigate to project root
-cd "c:\Users\spark\OneDrive - american.edu\music theory app\music theory v11"
+cd "$env:USERPROFILE\OneDrive - american.edu\music theory app\music theory v11"
 
 # (Optional) Create & activate virtual environment
 python -m venv .venv

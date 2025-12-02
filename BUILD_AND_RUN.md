@@ -37,7 +37,7 @@ cd ..
     - Optional: "C++ CMake tools for Windows" to simplify development
 - [ ] **CMake 3.20+** - https://cmake.org/download/
 - [ ] **VST3 SDK** - https://github.com/steinbergmedia/vst3sdk
-  - Extract to: `C:\Users\spark\OneDrive - american.edu\music theory app\VST3_SDK`
+  - Extract to: `"%USERPROFILE%\OneDrive - american.edu\music theory app\VST3_SDK"` (replace with your user folder)
 - [ ] **vcpkg + curl**
   ```powershell
   cd C:\

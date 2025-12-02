@@ -7,6 +7,7 @@ A comprehensive, modular music theory application broken down into independent, 
 - [Overview](#overview)
 - [Features](#features)
 - [Module Architecture](#module-architecture)
+- [Docs Index](#docs-index)
 - [Installation](#installation)
 - [Usage](#usage)
 - [API Reference](#api-reference)
@@ -156,6 +157,15 @@ Test Integration        → All modules
 HTML Interface          → All modules
 ```
 
+## 📚 Docs Index
+
+- Build and Run (Windows): `BUILD_AND_RUN.md`
+- Bitwig/DAW MIDI bridge: `BITWIG_MIDI_INTEGRATION.md`
+- VST3 Plugin Quickstart: `vst3-plugin/QUICKSTART.md`
+- VST3 Plugin Details: `vst3-plugin/README.md`
+- Sheet Music Quickstart: `SHEET_MUSIC_QUICKSTART.md`
+- Full File Index: `FILE_INDEX.md`
+
 ## 📦 Installation
 
 1. **Clone or download** the repository
@@ -177,11 +187,18 @@ HTML Interface          → All modules
 <script src="audio-visualizer.js"></script>
 ```
 
-### Node.js Usage
-```bash
-npm install ./music-theory-engine.js
-npm install ./number-generator.js
-# etc. for each module
+### ES Module Usage (optional)
+These modules are plain browser JavaScript. They are not published to npm. You can import them as ES modules:
+
+```html
+<script type="module">
+    import { MusicTheoryEngine } from './music-theory-engine.js';
+    import { NumberGenerator } from './number-generator.js';
+    // ...
+    const theory = new MusicTheoryEngine();
+    const gen = new NumberGenerator();
+    console.log(theory.getScaleNotes('C','major'));
+</script>
 ```
 
 ## 📖 Usage

@@ -4,7 +4,7 @@
 
 ### Step 1: Get VST3 SDK (2 min)
 1. Download: https://github.com/steinbergmedia/vst3sdk
-2. Extract to: `C:\Users\spark\OneDrive - american.edu\music theory app\VST3_SDK`
+2. Extract to: `"%USERPROFILE%\OneDrive - american.edu\music theory app\VST3_SDK"` (use your Windows user folder)
 
 ### Step 2: Install vcpkg for curl (3 min)
 ```powershell
