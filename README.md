@@ -160,11 +160,14 @@ HTML Interface          → All modules
 ## 📚 Docs Index
 
 - Build and Run (Windows): `BUILD_AND_RUN.md`
-- Bitwig/DAW MIDI bridge: `BITWIG_MIDI_INTEGRATION.md`
-- VST3 Plugin Quickstart: `vst3-plugin/QUICKSTART.md`
-- VST3 Plugin Details: `vst3-plugin/README.md`
+- Testing Guide (UI + automation): `TESTING_GUIDE.md`
+- Scale Verification + citation checks: `SCALE_VERIFICATION.md`
+- Bitwig/DAW MIDI bridge (optional): `BITWIG_MIDI_INTEGRATION.md`
+- VST3 Plugin Quickstart (optional): `vst3-plugin/QUICKSTART.md`
+- VST3 Plugin Details (optional): `vst3-plugin/README.md`
 - Sheet Music Quickstart: `SHEET_MUSIC_QUICKSTART.md`
 - Full File Index: `FILE_INDEX.md`
+- Changelog: `CHANGELOG.md`
 
 ## 📦 Installation
 

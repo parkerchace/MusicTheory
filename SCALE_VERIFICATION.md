@@ -177,3 +177,25 @@ You may want to add these verified modes:
 - Romanian Minor
 
 All current scales are VERIFIED and ACCURATE! ✅
+
+---
+
+## Automated Citation Validation (Optional)
+
+You can verify that the citation links for scales are reachable and content-matching.
+
+Requirements:
+- Node.js 18+ (for native `fetch`)
+
+Run from the project root (Windows PowerShell):
+```powershell
+node tools/validate-citations.js
+```
+
+Reports generated:
+- `validation/citation-report.json`
+- `validation/citation-report.md`
+
+Notes:
+- Network access required. If offline, skip this step.
+- The script checks HTTP status and searches page text for title keywords.
