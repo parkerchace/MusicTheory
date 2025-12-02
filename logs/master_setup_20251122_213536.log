@@ -1,0 +1,50 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20251122213537
+Username: DESKTOP-8MPU3HB\spark
+RunAs User: DESKTOP-8MPU3HB\spark
+Configuration Name: 
+Machine: DESKTOP-8MPU3HB (Microsoft Windows NT 10.0.26200.0)
+Host Application: powershell -NoProfile -ExecutionPolicy Bypass -Command $t = (Get-Date).ToString('yyyyMMdd_HHmmss'); $log = Join-Path (Get-Location) ('logs/master_setup_' + $t + '.log'); Start-Transcript -Path $log -Force; Try { & '.\MASTER_SETUP.bat' } Catch { Write-Error $_ } Finally { Stop-Transcript }
+Process ID: 12112
+PSVersion: 5.1.26100.7019
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.7019
+BuildVersion: 10.0.26100.7019
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is C:\Users\spark\OneDrive - american.edu\music theory app\music theory v11\logs\master_setup_20251122_213536.log
+[4/7] Checking VST3 SDK...
+[ERROR] VST3 SDK not found
+
+Download from: https://www.steinberg.net/vst3sdk
+Extract to: C:\Users\spark\OneDrive - american.edu\music theory app\VST3_SDK
+Or set VST3_SDK_ROOT environment variable
+[5/7] Checking vcpkg and curl...
+[WARNING] vcpkg not found
+You'll need curl library for HTTP requests
+
+To install vcpkg:
+  cd C:\
+  git clone https://github.com/microsoft/vcpkg
+  cd vcpkg
+  .\bootstrap-vcpkg.bat
+  .\vcpkg integrate install
+  .\vcpkg install curl:x64-windows
+[6/7] Checking Python packages...
+[OK] Python packages installed
+[7/7] Checking loopMIDI (optional)...
+[INFO] loopMIDI not detected (optional for DAW integration
+Download: https://www.tobias-erichsen.de/software/loopmidi.html
+
+========================================================================
+                         SUMMARY
+========================================================================
+- was unexpected at this time.
+**********************
+Windows PowerShell transcript end
+End time: 20251122213540
+**********************

@@ -1,0 +1,3103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modular Music Theory Tools</title>
+    <link rel="stylesheet" href="unified-chord-explorer.css">
+    <style>
+        /* ==================== MODULAR CSS FRAMEWORK ==================== */
+
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --success-color: #059669;
+            --warning-color: #d97706;
+            --error-color: #dc2626;
+            --background-color: #ffffff;
+            --surface-color: #f8fafc;
+            --border-color: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--background-color);
+        }
+
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto;
+            gap: var(--spacing-lg);
+        }
+
+        .module-container {
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+
+        .module-header {
+            background: var(--surface-color);
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .module-content {
+            padding: var(--spacing-md);
+        }
+
+        /* ==================== BUTTON SYSTEM ==================== */
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs) var(--spacing-md);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background: var(--background-color);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: var(--surface-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+            border-color: var(--success-color);
+        }
+
+        .btn-danger {
+            background: var(--error-color);
+            color: white;
+            border-color: var(--error-color);
+        }
+
+        /* ==================== FORM CONTROLS ==================== */
+
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 0.875rem;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* ==================== GRID SYSTEM ==================== */
+
+        .grid {
+            display: grid;
+            gap: var(--spacing-md);
+        }
+
+        .grid-2 { grid-template-columns: 1fr 1fr; }
+        .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+        /* ==================== PIANO VISUALIZER STYLES ==================== */
+
+        .piano-visualizer {
+            position: relative;
+            min-height: 100px;
+            padding: 5px 0;
+            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+            border-radius: 12px;
+        }
+
+        .piano-whites-layer, .piano-blacks-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .piano-white-key {
+            position: absolute;
+            background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+            border: 2px solid #cbd5e1;
+            border-radius: 0 0 6px 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 12px;
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .piano-white-key:hover {
+            background: linear-gradient(180deg, #f0f4f8 0%, #e2e8f0 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .piano-white-key.active {
+            background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .piano-black-key {
+            position: absolute;
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            border: 2px solid #0f172a;
+            border-radius: 0 0 4px 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 10;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 6px;
+            font-size: 9px;
+            color: #94a3b8;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .piano-black-key:hover {
+            background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+            transform: translateY(-1px);
+        }
+
+        .piano-black-key.active {
+            background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+            border-color: #1e40af;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Hide mini piano by default to feature the main keyboard */
+        #mini-piano-visualize-container { display: none; }
+
+        /* Key annotations */
+        .key-roman-numeral {
+            font-family: 'Georgia', serif;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            user-select: none;
+        }
+
+        .key-fingering {
+            user-select: none;
+            line-height: 1.2;
+        }
+
+        /* Fingering toggle buttons */
+        .fingering-toggles {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin: 8px 0;
+            flex-wrap: wrap;
+        }
+        
+        .fingering-toggle-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+        }
+        
+        .fingering-toggle-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* Scale info display - Combined */
+        .scale-info-combined {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #3b82f6;
+            border-radius: 6px;
+            margin: 10px 0;
+            overflow: hidden;
+            font-size: 0.875rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .scale-info-tip {
+            padding: 10px 12px;
+            background: rgba(254, 243, 199, 0.4);
+            color: #92400e;
+        }
+        .scale-info-citation {
+            padding: 10px 12px;
+            background: rgba(224, 231, 255, 0.4);
+            color: #3730a3;
+        }
+        .scale-info-divider {
+            height: 1px;
+            background: rgba(0,0,0,0.06);
+            margin: 0;
+        }
+        .scale-info-citation a {
+            color: #4f46e5;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .scale-info-citation a:hover {
+            text-decoration: underline;
+        }
+
+        /* ==================== CHORD ANALYZER STYLES ==================== */
+
+        .chord-filter-bar {
+            display: flex;
+            gap: var(--spacing-xs);
+            margin-bottom: var(--spacing-md);
+            flex-wrap: wrap;
+        }
+
+        .filter-button {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border: 1px solid var(--border-color);
+            background: var(--background-color);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .filter-button:hover {
+            background: var(--surface-color);
+        }
+
+        .filter-button.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .match-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .match-group-header {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: var(--surface-color);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .match-grade {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .grade-perfect { color: #10b981; font-weight: 600; }
+        .grade-excellent { color: #0ea5e9; font-weight: 600; }
+        .grade-good { color: #f59e0b; font-weight: 600; }
+        .grade-fair { color: #8b5cf6; }
+        .grade-weak { color: #6b7280; }
+
+        .function-subsection {
+            margin-top: var(--spacing-sm);
+        }
+
+        .function-header {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .chord-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: var(--spacing-xs);
+        }
+
+        .chord-card {
+            padding: var(--spacing-xs);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--background-color);
+            color: var(--text-primary);
+        }
+
+        .chord-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .chord-card.selected {
+            border-color: var(--primary-color);
+            background: rgba(37, 99, 235, 0.15);
+            color: var(--text-primary);
+        }
+
+        .chord-name {
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        .chord-notes {
+            font-size: 0.6875rem;
+            color: var(--text-secondary);
+            margin: var(--spacing-xs) 0;
+        }
+
+        .chord-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6875rem;
+        }
+
+        /* Compact toggle for symbol styles */
+        .symbol-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 6px;
+        }
+        .symbol-toggle button {
+            padding: 2px 6px;
+            font-size: 0.6875rem;
+            border: 1px solid var(--border-color);
+            background: var(--background-color);
+            color: var(--text-primary);
+            border-radius: 999px;
+            cursor: pointer;
+        }
+        .symbol-toggle button.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: #fff;
+        }
+
+        .chord-usage-panel {
+            margin-top: 8px;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background: var(--surface-color);
+            color: var(--text-primary);
+            font-size: 0.75rem;
+        }
+        .chord-usage-title { font-weight: 600; margin-bottom: 4px; }
+        .chord-usage-list { margin-left: 16px; }
+        .chord-usage-list li { margin: 2px 0; }
+
+        /* Generated note bubbles in Container Chord Finder */
+        .gen-note-bubble {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            background: var(--background-color);
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            color: var(--text-primary);
+        }
+        .gen-note-bubble:hover {
+            background: var(--surface-color);
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+        }
+        .gen-note-bubble:active {
+            transform: translateY(0);
+        }
+
+        /* ==================== PROGRESSION BUILDER STYLES ==================== */
+
+        .progression-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+        }
+
+        .control-label {
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .control-buttons {
+            grid-column: span 2;
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+        }
+
+        .control-button {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border: 1px solid var(--border-color);
+            background: var(--background-color);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .control-button:hover {
+            background: var(--surface-color);
+        }
+
+        .control-button.primary {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .progression-display {
+            display: flex;
+            gap: var(--spacing-md);
+            flex-wrap: wrap;
+        }
+
+        .progression-step {
+            padding: var(--spacing-md);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            background: var(--background-color);
+            min-width: 200px;
+        }
+
+        .step-header {
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .step-number {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .step-chord {
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
+
+        .step-info {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .step-actions {
+            display: flex;
+            gap: var(--spacing-xs);
+            flex-wrap: wrap;
+        }
+
+        .action-button {
+            padding: var(--spacing-xs);
+            border: 1px solid var(--border-color);
+            background: var(--background-color);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        .action-button.danger {
+            background: var(--error-color);
+            color: white;
+            border-color: var(--error-color);
+        }
+
+        /* New compact Progression Builder UI */
+        .progression-builder-ui { display: grid; gap: 12px; }
+        .pb-top {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+            align-items: start;
+        }
+        .pb-left { display: grid; gap: 12px; }
+        .pb-input { display: grid; gap: 6px; }
+        .pb-input-numbers { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .pb-chip { display:inline-block; padding:4px 8px; border-radius:6px; background:rgba(37,99,235,0.15); border:1px solid rgba(37,99,235,0.4); font-weight:700; font-size:0.85rem; }
+        .pb-hint { color: var(--text-secondary); font-style: italic; }
+        .pb-keyscale { font-size: 0.75rem; color: var(--text-secondary); }
+        .pb-controls { display: grid; gap: 8px; }
+        .pg-target { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .pg-degree-list { display:flex; gap:6px; align-items:center; overflow-x:auto; padding-bottom: 2px; }
+        .pg-degree-list::-webkit-scrollbar { height: 6px; }
+        .pb-explore { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .pb-label { font-size:0.8rem; color:var(--text-secondary); font-weight:600; }
+        .pb-select { min-width: 200px; padding:6px 8px; font-size:0.85rem; }
+        .pb-regenerate { white-space:nowrap; padding:8px 10px; }
+        .pb-pad { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; }
+        .pb-pad-wrap { position: relative; width: 200px; height: 180px; }
+        .pb-axis-label { position:absolute; font-size:0.65rem; color:var(--text-secondary); font-weight:600; text-align:center; }
+        .pb-axis-badge { display:inline-block; font-size:0.55rem; margin-left:4px; }
+        .pb-axis-top { top:-18px; left:50%; transform:translateX(-50%); }
+        .pb-axis-bottom { bottom:-18px; left:50%; transform:translateX(-50%); }
+        .pb-axis-left { left:-28px; top:50%; transform:translateY(-50%) rotate(180deg); writing-mode: vertical-rl; }
+        .pb-axis-right { right:-28px; top:50%; transform:translateY(-50%); writing-mode: vertical-rl; }
+        .pb-axis-sub { font-size:0.6rem; display:block; color:var(--text-secondary); }
+        .pb-pad-surface { width:200px; height:180px; border:2px solid var(--border-color); border-radius:8px; position:relative; overflow:hidden; cursor:crosshair; background: var(--surface-color); }
+        .pb-tier-band { position:absolute; left:0; right:0; height:20%; opacity:0.6; pointer-events:none; }
+        .pb-tier-band.tier-0 { bottom:0; background:linear-gradient(90deg, rgba(107,114,128,0.15), rgba(107,114,128,0.3)); }
+        .pb-tier-band.tier-1 { bottom:20%; background:linear-gradient(90deg, rgba(139,92,246,0.15), rgba(139,92,246,0.3)); }
+        .pb-tier-band.tier-2 { bottom:40%; background:linear-gradient(90deg, rgba(245,158,11,0.15), rgba(245,158,11,0.3)); }
+        .pb-tier-band.tier-3 { bottom:60%; background:linear-gradient(90deg, rgba(14,165,233,0.15), rgba(14,165,233,0.3)); }
+        .pb-tier-band.tier-4 { bottom:80%; background:linear-gradient(90deg, rgba(16,185,129,0.15), rgba(16,185,129,0.3)); }
+        .pb-grid-lines { position:absolute; inset:0; background:
+            linear-gradient(to right, rgba(255,255,255,0.3) 50%, transparent 50%) center / 1px 100%,
+            linear-gradient(to top, rgba(255,255,255,0.3) 20%, transparent 20%) left bottom / 100% 20%;
+            pointer-events: none;
+        }
+        .pb-cursor { position:absolute; width:14px; height:14px; background:#fff; border:3px solid; border-radius:50%; transform:translate(-50%, -50%); pointer-events:none; }
+        .pb-status { display:grid; gap:8px; grid-auto-flow: row; }
+        .pb-card { padding:8px; background:var(--surface-color); border:1px solid var(--border-color); border-radius:6px; min-width:140px; }
+        .pb-card-tier { background: color-mix(in oklab, var(--background-color), transparent 85%); }
+        .pb-card-label { font-size:0.7rem; color:var(--text-secondary); margin-bottom:2px; }
+        .pb-card-value { font-weight:700; font-size:0.9rem; color:var(--text-primary); }
+        .pb-card-sub { font-size:0.65rem; color:var(--text-secondary); }
+        .pb-generated { border-top: 1px dashed var(--border-color); padding-top: 6px; }
+        /* Progression chips: switch from horizontal scroll to responsive wrapping grid */
+        .pb-gen-scroll { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px; 
+            overflow: visible; 
+            padding: 8px 4px; 
+        }
+        /* Remove old horizontal scrollbar styling (no longer needed) */
+        .pb-gen-chip { 
+            padding:6px 10px; 
+            background:var(--background-color); 
+            border-left:3px solid var(--primary-color); 
+            border:1px solid var(--border-color); 
+            border-radius:6px; 
+            min-width:120px; 
+            width:100%; 
+        }
+        .pb-gen-meta { display:flex; align-items:center; gap:6px; margin-bottom:2px; }
+        .pb-badge { font-size:0.75rem; font-weight:700; color:rgba(37,99,235,1); background:rgba(37,99,235,0.15); padding:2px 6px; border-radius:4px; }
+        .pb-tier { font-size:0.65rem; }
+        .pb-chord { font-weight:700; color:var(--text-primary); font-size:0.95rem; white-space:nowrap; }
+        .pb-empty { color: var(--text-secondary); font-style: italic; padding: 10px; }
+    /* Constrain progression builder overall height & make list area scroll */
+    .planet-module[data-module="progression"] .module-body { display:flex; flex-direction:column; max-height:520px; }
+    .planet-module[data-module="progression"] .pb-generated { flex:1; overflow-y:auto; margin-bottom:4px; }
+    /* Make progression module span wider area for better chord visibility */
+    .modules-grid .planet-module[data-module="progression"],
+    .planet-module[data-module="progression"].wide { 
+        grid-column: span 2; 
+    }
+    .planet-module[data-module="progression"].xl { 
+        grid-column: span 3; 
+    }
+    @media (max-width: 1100px) {
+        .modules-grid .planet-module[data-module="progression"],
+        .planet-module[data-module="progression"].wide,
+        .planet-module[data-module="progression"].xl { grid-column: span 1; }
+    }
+    .planet-module[data-module="progression"] .pb-generated::-webkit-scrollbar { width:8px; }
+    .planet-module[data-module="progression"] .pb-generated::-webkit-scrollbar-thumb { background: var(--surface-color); border-radius:4px; }
+    .planet-module[data-module="progression"] .pb-sub-panel { max-height:200px; overflow-y:auto; }
+    /* Prevent substitution panel from pushing layout excessively */
+    .planet-module[data-module="progression"] .pb-sub-panel.open { box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+    /* Avoid chips wrapping beneath docked solar module when docked appears */
+    .modules-grid { grid-auto-flow: row dense; }
+    /* Improve chip positioning resilience */
+    .pb-gen-chip { flex:0 0 auto; }
+
+        /* ==================== NUMBER GENERATOR STYLES ==================== */
+
+        .number-generator-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        .number-controls {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+
+        .transformation-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--spacing-xs);
+        }
+
+        .numbers-display {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            padding: var(--spacing-lg);
+            background: var(--surface-color);
+            border-radius: var(--border-radius);
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ==================== RESPONSIVE DESIGN ==================== */
+
+        @media (max-width: 1024px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                gap: var(--spacing-md);
+            }
+
+            .grid-4 {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                padding: var(--spacing-sm);
+            }
+
+            .grid-2, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+
+            .control-buttons {
+                flex-direction: column;
+            }
+
+            .chord-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ==================== UTILITY CLASSES ==================== */
+
+        .text-center { text-align: center; }
+        .text-sm { font-size: 0.875rem; }
+        .text-xs { font-size: 0.75rem; }
+        .font-bold { font-weight: 700; }
+        .mb-1 { margin-bottom: var(--spacing-xs); }
+        .mb-2 { margin-bottom: var(--spacing-sm); }
+        .mb-3 { margin-bottom: var(--spacing-md); }
+        .mb-4 { margin-bottom: var(--spacing-lg); }
+
+        .hidden { display: none; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-center { justify-content: center; }
+        .gap-1 { gap: var(--spacing-xs); }
+        .gap-2 { gap: var(--spacing-sm); }
+        .gap-3 { gap: var(--spacing-md); }
+        .gap-4 { gap: var(--spacing-lg); }
+
+        /* SOLAR SYSTEM LAYOUT - Improved with flexible columns */
+        .solar-system {
+            display: grid;
+            grid-template-areas:
+                "controls controls controls controls"
+                "sun      sun       sun       sun"
+                "content  content   content   content";
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto 1fr;
+            gap: 16px;
+            min-height: 100vh;
+            height: auto;
+            padding: 16px;
+            background: #0f172a; /* Deep space blue */
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        
+        /* Module Controls Bar - Compact dropdown */
+        .module-controls-bar {
+            grid-area: controls;
+            display: flex;
+            justify-content: flex-end;
+            padding: 8px 12px;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 8px;
+            position: relative;
+        }
+        
+        .tools-dropdown-btn {
+            padding: 8px 16px;
+            font-size: 0.875rem;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.8);
+            color: #cbd5e1;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .tools-dropdown-btn:hover {
+            background: rgba(37, 99, 235, 0.3);
+            border-color: #3b82f6;
+        }
+        
+        .tools-dropdown-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 12px;
+            background: rgba(30, 41, 59, 0.98);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 220px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+        
+        .tools-dropdown-panel.open {
+            display: flex;
+        }
+        
+        .module-toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        
+        .module-toggle-item:hover {
+            background: rgba(37, 99, 235, 0.2);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        
+        .module-toggle-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .module-toggle-item label {
+            cursor: pointer;
+            font-size: 0.875rem;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        /* Flexible content area */
+        .modules-grid {
+            grid-area: content;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+            align-items: start;
+        }
+
+        /* Desired layout: two columns on wide screens
+           Left column (top to bottom): Number Generator, Piano Visualizer, Scale Circle
+           Right column (top to bottom): Chord Explorer, Solar System (Docked)
+        */
+        @media (min-width: 1100px) {
+            .modules-grid {
+                grid-template-columns: 1fr 1fr 1fr; /* three columns: Number | Piano | Chord */
+            }
+            /* Top row */
+            .planet-module[data-module="number"] { grid-column: 1; order: 10; }
+            .planet-module[data-module="piano"] { grid-column: 2; order: 20; }
+            .planet-module[data-module="chord"] { grid-column: 3; order: 30; }
+            /* Second row (beneath Number & Piano) */
+            .planet-module[data-module="circle"] { grid-column: 1; order: 40; }
+            .planet-module[data-module="solar-docked"] { grid-column: 2; order: 50; }
+        }
+
+        /* Mini Chord Strip across the top of tools */
+        .mini-chord-strip {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding: 8px 10px;
+            border: 1px solid rgba(148,163,184,0.25);
+            background: rgba(30, 41, 59, 0.5);
+            color: #e5e7eb;
+            border-radius: 10px;
+        }
+        .mini-chord-strip.sticky {
+            position: fixed;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(1200px, calc(100% - 40px));
+            z-index: 5000;
+            backdrop-filter: blur(6px) brightness(1.05);
+            box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+        }
+        .mini-chord-item {
+            font-family: Georgia, serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(148,163,184,0.35);
+            background: rgba(15,23,42,0.6);
+            white-space: nowrap;
+            user-select: none;
+        }
+        .mini-chord-item.dim { border-color: #94a3b8; }
+        .mini-chord-item.maj { border-color: #60a5fa; }
+        .mini-chord-item.min { border-color: #a78bfa; }
+        .mini-rn { line-height: 1; }
+        .mini-name { font-size: 0.75rem; font-weight: 600; color: #cbd5e1; line-height: 1.1; }
+
+        .solar-system {
+            --background-color: rgba(2, 6, 23, 0.6);
+            --surface-color: rgba(30, 41, 59, 0.8);
+            --border-color: rgba(148, 163, 184, 0.3);
+            --text-primary: #e5e7eb;
+            --text-secondary: #cbd5e1;
+        }
+
+        .sun {
+            grid-area: sun;
+            position: relative;
+            background: transparent;
+            border-radius: 12px;
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 50px #ff8c00; }
+            50% { box-shadow: 0 0 70px #ff8c00, 0 0 90px #e44d26; }
+            100% { box-shadow: 0 0 50px #ff8c00; }
+        }
+
+        .sun-content {
+            text-align: center;
+            padding: 12px 16px 16px 16px;
+            width: 100%;
+        }
+        
+        .sun-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        
+        .sun-content h1 {
+            font-size: 1.25rem;
+            margin: 0 0 4px 0;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        
+        .sun-content p {
+            font-size: 0.75rem;
+            margin: 0 0 8px 0;
+            opacity: 0.7;
+            font-style: italic;
+        }
+
+        .sun-controls-host {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            grid-template-areas:
+                "header right"
+                "controls controls";
+            gap: 10px 12px;
+            align-items: center;
+            padding: 8px;
+            border-radius: 10px;
+            background: rgba(15,23,42,0.7);
+            border: 1px solid rgba(148,163,184,0.15);
+        }
+        .sun-controls-host[data-collapsed="true"] { padding: 6px 8px; grid-template-columns: 1fr auto; grid-template-areas: "header right"; }
+        .solar-host-header { grid-area: header; font-size:13px; font-weight:600; opacity:0.92; }
+        .solar-controls-group { grid-area: controls; display:flex; flex-wrap: wrap; gap:10px; align-items:center; }
+        .solar-controls-right { grid-area: right; display:flex; gap:8px; align-items:center; }
+        .sun-controls-host .solar-controls-group label { white-space: nowrap; }
+        .sun-controls-host .solar-controls-group input[type="range"] { width: clamp(90px, 18vw, 150px); }
+    /* collapsed state: hide controls group and compress header */
+    .sun-controls-host[data-collapsed="true"] .solar-controls-group { display:none; }
+    .sun-controls-host[data-collapsed="true"] .solar-host-header { font-size:0.92rem; opacity:0.85; }
+
+        .sun-viewport {
+            width: 100%;
+            height: clamp(280px, 35vh, 600px);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 8px;
+            background: transparent;
+        }
+
+        /* Compact buttons and icon-only control */
+        .btn-compact { padding: 6px 10px; font-size: 0.85rem; }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--background-color);
+            color: var(--text-primary);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-indent: 150%; /* hide text while keeping accessible label */
+        }
+        .icon-btn:hover { background: var(--surface-color); border-color: var(--primary-color); transform: translateY(-1px); }
+        .icon-btn:active { transform: translateY(0); }
+        .icon-btn:focus-visible { outline: 2px solid var(--primary-color); outline-offset:2px; }
+        
+        /* Dock icon: inbox (dock) vs outbox (undock) */
+        #dock-solar.icon-btn::before {
+            content: '📥';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            text-indent: 0;
+        }
+        #dock-solar.icon-btn[data-docked="true"]::before { content: '📤'; }
+
+        /* PLANET MODULES - Enhanced with drag and collapse */
+        .planet-module {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 2px solid rgba(148, 163, 184, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .planet-module:hover {
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+            border-color: rgba(148, 163, 184, 0.4);
+        }
+
+        .planet-module.collapsed .module-body {
+            display: none;
+        }
+        
+        .planet-module.hidden {
+            display: none;
+        }
+
+        .module-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px 15px;
+            cursor: move;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 10px 10px 0 0;
+            user-select: none;
+        }
+        
+        .module-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .module-header h3 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .module-collapse-btn {
+            background: rgba(148, 163, 184, 0.2);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            color: #cbd5e1;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .module-collapse-btn:hover {
+            background: rgba(148, 163, 184, 0.4);
+            border-color: #3b82f6;
+        }
+        
+        .module-body {
+            padding: 15px;
+        }
+    </style>
+    <style>
+        /* Responsive tweaks for mobile */
+        @media (max-width: 768px) {
+            .solar-system {
+                grid-template-areas:
+                    "controls"
+                    "sun"
+                    "content";
+                grid-template-columns: 1fr;
+                gap: 12px;
+                padding: 12px;
+            }
+            
+            .modules-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sun-content h1 { font-size: 1.1rem; }
+            .sun-content p { font-size: 0.8rem; }
+            .sun-viewport { height: clamp(220px, 35vh, 450px); }
+
+            .planet-module .module-header h3 { font-size: 0.95rem; }
+            .planet-module { padding: 0; }
+            .module-body { padding: 12px; }
+            .btn { padding: 6px 10px; font-size: 0.9rem; }
+
+            /* Piano visualizer compact */
+            .piano-visualizer { min-height: 72px; }
+            .piano-white-key { font-size: 9px; padding-bottom: 8px; }
+
+            /* Number generator compact */
+            .number-generator-ui .numbers-display { display: flex; flex-wrap: wrap; justify-content: center; }
+            .number-generator-ui .number-container { margin: 2px 4px; }
+
+            /* Solar controls wrap */
+            #solar-controls { display:flex; align-items:center; width:100%; flex-wrap: wrap; gap: 6px; }
+            #solar-controls label { font-size: 11px; }
+            
+            .module-controls-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .module-controls-bar label {
+                width: 100%;
+            }
+        }
+
+        /* Ultra-narrow */
+        @media (max-width: 400px) {
+            .sun-viewport { height: clamp(180px, 30vh, 380px); }
+            .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="solar-system">
+        <!-- MODULE CONTROLS BAR -->
+        <div class="module-controls-bar">
+            <button class="tools-dropdown-btn" id="tools-dropdown-btn">
+                ⚙️ Show/Hide Tools
+                <span id="tools-dropdown-arrow">▾</span>
+            </button>
+            <div class="tools-dropdown-panel" id="tools-dropdown-panel">
+                <div class="module-toggle-item">
+                    <input type="checkbox" id="toggle-solar" data-module="solar" checked>
+                    <label for="toggle-solar">🌟 Solar System</label>
+                </div>
+                <div class="module-toggle-item">
+                    <input type="checkbox" id="toggle-number" data-module="number" checked>
+                    <label for="toggle-number">🎲 Numbers</label>
+                </div>
+                <div class="module-toggle-item">
+                    <input type="checkbox" id="toggle-scale" data-module="scale">
+                    <label for="toggle-scale">🎼 Scales</label>
+                </div>
+                <div class="module-toggle-item">
+                    <input type="checkbox" id="toggle-piano" data-module="piano" checked>
+                    <label for="toggle-piano">🎹 Piano</label>
+                </div>
+                <div class="module-toggle-item">
+                    <input type="checkbox" id="toggle-circle" data-module="circle" checked>
+                    <label for="toggle-circle">🌌 Circle</label>
+                </div>
+                <div class="module-toggle-item">
+                    <input type="checkbox" id="toggle-chord" data-module="chord" checked>
+                    <label for="toggle-chord">🎵 Chords</label>
+                </div>
+                <div class="module-toggle-item">
+                    <input type="checkbox" id="toggle-container" data-module="container" checked>
+                    <label for="toggle-container">🪐 Container</label>
+                </div>
+                <div class="module-toggle-item">
+                    <input type="checkbox" id="toggle-progression" data-module="progression" checked>
+                    <label for="toggle-progression">🚀 Progression</label>
+                </div>
+                <!-- Bonus tools -->
+                <div style="margin: 6px 0; height: 1px; background: rgba(148,163,184,0.3);"></div>
+                <div class="module-toggle-item">
+                    <button id="open-audio-visualizer" class="btn btn-compact" title="Open Audio Visualizer" style="width:100%; justify-content:flex-start;">🎧 Audio Visualizer</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SUN (CORE) -->
+        <div class="sun">
+            <div class="sun-content">
+                <div class="sun-header">
+                    <h1>Music Theory Solar System</h1>
+                    <button id="dock-solar" class="icon-btn" title="Move Solar System into modules grid for side-by-side work" aria-label="Dock to Grid">Dock to Grid</button>
+                </div>
+                <p>Center of harmonic gravity</p>
+                <div id="sun-viewport" class="sun-viewport"></div>
+                <div id="sun-controls-host" class="sun-controls-host"></div>
+            </div>
+        </div>
+
+        <!-- FLEXIBLE MODULES GRID -->
+        <div class="modules-grid">
+            <!-- Mini Chord Strip (spans full width) -->
+            <div class="mini-chord-strip" id="mini-chord-strip" title="Scale degrees in current key"></div>
+            <!-- Number Generator Module -->
+            <div class="planet-module" data-module="number">
+                <div class="module-header">
+                    <div class="module-header-left">
+                        <div>🎲</div>
+                        <h3>Number Generator</h3>
+                    </div>
+                    <button class="module-collapse-btn" title="Collapse/Expand">−</button>
+                </div>
+                <div class="module-body">
+                    <div id="number-generator-container"></div>
+                </div>
+            </div>
+
+            <!-- Scale Library Module -->
+            <div class="planet-module hidden" data-module="scale">
+                <div class="module-header">
+                    <div class="module-header-left">
+                        <div>🎼</div>
+                        <h3>Scale Library</h3>
+                    </div>
+                    <button class="module-collapse-btn" title="Collapse/Expand">−</button>
+                </div>
+                <div class="module-body">
+                    <div id="scale-library-container"></div>
+                </div>
+            </div>
+
+            <!-- Piano Visualizer Module -->
+            <div class="planet-module" data-module="piano">
+                <div class="module-header">
+                    <div class="module-header-left">
+                        <div>🎹</div>
+                        <h3>Piano Visualizer</h3>
+                    </div>
+                    <button class="module-collapse-btn" title="Collapse/Expand">−</button>
+                </div>
+                <div class="module-body">
+                    <div style="margin-bottom: 12px; padding: 10px; background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 0.75rem; color: #e5e7eb;">
+                        <strong style="color: #93c5fd;">🎼 Piano Fingering Guide:</strong><br>
+                        <span style="color: #dc2626; font-weight: 600;">R</span> = Right Hand, 
+                        <span style="color: #2563eb; font-weight: 600;">L</span> = Left Hand<br>
+                        Numbers: 1=Thumb, 2=Index, 3=Middle, 4=Ring, 5=Pinky<br>
+                        <em style="opacity: 0.8;">Use the fingering toggles below to show left hand, right hand, both, or none</em>
+                    </div>
+                    <div id="piano-container"></div>
+                    <div id="mini-piano-visualize-container"></div>
+                    <div id="piano-scale-info"></div>
+                </div>
+            </div>
+
+            <!-- Scale Circle Explorer Module -->
+            <div class="planet-module" data-module="circle">
+                <div class="module-header">
+                    <div class="module-header-left">
+                        <div>🌌</div>
+                        <h3>Scale Circle Explorer</h3>
+                    </div>
+                    <button class="module-collapse-btn" title="Collapse/Expand">−</button>
+                </div>
+                <div class="module-body">
+                    <div id="scale-circle-container"></div>
+                </div>
+            </div>
+
+            <!-- Chord Explorer Module (now includes Sheet Music and Progression Builder below it) -->
+            <div class="planet-module" data-module="chord">
+                <div class="module-header">
+                    <div class="module-header-left">
+                        <div>🎵</div>
+                        <h3>Chord Explorer</h3>
+                    </div>
+                    <button class="module-collapse-btn" title="Collapse/Expand">−</button>
+                </div>
+                <div class="module-body">
+                    <div id="chord-explorer-container"></div>
+                    <!-- Container Chord Finder nested here for tighter workflow -->
+                    <div id="container-chord-container" style="margin-top:12px;"></div>
+                    <div id="sheet-music-container" style="margin-top: 12px;"></div>
+
+                    <!-- Progression Builder (moved under Sheet Music for vertical workflow) -->
+                    <div style="margin-top: 16px; padding-top: 12px; border-top: 1px dashed rgba(148,163,184,0.12);">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                            <div>🚀</div>
+                            <h4 style="margin:0; font-size:0.95rem; font-weight:600;">Progression Builder</h4>
+                        </div>
+                        <div id="progression-builder-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Solar System (Docked) Module: initially hidden -->
+            <div class="planet-module" data-module="solar-docked" id="solar-docked-module">
+                <div class="module-header">
+                    <div class="module-header-left">
+                        <div>🌟</div>
+                        <h3>Solar System (Docked)</h3>
+                    </div>
+                    <button class="module-collapse-btn" title="Collapse/Expand">−</button>
+                </div>
+                <div class="module-body">
+                    <div id="solar-dock-viewport" class="sun-viewport"></div>
+                    <div class="sun-controls-host"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Module Scripts -->
+    <script src="music-theory-engine.js"></script>
+    <script src="sheet-music-generator.js"></script>
+    <script src="number-generator.js"></script>
+    <script src="scale-library.js"></script>
+    <script src="piano-visualizer.js"></script>
+    <script src="container-chord-tool.js"></script>
+    <script src="progression-builder.js"></script>
+    <script src="scale-circle-explorer.js"></script>
+    <script src="solar-system-visualizer.v2.js"></script>
+    <script src="audio-visualizer.js"></script>
+    <script src="unified-chord-explorer.js"></script>
+    <!-- Bitwig MIDI client (optional). Safe if server not running; button will disable. -->
+    <script src="bitwig-midi.js"></script>
+
+    <script>
+        // ==================== CHORD EXPLORER ====================
+        class ChordExplorer {
+            constructor(musicTheory, scaleLibrary, numberGenerator) {
+                this.musicTheory = musicTheory;
+                this.scaleLibrary = scaleLibrary;
+                this.numberGenerator = numberGenerator;
+                this.container = null;
+                this.key = this.scaleLibrary.getCurrentKey();
+                this.scale = this.scaleLibrary.getCurrentScale();
+                this.highlightSet = new Set();
+                this.symbolStyle = 'glyphs'; // 'glyphs' | 'jazz' | 'classical'
+                this.listeners = new Map(); // Event system
+
+                // Listen to scale changes
+                if (this.scaleLibrary && this.scaleLibrary.on) {
+                    this.scaleLibrary.on('scaleChanged', (data) => {
+                        this.key = data.key;
+                        this.scale = data.scale;
+                        this.render();
+                    });
+                }
+
+                // Listen to number changes
+                if (this.numberGenerator && this.numberGenerator.on) {
+                    this.numberGenerator.on('numbersChanged', (data) => {
+                        this.setHighlights(data.numbers, data.type);
+                        this.render();
+                    });
+                }
+            }
+
+            formatChordName(root, chordType) {
+                const style = this.symbolStyle;
+                const type = chordType || '';
+                const isHalfDim = /^m7b5$/i.test(type) || /^m\(b5\)$/i.test(type) || /ø/i.test(type);
+                const isDim7 = /^(dim7|o7)$/i.test(type);
+                const isDim = /^(dim|o)$/i.test(type);
+
+                if (style === 'glyphs') {
+                    if (isHalfDim) return root + 'ø' + (/(7)/.test(type) ? '7' : '');
+                    if (isDim7) return root + '°7';
+                    if (isDim) return root + '°';
+                    return root + type;
+                }
+                if (style === 'jazz') {
+                    // Jazz text conventions
+                    if (isHalfDim) return root + 'm7b5';
+                    if (isDim7) return root + 'dim7';
+                    if (isDim) return root + 'dim';
+                    return root + type;
+                }
+                // Classical text (spelled-out)
+                if (isHalfDim) return root + ' half-diminished' + (/(7)/.test(type) ? '7' : '');
+                if (isDim7) return root + ' diminished7';
+                if (isDim) return root + ' diminished';
+                return root + type;
+            }
+
+            getDegreeCount() {
+                return String(this.scale || '').startsWith('barry_') ? 8 : 7;
+            }
+
+            setHighlights(numbers = [], type = 'diatonic') {
+                const N = this.getDegreeCount();
+                const norm = (n) => ((Number(n) - 1) % N + N) % N + 1;
+                this.highlightSet = new Set((numbers || []).map(norm));
+            }
+
+            getUsageSuggestions(chord, degree, key, scale) {
+                const suggestions = [];
+                const rnMap = ['I','II','III','IV','V','VI','VII','VIII'];
+                const isMinorQual = /(^m(?!aj))|dim|°|ø|m7b5/i.test(chord.chordType || '');
+                let rn = rnMap[(degree - 1) % rnMap.length];
+                if (isMinorQual) rn = rn.toLowerCase();
+                try {
+                    const scaleNotes = this.musicTheory.getScaleNotes(key, scale);
+                    const chordNotes = (chord.diatonicNotes && chord.diatonicNotes.length) ? chord.diatonicNotes : (this.musicTheory.getChordNotes(chord.root, chord.chordType) || []);
+                    const analysis = this.musicTheory.findAllContainerChords(chordNotes, scaleNotes) || [];
+                    let self = analysis.find(a => a.fullName === chord.root + chord.chordType) || analysis.find(a => a.root === chord.root && a.chordType === chord.chordType) || null;
+                    if (self && self.functions && self.functions.length) {
+                        const funcs = self.functions.join(', ');
+                        const res = self.resolutions && self.resolutions.length ? ` ${self.resolutions.join(', ')}` : '';
+                        suggestions.push(`In ${key} ${scale}, this is ${rn} (${funcs}).${res ? ' Typical move:' + res : ''}`);
+                    } else {
+                        suggestions.push(`In ${key} ${scale}, this is ${rn}.`);
+                    }
+                } catch(e) {
+                    suggestions.push(`In ${key} ${scale}, this is ${rn}.`);
+                }
+                const type = chord.chordType || '';
+                const root = chord.root;
+                if (/m7b5/i.test(type)) {
+                    const tonicMinor = this.musicTheory.getNoteFromInterval(root, 10);
+                    const vRoot = this.musicTheory.getNoteFromInterval(tonicMinor, 7);
+                    const iiName = this.formatChordName(root, 'm7b5');
+                    const vName = this.formatChordName(vRoot, '7b9');
+                    const iName = this.formatChordName(tonicMinor, 'm');
+                    suggestions.push(`Minor ii–V–i: ${iiName} → ${vName} → ${iName}`);
+                    suggestions.push(`Scales over ${iiName}: Locrian or Locrian ♮2 on ${root}`);
+                } else if (/^7($|[^a-zA-Z])/i.test(type)) {
+                    const I = this.musicTheory.getNoteFromInterval(root, 5);
+                    const vName = this.formatChordName(root, '7');
+                    const Imaj = this.formatChordName(I, 'maj');
+                    const sub = this.musicTheory.getNoteFromInterval(root, 6);
+                    const subName = this.formatChordName(sub, '7');
+                    suggestions.push(`Dominant: ${vName} → ${Imaj}`);
+                    suggestions.push(`Scales on ${root}: Mixolydian, Altered, Half–Whole diminished`);
+                    suggestions.push(`Tritone sub: ${subName} → ${Imaj}`);
+                } else if (/maj7/i.test(type)) {
+                    const iiRoot = this.musicTheory.getNoteFromInterval(root, 2);
+                    const vRoot = this.musicTheory.getNoteFromInterval(root, 7);
+                    const iiName = this.formatChordName(iiRoot, 'm7');
+                    const vName = this.formatChordName(vRoot, '7');
+                    const IName = this.formatChordName(root, 'maj7');
+                    suggestions.push(`Major ii–V–I: ${iiName} → ${vName} → ${IName}`);
+                    suggestions.push(`Scales on ${root}: Ionian, Lydian`);
+                } else if (/^m7($|[^a-zA-Z])/i.test(type)) {
+                    const I = this.musicTheory.getNoteFromInterval(root, 10);
+                    const vRoot = this.musicTheory.getNoteFromInterval(I, 7);
+                    const iiName = this.formatChordName(root, 'm7');
+                    const vName = this.formatChordName(vRoot, '7');
+                    const Imaj = this.formatChordName(I, 'maj7');
+                    suggestions.push(`As ii in major: ${iiName} → ${vName} → ${Imaj}`);
+                    suggestions.push(`Scale on ${root}: Dorian`);
+                } else if (/dim7/i.test(type)) {
+                    const I = this.musicTheory.getNoteFromInterval(root, 1);
+                    const vii = this.formatChordName(root, 'dim7');
+                    const Imaj = this.formatChordName(I, 'maj');
+                    suggestions.push(`Leading-tone: ${vii} → ${Imaj}`);
+                    suggestions.push(`Scale on ${root}: Diminished (whole–half)`);
+                } else if (/mMaj7/i.test(type)) {
+                    const iName = this.formatChordName(root, 'mMaj7');
+                    suggestions.push(`Minor tonic color: ${iName}`);
+                    suggestions.push(`Scale on ${root}: Melodic minor`);
+                }
+                return suggestions;
+            }
+
+            mount(container) {
+                if (typeof container === 'string') {
+                    container = document.querySelector(container);
+                }
+                if (!container) return;
+                this.container = container;
+                // Initialize highlights from current generator state
+                if (this.numberGenerator) {
+                    this.setHighlights(
+                        this.numberGenerator.getCurrentNumbers(),
+                        this.numberGenerator.getNumberType()
+                    );
+                }
+                this.render();
+            }
+
+            render() {
+                if (!this.container) return;
+                const N = this.getDegreeCount();
+                const key = this.key;
+                const scale = this.scale;
+
+                const cards = [];
+                for (let degree = 1; degree <= N; degree++) {
+                    const chord = this.musicTheory.getDiatonicChord(degree, key, scale);
+                    let notes = [];
+                    try {
+                        notes = (chord.diatonicNotes && chord.diatonicNotes.length)
+                            ? chord.diatonicNotes
+                            : (this.musicTheory.getChordNotes(chord.root, chord.chordType) || []);
+                    } catch (e) {
+                        notes = [];
+                    }
+                    const romanNumerals = ['I','II','III','IV','V','VI','VII','VIII'];
+                    const isMinorQuality = /(^m(?!aj))|dim|°|ø|m7b5/i.test(chord.chordType || '');
+                    let rn = romanNumerals[(degree - 1) % romanNumerals.length];
+                    if (isMinorQuality) rn = rn.toLowerCase();
+                    const selected = this.highlightSet.has(degree) ? 'selected' : '';
+                    const displayName = this.formatChordName(chord.root, chord.chordType);
+                    cards.push(`
+                        <div class="chord-card ${selected}" data-degree="${degree}">
+                            <div class="chord-name">${displayName}</div>
+                            <div class="chord-notes">${notes.join(' ')}</div>
+                            <div class="chord-meta"><span>${rn}</span></div>
+                        </div>
+                    `);
+                }
+
+                this.container.innerHTML = `
+                    <div class="chord-explorer-ui">
+                        <div class="symbol-toggle" aria-label="Chord symbol style">
+                            <button type="button" class="${this.symbolStyle === 'glyphs' ? 'active' : ''}" data-style="glyphs">Glyphs</button>
+                            <button type="button" class="${this.symbolStyle === 'jazz' ? 'active' : ''}" data-style="jazz">Jazz</button>
+                            <button type="button" class="${this.symbolStyle === 'classical' ? 'active' : ''}" data-style="classical">Classical</button>
+                        </div>
+                        <div class="chord-grid">
+                            ${cards.join('')}
+                        </div>
+                        <div class="chord-usage-panel" id="chord-usage-panel"></div>
+                    </div>
+                `;
+
+                // Wire up toggle buttons
+                const toggle = this.container.querySelector('.symbol-toggle');
+                if (toggle) {
+                    toggle.querySelectorAll('button[data-style]').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const style = btn.getAttribute('data-style');
+                            if (style && (style === 'glyphs' || style === 'jazz' || style === 'classical')) {
+                                this.symbolStyle = style;
+                                this.render();
+                            }
+                        });
+                    });
+                }
+
+                const cardsEls = this.container.querySelectorAll('.chord-card');
+                cardsEls.forEach(card => {
+                    card.addEventListener('click', () => {
+                        const degree = Number(card.getAttribute('data-degree')) || 1;
+                        const chord = this.musicTheory.getDiatonicChord(degree, this.key, this.scale);
+                        const usage = this.getUsageSuggestions(chord, degree, this.key, this.scale);
+                        const panel = this.container.querySelector('#chord-usage-panel');
+                        if (panel) {
+                            const displayName = this.formatChordName(chord.root, chord.chordType);
+                            panel.innerHTML = `
+                                <div class="chord-usage-title">Usage ideas for ${displayName} (${this.key} ${this.scale})</div>
+                                <ul class="chord-usage-list">
+                                    ${usage.map(u => `<li>${u}</li>`).join('')}
+                                </ul>
+                            `;
+                        }
+                        this.container.querySelectorAll('.chord-card').forEach(el=>el.classList.remove('selected'));
+                        card.classList.add('selected');
+                        
+                        // Add chordNotes to the chord object for sheet music rendering
+                        const chordWithNotes = {
+                            ...chord,
+                            chordNotes: this.musicTheory.getChordNotes(chord.root, chord.chordType) || []
+                        };
+                        
+                        // Emit chordSelected event for other modules, include degree for linking
+                        // Log explorer selection for diagnostics
+                        try {
+                            if (!window.__interactionLog) window.__interactionLog = [];
+                            window.__interactionLog.push({
+                                type: 'chordExplorerChordSelected',
+                                details: { degree, chord: { root: chordWithNotes.root, chordType: chordWithNotes.chordType, chordNotes: chordWithNotes.chordNotes } },
+                                timestamp: new Date().toISOString()
+                            });
+                        } catch (_) {}
+
+                        this.emit('chordSelected', { chord: chordWithNotes, degree });
+                    });
+                });
+
+                // When manual roman/chord input is finalized, append committed chords to sheet (like insert-plus)
+                this.numberGenerator.on('displayTokensCommitted', (evt) => {
+                    try {
+                        console.log('[ModularMusicTheoryApp] displayTokensCommitted received ->', evt);
+                        const rawTokens = evt && evt.rawTokens ? evt.rawTokens : (evt && evt.tokens ? evt.tokens : null);
+                        const tokens = evt && evt.tokens ? evt.tokens : null;
+                        if (!tokens || !Array.isArray(tokens) || tokens.length === 0) return;
+
+                        // Build chord objects and append each to the sheet generator
+                        tokens.forEach((tok, idx) => {
+                            const rawTok = (rawTokens && rawTokens[idx]) ? rawTokens[idx] : tok;
+                            try {
+                                const normalized = (this.numberGenerator && typeof this.numberGenerator.normalizePreviewRomanToken === 'function')
+                                    ? this.numberGenerator.normalizePreviewRomanToken(tok)
+                                    : tok;
+
+                                // Debug: log token transformation details to help trace mutation issues
+                                console.log('[ModularMusicTheoryApp] commit-token ->', { idx, rawTok, tok, normalized });
+
+                                let chordObj = null;
+                                // If the normalized token looks like a spelled-root label (e.g. 'F', 'Fm', 'Fmaj7'), prefer that
+                                const normalizedSpelled = String(normalized).match(/^([A-G][b#]?)(.*)$/i);
+                                if (normalizedSpelled) {
+                                    const root = normalizedSpelled[1];
+                                    const chordType = (normalizedSpelled[2] || '').trim();
+                                    let chordNotes = [];
+                                    try { chordNotes = this.musicTheory.getChordNotes(root, chordType) || []; } catch(_) { chordNotes = []; }
+                                    if (chordNotes.length > 0) {
+                                        chordObj = { root, chordType, chordNotes, fullName: (root || '') + (chordType || '') };
+                                        console.log('[ModularMusicTheoryApp] parsed-as-spelled(normalized) ->', { idx, root, chordType, chordObj, rawTok, normalized });
+                                    }
+                                }
+                                // If spelled-root parsing failed, try Roman numeral parsing (use rawTok for roman detection)
+                                if (!chordObj) {
+                                    const romanMatch = String(rawTok).match(/([#b]?)([IViv]+)(.*)$/);
+                                    console.log('[ModularMusicTheoryApp] romanMatch ->', { idx, rawTok, romanMatch, normalized });
+                                    if (romanMatch) {
+                                        const roman = romanMatch[2];
+                                        const suffix = (romanMatch[3] || '').trim();
+                                        const rawHasHalfDim = /ø|m7b5|half[-]?dim/i.test(rawTok);
+                                        const rawHasDim = /°|dim(?!.*maj)/i.test(rawTok);
+                                        const romanToInt = (r) => {
+                                            const s = String(r).toUpperCase();
+                                            const map = { 'I':1,'II':2,'III':3,'IV':4,'V':5,'VI':6,'VII':7 };
+                                            return map[s] || null;
+                                        };
+                                        const degree = romanToInt(roman);
+                                        if (degree) {
+                                            const key = this.scaleLibrary.getCurrentKey();
+                                            const scale = this.scaleLibrary.getCurrentScale();
+                                            try {
+                                                const diat = this.musicTheory.getDiatonicChord(degree, key, scale);
+                                                if (diat) {
+                                                    // Respect Roman case: lowercase = minor, uppercase = major
+                                                    const isLower = roman === roman.toLowerCase();
+                                                    // Determine preferred chord type when the user provided no explicit suffix.
+                                                    // Prefer a simple triad for a bare Roman numeral (IV -> maj triad),
+                                                    // unless the user explicitly typed an extension/suffix.
+                                                    let baseType = '';
+                                                    if (rawHasHalfDim) {
+                                                        baseType = 'm7b5';
+                                                    } else if (rawHasDim) {
+                                                        baseType = 'dim7';
+                                                    } else if (suffix) {
+                                                        baseType = suffix;
+                                                    } else if (isLower) {
+                                                        baseType = 'm';
+                                                    } else {
+                                                        // No suffix and uppercase Roman: prefer triad quality (maj) instead of a 7th
+                                                        try {
+                                                            const triad = this.musicTheory.buildScaleChord(key, scale, degree, 3);
+                                                            const triadType = this.musicTheory.classifyChordTypeFromNotes(diat.root, triad.notes) || '';
+                                                            baseType = triadType || diat.chordType;
+                                                        } catch (_) {
+                                                            baseType = diat.chordType;
+                                                        }
+                                                    }
+
+                                                    let notes = [];
+                                                    try {
+                                                        if (this.musicTheory && typeof this.musicTheory.getChordNotes === 'function') {
+                                                            notes = this.musicTheory.getChordNotes(diat.root, baseType) || [];
+                                                            if ((!notes || notes.length === 0) && baseType !== diat.chordType) {
+                                                                notes = this.musicTheory.getChordNotes(diat.root, diat.chordType) || [];
+                                                            }
+                                                        }
+                                                    } catch(_) { notes = [] }
+                                                    chordObj = { root: diat.root, chordType: baseType || diat.chordType, chordNotes: notes, fullName: (diat.root || '') + (baseType || diat.chordType || '') };
+                                                    console.log('[ModularMusicTheoryApp] parsed-as-diatonic ->', { idx, degree, diat, baseType, chordObj });
+                                                }
+                                            } catch(e) { console.warn('[ModularMusicTheoryApp] diatonic-parse-error', { idx, e }); }
+                                        }
+                                    }
+                                }
+                                // If still no chordObj, try to parse as a chord label using music theory engine
+                                if (!chordObj && this.musicTheory && typeof this.musicTheory.parseChordLabel === 'function') {
+                                    try {
+                                        const parsed = this.musicTheory.parseChordLabel(rawTok);
+                                        if (parsed && parsed.root && parsed.chordType) {
+                                            let notes = this.musicTheory.getChordNotes(parsed.root, parsed.chordType) || [];
+                                            chordObj = { root: parsed.root, chordType: parsed.chordType, chordNotes: notes, fullName: (parsed.root || '') + (parsed.chordType || '') };
+                                            console.log('[ModularMusicTheoryApp] parsed-as-label ->', { idx, parsed, chordObj });
+                                        }
+                                    } catch(e) { console.warn('[ModularMusicTheoryApp] label-parse-error', { idx, e }); }
+                                }
+
+                                if (chordObj && this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setCurrentChord === 'function') {
+                                    // Debug: final chord object before appending
+                                    console.log('[ModularMusicTheoryApp] appending-chord ->', { idx, chordObj });
+                                    try {
+                                            // Log the parsed chord object before canonicalization
+                                            try {
+                                                if (!window.__interactionLog) window.__interactionLog = [];
+                                                window.__interactionLog.push({
+                                                    type: 'displayTokensCommitParsed',
+                                                    details: { idx, rawTok, tok, normalized, parsed: chordObj },
+                                                    timestamp: new Date().toISOString()
+                                                });
+                                            } catch (_) {}
+
+                                            // Defensive fallback: if chordNotes are empty, try canonicalizing chordType symbols
+                                            if ((!chordObj.chordNotes || chordObj.chordNotes.length === 0) && chordObj.chordType) {
+                                                const mapType = (t) => {
+                                                    if (!t) return t;
+                                                    let s = String(t);
+                                                    // Map symbol forms to canonical names
+                                                    if (/(°|dim(?!.*maj))/i.test(s)) return 'dim7';
+                                                    if (/(ø|m7b5|half-?dim)/i.test(s)) return 'm7b5';
+                                                    // common short forms
+                                                    if (/^m7b5$/i.test(s)) return 'm7b5';
+                                                    if (/^dim7$/i.test(s)) return 'dim7';
+                                                    return s;
+                                                };
+                                                const canonical = mapType(chordObj.chordType);
+                                                if (canonical !== chordObj.chordType) {
+                                                    try {
+                                                        const notes = this.musicTheory.getChordNotes(chordObj.root, canonical) || [];
+                                                        if (notes && notes.length) {
+                                                            chordObj = { ...chordObj, chordType: canonical, chordNotes: notes, fullName: (chordObj.root || '') + (canonical || '') };
+                                                            try {
+                                                                window.__interactionLog.push({ type: 'displayTokensCommitCanonicalized', details: { idx, canonical, chordObj }, timestamp: new Date().toISOString() });
+                                                            } catch(_){}
+                                                        }
+                                                    } catch(_) {}
+                                                }
+                                            }
+
+                                            this.sheetMusicGenerator.setCurrentChord(chordObj, { appendToBars: true });
+                                        // Log chord commit and sheet music state
+                                        if (window.logChordCommit) window.logChordCommit({
+                                            input: tok,
+                                            raw: rawTok,
+                                            normalized,
+                                            chordObj,
+                                            idx,
+                                            sheetMusic: this.sheetMusicGenerator.getCurrentSheet ? this.sheetMusicGenerator.getCurrentSheet() : null
+                                        });
+                                        if (window.logSheetMusicUpdate) window.logSheetMusicUpdate({
+                                            chords: this.sheetMusicGenerator.getCurrentSheet ? this.sheetMusicGenerator.getCurrentSheet() : null,
+                                            lastChord: chordObj,
+                                            idx
+                                        });
+                                    } catch(e) { console.warn('[ModularMusicTheoryApp] setCurrentChord failed', { idx, e }); }
+                                } else {
+                                    console.log('[ModularMusicTheoryApp] no-chord-created-for-token', { idx, rawTok, tok, normalized });
+                                }
+                            } catch (e) { console.warn('[ModularMusicTheoryApp] per-token-exception', { idx, e }); }
+                });
+            } catch (e) {
+                console.warn('Failed to append committed display tokens to sheet:', e);
+            }
+        });
+            }
+
+            // Event system methods
+            on(event, callback) {
+                if (!this.listeners.has(event)) {
+                    this.listeners.set(event, new Set());
+                }
+                this.listeners.get(event).add(callback);
+            }
+
+            off(event, callback) {
+                if (this.listeners.has(event)) {
+                    this.listeners.get(event).delete(callback);
+                }
+            }
+
+            emit(event, data) {
+                if (this.listeners.has(event)) {
+                    this.listeners.get(event).forEach(callback => {
+                        try {
+                            callback(data);
+                        } catch (error) {
+                            console.error('Error in ChordExplorer event listener:', error);
+                        }
+                    });
+                }
+            }
+        }
+
+        // ==================== MODULAR APPLICATION ====================
+
+        class ModularMusicTheoryApp {
+            constructor() {
+                this.musicTheory = new MusicTheoryEngine();
+                this.numberGenerator = new NumberGenerator();
+                this.numberGenerator.connectMusicTheory(this.musicTheory); // Connect for intelligent generation
+                this.scaleLibrary = new ScaleLibrary(this.musicTheory);
+                this.pianoVisualizer = new PianoVisualizer({
+                    startMidi: 60, // C4 (will be adjusted based on selected key)
+                    octaves: 1.5,  // Show 1.5 octaves
+                    whiteKeyWidth: 40,
+                    whiteKeyHeight: 120,
+                    blackKeyHeight: 80,
+                    showFingering: true,
+                    showRomanNumerals: true,
+                    fitToContainer: true  // Make sure it fits in the container
+                });
+                this.containerChordTool = new ContainerChordTool(this.musicTheory);
+                this.progressionBuilder = new ProgressionBuilder(this.musicTheory);
+                this.scaleCircleExplorer = new ScaleCircleExplorer(this.musicTheory);
+                this.solarSystem = new SolarSystemVisualizer(this.musicTheory);
+                this.audioVisualizer = new AudioVisualizer();
+                // Use UnifiedChordExplorer (new consolidated explorer). Keep tools wired to it.
+                try {
+                    this.chordExplorer = new UnifiedChordExplorer(this.musicTheory);
+                    // Wire number generator for progression highlighting and preferred notes
+                    if (typeof this.chordExplorer.connectNumberGenerator === 'function') {
+                        this.chordExplorer.connectNumberGenerator(this.numberGenerator);
+                    }
+                    // Wire scale library so explorer updates when key/scale change
+                    if (typeof this.chordExplorer.connectScaleLibrary === 'function') {
+                        this.chordExplorer.connectScaleLibrary(this.scaleLibrary);
+                    }
+                    // Initialize with current key/scale
+                    if (typeof this.chordExplorer.setKeyAndScale === 'function') {
+                        this.chordExplorer.setKeyAndScale(this.scaleLibrary.getCurrentKey(), this.scaleLibrary.getCurrentScale());
+                    }
+                    // Expose legacy mount compatibility if needed (UnifiedChordExplorer provides mount)
+                } catch (e) {
+                    // Fallback to original explorer if UnifiedChordExplorer missing
+                    console.warn('UnifiedChordExplorer not available, falling back to legacy ChordExplorer', e);
+                    this.chordExplorer = new ChordExplorer(this.musicTheory, this.scaleLibrary, this.numberGenerator);
+                }
+                this.sheetMusicGenerator = new SheetMusicGenerator(this.musicTheory);
+
+                this.initialize();
+            }
+
+            initialize() {
+                this.setupModuleIntegration();
+                this.setupEventHandlers();
+                this.renderInitialState();
+                // Initial mini chord strip render
+                try { this.renderMiniChordStrip(this.scaleLibrary.getCurrentKey(), this.scaleLibrary.getCurrentScale()); } catch(_){}
+                // Setup sticky scroll behavior for mini chord strip
+                try { this.setupMiniStripScrollBehavior(); } catch(e){ console.warn('Sticky mini strip setup failed', e); }
+                // Debug helper: quick test to validate roman input mapping across modules.
+                // Usage (in browser console): window.modularApp.selfTestRomanInputs('viiø7 ii7 IVmaj7 iii7 ')
+                this.selfTestRomanInputs = (inputStr) => {
+                    try {
+                        if (!inputStr || !this.numberGenerator) return null;
+                        const trimmed = String(inputStr || '').trim();
+                        const toks = trimmed.length ? trimmed.split(/\s+/).filter(t => t.length) : [];
+                        // Preview first
+                        try { this.numberGenerator.setDisplayTokens(toks, { rawTokens: toks.slice(), emit: true }); } catch(_){ }
+                        // Commit via manualInput element if present (will append to sheet)
+                        const inputEl = document.querySelector('#manual-numbers');
+                        if (inputEl) {
+                            inputEl.value = inputStr;
+                            try { this.numberGenerator.commitManualNumbers(inputEl, { force: true }); } catch(e) { console.warn(e); }
+                        } else {
+                            // fallback: emit displayTokensCommitted directly
+                            try { this.numberGenerator.emit('displayTokensCommitted', { tokens: toks, rawTokens: toks }); } catch(_) {}
+                        }
+                        // After commit, return last appended chords types
+                        try { return (this.sheetMusicGenerator && Array.isArray(this.sheetMusicGenerator.state.barChords)) ? this.sheetMusicGenerator.state.barChords.map(c => c.chordType) : null; } catch(_) { return null; }
+                    } catch (e) { console.warn('selfTestRomanInputs failed', e); return null; }
+                };
+            }
+
+            /**
+             * Render the mini chord strip across the top with Roman numerals for the current key/scale.
+             * Uppercase for major quality; lowercase for minor and diminished; use ° and ø where applicable.
+             */
+            renderMiniChordStrip(key, scale) {
+                try {
+                    const host = document.getElementById('mini-chord-strip');
+                    if (!host) return;
+                    const roman = ['I','II','III','IV','V','VI','VII','VIII'];
+                    const isBarry = String(scale || '').toLowerCase().startsWith('barry_');
+                    const degreeCount = isBarry ? 8 : 7;
+                    const scaleName = String(scale || '').toLowerCase();
+                    const isMajorish = /major|ionian/.test(scaleName);
+                    const isMinorish = /minor|aeolian/.test(scaleName);
+                    // Default mapping arrays for diatonic 7ths (descriptive forms)
+                    const major7ths = ['maj7','m7','m7','maj7','7','m7','m7b5'];
+                    const minor7ths = ['m7','m7b5','maj7','m7','m7','maj7','7'];
+                    const items = [];
+                    for (let degree = 1; degree <= degreeCount; degree++) {
+                        let chord = null;
+                        try { chord = this.musicTheory.getDiatonicChord(degree, key, scale) || {}; } catch(_) { chord = {}; }
+                        const type = (chord.chordType || '').toLowerCase();
+                        const isHalfDim = /m7b5|ø/.test(type);
+                        const isDim = /dim|°/.test(type) && !isHalfDim;
+                        const isMinor = /^m(?!aj)/.test(type) && !isHalfDim; // plain minor qualities
+                        let label = roman[(degree - 1) % roman.length];
+                        let cls = 'maj';
+                        if (isHalfDim) { label = label.toLowerCase() + 'ø'; cls = 'dim'; }
+                        else if (isDim) { label = label.toLowerCase() + '°'; cls = 'dim'; }
+                        else if (isMinor) { label = label.toLowerCase(); cls = 'min'; }
+                        // Build 7th chord name (prefer explicit chordType and map to descriptive labels)
+                        let seventh = '';
+                        if (isMajorish) {
+                            seventh = major7ths[(degree - 1) % major7ths.length];
+                        } else if (isMinorish) {
+                            seventh = minor7ths[(degree - 1) % minor7ths.length];
+                        } else {
+                            // Fallback from chordType: prefer explicit chord.chordType when present,
+                            // and prioritize descriptive forms for aug and half-dim.
+                            const ct = chord.chordType || '';
+                            if (/m7b5|ø/.test(ct) || isHalfDim) seventh = 'halfdim7';
+                            else if (/dim7|°/.test(ct) || isDim) seventh = 'dim7';
+                            else if (/m7#5/.test(ct)) seventh = 'aug(min7)';
+                            else if (/maj7#5/.test(ct) || /\+maj7/.test(ct)) seventh = 'aug(maj7)';
+                            else if (/mMaj7/i.test(ct)) seventh = 'mMaj7';
+                            else if (/maj7/i.test(ct) || /maj7/i.test(type)) seventh = 'maj7';
+                            else if (/m7(?!b5)/i.test(ct) || isMinor) seventh = 'm7';
+                            else if (/7(?![a-zA-Z])/i.test(ct) || /7(?![a-zA-Z])/i.test(type)) seventh = '7';
+                            else seventh = ct || '7';
+                        }
+                        // Prefer the explicit chord.chordType when available to preserve modifiers
+                        const chordName = (chord.root || '') + ((chord.chordType && chord.chordType.length) ? chord.chordType : seventh);
+                        items.push(`<div class=\"mini-chord-item ${cls}\" data-degree=\"${degree}\" title=\"Degree ${degree}\"><div class=\"mini-rn\">${label}</div><div class=\"mini-name\">${chordName}</div></div>`);
+                    }
+                    host.innerHTML = items.join('');
+                } catch (e) { /* noop */ }
+            }
+
+            /**
+             * Keep mini chord strip visible (fixed) until chord explorer module scrolls into view.
+             * Removes sticky when chord explorer top edge is near/above viewport top to avoid overlay.
+             */
+            setupMiniStripScrollBehavior() {
+                const strip = document.getElementById('mini-chord-strip');
+                const chordModule = document.querySelector('.planet-module[data-module="chord"]');
+                if (!strip || !chordModule) return;
+
+                // Spacer to prevent layout shift when strip becomes fixed
+                let spacer = document.getElementById('mini-chord-strip-spacer');
+                if (!spacer) {
+                    spacer = document.createElement('div');
+                    spacer.id = 'mini-chord-strip-spacer';
+                    spacer.style.height = strip.offsetHeight + 'px';
+                    spacer.style.gridColumn = '1 / -1';
+                    strip.parentNode.insertBefore(spacer, strip.nextSibling);
+                }
+
+                // Make the mini chord strip persistently visible (always sticky)
+                // Keep the spacer to prevent layout shift, but avoid dynamic un-sticking.
+                if (!strip.classList.contains('sticky')) strip.classList.add('sticky');
+                // Ensure spacer height stays correct on resize
+                window.addEventListener('resize', () => {
+                    spacer.style.height = strip.offsetHeight + 'px';
+                });
+            }
+
+            setupModuleIntegration() {
+                // Connect number generator to container chord tool
+                this.numberGenerator.on('numbersChanged', (data) => {
+                    const scaleNotes = this.scaleLibrary.getCurrentScaleNotes();
+                    const preferred = data.numbers.map(num => {
+                        if (typeof num === 'number') {
+                            return { note: scaleNotes[(num - 1) % scaleNotes.length], degree: num };
+                        }
+                        return { note: num, degree: null };
+                    });
+                    // Use generated notes to bias sorting (single-note mode for selection)
+                    this.containerChordTool.setPreferredNotes(preferred);
+                    
+                    // NOTE: do NOT auto-select generated notes as input by default.
+                    // We only want the generated notes to bias sorting (preferredNotes).
+                    // Automatically selecting them caused every generated note to be highlighted,
+                    // which is not desirable. Clear any selection so nothing is highlighted.
+                    // If a developer wants automatic selection later, call setInputNotes explicitly.
+                    if (this.containerChordTool && typeof this.containerChordTool.setSelectedNote === 'function') {
+                        this.containerChordTool.setSelectedNote('');
+                    }
+                });
+
+                // Connect scale library to other modules
+                this.scaleLibrary.on('scaleChanged', (data) => {
+                    const currentNumbers = this.numberGenerator.getCurrentNumbers();
+                    if (currentNumbers.length > 0) {
+                        this.numberGenerator.emit('numbersChanged', {
+                            numbers: currentNumbers,
+                            type: this.numberGenerator.getNumberType(),
+                            source: 'scale_change'
+                        });
+                    }
+
+                    // Keep container chord tool in sync with key/scale context
+                    if (this.containerChordTool && this.containerChordTool.setKeyAndScale) {
+                        this.containerChordTool.setKeyAndScale(data.key, data.scale);
+                    }
+
+                    this.pianoVisualizer.renderScale(data);
+                    this.scaleCircleExplorer.setKey(data.key);
+                    this.scaleCircleExplorer.setScaleNotes(data.notes);
+                    if (this.sheetMusicGenerator && this.sheetMusicGenerator.setKeyAndScale) {
+                        this.sheetMusicGenerator.setKeyAndScale(data.key, data.scale, data.notes);
+                    }
+                    this.numberGenerator.setCurrentScaleNotes(data.notes);
+                    this.numberGenerator.setScaleInfo(data.key, data.scale);
+                    this.numberGenerator.render();
+                    if (this.solarSystem) {
+                        this.solarSystem.updateSystem({ key: data.key, scale: data.scale, notes: data.notes });
+                    }
+                    const miniPianoContainer = document.getElementById('mini-piano-visualize-container');
+                    if (miniPianoContainer) {
+                        miniPianoContainer.innerHTML = this.numberGenerator.renderMiniPiano();
+                    }
+                    const pianoInfoContainer = document.getElementById('piano-scale-info');
+                    if (pianoInfoContainer) {
+                        const tip = this.numberGenerator.getScaleTip(data.scale);
+                        const citation = this.musicTheory.getScaleCitation(data.scale, 'html');
+                        
+                        let html = '';
+                        if (tip || citation) {
+                            html = '<div class="scale-info-combined">';
+                            if (tip) html += `<div class="scale-info-tip"><strong>💡 Tip:</strong> ${tip}</div>`;
+                            if (tip && citation) html += '<div class="scale-info-divider"></div>';
+                            if (citation) html += `<div class="scale-info-citation"><strong>📚 Source:</strong> ${citation}</div>`;
+                            html += '</div>';
+                        }
+                        pianoInfoContainer.innerHTML = html;
+                    }
+                    // Update mini chord strip to reflect new key/scale
+                    try { this.renderMiniChordStrip(data.key, data.scale); } catch(_){}
+                });
+
+                // Connect container chord tool to piano visualizer
+                this.containerChordTool.on('chordSelected', (data) => {
+                    const roles = this.containerChordTool.getNoteRoles(
+                        data.chord.chordNotes,
+                        data.chord.root
+                    );
+                    this.pianoVisualizer.renderChord({
+                        notes: data.chord.chordNotes,
+                        roles: Object.entries(roles).map(([note, role]) => ({
+                            note,
+                            class: role.replace(/\s+/g, '-')
+                        }))
+                    });
+                });
+
+                // Connect progression builder to Solar System to highlight chosen/substituted chords
+                if (this.progressionBuilder && this.progressionBuilder.on) {
+                    this.progressionBuilder.on('progressionChanged', (data) => {
+                        if (this.solarSystem && typeof this.solarSystem.setChordHighlights === 'function') {
+                            this.solarSystem.setChordHighlights(data.meta || []);
+                        }
+
+                        // Also map progression output into the Sheet Music Generator so the
+                        // generated chord sequence is displayed as one chord per bar.
+                        try {
+                            const meta = data.meta || [];
+                            if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setBarMode === 'function' && Array.isArray(meta) && meta.length > 0 && this.sheetMusicGenerator.state && this.sheetMusicGenerator.state.followGenerated) {
+                                const chords = meta.map((m) => {
+                                    const root = m && m.chordRoot ? m.chordRoot : null;
+                                    const chordType = m && m.chordType ? m.chordType : '';
+                                    let chordNotes = [];
+                                    try {
+                                        if (root && this.musicTheory && typeof this.musicTheory.getChordNotes === 'function') {
+                                            chordNotes = this.musicTheory.getChordNotes(root, chordType) || [];
+                                        }
+                                    } catch (e) { /* ignore */ }
+                                    return {
+                                        root,
+                                        chordType,
+                                        chordNotes,
+                                        fullName: (root || '') + (chordType || '')
+                                    };
+                                }).filter(c => c.root && Array.isArray(c.chordNotes));
+
+                                // Parallel degrees array aligned with chords/meta
+                                const degrees = meta.map(m => (m && typeof m.degree === 'number') ? m.degree : null);
+
+                                if (chords.length > 0) {
+                                    // Replace the bar list and switch into per-bar mode using the public API
+                                    if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setBarMode === 'function') {
+                                        this.sheetMusicGenerator.setBarMode('per-bar');
+                                    }
+                                    // Pass harmonization mode to sheet music generator
+                                    if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setHarmonizationMode === 'function' && this.progressionBuilder) {
+                                        const mode = this.progressionBuilder.state.harmonizationMode || 'root';
+                                        this.sheetMusicGenerator.setHarmonizationMode(mode);
+                                        try {
+                                            if (!window.__interactionLog) window.__interactionLog = [];
+                                            window.__interactionLog.push({ type: 'sheetHarmonizationModeSet', details: { mode, source: 'progressionChanged' }, timestamp: new Date().toISOString() });
+                                        } catch (_) {}
+                                    }
+                                    if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setBarChords === 'function') {
+                                        this.sheetMusicGenerator.setBarChords(chords);
+                                        if (typeof this.sheetMusicGenerator.setBarDegrees === 'function') {
+                                            this.sheetMusicGenerator.setBarDegrees(degrees);
+                                        } else {
+                                            // Fallback: direct state write if API missing
+                                            this.sheetMusicGenerator.state.barDegrees = degrees;
+                                            try { this.sheetMusicGenerator.render(); } catch(_){}
+                                        }
+                                    } else if (this.sheetMusicGenerator) {
+                                        // Fallback: direct state write if API missing
+                                        this.sheetMusicGenerator.state.barChords = chords;
+                                        this.sheetMusicGenerator.state.barDegrees = degrees;
+                                        try { this.sheetMusicGenerator.render(); } catch(_){}
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error mapping progression to sheet music:', e);
+                        }
+                    });
+                }
+
+                // Connect number generator to circle explorer
+                this.numberGenerator.on('numbersChanged', (data) => {
+                    const scaleNotes = this.scaleLibrary.getCurrentScaleNotes();
+                    this.scaleCircleExplorer.setGeneratedNumbers(data.numbers, scaleNotes);
+                    if (this.solarSystem && this.solarSystem.setGeneratedNumbers) {
+                        this.solarSystem.setGeneratedNumbers(data.numbers, scaleNotes);
+                    }
+                });
+
+                // Single bubble click: select note across modules
+                this.numberGenerator.on('singleNoteSelected', (data) => {
+                    try {
+                        const note = data && data.note ? data.note : '';
+                        if (note) {
+                            this.pianoVisualizer.setActiveNotes([note]);
+                            if (this.containerChordTool && this.containerChordTool.setSelectedNote) {
+                                this.containerChordTool.setSelectedNote(note);
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                });
+
+                // Propagate manual Roman/chord display tokens into SheetMusicGenerator
+                this.numberGenerator.on('displayTokensChanged', (evt) => {
+                    try {
+                        const rawTokens = evt && evt.rawTokens ? evt.rawTokens : (evt && evt.tokens ? evt.tokens : null);
+                        const tokens = evt && evt.tokens ? evt.tokens : null;
+                        if (!tokens || !Array.isArray(tokens) || tokens.length === 0) return;
+
+                        // Log propagation of preview/display tokens into sheet mapping
+                        try {
+                            if (!window.__interactionLog) window.__interactionLog = [];
+                            window.__interactionLog.push({
+                                type: 'displayTokensPropagation',
+                                details: { tokens: tokens.slice(), rawTokens: (rawTokens || tokens).slice(), harmonizationMode: (this.progressionBuilder && this.progressionBuilder.state) ? this.progressionBuilder.state.harmonizationMode : null },
+                                timestamp: new Date().toISOString()
+                            });
+                        } catch(_) {}
+
+                        // Convert tokens into chord objects consumable by SheetMusicGenerator
+                        const chords = tokens.map((tok, idx) => {
+                            const rawTok = (rawTokens && rawTokens[idx]) ? rawTokens[idx] : tok;
+                            try {
+                                // First, allow NumberGenerator to normalize preview (may map accidentals to spelled roots)
+                                const normalized = (this.numberGenerator && typeof this.numberGenerator.normalizePreviewRomanToken === 'function')
+                                    ? this.numberGenerator.normalizePreviewRomanToken(tok)
+                                    : tok;
+
+                                // If normalized appears to start with a spelled root (A-G), parse root+type
+                                const m = String(normalized).match(/^([A-G][b#]?)(.*)$/i);
+                                if (m) {
+                                    const root = m[1];
+                                    const chordType = (m[2] || '').trim();
+                                    let chordNotes = [];
+                                    if (this.musicTheory && typeof this.musicTheory.getChordNotes === 'function') {
+                                        try { chordNotes = this.musicTheory.getChordNotes(root, chordType) || []; } catch(_) { chordNotes = []; }
+                                    }
+                                    return { root, chordType, chordNotes, fullName: (root || '') + (chordType || '') };
+                                }
+
+                                // Otherwise, try to treat token as a Roman numeral -> diatonic degree
+                                const romanMatch = String(rawTok).match(/([#b]?)([IViv]+)(.*)$/);
+                                if (romanMatch) {
+                                    const accidental = romanMatch[1] || '';
+                                    const roman = romanMatch[2] || '';
+                                    const suffix = (romanMatch[3] || '').trim();
+                                    // Map roman to degree 1..7
+                                    const romanToInt = (r) => {
+                                        const s = String(r).toUpperCase();
+                                        const map = { 'I':1,'II':2,'III':3,'IV':4,'V':5,'VI':6,'VII':7 };
+                                        return map[s] || null;
+                                    };
+                                    const degree = romanToInt(roman);
+                                    if (degree && this.scaleLibrary) {
+                                        const key = this.scaleLibrary.getCurrentKey();
+                                        const scale = this.scaleLibrary.getCurrentScale();
+                                        try {
+                                            const diat = (this.musicTheory && typeof this.musicTheory.getDiatonicChord === 'function')
+                                                ? this.musicTheory.getDiatonicChord(degree, key, scale)
+                                                : null;
+                                            if (diat) {
+                                                // Respect Roman case: lowercase = minor, uppercase = major
+                                                const isLower = roman === roman.toLowerCase();
+                                                let baseType = '';
+                                                if (suffix) {
+                                                    // User typed explicit quality/extension: use it directly
+                                                    baseType = suffix;
+                                                } else {
+                                                    // No suffix: infer from case
+                                                    if (isLower) {
+                                                        baseType = 'm'; // lowercase -> minor
+                                                    } else {
+                                                        baseType = ''; // uppercase -> major (default)
+                                                    }
+                                                }
+
+                                                // Try to get chord notes for the combined type
+                                                let notes = [];
+                                                try {
+                                                    if (this.musicTheory && typeof this.musicTheory.getChordNotes === 'function') {
+                                                        notes = this.musicTheory.getChordNotes(diat.root, baseType) || [];
+                                                        if ((!notes || notes.length === 0) && baseType !== diat.chordType) {
+                                                            notes = this.musicTheory.getChordNotes(diat.root, diat.chordType) || [];
+                                                        }
+                                                    }
+                                                } catch (_) { notes = [] }
+                                                return { root: diat.root, chordType: baseType || diat.chordType, chordNotes: notes, fullName: (diat.root || '') + (baseType || diat.chordType || '') };
+                                            }
+                                        } catch (_) {}
+                                    }
+                                }
+
+                                // Fallback: return null so it will be filtered out
+                                return null;
+                            } catch (e) { return null; }
+                        }).filter(c => c && c.root);
+
+                        if (!chords.length) return;
+
+                        const degrees = chords.map(c => {
+                            // Attempt to map root back to diatonic degree if possible
+                            try {
+                                if (this.scaleLibrary && Array.isArray(this.scaleLibrary.getCurrentScaleNotes())) {
+                                    const scaleNotes = this.scaleLibrary.getCurrentScaleNotes();
+                                    const idx = scaleNotes.indexOf(c.root);
+                                    return idx >= 0 ? idx + 1 : null;
+                                }
+                            } catch (_) {}
+                            return null;
+                        });
+
+                        if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setBarMode === 'function') {
+                            this.sheetMusicGenerator.setBarMode('per-bar');
+                        }
+                        if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setHarmonizationMode === 'function' && this.progressionBuilder) {
+                            const mode = this.progressionBuilder.state && this.progressionBuilder.state.harmonizationMode ? this.progressionBuilder.state.harmonizationMode : 'root';
+                            this.sheetMusicGenerator.setHarmonizationMode(mode);
+                            try {
+                                if (!window.__interactionLog) window.__interactionLog = [];
+                                window.__interactionLog.push({ type: 'sheetHarmonizationModeSet', details: { mode, source: 'displayTokensChanged' }, timestamp: new Date().toISOString() });
+                            } catch (_) {}
+                        }
+                        if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setBarChords === 'function') {
+                            this.sheetMusicGenerator.setBarChords(chords);
+                            if (typeof this.sheetMusicGenerator.setBarDegrees === 'function') {
+                                this.sheetMusicGenerator.setBarDegrees(degrees);
+                            } else {
+                                this.sheetMusicGenerator.state.barDegrees = degrees;
+                                try { this.sheetMusicGenerator.render(); } catch(_) {}
+                            }
+                        } else {
+                            this.sheetMusicGenerator.state.barChords = chords;
+                            this.sheetMusicGenerator.state.barDegrees = degrees;
+                            try { this.sheetMusicGenerator.render(); } catch(_) {}
+                        }
+                    } catch (e) {
+                        console.warn('Failed to propagate display tokens to sheet music:', e);
+                    }
+                });
+
+                // Connect circle explorer to progression builder
+                this.scaleCircleExplorer.on('progressionGenerated', (data) => {
+                    const progression = data.progression.map(key => 
+                        `${key}${this.scaleLibrary.getCurrentScale() === 'minor' ? 'm' : ''}maj7`
+                    );
+                    this.progressionBuilder.buildProgressionFromChords(progression);
+                });
+
+                this.scaleCircleExplorer.on('keySelected', (data) => {
+                    this.scaleLibrary.setKey(data.key);
+                });
+
+                // Connect chord explorer / container chord tool to sheet music
+                if (this.chordExplorer && this.chordExplorer.on) {
+                    this.chordExplorer.on('chordSelected', (data) => {
+                        if (this.sheetMusicGenerator) {
+                            this.sheetMusicGenerator.setCurrentChord(data.chord, { appendToBars: true });
+                        }
+                    });
+                    
+                    // NEW: Listen for chord substitutions and update sheet music
+                    this.chordExplorer.on('substitutionSelected', (data) => {
+                        try {
+                            if (!data || !data.substitution) return;
+                            
+                            const sub = data.substitution;
+                            const original = data.original;
+                            
+                            // Build chord object from substitution
+                            let chordNotes = [];
+                            try {
+                                if (sub.notes && Array.isArray(sub.notes)) {
+                                    chordNotes = sub.notes;
+                                } else if (sub.root && this.musicTheory && typeof this.musicTheory.getChordNotes === 'function') {
+                                    chordNotes = this.musicTheory.getChordNotes(sub.root, sub.chordType || '') || [];
+                                }
+                            } catch (e) { /* ignore */ }
+                            
+                            const chordObj = {
+                                root: sub.root,
+                                chordType: sub.chordType || '',
+                                chordNotes: chordNotes,
+                                fullName: sub.fullName || ((sub.root || '') + (sub.chordType || ''))
+                            };
+                            
+                            // Update sheet music with the substituted chord
+                            if (this.sheetMusicGenerator) {
+                                // If we're in per-bar mode and following the generated progression,
+                                // trigger a full sequence update
+                                if (this.sheetMusicGenerator.state.barMode === 'per-bar' && 
+                                    this.sheetMusicGenerator.state.followGenerated) {
+                                    // Trigger sequence rebuild
+                                    if (typeof this.chordExplorer.ensureProgressionSequence === 'function') {
+                                        const sequence = this.chordExplorer.ensureProgressionSequence();
+                                        this.chordExplorer.emit('progressionSequenceChanged', { sequence });
+                                    }
+                                } else {
+                                    // In single mode, just set the current chord
+                                    this.sheetMusicGenerator.setCurrentChord(chordObj, { degree: original ? original.degree : null });
+                                }
+                            }
+                            
+                            console.log('[Substitution->Sheet] Updated sheet music:', chordObj.fullName);
+                        } catch (e) {
+                            console.warn('Failed to update sheet music from substitution:', e);
+                        }
+                    });
+                    
+                    // NEW: keep SheetMusicGenerator in sync with sequence edits (plus-left/right insertions)
+                    this.chordExplorer.on('progressionSequenceChanged', (evt) => {
+                        try {
+                            if (!evt || !Array.isArray(evt.sequence)) return;
+                            if (!this.sheetMusicGenerator || !this.sheetMusicGenerator.state.followGenerated) return;
+                            const seq = evt.sequence;
+                            const chords = seq.map(entry => {
+                                if (entry.type === 'degree') {
+                                    try {
+                                        const diat = this.musicTheory.getDiatonicChord(entry.degree, this.scaleLibrary.getCurrentKey(), this.scaleLibrary.getCurrentScale());
+                                        if (diat) {
+                                            const notes = this.musicTheory.getChordNotes(diat.root, diat.chordType) || [];
+                                            return { root: diat.root, chordType: diat.chordType, chordNotes: notes, fullName: diat.root + diat.chordType };
+                                        }
+                                    } catch(_) {}
+                                    return null;
+                                } else if (entry.type === 'inserted' && entry.substitution) {
+                                    const sub = entry.substitution;
+                                    try {
+                                        const notes = this.musicTheory.getChordNotes(sub.root, sub.chordType) || (sub.notes || []);
+                                        return { root: sub.root, chordType: sub.chordType, chordNotes: notes, fullName: (sub.root || '') + (sub.chordType || '') };
+                                    } catch(_) {
+                                        return null;
+                                    }
+                                }
+                                return null;
+                            }).filter(c => c && c.root && Array.isArray(c.chordNotes));
+                            // Degrees align to sequence entries: number for degree entries, null for inserted
+                            const degrees = seq.map(entry => (entry.type === 'degree' ? entry.degree : null));
+                            if (chords.length) {
+                                if (typeof this.sheetMusicGenerator.setBarMode === 'function') {
+                                    this.sheetMusicGenerator.setBarMode('per-bar');
+                                }
+                                // Pass harmonization mode to sheet music generator
+                                if (typeof this.sheetMusicGenerator.setHarmonizationMode === 'function' && this.progressionBuilder) {
+                                    const mode = this.progressionBuilder.state.harmonizationMode || 'root';
+                                    this.sheetMusicGenerator.setHarmonizationMode(mode);
+                                }
+                                if (typeof this.sheetMusicGenerator.setBarChords === 'function') {
+                                    this.sheetMusicGenerator.setBarChords(chords);
+                                    if (typeof this.sheetMusicGenerator.setBarDegrees === 'function') {
+                                        this.sheetMusicGenerator.setBarDegrees(degrees);
+                                    } else {
+                                        this.sheetMusicGenerator.state.barDegrees = degrees;
+                                        try { this.sheetMusicGenerator.render(); } catch(_) {}
+                                    }
+                                    try {
+                                        // Log harmonization mode when set via progressionSequenceChanged
+                                        const mode = this.progressionBuilder && this.progressionBuilder.state ? this.progressionBuilder.state.harmonizationMode : null;
+                                        if (!window.__interactionLog) window.__interactionLog = [];
+                                        window.__interactionLog.push({ type: 'sheetHarmonizationModeSet', details: { mode, source: 'progressionSequenceChanged' }, timestamp: new Date().toISOString() });
+                                    } catch(_) {}
+                                } else {
+                                    this.sheetMusicGenerator.state.barChords = chords;
+                                    this.sheetMusicGenerator.state.barDegrees = degrees;
+                                    try { this.sheetMusicGenerator.render(); } catch(_) {}
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('SheetMusic sync (progressionSequenceChanged) failed', e);
+                        }
+                    });
+                    // Also respond to explicit passing chord insertion events (redundant but defensive)
+                    this.chordExplorer.on('passingChordInserted', (data) => {
+                        try {
+                            // Trigger a sequence rebuild handler above by emitting a faux progressionSequenceChanged
+                            if (this.chordExplorer && typeof this.chordExplorer.ensureProgressionSequence === 'function') {
+                                const sequence = this.chordExplorer.ensureProgressionSequence();
+                                this.chordExplorer.emit('progressionSequenceChanged', { sequence });
+                            }
+                        } catch(e) { console.warn('passingChordInserted sync failed', e); }
+                    });
+                }
+                if (this.containerChordTool && this.containerChordTool.on) {
+                    this.containerChordTool.on('chordSelected', (data) => {
+                        if (this.sheetMusicGenerator) {
+                            this.sheetMusicGenerator.setCurrentChord(data.chord, { appendToBars: true });
+                        }
+                    });
+                }
+
+                // Connect progression builder to number generator and scale library
+                if (this.progressionBuilder && this.progressionBuilder.connectModules) {
+                    this.progressionBuilder.connectModules(this.numberGenerator, this.scaleLibrary);
+                }
+            }
+
+            /**
+             * Public entrypoint invoked by the NumberGenerator "Harmonize" button.
+             * Ensures the progression builder and sheet generator honor the requested
+             * harmonization mode and regenerates the progression / updates the sheet.
+             * @param {string} mode 'melody'|'harmony'|'root'
+             */
+            harmonizeCurrentSequence(mode) {
+                try {
+                    const m = mode || (this.progressionBuilder && this.progressionBuilder.state && this.progressionBuilder.state.harmonizationMode) || 'root';
+
+                    // Propagate mode into progression builder (used when generating chords for degrees)
+                    if (this.progressionBuilder && this.progressionBuilder.state) {
+                        this.progressionBuilder.state.harmonizationMode = m;
+                    }
+
+                    // Ensure progression builder has current numbers (it normally listens to numbersChanged).
+                    // If the user has manually-entered display tokens (roman numerals/chord labels),
+                    // prefer preserving those tokens and DO NOT regenerate the progression because
+                    // generation can overwrite the user's explicit choices.
+                    const hasManualDisplay = this.numberGenerator && this.numberGenerator.state && Array.isArray(this.numberGenerator.state.displayTokens) && this.numberGenerator.state.displayTokens.length > 0;
+                    if (hasManualDisplay) {
+                        try {
+                            if (!window.__interactionLog) window.__interactionLog = [];
+                            window.__interactionLog.push({ type: 'harmonizeSkippedRegenerate', details: { reason: 'manualDisplayTokensPresent', mode: m }, timestamp: new Date().toISOString() });
+                        } catch (_) {}
+                        // Inform the sheet of the harmonization mode and re-emit the display tokens so
+                        // the existing display -> sheet mapping runs under the new mode (no regeneration).
+                        if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setHarmonizationMode === 'function') {
+                            this.sheetMusicGenerator.setHarmonizationMode(m);
+                        }
+                        try {
+                            const disp = this.numberGenerator && this.numberGenerator.state && Array.isArray(this.numberGenerator.state.displayTokens)
+                                ? this.numberGenerator.state.displayTokens.slice()
+                                : null;
+                            const raw = this.numberGenerator && this.numberGenerator.state && Array.isArray(this.numberGenerator.state.displayRawTokens)
+                                ? this.numberGenerator.state.displayRawTokens.slice()
+                                : null;
+                            if (disp && disp.length) {
+                                this.numberGenerator.emit('displayTokensChanged', { tokens: disp, rawTokens: raw || disp });
+                            }
+                        } catch (_) { /* non-fatal */ }
+                        return;
+                    }
+
+                    const currentNumbers = (this.numberGenerator && typeof this.numberGenerator.getCurrentNumbers === 'function')
+                        ? this.numberGenerator.getCurrentNumbers()
+                        : [];
+                    if (this.progressionBuilder && Array.isArray(currentNumbers)) {
+                        this.progressionBuilder.state.inputNumbers = currentNumbers.slice();
+                        if (typeof this.progressionBuilder.generateProgression === 'function') {
+                            this.progressionBuilder.generateProgression();
+                        }
+                    }
+
+                    // Also inform the sheet music generator of the requested harmonization mode
+                    if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setHarmonizationMode === 'function') {
+                        this.sheetMusicGenerator.setHarmonizationMode(m);
+                    }
+
+                    // If the user has manual display tokens present, re-emit the displayTokensChanged
+                    // event so the existing handler maps tokens into the sheet with the new mode.
+                    try {
+                        const disp = this.numberGenerator && this.numberGenerator.state && Array.isArray(this.numberGenerator.state.displayTokens)
+                            ? this.numberGenerator.state.displayTokens.slice()
+                            : null;
+                        const raw = this.numberGenerator && this.numberGenerator.state && Array.isArray(this.numberGenerator.state.displayRawTokens)
+                            ? this.numberGenerator.state.displayRawTokens.slice()
+                            : null;
+                        if (disp && disp.length) {
+                            this.numberGenerator.emit('displayTokensChanged', { tokens: disp, rawTokens: raw || disp });
+                        }
+                    } catch (_) { /* non-fatal */ }
+
+                } catch (e) {
+                    console.error('harmonizeCurrentSequence failed', e);
+                }
+            }
+
+            setupEventHandlers() {
+                // No direct code here; all event handler logic should be inside listeners
+                    
+                    // Mount number generator
+                    if (this.numberGenerator && this.numberGenerator.mount) {
+                        this.numberGenerator.mount('#number-generator-container');
+                    }
+                    // Mount scale library
+                    if (this.scaleLibrary && this.scaleLibrary.mount) {
+                        this.scaleLibrary.mount('#scale-library-container');
+                        // debugLog('ScaleLibrary mounted');
+                    } else {
+                        // debugLog('ERROR: ScaleLibrary missing or invalid');
+                    }
+                    // Mount main piano visualizer
+                    if (this.pianoVisualizer && this.pianoVisualizer.mount) {
+                        this.pianoVisualizer.mount('#piano-container');
+                    }
+                    // Mount container chord tool
+                    if (this.containerChordTool && this.containerChordTool.mount) {
+                        this.containerChordTool.mount('#container-chord-container');
+                        // debugLog('ContainerChordTool mounted');
+                    } else {
+                        // debugLog('ERROR: ContainerChordTool missing or invalid');
+                    }
+                    // Mount progression builder
+                    if (this.progressionBuilder && this.progressionBuilder.mount) {
+                        this.progressionBuilder.mount('#progression-builder-container');
+                        // debugLog('ProgressionBuilder mounted');
+                    } else {
+                        // debugLog('ERROR: ProgressionBuilder missing or invalid');
+                    }
+                    // Mount scale circle explorer
+                    if (this.scaleCircleExplorer && this.scaleCircleExplorer.mount) {
+                        this.scaleCircleExplorer.mount('#scale-circle-container');
+                        // debugLog('ScaleCircleExplorer mounted');
+                    } else {
+                        // debugLog('ERROR: ScaleCircleExplorer missing or invalid');
+                    }
+                    // Mount chord explorer
+                    if (this.chordExplorer && this.chordExplorer.mount) {
+                        this.chordExplorer.mount('#chord-explorer-container');
+                    }
+                    // Mount sheet music generator under chord explorer
+                    if (this.sheetMusicGenerator && this.sheetMusicGenerator.mount) {
+                        this.sheetMusicGenerator.mount('#sheet-music-container');
+                    }
+                    // Mount solar system visualizer (dock by default if dock module present)
+                    if (this.solarSystem && this.solarSystem.mount) {
+                        const dockModule = document.getElementById('solar-docked-module');
+                        const dockedByDefault = dockModule && !dockModule.classList.contains('hidden');
+                        const mountTarget = dockedByDefault ? '#solar-dock-viewport' : '#sun-viewport';
+                        this.solarSystem.mount(mountTarget);
+                        // When docked by default, hide the sun module body
+                        if (dockedByDefault) {
+                            const sunEl = document.querySelector('.sun');
+                            if (sunEl) sunEl.style.display = 'none';
+                        }
+                    }
+                    // Mobile autodetect: add class and slightly reduce solar size scale
+                    const applyMobileClass = () => {
+                        const isMobile = window.matchMedia('(max-width: 768px)').matches || /Mobi|Android/i.test(navigator.userAgent);
+                        document.body.classList.toggle('is-mobile', !!isMobile);
+                        if (this.solarSystem && typeof this.solarSystem.setSizeScale === 'function') {
+                            this.solarSystem.setSizeScale(isMobile ? 0.9 : 1.0);
+                        }
+                    };
+                    applyMobileClass();
+                    window.addEventListener('resize', () => {
+                        applyMobileClass();
+                        if (this.solarSystem && typeof this.solarSystem.handleResize === 'function') {
+                            this.solarSystem.handleResize();
+                        }
+                    });
+                    const avBtn = document.getElementById('open-audio-visualizer');
+                    if (avBtn && this.audioVisualizer) {
+                        avBtn.addEventListener('click', () => this.audioVisualizer.open());
+                    }
+                    // Auto-play solar system if possible
+                    if (this.solarSystem && typeof this.solarSystem.start === 'function') {
+                        try { this.solarSystem.start(); } catch(e) { /* ignore */ }
+                    }
+                    // Dock/Undock control
+                    const dockBtn = document.getElementById('dock-solar');
+                    if (dockBtn) {
+                        // Set initial state for icon (docked vs undocked)
+                        const dockModule = document.getElementById('solar-docked-module');
+                        const initiallyDocked = dockModule && !dockModule.classList.contains('hidden');
+                        dockBtn.setAttribute('data-docked', initiallyDocked ? 'true' : 'false');
+
+                        dockBtn.addEventListener('click', () => {
+                            const dockModule = document.getElementById('solar-docked-module');
+                            const dockViewport = document.getElementById('solar-dock-viewport');
+                            const sunViewport = document.getElementById('sun-viewport');
+                            const isDocked = !dockModule.classList.contains('hidden');
+                            try {
+                                this.solarSystem.unmount();
+                                if (!isDocked) {
+                                    // Dock into grid
+                                    dockModule.classList.remove('hidden');
+                                    const sunEl = document.querySelector('.sun');
+                                    if (sunEl) sunEl.style.display = 'none';
+                                    this.solarSystem.mount('#solar-dock-viewport');
+                                    dockBtn.textContent = 'Undock';
+                                    // keep alternate dock button in sync
+                                    const dockAlt = document.getElementById('dock-solar-alt');
+                                    if (dockAlt) dockAlt.setAttribute('data-docked', 'true');
+                                    dockBtn.setAttribute('data-docked', 'true');
+                                } else {
+                                    // Undock back to sun
+                                    dockModule.classList.add('hidden');
+                                    const sunEl = document.querySelector('.sun');
+                                    if (sunEl) sunEl.style.display = 'flex';
+                                    this.solarSystem.mount('#sun-viewport');
+                                    dockBtn.textContent = 'Dock to Grid';
+                                    const dockAlt = document.getElementById('dock-solar-alt');
+                                    if (dockAlt) dockAlt.setAttribute('data-docked', 'false');
+                                    dockBtn.setAttribute('data-docked', 'false');
+                                }
+                            } catch (e) { console.error(e); }
+                        });
+                        // Also add alternate dock/undock listener if present in controls
+                        const dockAlt = document.getElementById('dock-solar-alt');
+                        if (dockAlt) {
+                            dockAlt.addEventListener('click', () => dockBtn.click());
+                            // set initial state on the alternate button
+                            const dockModule = document.getElementById('solar-docked-module');
+                            const initiallyDocked = dockModule && !dockModule.classList.contains('hidden');
+                            dockAlt.setAttribute('data-docked', initiallyDocked ? 'true' : 'false');
+                        }
+                    }
+                } catch (error) {
+                    // debugLog(`FATAL ERROR: ${error.message}`);
+                    console.error(error);
+                }
+            renderInitialState() {
+                // Set initial scale
+                this.scaleLibrary.setKeyAndScale('C', 'major');
+
+                // Immediately render the main piano with current scale on first load
+                if (this.pianoVisualizer && this.pianoVisualizer.renderScale) {
+                    const currentKey = this.scaleLibrary.getCurrentKey();
+                    const currentScale = this.scaleLibrary.getCurrentScale();
+                    const currentNotes = this.scaleLibrary.getCurrentScaleNotes();
+                    
+                    // First adjust the piano range to start from the selected key
+                    if (this.pianoVisualizer.adjustPianoRange) {
+                        this.pianoVisualizer.adjustPianoRange(currentKey);
+                    }
+                    
+                    // Then render the scale
+                    this.pianoVisualizer.renderScale({
+                        key: currentKey,
+                        scale: currentScale,
+                        notes: currentNotes
+                    });
+                }
+
+                // Set initial scale info for number generator
+                this.numberGenerator.setScaleInfo('C', 'major');
+
+                // Initialize container chord tool with key/scale context BEFORE generating numbers
+                // so it's ready when bubbles are clicked
+                this.containerChordTool.setKeyAndScale('C', 'major');
+
+                // Set initial numbers to a simple diatonic run [1,2,3,4,5,6,7]
+                // so all modules (Progression Builder, Sheet Music, Explorer)
+                // start from the full scale by default.
+                this.numberGenerator.setNumbers([1,2,3,4,5,6,7], this.numberGenerator.getNumberType());
+                // Re-render the number generator UI to reflect the explicit numbers
+                if (typeof this.numberGenerator.render === 'function') this.numberGenerator.render();
+                // Initialize solar system with current key/scale
+                if (this.solarSystem) {
+                    this.solarSystem.updateSystem({
+                        key: this.scaleLibrary.getCurrentKey(),
+                        scale: this.scaleLibrary.getCurrentScale(),
+                        notes: this.scaleLibrary.getCurrentScaleNotes()
+                    });
+                }
+                
+                // Initialize circle explorer
+                this.scaleCircleExplorer.setKey('C');
+                const miniPianoContainer = document.getElementById('mini-piano-visualize-container');
+                if (miniPianoContainer) {
+                    miniPianoContainer.innerHTML = this.numberGenerator.renderMiniPiano();
+                }
+                const pianoInfoContainer = document.getElementById('piano-scale-info');
+                if (pianoInfoContainer) {
+                    const currentScale = this.scaleLibrary.getCurrentScale();
+                    const tip = this.numberGenerator.getScaleTip(currentScale);
+                    const citation = this.musicTheory.getScaleCitation(currentScale, 'html');
+                    
+                    let html = '';
+                    if (tip || citation) {
+                        html = '<div class="scale-info-combined">';
+                        if (tip) html += `<div class="scale-info-tip"><strong>💡 Tip:</strong> ${tip}</div>`;
+                        if (tip && citation) html += '<div class="scale-info-divider"></div>';
+                        if (citation) html += `<div class="scale-info-citation"><strong>📚 Source:</strong> ${citation}</div>`;
+                        html += '</div>';
+                    }
+                    pianoInfoContainer.innerHTML = html;
+                }
+            }
+        }
+
+        // Debug logging
+        function debugLog(message) {
+            // const console = document.getElementById('debug-console');
+            // console.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+            // console.scrollTop = console.scrollHeight;
+        }
+
+        // Initialize the modular app when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.modularApp = new ModularMusicTheoryApp();
+            // debugLog('Application started');
+            
+            // Setup module toggle functionality
+            setupModuleControls();
+        });
+        
+        // Module toggle and collapse controls
+        function setupModuleControls() {
+            // Handle dropdown button
+            const dropdownBtn = document.getElementById('tools-dropdown-btn');
+            const dropdownPanel = document.getElementById('tools-dropdown-panel');
+            const dropdownArrow = document.getElementById('tools-dropdown-arrow');
+            
+            dropdownBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = dropdownPanel.classList.toggle('open');
+                dropdownArrow.textContent = isOpen ? '▴' : '▾';
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!dropdownPanel.contains(e.target) && e.target !== dropdownBtn) {
+                    dropdownPanel.classList.remove('open');
+                    dropdownArrow.textContent = '▾';
+                }
+            });
+            
+            // Handle checkbox toggles
+            const toggleCheckboxes = document.querySelectorAll('.module-toggle-item input[type="checkbox"]');
+            toggleCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    const moduleName = checkbox.getAttribute('data-module');
+                    const module = document.querySelector(`.planet-module[data-module="${moduleName}"]`);
+                    const sunElement = document.querySelector('.sun');
+                    
+                    if (moduleName === 'solar' && sunElement) {
+                        sunElement.style.display = checkbox.checked ? 'flex' : 'none';
+                    } else if (module) {
+                        module.classList.toggle('hidden', !checkbox.checked);
+                    }
+                });
+            });
+            
+            // Handle collapse buttons within each module
+            const collapseButtons = document.querySelectorAll('.module-collapse-btn');
+            collapseButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent drag from triggering
+                    const module = btn.closest('.planet-module');
+                    const isCollapsed = module.classList.contains('collapsed');
+                    
+                    module.classList.toggle('collapsed', !isCollapsed);
+                    btn.textContent = isCollapsed ? '−' : '+';
+                });
+            });
+            
+            // Optional: Make modules draggable (basic implementation)
+            setupModuleDrag();
+
+            // Sync initial checkbox state with module visibility
+            toggleCheckboxes.forEach(checkbox => {
+                const moduleName = checkbox.getAttribute('data-module');
+                if (moduleName === 'solar') {
+                    const sunElement = document.querySelector('.sun');
+                    const visible = !sunElement || sunElement.style.display !== 'none';
+                    checkbox.checked = visible;
+                } else {
+                    const module = document.querySelector(`.planet-module[data-module="${moduleName}"]`);
+                    const visible = module ? !module.classList.contains('hidden') : true;
+                    checkbox.checked = visible;
+                }
+            });
+        }
+        
+        function setupModuleDrag() {
+            const modules = document.querySelectorAll('.planet-module');
+            const grid = document.querySelector('.modules-grid');
+            
+            modules.forEach(module => {
+                const header = module.querySelector('.module-header');
+                let isDragging = false;
+                let startX, startY, startScrollLeft, startScrollTop;
+                
+                header.addEventListener('mousedown', (e) => {
+                    // Only drag if not clicking on collapse button
+                    if (e.target.classList.contains('module-collapse-btn')) return;
+                    
+                    isDragging = true;
+                    startX = e.pageX;
+                    startY = e.pageY;
+                    module.style.opacity = '0.7';
+                    module.style.cursor = 'grabbing';
+                    header.style.cursor = 'grabbing';
+                });
+                
+                document.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    e.preventDefault();
+                    
+                    const deltaX = e.pageX - startX;
+                    const deltaY = e.pageY - startY;
+                    
+                    // Visual feedback during drag
+                    module.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                });
+                
+                document.addEventListener('mouseup', (e) => {
+                    if (!isDragging) return;
+                    
+                    isDragging = false;
+                    module.style.opacity = '1';
+                    module.style.cursor = 'default';
+                    header.style.cursor = 'move';
+                    
+                    const deltaX = e.pageX - startX;
+                    const deltaY = e.pageY - startY;
+                    
+                    // If dragged significantly, reorder in grid
+                    if (Math.abs(deltaX) > 50 || Math.abs(deltaY) > 50) {
+                        const allModules = Array.from(grid.querySelectorAll('.planet-module'));
+                        const fromIndex = allModules.indexOf(module);
+                        
+                        // Find closest module to drop position
+                        let closestModule = null;
+                        let closestDistance = Infinity;
+                        
+                        allModules.forEach((otherModule, index) => {
+                            if (otherModule === module) return;
+                            
+                            const rect = otherModule.getBoundingClientRect();
+                            const centerX = rect.left + rect.width / 2;
+                            const centerY = rect.top + rect.height / 2;
+                            const distance = Math.sqrt(
+                                Math.pow(e.pageX - centerX, 2) + 
+                                Math.pow(e.pageY - centerY, 2)
+                            );
+                            
+                            if (distance < closestDistance) {
+                                closestDistance = distance;
+                                closestModule = otherModule;
+                            }
+                        });
+                        
+                        // Reorder if we found a close module
+                        if (closestModule && closestDistance < 200) {
+                            const toIndex = allModules.indexOf(closestModule);
+                            if (toIndex < fromIndex) {
+                                grid.insertBefore(module, closestModule);
+                            } else {
+                                grid.insertBefore(module, closestModule.nextSibling);
+                            }
+                        }
+                    }
+                    
+                    // Reset transform
+                    module.style.transform = '';
+                });
+            });
+        }
+    </script>
+    <script>
+(function() {
+    // Interaction log buffer
+    window.__interactionLog = window.__interactionLog || [];
+    function logInteraction(type, details) {
+        const entry = {
+            type,
+            details,
+            timestamp: new Date().toISOString()
+        };
+        window.__interactionLog.push(entry);
+        console.log('[InteractionLog]', entry);
+    }
+    // Click logger
+    document.addEventListener('click', function(e) {
+        let target = e.target;
+        let info = {
+            tag: target.tagName,
+            id: target.id,
+            class: target.className,
+            text: target.innerText,
+            value: target.value || null
+        };
+        logInteraction('click', info);
+    }, true);
+    // Key logger (skip manual input which has its own richer logger)
+    document.addEventListener('keydown', function(e) {
+        try {
+            if (e.target && e.target.id === 'manual-numbers') return; // manual input logged separately
+            logInteraction('keydown', {
+                key: e.key,
+                code: e.code,
+                target: e.target.tagName,
+                id: e.target.id,
+                value: e.target.value || null
+            });
+        } catch (err) { console.warn('key logger failed', err); }
+    }, true);
+    // Error logger
+    window.addEventListener('error', function(e) {
+        logInteraction('error', {
+            message: e.message,
+            filename: e.filename,
+            lineno: e.lineno,
+            colno: e.colno,
+            error: e.error ? e.error.stack : null
+        });
+    });
+    // Chord commit logger (for ModularMusicTheoryApp)
+    window.addEventListener('chordCommitted', function(e) {
+        // If a richer UI logger already recorded this commit, skip duplicate
+        try {
+            if (e.detail && e.detail._loggedByUI) return;
+        } catch (_) {}
+        logInteraction('chordCommitted', e.detail);
+    });
+    // Explorer action logger
+    window.addEventListener('explorerAction', function(e) {
+        logInteraction('explorerAction', e.detail);
+    });
+    // Sheet music state logger
+    window.addEventListener('sheetMusicUpdated', function(e) {
+        logInteraction('sheetMusicUpdated', e.detail);
+    });
+    // Save log to file (File System Access API or download)
+    async function saveLogToFile() {
+        const logStr = JSON.stringify(window.__interactionLog, null, 2);
+        if (window.showSaveFilePicker) {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: 'interaction-log.json',
+                    types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(logStr);
+                await writable.close();
+                logInteraction('save', { method: 'FileSystemAccessAPI', success: true });
+            } catch (err) {
+                logInteraction('save', { method: 'FileSystemAccessAPI', success: false, error: err });
+            }
+        } else {
+            const blob = new Blob([logStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'interaction-log.json';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 1000);
+            logInteraction('save', { method: 'download', success: true });
+        }
+    }
+    window.addEventListener('DOMContentLoaded', function() {
+        const btn = document.createElement('button');
+        btn.innerText = 'Save Interaction Log';
+        btn.style.position = 'fixed';
+        btn.style.bottom = '16px';
+        btn.style.right = '16px';
+        btn.style.zIndex = 9999;
+        btn.style.background = '#2563eb';
+        btn.style.color = 'white';
+        btn.style.border = 'none';
+        btn.style.borderRadius = '8px';
+        btn.style.padding = '8px 16px';
+        btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+        btn.onclick = saveLogToFile;
+        document.body.appendChild(btn);
+    });
+    // Utility: fire custom events from app code
+    window.logChordCommit = function(detail) {
+        // Log UI state at chord commit
+        const chordNames = Array.from(document.querySelectorAll('div.chord-name')).map(e => e.textContent);
+        const chordCards = Array.from(document.querySelectorAll('div.chord-card')).map(e => e.textContent);
+        const sheetMusicSVG = Array.from(document.querySelectorAll('div.sheet-music-svg-host')).map(e => e.innerHTML);
+        if (!window.__interactionLog) window.__interactionLog = [];
+        try { detail = Object.assign({}, detail, { _loggedByUI: true }); } catch(_) {}
+        window.__interactionLog.push({
+            type: 'chordCommitted',
+            details: detail,
+            uiState: {
+                chordNames,
+                chordCards,
+                sheetMusicSVG
+            },
+            timestamp: new Date().toISOString()
+        });
+        console.debug('[InteractionLog][UI] chordCommitted logged with uiState', { chordNames, chordCards, sheetMusicSVG });
+        window.dispatchEvent(new CustomEvent('chordCommitted', { detail }));
+    };
+    // Preview tokens logger (used during manual typing/preview)
+    window.logPreviewTokens = function(detail) {
+        // Capture UI state at preview time
+        const chordNames = Array.from(document.querySelectorAll('div.chord-name')).map(e => e.textContent);
+        const chordCards = Array.from(document.querySelectorAll('div.chord-card')).map(e => e.textContent);
+        const sheetMusicSVG = Array.from(document.querySelectorAll('div.sheet-music-svg-host')).map(e => e.innerHTML);
+        if (!window.__interactionLog) window.__interactionLog = [];
+        window.__interactionLog.push({
+            type: 'previewTokens',
+            details: detail,
+            uiState: {
+                chordNames,
+                chordCards,
+                sheetMusicSVG
+            },
+            timestamp: new Date().toISOString()
+        });
+        console.debug('[InteractionLog][UI] previewTokens logged', { detail, chordNames, chordCards });
+        try { window.dispatchEvent(new CustomEvent('previewTokens', { detail })); } catch(_) {}
+    };
+    window.logExplorerAction = function(detail) {
+        window.dispatchEvent(new CustomEvent('explorerAction', { detail }));
+    };
+    window.logSheetMusicUpdate = function(detail) {
+        window.dispatchEvent(new CustomEvent('sheetMusicUpdated', { detail }));
+    };
+    // Also log manual input changes (keydown) with UI state
+    const manualInput = document.getElementById('manual-numbers');
+    if (manualInput) {
+        manualInput.addEventListener('keydown', function(e) {
+            const chordNames = Array.from(document.querySelectorAll('div.chord-name')).map(el => el.textContent);
+            const chordCards = Array.from(document.querySelectorAll('div.chord-card')).map(el => el.textContent);
+            const sheetMusicSVG = Array.from(document.querySelectorAll('div.sheet-music-svg-host')).map(el => el.innerHTML);
+            if (!window.__interactionLog) window.__interactionLog = [];
+            const kdDetail = { key: e.key, code: e.code, target: e.target.tagName, id: e.target.id, value: e.target.value };
+            try { kdDetail._loggedByUI = true; } catch(_) {}
+            window.__interactionLog.push({
+                type: 'keydown',
+                details: kdDetail,
+                uiState: {
+                    chordNames,
+                    chordCards,
+                    sheetMusicSVG
+                },
+                timestamp: new Date().toISOString()
+            });
+            console.debug('[InteractionLog][UI] manual keydown logged', kdDetail, { chordNames, chordCards });
+        });
+    }
+})();
+    </script>
+</body>
+</html>

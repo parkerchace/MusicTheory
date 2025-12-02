@@ -1,0 +1,4088 @@
+[
+  {
+    "type": "numberBubbleRender",
+    "numberBubbles": [
+      "viiø7 ⚡",
+      "ii7 ⚡",
+      "IVmaj7 ⚡",
+      "iii7 ⚡"
+    ],
+    "noteIndicators": [
+      "B",
+      "D",
+      "F",
+      "E"
+    ],
+    "key": "C",
+    "ts": 1764557700543
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [],
+      "inputBarChords": [],
+      "finalChords": []
+    },
+    "timestamp": "2025-12-01T02:55:00.559Z"
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [],
+      "inputBarChords": [],
+      "finalChords": []
+    },
+    "timestamp": "2025-12-01T02:55:00.578Z"
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [],
+      "inputBarChords": [],
+      "finalChords": []
+    },
+    "timestamp": "2025-12-01T02:55:00.579Z"
+  },
+  {
+    "type": "sheetHarmonizationModeSet",
+    "details": {
+      "mode": "root",
+      "source": "progressionChanged"
+    },
+    "timestamp": "2025-12-01T02:55:00.579Z"
+  },
+  {
+    "type": "setBarChordsCalled",
+    "details": {
+      "caller": "setBarChords",
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7"
+        }
+      ],
+      "harmonizationMode": "root",
+      "barDegrees": []
+    },
+    "timestamp": "2025-12-01T02:55:00.579Z"
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.579Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.581Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.581Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700582
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.582Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.582Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700582
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.582Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.582Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700582
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.583Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.583Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700583
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.583Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.583Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.583Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700583
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.583Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.583Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700584
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.584Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.584Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700584
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.584Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.584Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700584
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.594Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.594Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.594Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700594
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.595Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.595Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700595
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.595Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.595Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700595
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.595Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.595Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700595
+  },
+  {
+    "type": "numberBubbleRender",
+    "numberBubbles": [
+      "viiø7 ⚡",
+      "ii7 ⚡",
+      "IVmaj7 ⚡",
+      "iii7 ⚡"
+    ],
+    "noteIndicators": [
+      "B",
+      "D",
+      "F",
+      "E"
+    ],
+    "key": "C",
+    "ts": 1764557700597
+  },
+  {
+    "type": "numberBubbleRender",
+    "numberBubbles": [
+      "viiø7 ⚡",
+      "ii7 ⚡",
+      "IVmaj7 ⚡",
+      "iii7 ⚡"
+    ],
+    "noteIndicators": [
+      "B",
+      "D",
+      "F",
+      "E"
+    ],
+    "key": "C",
+    "ts": 1764557700598
+  },
+  {
+    "type": "numberBubbleRender",
+    "numberBubbles": [
+      "viiø7 ⚡",
+      "ii7 ⚡",
+      "IVmaj7 ⚡",
+      "iii7 ⚡"
+    ],
+    "noteIndicators": [
+      "B",
+      "D",
+      "F",
+      "E"
+    ],
+    "key": "C",
+    "ts": 1764557700598
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.608Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.608Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.608Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700609
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700609
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700609
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700609
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700609
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.609Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700609
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700610
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700610
+  },
+  {
+    "type": "sheetHarmonizationModeSet",
+    "details": {
+      "mode": "root",
+      "source": "progressionChanged"
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "setBarChordsCalled",
+    "details": {
+      "caller": "setBarChords",
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7"
+        }
+      ],
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700610
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700610
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700610
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.610Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700611
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.611Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.611Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.611Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700611
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.611Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.611Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700611
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.611Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.611Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700611
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.611Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.612Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700612
+  },
+  {
+    "type": "numberBubbleRender",
+    "numberBubbles": [
+      "viiø7 ⚡",
+      "ii7 ⚡",
+      "IVmaj7 ⚡",
+      "iii7 ⚡"
+    ],
+    "noteIndicators": [
+      "B",
+      "D",
+      "F",
+      "E"
+    ],
+    "key": "C",
+    "ts": 1764557700621
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.626Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.627Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.627Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700627
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.627Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.627Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700627
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.627Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.627Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700627
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.627Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.627Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700628
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700628
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700628
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700628
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700628
+  },
+  {
+    "type": "sheetHarmonizationModeSet",
+    "details": {
+      "mode": "root",
+      "source": "progressionChanged"
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "setBarChordsCalled",
+    "details": {
+      "caller": "setBarChords",
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7"
+        }
+      ],
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.628Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700629
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700629
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700629
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700629
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "B4",
+        "D5",
+        "F5",
+        "A5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557700629
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "D4",
+        "F4",
+        "A4",
+        "C5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.629Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557700630
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "F4",
+        "A4",
+        "C5",
+        "E5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.630Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.630Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557700630
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0,
+      "voicedNotes": [
+        "E4",
+        "G4",
+        "B4",
+        "D5"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:00.630Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": false,
+      "voiceLeadingMode": "single",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0
+    },
+    "timestamp": "2025-12-01T02:55:00.630Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557700630
+  },
+  {
+    "type": "numberBubbleRender",
+    "numberBubbles": [
+      "viiø7 ⚡",
+      "ii7 ⚡",
+      "IVmaj7 ⚡",
+      "iii7 ⚡"
+    ],
+    "noteIndicators": [
+      "B",
+      "D",
+      "F",
+      "E"
+    ],
+    "key": "C",
+    "ts": 1764557700636
+  },
+  {
+    "type": "numberBubbleRender",
+    "numberBubbles": [
+      "viiø7 ⚡",
+      "ii7 ⚡",
+      "IVmaj7 ⚡",
+      "iii7 ⚡"
+    ],
+    "noteIndicators": [
+      "B",
+      "D",
+      "F",
+      "E"
+    ],
+    "key": "C",
+    "ts": 1764557700637
+  },
+  {
+    "type": "click",
+    "details": {
+      "tag": "INPUT",
+      "id": "voice-leading-combos",
+      "class": "",
+      "text": "",
+      "value": "on"
+    },
+    "timestamp": "2025-12-01T02:55:02.871Z"
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:02.872Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.210289639181532,
+      "voicedNotes": [
+        "B",
+        "D",
+        "F",
+        "A"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:02.872Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.210289639181532
+    },
+    "timestamp": "2025-12-01T02:55:02.873Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557702873
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.210289639181532,
+      "voicedNotes": [
+        "D",
+        "F",
+        "A",
+        "C"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:02.873Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.210289639181532
+    },
+    "timestamp": "2025-12-01T02:55:02.873Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557702873
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.210289639181532,
+      "voicedNotes": [
+        "F",
+        "A",
+        "C",
+        "E"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:02.874Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.210289639181532
+    },
+    "timestamp": "2025-12-01T02:55:02.874Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557702874
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.210289639181532,
+      "voicedNotes": [
+        "E",
+        "G",
+        "B",
+        "D"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:02.874Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.210289639181532
+    },
+    "timestamp": "2025-12-01T02:55:02.874Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557702874
+  },
+  {
+    "type": "sheetMusicUpdated",
+    "details": {
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "seed": 0.210289639181532
+    },
+    "timestamp": "2025-12-01T02:55:02.874Z"
+  },
+  {
+    "type": "click",
+    "details": {
+      "tag": "BUTTON",
+      "id": "",
+      "class": "",
+      "text": "🎲 Randomize",
+      "value": null
+    },
+    "timestamp": "2025-12-01T02:55:14.852Z"
+  },
+  {
+    "type": "sheetRandomizeClicked",
+    "details": {
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "autoVoicingAll": false
+    },
+    "timestamp": "2025-12-01T02:55:14.852Z"
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:14.852Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.5579042572966647,
+      "voicedNotes": [
+        "B",
+        "D",
+        "F",
+        "A"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:14.853Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.5579042572966647
+    },
+    "timestamp": "2025-12-01T02:55:14.853Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557714853
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.5579042572966647,
+      "voicedNotes": [
+        "D",
+        "F",
+        "A",
+        "C"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:14.853Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.5579042572966647
+    },
+    "timestamp": "2025-12-01T02:55:14.853Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557714853
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.5579042572966647,
+      "voicedNotes": [
+        "F",
+        "A",
+        "C",
+        "E"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:14.853Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.5579042572966647
+    },
+    "timestamp": "2025-12-01T02:55:14.853Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557714854
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.5579042572966647,
+      "voicedNotes": [
+        "E",
+        "G",
+        "B",
+        "D"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:14.854Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.5579042572966647
+    },
+    "timestamp": "2025-12-01T02:55:14.854Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557714854
+  },
+  {
+    "type": "sheetMusicUpdated",
+    "details": {
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "seed": 0.5579042572966647
+    },
+    "timestamp": "2025-12-01T02:55:14.855Z"
+  },
+  {
+    "type": "click",
+    "details": {
+      "tag": "BUTTON",
+      "id": "",
+      "class": "",
+      "text": "🎲 Randomize",
+      "value": null
+    },
+    "timestamp": "2025-12-01T02:55:15.203Z"
+  },
+  {
+    "type": "sheetRandomizeClicked",
+    "details": {
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "autoVoicingAll": false
+    },
+    "timestamp": "2025-12-01T02:55:15.203Z"
+  },
+  {
+    "type": "sheetPerBarHarmonizationTrace",
+    "details": {
+      "harmonizationMode": "root",
+      "barDegrees": [
+        7,
+        2,
+        4,
+        3
+      ],
+      "inputBarChords": [
+        {
+          "root": "B",
+          "chordType": "m7b5"
+        },
+        {
+          "root": "D",
+          "chordType": "m7"
+        },
+        {
+          "root": "F",
+          "chordType": "maj7"
+        },
+        {
+          "root": "E",
+          "chordType": "m7"
+        }
+      ],
+      "finalChords": [
+        {
+          "index": 0,
+          "root": "B",
+          "chordType": "m7b5",
+          "fullName": "Bm7b5",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 1,
+          "root": "D",
+          "chordType": "m7",
+          "fullName": "Dm7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 2,
+          "root": "F",
+          "chordType": "maj7",
+          "fullName": "Fmaj7",
+          "hasDiatonicNotes": false
+        },
+        {
+          "index": 3,
+          "root": "E",
+          "chordType": "m7",
+          "fullName": "Em7",
+          "hasDiatonicNotes": false
+        }
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:15.204Z"
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.4577226727099477,
+      "voicedNotes": [
+        "B",
+        "D",
+        "F",
+        "A"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:15.205Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 0,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.4577226727099477
+    },
+    "timestamp": "2025-12-01T02:55:15.205Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 0,
+    "chordLabel": "Bm7b5",
+    "smallNoteTexts": [
+      "B",
+      "D",
+      "F",
+      "A"
+    ],
+    "timestamp": 1764557715205
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.4577226727099477,
+      "voicedNotes": [
+        "D",
+        "F",
+        "A",
+        "C"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:15.205Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 1,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.4577226727099477
+    },
+    "timestamp": "2025-12-01T02:55:15.205Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 1,
+    "chordLabel": "Dm7",
+    "smallNoteTexts": [
+      "D",
+      "F",
+      "A",
+      "C"
+    ],
+    "timestamp": 1764557715205
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.4577226727099477,
+      "voicedNotes": [
+        "F",
+        "A",
+        "C",
+        "E"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:15.206Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 2,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.4577226727099477
+    },
+    "timestamp": "2025-12-01T02:55:15.206Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 2,
+    "chordLabel": "Fmaj7",
+    "smallNoteTexts": [
+      "F",
+      "A",
+      "C",
+      "E"
+    ],
+    "timestamp": 1764557715206
+  },
+  {
+    "type": "sheetVoicingAppliedSplit",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "voicingLogic": "smart",
+      "seed": 0.4577226727099477,
+      "voicedNotes": [
+        "E",
+        "G",
+        "B",
+        "D"
+      ]
+    },
+    "timestamp": "2025-12-01T02:55:15.206Z"
+  },
+  {
+    "type": "sheetStyleLabelRendered",
+    "details": {
+      "barIndex": 3,
+      "staffType": "grand-split",
+      "labelText": "Close",
+      "usedStyle": "close",
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "inversion": 0,
+      "harmonizationMode": "root",
+      "seed": 0.4577226727099477
+    },
+    "timestamp": "2025-12-01T02:55:15.206Z"
+  },
+  {
+    "type": "sheetSmallNoteLabels",
+    "barIndex": 3,
+    "chordLabel": "Em7",
+    "smallNoteTexts": [
+      "E",
+      "G",
+      "B",
+      "D"
+    ],
+    "timestamp": 1764557715206
+  },
+  {
+    "type": "sheetMusicUpdated",
+    "details": {
+      "voiceLeading": true,
+      "voiceLeadingMode": "multi",
+      "vlIntensity": 0.5,
+      "autoVoicingAll": false,
+      "voicingLogic": "smart",
+      "voicingStyle": "close",
+      "seed": 0.4577226727099477
+    },
+    "timestamp": "2025-12-01T02:55:15.206Z"
+  },
+  {
+    "type": "click",
+    "details": {
+      "tag": "BUTTON",
+      "id": "",
+      "class": "",
+      "text": "Save Interaction Log",
+      "value": null
+    },
+    "timestamp": "2025-12-01T02:55:19.864Z"
+  }
+]

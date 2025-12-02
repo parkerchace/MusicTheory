@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Chord Explorer Demo</title>
+    <link rel="stylesheet" href="unified-chord-explorer.css">
+    <link rel="stylesheet" href="aperture-theme.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0f172a;
+            color: #fff;
+        }
+        .demo-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .demo-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .demo-header h1 {
+            font-size: 2.5em;
+            margin: 0 0 16px 0;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .demo-header p {
+            color: #94a3b8;
+            font-size: 1.1em;
+        }
+        .demo-controls {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .control-group label {
+            display: block;
+            color: #cbd5e1;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .control-group select,
+        .control-group button {
+            width: 100%;
+            padding: 10px 16px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .control-group select:hover,
+        .control-group button:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .control-group button {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            font-weight: 600;
+        }
+        .control-group button:hover {
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+        }
+        .numbers-display {
+            background: rgba(59, 130, 246, 0.1);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #60a5fa;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        .instructions {
+            background: rgba(245, 158, 11, 0.1);
+            border-left: 4px solid #f59e0b;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        .instructions h3 {
+            margin: 0 0 12px 0;
+            color: #fbbf24;
+            font-size: 1.2em;
+        }
+        .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #cbd5e1;
+        }
+        .instructions li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>🎵 Unified Chord Explorer</h1>
+            <p>Explore scale chords, generate progressions, and discover intelligent substitutions</p>
+        </div>
+
+        <div class="instructions">
+            <h3>How to use:</h3>
+            <ul>
+                <li><strong>Select key and scale</strong> to see all diatonic chords (I-VII)</li>
+                <li><strong>Generate progression</strong> to highlight specific chord degrees</li>
+                <li><strong>Click any highlighted chord</strong> to open the radial substitution menu</li>
+                <li><strong>Radial menu shows:</strong> Secondary dominants, tritone subs, ii-V setups, modal interchange, and container chords</li>
+                <li><strong>Grades:</strong> ★★★ Perfect, ★★ Excellent, ★ Good</li>
+            </ul>
+        </div>
+
+        <div class="demo-controls">
+            <div class="control-group">
+                <label>Key:</label>
+                <select id="keySelect">
+                    <option value="C">C</option>
+                    <option value="C#">C# / Db</option>
+                    <option value="D">D</option>
+                    <option value="D#">D# / Eb</option>
+                    <option value="E">E</option>
+                    <option value="F">F</option>
+                    <option value="F#">F# / Gb</option>
+                    <option value="G">G</option>
+                    <option value="G#">G# / Ab</option>
+                    <option value="A">A</option>
+                    <option value="A#">A# / Bb</option>
+                    <option value="B">B</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Scale:</label>
+                <select id="scaleSelect">
+                    <option value="major">Major</option>
+                    <option value="minor">Natural Minor</option>
+                    <option value="dorian">Dorian</option>
+                    <option value="phrygian">Phrygian</option>
+                    <option value="lydian">Lydian</option>
+                    <option value="mixolydian">Mixolydian</option>
+                    <option value="locrian">Locrian</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Progression:</label>
+                <button id="generateBtn">Generate Random Progression</button>
+            </div>
+
+            <div class="control-group">
+                <label>Current progression:</label>
+                <div id="numbersDisplay" class="numbers-display">Click Generate</div>
+            </div>
+        </div>
+
+        <div id="explorerContainer"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="music-theory-engine.js"></script>
+    <script src="unified-chord-explorer.js"></script>
+    <script>
+        // Initialize
+        const musicTheory = new MusicTheoryEngine();
+        const explorer = new UnifiedChordExplorer(musicTheory);
+
+        // Enable exhaustive mode by default to show ALL substitutions
+        explorer.setExhaustiveMode(true);
+        
+        // Set initial complexity high to allow more substitutions
+        explorer.state.complexity = 100;
+
+        // Append to page
+        document.getElementById('explorerContainer').appendChild(explorer.getElement());
+
+        // Controls
+        const keySelect = document.getElementById('keySelect');
+        const scaleSelect = document.getElementById('scaleSelect');
+        const generateBtn = document.getElementById('generateBtn');
+        const numbersDisplay = document.getElementById('numbersDisplay');
+
+        // Initial render
+        explorer.setKeyAndScale('C', 'major');
+        explorer.render();
+        
+        // Debug: log chord formulas available
+        console.log('Available chord formulas:', Object.keys(musicTheory.chordFormulas).length);
+        console.log('Exhaustive mode:', explorer.state.exhaustiveMode);
+
+        // Key/Scale change handlers
+        keySelect.addEventListener('change', () => {
+            explorer.setKeyAndScale(keySelect.value, scaleSelect.value);
+        });
+
+        scaleSelect.addEventListener('change', () => {
+            explorer.setKeyAndScale(keySelect.value, scaleSelect.value);
+        });
+
+        // Generate progression
+        generateBtn.addEventListener('click', () => {
+            const progressionPatterns = [
+                [2, 5, 1],           // ii-V-I
+                [1, 6, 2, 5],        // I-vi-ii-V
+                [1, 4, 5],           // I-IV-V
+                [6, 4, 1, 5],        // vi-IV-I-V
+                [1, 5, 6, 4],        // I-V-vi-IV
+                [4, 5, 3, 6],        // IV-V-iii-vi
+                [1, 3, 6, 4, 2, 5]   // Extended
+            ];
+
+            const randomPattern = progressionPatterns[Math.floor(Math.random() * progressionPatterns.length)];
+            explorer.state.progressionDegrees = randomPattern;
+            explorer.render();
+
+            numbersDisplay.textContent = randomPattern.join(' - ');
+        });
+
+        // Listen to substitution selection
+        explorer.on('substitutionSelected', (data) => {
+            console.log('Substitution selected:', data);
+            alert(`Substituted ${data.original.fullName} with ${data.substitution.fullName}\n\nType: ${data.substitution.type}\nGrade: ${data.substitution.grade || 'N/A'}`);
+        });
+
+        // Listen to radial menu events
+        explorer.on('radialMenuOpened', (data) => {
+            console.log('Radial menu opened for:', data.chord);
+            console.log('Total substitutions generated:', data.substitutions.length);
+            console.log('Available substitutions:', data.substitutions);
+        });
+    </script>
+</body>
+</html>

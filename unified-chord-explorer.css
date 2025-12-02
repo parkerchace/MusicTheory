@@ -1,0 +1,705 @@
+/* Unified Chord Explorer Styles */
+
+.unified-chord-explorer {
+    padding: 20px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.chord-explorer-header {
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.chord-explorer-header h3 {
+    color: #fff;
+    font-size: 1.8em;
+    margin: 0 0 8px 0;
+    font-weight: 600;
+}
+
+.chord-explorer-header .hint {
+    color: #94a3b8;
+    font-size: 0.9em;
+    margin: 0;
+}
+
+.layout-mode-wrapper {
+
+    margin-left: 10px;
+}
+.layout-mode-select {
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #666;
+    background: #1e1e1e;
+    color: #ddd;
+}
+.layout-mode-select:focus {
+    outline: 1px solid #999;
+}
+
+/* Chord Grid */
+.chord-explorer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Chord Card */
+.chord-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.chord-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.chord-card:hover::before {
+    opacity: 1;
+}
+
+.chord-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+/* Progression highlighting */
+.chord-card.in-progression {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+    border-color: #3b82f6;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.chord-card.in-progression.clickable {
+    padding: 10px 12px;
+}
+
+.chord-card.in-progression::before {
+    opacity: 1;
+}
+
+.chord-card.clickable {
+    cursor: pointer;
+}
+
+.chord-card.clickable:hover {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3));
+    border-color: #60a5fa;
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+}
+
+.chord-card.in-progression.clickable .chord-degree {
+    font-size: 0.8em;
+    margin: 4px 0 4px 0;
+}
+
+.chord-card.in-progression.clickable .chord-name {
+    font-size: 1.2em;
+    margin-bottom: 4px;
+}
+
+/* Substitution visual markers */
+.chord-card.substituted {
+    border-style: dashed;
+}
+
+.substitution-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Insert plus button to add passing chords */
+.insert-plus {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.12);
+    background: rgba(30, 30, 40, 0.9);
+    color: #fff;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.insert-plus.left {
+    left: -10px;
+}
+
+.insert-plus.right {
+    right: -10px;
+}
+
+.insert-plus:hover {
+    transform: translateY(-50%) scale(1.06);
+    box-shadow: 0 10px 26px rgba(59,130,246,0.18);
+}
+
+.chord-card.plus-pressed {
+    outline: 2px solid rgba(59,130,246,0.22);
+}
+
+/* Chord degree (Roman numeral) */
+.chord-degree {
+    font-size: 0.9em; /* de-emphasize numeral */
+    font-weight: 700;
+    color: rgba(255,255,255,0.65);
+    margin: 6px 0 8px 0;
+    font-family: 'Georgia', serif;
+    /* Removed forced uppercase so minor, diminished and half-diminished numerals can show in lowercase with ø/° */
+}
+
+/* Chord name */
+.chord-name {
+    font-size: 1.5em; /* emphasize chord name */
+    color: #ffffff;
+    margin-bottom: 6px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+}
+
+/* Function tags */
+.chord-functions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+}
+
+.function-tag {
+    font-size: 0.7em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.function-tag.tonic {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid #10b981;
+}
+
+.function-tag.dominant {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid #ef4444;
+}
+
+.function-tag.predominant,
+.function-tag.subdominant {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+}
+
+.function-tag.supertonic,
+.function-tag.submediant,
+.function-tag.leading-tone {
+    background: rgba(139, 92, 246, 0.2);
+    color: #8b5cf6;
+    border: 1px solid #8b5cf6;
+}
+
+/* Radial Menu System */
+.radial-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.radial-menu {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    animation: radialExpand 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes radialExpand {
+    from {
+        transform: scale(0);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Center node (original chord) */
+.radial-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4);
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    z-index: 10;
+}
+
+.center-chord {
+    font-size: 1em;
+    font-weight: 700;
+    color: #fff;
+}
+
+.center-label {
+    font-size: 0.65em;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+
+/* Radial nodes (substitutions) */
+.radial-node {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 90px;
+    min-height: 75px;
+    background: rgba(30, 30, 30, 0.95);
+    border-radius: 12px;
+    transform-origin: center center;
+    margin: -37.5px 0 0 -45px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    animation: nodeAppear 0.3s ease forwards;
+    /* Make nodes visible by default; animation still fades but from 1 to 1 visually */
+    opacity: 1;
+}
+
+.radial-center .center-summary {
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    opacity: 0.9;
+    text-align: center;
+}
+
+.radial-center .center-summary-line {
+    white-space: nowrap;
+}
+
+.radial-node.root-cluster {
+    background: linear-gradient(145deg, #1e293b 0%, #334155 100%);
+    border: 2px solid #64748b;
+}
+
+.radial-node.root-cluster:hover {
+    border-color: #94a3b8;
+    box-shadow: 0 0 0 3px rgba(148,163,184,0.35);
+}
+
+.radial-menu.cluster-mode .radial-node.cluster-member.cat-dominant { border-color: #ef4444; }
+.radial-menu.cluster-mode .radial-node.cluster-member.cat-altered { border-color: #fb923c; }
+.radial-menu.cluster-mode .radial-node.cluster-member.cat-extended { border-color: #6366f1; }
+.radial-menu.cluster-mode .radial-node.cluster-member.cat-major { border-color: #10b981; }
+.radial-menu.cluster-mode .radial-node.cluster-member.cat-minor { border-color: #0ea5e9; }
+.radial-menu.cluster-mode .radial-node.cluster-member.cat-sus_add { border-color: #d97706; }
+.radial-menu.cluster-mode .radial-node.cluster-member.cat-dim_aug { border-color: #8b5cf6; }
+
+.cluster-category-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, -50%);
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    color: #f1f5f9;
+    font-size: 11px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    text-transform: uppercase;
+}
+/* removed stray declarations */
+
+/* Family-specific border colors */
+.radial-node.family-dominant {
+    border-color: #ef4444;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(30, 30, 30, 0.95));
+}
+
+.radial-node.family-secondary {
+    border-color: #fb923c;
+    background: linear-gradient(135deg, rgba(251, 146, 60, 0.15), rgba(30, 30, 30, 0.95));
+}
+
+.radial-node.family-tonic {
+    border-color: #10b981;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(30, 30, 30, 0.95));
+}
+
+.radial-node.family-modal {
+    border-color: #8b5cf6;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(30, 30, 30, 0.95));
+}
+
+.radial-node.family-extension {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(30, 30, 30, 0.95));
+}
+
+.radial-node.family-mediant {
+    border-color: #ec4899;
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(30, 30, 30, 0.95));
+}
+
+@keyframes nodeAppear {
+    to {
+        opacity: 1;
+    }
+}
+
+.radial-node:hover {
+    transform: translate(0, 0) scale(1.15);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.7);
+    z-index: 15;
+}
+
+/* Enhanced hover for family nodes */
+.radial-node.family-dominant:hover {
+    border-color: #ef4444;
+    box-shadow: 0 8px 32px rgba(239, 68, 68, 0.5);
+}
+
+.radial-node.family-secondary:hover {
+    border-color: #fb923c;
+    box-shadow: 0 8px 32px rgba(251, 146, 60, 0.5);
+}
+
+.radial-node.family-tonic:hover {
+    border-color: #10b981;
+    box-shadow: 0 8px 32px rgba(16, 185, 129, 0.5);
+}
+
+.radial-node.family-modal:hover {
+    border-color: #8b5cf6;
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.5);
+}
+
+.radial-node.family-extension:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.5);
+}
+
+.radial-node.family-mediant:hover {
+    border-color: #ec4899;
+    box-shadow: 0 8px 32px rgba(236, 72, 153, 0.5);
+}
+
+.node-chord {
+    font-size: 0.95em;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.node-label {
+    font-size: 0.7em;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.node-grade {
+    font-size: 0.9em;
+    color: #fbbf24;
+    margin-top: 4px;
+    text-align: center;
+}
+
+.node-voice-leading {
+    font-size: 0.65em;
+    color: rgba(148, 163, 184, 0.8);
+    margin-top: 4px;
+    font-style: italic;
+    text-align: center;
+    max-width: 85px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Tooltips for substitution details */
+.node-tooltip {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    background: rgba(15, 15, 25, 0.98);
+    border: 2px solid currentColor;
+    border-radius: 10px;
+    padding: 12px 16px;
+    min-width: 220px;
+    max-width: 320px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10000;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(12px);
+}
+
+.radial-node.family-dominant .node-tooltip { border-color: #ef4444; }
+.radial-node.family-secondary .node-tooltip { border-color: #fb923c; }
+.radial-node.family-tonic .node-tooltip { border-color: #10b981; }
+.radial-node.family-modal .node-tooltip { border-color: #8b5cf6; }
+.radial-node.family-extension .node-tooltip { border-color: #3b82f6; }
+.radial-node.family-mediant .node-tooltip { border-color: #ec4899; }
+
+.radial-node:hover .node-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+}
+
+.node-tooltip strong {
+    display: block;
+    font-size: 1em;
+    color: #fff;
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.tooltip-type {
+    font-size: 0.75em;
+    color: currentColor;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.radial-node.family-dominant .tooltip-type { color: #ef4444; }
+.radial-node.family-secondary .tooltip-type { color: #fb923c; }
+.radial-node.family-tonic .tooltip-type { color: #10b981; }
+.radial-node.family-modal .tooltip-type { color: #8b5cf6; }
+.radial-node.family-extension .tooltip-type { color: #3b82f6; }
+.radial-node.family-mediant .tooltip-type { color: #ec4899; }
+
+.tooltip-voice {
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 8px;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.tooltip-desc {
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.65);
+    line-height: 1.5;
+}
+
+/* Family arc backgrounds for visual grouping */
+.family-arc {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.3;
+    transition: opacity 0.3s ease;
+    z-index: 2;
+    mix-blend-mode: screen;
+}
+
+.radial-menu:hover .family-arc {
+    opacity: 0.5;
+}
+
+/* Center node hint */
+.center-hint {
+    font-size: 0.6em;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+/* Grade-specific colors for nodes */
+.radial-node.grade-perfect {
+    border-color: #10b981;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(30, 30, 30, 0.95));
+}
+
+.radial-node.grade-perfect:hover {
+    border-color: #10b981;
+    box-shadow: 0 6px 30px rgba(16, 185, 129, 0.4);
+}
+
+.radial-node.grade-excellent {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(30, 30, 30, 0.95));
+}
+
+.radial-node.grade-excellent:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 6px 30px rgba(59, 130, 246, 0.4);
+}
+
+.radial-node.grade-good {
+    border-color: #8b5cf6;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(30, 30, 30, 0.95));
+}
+
+.radial-node.grade-good:hover {
+    border-color: #8b5cf6;
+    box-shadow: 0 6px 30px rgba(139, 92, 246, 0.4);
+}
+
+/* Connection lines */
+.radial-line {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.05));
+    transform-origin: left center;
+    pointer-events: none;
+    z-index: 1;
+    animation: lineGrow 0.4s ease forwards;
+}
+
+/* Family-specific line colors */
+.radial-line.family-dominant {
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.5), rgba(239, 68, 68, 0.05));
+}
+
+.radial-line.family-secondary {
+    background: linear-gradient(90deg, rgba(251, 146, 60, 0.5), rgba(251, 146, 60, 0.05));
+}
+
+.radial-line.family-tonic {
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.5), rgba(16, 185, 129, 0.05));
+}
+
+.radial-line.family-modal {
+    background: linear-gradient(90deg, rgba(139, 92, 246, 0.5), rgba(139, 92, 246, 0.05));
+}
+
+.radial-line.family-extension {
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.5), rgba(59, 130, 246, 0.05));
+}
+
+.radial-line.family-mediant {
+    background: linear-gradient(90deg, rgba(236, 72, 153, 0.5), rgba(236, 72, 153, 0.05));
+}
+
+@keyframes lineGrow {
+    from {
+        width: 0;
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .chord-explorer-grid {
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 12px;
+    }
+
+    .chord-card {
+        padding: 12px;
+    }
+
+    .chord-degree {
+        font-size: 1.6em;
+    }
+
+    .chord-name {
+        font-size: 0.95em;
+    }
+
+    .radial-center {
+        width: 70px;
+        height: 70px;
+    }
+
+    .center-chord {
+        font-size: 0.9em;
+    }
+
+    .radial-node {
+        width: 75px;
+        min-height: 65px;
+        margin: -32.5px 0 0 -37.5px;
+    }
+}

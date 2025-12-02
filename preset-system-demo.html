@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preset System Demo - Unified Chord Explorer</title>
+    <link rel="stylesheet" href="unified-chord-explorer.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #e2e8f0;
+        }
+        .demo-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .demo-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .demo-header h1 {
+            font-size: 2.5em;
+            margin: 0 0 10px 0;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .demo-header p {
+            color: #94a3b8;
+            font-size: 1.1em;
+        }
+        .preset-showcase {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .preset-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .preset-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        .preset-card.active {
+            border-color: #3b82f6;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+        .preset-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.3em;
+        }
+        .preset-card .theory {
+            color: #94a3b8;
+            font-size: 0.9em;
+            margin-bottom: 12px;
+        }
+        .preset-card .color-samples {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .color-sample {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        .stats {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .stats strong {
+            color: #3b82f6;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>🎵 Music Theory Preset System</h1>
+            <p>Explore different theoretical perspectives through color-coded visualization</p>
+        </div>
+
+        <div class="preset-showcase" id="presetShowcase">
+            <!-- Preset cards will be generated here -->
+        </div>
+
+        <div id="explorerContainer"></div>
+
+        <div class="stats">
+            <p><strong id="currentPresetName">Functional Harmony</strong> preset active</p>
+            <p id="theoryNote">Colors encode harmonic function following Rameau/Riemann tradition</p>
+        </div>
+    </div>
+
+    <script src="music-theory-engine.js"></script>
+    <script src="unified-chord-explorer.js"></script>
+    <script>
+        // Initialize engine and explorer
+        const engine = new MusicTheoryEngine();
+        const explorer = new UnifiedChordExplorer(engine);
+        
+        // Mount explorer
+        document.getElementById('explorerContainer').appendChild(explorer.getElement());
+        
+        // Set key and scale
+        explorer.setKeyAndScale('C', 'major');
+        
+        // Enable exhaustive mode for demo
+        explorer.setExhaustiveMode(true);
+        
+        // Create preset showcase cards
+        const showcaseContainer = document.getElementById('presetShowcase');
+        const presets = explorer.presets;
+        
+        Object.entries(presets).forEach(([key, preset]) => {
+            const card = document.createElement('div');
+            card.className = `preset-card ${key === explorer.state.currentPreset ? 'active' : ''}`;
+            card.dataset.preset = key;
+            
+            // Create color samples
+            const colorSamples = Object.entries(preset.familyColors)
+                .slice(0, 6)
+                .map(([family, color]) => `<div class="color-sample" style="background: ${color};" title="${family}"></div>`)
+                .join('');
+            
+            card.innerHTML = `
+                <h3>${preset.name}</h3>
+                <div class="theory">${preset.description}</div>
+                <div class="color-samples">${colorSamples}</div>
+            `;
+            
+            card.addEventListener('click', () => {
+                // Update active state
+                document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                
+                // Switch preset
+                explorer.setPreset(key);
+                
+                // Update stats
+                document.getElementById('currentPresetName').textContent = preset.name;
+                document.getElementById('theoryNote').textContent = preset.theory;
+            });
+            
+            showcaseContainer.appendChild(card);
+        });
+        
+        // Listen for preset changes
+        explorer.on('presetChanged', (data) => {
+            console.log('✨ Preset changed to:', data.preset);
+            console.log('Config:', data.config);
+        });
+        
+        // Listen for radial menu events
+        explorer.on('radialMenuOpened', (data) => {
+            console.log('🎯 Radial menu opened for:', data.chord.fullName);
+            console.log('Substitutions:', data.substitutions.length);
+        });
+        
+        explorer.on('substitutionHover', (data) => {
+            console.log('👉 Hovering:', data.substitution.fullName, '→', data.original.fullName);
+        });
+        
+        // Simulate a progression for demo
+        setTimeout(() => {
+            // Fake progression: I-IV-V-I
+            explorer.state.progressionDegrees = [1, 4, 5, 1];
+            explorer.render();
+            console.log('📊 Demo progression loaded: I-IV-V-I');
+            console.log('💡 Click any highlighted chord to explore substitutions');
+            console.log('🎨 Try different presets to see theoretical perspectives');
+        }, 500);
+        
+        console.log('%c🎵 Unified Chord Explorer - Preset System Demo', 'font-size: 16px; font-weight: bold; color: #3b82f6;');
+        console.log('%cAvailable presets:', 'font-weight: bold;', Object.keys(presets).join(', '));
+        console.log('%cAPI: explorer.setPreset(name)', 'color: #10b981;');
+    </script>
+</body>
+</html>

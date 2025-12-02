@@ -1,0 +1,39 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20251122230317
+Username: DESKTOP-8MPU3HB\spark
+RunAs User: DESKTOP-8MPU3HB\spark
+Configuration Name: 
+Machine: DESKTOP-8MPU3HB (Microsoft Windows NT 10.0.26200.0)
+Host Application: powershell -NoProfile -ExecutionPolicy Bypass -Command $t=Get-Date -Format 'yyyyMMdd_HHmmss'; $log=Join-Path (Get-Location) ('logs/master_setup_' + $t + '.log'); Start-Transcript -Path $log -Force; $cmd = 'call "' + $env:THIS_BATCH + '" --logged'; cmd.exe /c $cmd; Stop-Transcript
+Process ID: 26244
+PSVersion: 5.1.26100.7019
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.7019
+BuildVersion: 10.0.26100.7019
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is C:\Users\spark\OneDrive - american.edu\music theory app\music theory v11\logs\master_setup_20251122_230316.log
+
+=============================================================
+===========
+                          GOODBYE
+=============================================================
+===========
+
+Quick reference:
+  - Setup check:   SETUP_CHECK.bat
+  - Build plugin:  cd vst3-plugin; QUICK_BUILD.bat
+  - Start server:  START_SERVER.bat
+  - Full guide:    BUILD_AND_RUN.md
+
+Good luck with your music theory project ��
+
+Press any key to continue . . .
+**********************
+Windows PowerShell transcript end
+End time: 20251122230818
+**********************
