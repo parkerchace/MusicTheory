@@ -1,5 +1,7 @@
 # 📑 Complete File Index - Music Theory VST3 Project
 
+> Note: VST3 plugin and MIDI server components are optional. The core browser app runs standalone.
+
 ## 🎯 START HERE Files
 
 | File | Purpose | When to Use |
@@ -36,7 +38,7 @@
 | `README.md` | `vst3-plugin/` - Plugin technical details |
 | `QUICK_REFERENCE.txt` | Command cheat sheet |
 
-## 💻 VST3 Plugin Source Code
+## 💻 VST3 Plugin Source Code (Optional)
 
 ### Core Plugin Files
 ```
@@ -63,7 +65,7 @@ vst3-plugin/
 └── build_plugin.ps1                  ✅ PowerShell alternative
 ```
 
-## 🐍 Python MIDI Server
+## 🐍 Python MIDI Server (Optional)
 
 | File | Description |
 |------|-------------|

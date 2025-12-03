@@ -1,5 +1,7 @@
 # Music Theory VST3 Plugin - QUICK START
 
+> Note (Optional): This quick start is optional. You can use the core browser app without building or installing the VST3 plugin.
+
 ## 🚀 Fast Track (Under 10 Minutes)
 
 ### Step 1: Get VST3 SDK (2 min)

@@ -1,5 +1,7 @@
 # 🎵 Music Theory App - Complete Build & Run Guide
 
+> Note (Optional): VST3 plugin and MIDI server steps are optional. For browser-only usage, you can simply open `modular-music-theory.html` and ignore VST3/Bitwig/server sections.
+
 ## ⚡ QUICK START (5 Commands)
 
 ```powershell
@@ -74,7 +76,7 @@ Or manually:
 py -m pip install fastapi uvicorn mido python-rtmidi
 ```
 
-### Step 3: Build VST3 Plugin
+### Step 3: Build VST3 Plugin (Optional)
 
 #### Option A: Quick Build (Easiest)
 ```powershell
@@ -98,7 +100,7 @@ cmake --build . --config Release
 cmake --install . --config Release
 ```
 
-### Step 4: Install Plugin
+### Step 4: Install Plugin (Optional)
 Copy the built plugin:
 ```powershell
 copy vst3-plugin\build\Release\MusicTheoryVST3.vst3 "C:\Program Files\Common Files\VST3\"

@@ -1,5 +1,7 @@
 # Bitwig MIDI Integration Guide
 
+> Note (Optional): This integration is optional. The core browser app works without Bitwig, the MIDI server, or the VST3 plugin.
+
 This document explains how to stream the rendered sheet music progression into Bitwig Studio on Windows using the included FastAPI MIDI microservice and the `bitwig-midi.js` front‑end client.
 
 ## Overview

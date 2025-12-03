@@ -1,6 +1,8 @@
 Build Status Notes
 ===================
 
+> Note (Optional): This build status pertains to the optional VST3 plugin. The core browser app can be used without building the plugin or running a MIDI server.
+
 Current Source Files Added:
 - src/network/HttpClient.h / HttpClient.cpp (async libcurl POST queue)
 - src/plugin/MusicTheoryPlugin.h / .cpp (MIDI accumulation, bar-flush, duration estimation)

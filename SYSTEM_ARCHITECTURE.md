@@ -1,5 +1,7 @@
 # Music Theory VST3 System Architecture
 
+> Note (Optional): This architecture covers the optional DAW/VST + MIDI server pipeline. The core browser app can be used without this stack.
+
 ## 🎹 Complete Data Flow Diagram
 
 ```

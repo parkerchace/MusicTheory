@@ -1,5 +1,7 @@
 # 🎯 FINAL STATUS - Music Theory VST3 Plugin
 
+> Note (Optional): This status pertains to the optional DAW/VST bridge. The core browser app does not require the plugin or MIDI server.
+
 ## ✅ COMPLETED
 
 ### Source Code

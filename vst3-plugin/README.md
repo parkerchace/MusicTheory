@@ -1,5 +1,7 @@
 # MusicTheory VST3 Plugin (Prototype)
 
+> Note (Optional): This plugin is optional. The main browser app works without the VST3 plugin or MIDI server.
+
 This VST3 plugin acts as a bridge between a DAW (e.g., Bitwig, Cubase, Reaper) and the local Sheet Music MIDI Server (`tools/bitwig_midi_server.py`). It captures incoming MIDI notes for each bar (based on host tempo), groups simultaneous notes into chords, and sends them asynchronously to the server via HTTP.
 
 ## Goals
