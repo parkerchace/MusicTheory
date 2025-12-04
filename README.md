@@ -217,14 +217,15 @@ const numberGen = new NumberGenerator();
 const scaleLib = new ScaleLibrary(musicTheory);
 const chordExplorer = new UnifiedChordExplorer(musicTheory);
 
-// Set up event listeners
-numberGen.on('numbersChanged', (data) => {
-    console.log('New numbers:', data.numbers);
-    // Update chord grid to current key/scale
-    chordExplorer.setKeyAndScale('C', 'major');
-    // Highlight progression from numbers
-    chordExplorer.highlightProgression(data.numbers);
-});
+// Connect modules (they communicate via events)
+chordExplorer.connectNumberGenerator(numberGen);
+chordExplorer.connectScaleLibrary(scaleLib);
+
+// Set key/scale
+chordExplorer.setKeyAndScale('C', 'major');
+
+// Now when numbers change, chord explorer updates automatically
+numberGen.generateNumbers(4, 'diatonic'); // Chord explorer shows progression
 ```
 
 ### Complete Application
@@ -319,11 +320,14 @@ const explorer = new UnifiedChordExplorer(theory);
 // Display diatonic chord grid for current key/scale
 explorer.setKeyAndScale('C', 'major');
 
-// Highlight progression from number generator
-explorer.highlightProgression([2, 5, 1]); // Highlights ii, V, I
+// Connect to number generator for automatic progression highlighting
+const numberGen = new NumberGenerator();
+explorer.connectNumberGenerator(numberGen);
+numberGen.generateNumbers(3, 'diatonic'); // Explorer highlights progression
 
 // Open radial substitution menu for a chord
-explorer.openRadialMenu({root: 'G', chordType: '7', degree: 5});
+const chord = {root: 'G', chordType: '7', fullName: 'G7', degree: 5};
+explorer.openRadialMenu(chord, null, 0);
 
 // Event handling
 explorer.on('chordSelected', callback)
@@ -332,9 +336,24 @@ explorer.on('chordSelected', callback)
 ### ProgressionBuilder
 ```javascript
 const progression = new ProgressionBuilder(theory);
-progression.buildProgressionFromNumbers([2, 5, 1], 'C', 'major');
-progression.applyDirection('to_tonic');
-progression.ensureCadence();
+
+// Connect to number generator and scale library
+const numberGen = new NumberGenerator();
+const scaleLib = new ScaleLibrary(theory);
+progression.connectModules(numberGen, scaleLib);
+
+// Set key/scale
+progression.state.currentKey = 'C';
+progression.state.currentScale = 'major';
+
+// Set complexity and adventure parameters
+progression.state.complexity = 50; // 0-100: triads to 13ths
+progression.state.adventure = 50; // 0-100: diatonic to chromatic
+
+// Generate progression from numbers (happens automatically when connected)
+numberGen.generateNumbers(4, 'diatonic'); // Progression builder generates chords
+
+// Event handling
 progression.on('progressionChanged', callback);
 ```
 
@@ -342,14 +361,20 @@ progression.on('progressionChanged', callback);
 ```javascript
 const containerTool = new ContainerChordTool(theory);
 
-// Find chords containing specific notes
-containerTool.setInputNotes(['C', 'E']);
+// Set key/scale context
 containerTool.setKeyAndScale('C', 'major');
-containerTool.findContainerChords();
 
-// Set filter and grade
+// Set input notes to find containing chords
+containerTool.setInputNotes(['C', 'E']);
+
+// Set filter complexity
 containerTool.setFilter('sevenths'); // 'all', 'triads', 'sevenths', 'extended'
-containerTool.setGradeFilter('excellent'); // 'all', 'perfect', 'excellent', 'good'
+
+// Analyze and get results
+containerTool.analyze(); // Finds all chords containing C and E
+
+// Results are available in containerTool.state.results
+// Each result has: {root, chordType, fullName, notes, grade, matchPercent}
 
 // Event handling
 containerTool.on('chordSelected', callback);
@@ -468,8 +493,7 @@ music-theory-system/
 │   ├── FILE_INDEX.md                    # Complete file index
 │   ├── FINAL_STATUS.md                  # Project status
 │   ├── SYSTEM_ARCHITECTURE.md           # Optional: VST3 architecture
-│   ├── BITWIG_MIDI_INTEGRATION.md       # Optional: DAW integration
-│   └── README_GIT_PUSH_GUI.md           # Optional: Git tools
+│   └── BITWIG_MIDI_INTEGRATION.md       # Optional: DAW integration
 │
 ├── 🔧 Tools & Utilities
 │   ├── tools/                           # Update and validation scripts
@@ -509,20 +533,41 @@ console.log('Dorian scale:', notes); // C, D, Eb, F, G, A, Bb
 
 ### Example 2: Chord Progression Building
 ```javascript
+const theory = new MusicTheoryEngine();
 const progression = new ProgressionBuilder(theory);
-progression.buildProgressionFromNumbers([2, 5, 1], 'C', 'major');
-const prog = progression.getCurrentProgression();
-console.log('Progression:', prog.chords); // Dm7, G7, Cmaj7
+const numberGen = new NumberGenerator();
+
+// Connect modules
+progression.connectModules(numberGen, null);
+progression.state.currentKey = 'C';
+progression.state.currentScale = 'major';
+
+// Generate numbers - progression builder responds automatically
+numberGen.state.numbers = [2, 5, 1];
+numberGen.emit('numbersChanged', {numbers: [2, 5, 1]});
+
+// Access generated progression
+console.log('Progression:', progression.state.currentProgression); // Array of chord objects
 ```
 
 ### Example 3: Unified Chord Explorer
 ```javascript
+const theory = new MusicTheoryEngine();
 const explorer = new UnifiedChordExplorer(theory);
+const numberGen = new NumberGenerator();
+
+// Connect number generator
+explorer.connectNumberGenerator(numberGen);
+
 // Display diatonic chord grid for C major
 explorer.setKeyAndScale('C', 'major');
-// Highlight a progression (e.g., ii-V-I)
-explorer.highlightProgression([2, 5, 1]);
-// Open radial menu for chord substitutions
+
+// Generate progression - explorer highlights automatically
+numberGen.state.numbers = [2, 5, 1];
+numberGen.emit('numbersChanged', {numbers: [2, 5, 1]});
+
+// Progression is now highlighted in the chord grid
+```
 explorer.openRadialMenu({root: 'G', chordType: '7', degree: 5});
 ```
 
