@@ -26,83 +26,146 @@ This system provides professional-grade music theory tools including:
 - **Container chord analysis** with filtering and grading
 - **Scale degree transformations** (retrograde, invert, rotate, randomize)
 
-Originally a single 5600+ line HTML file that was way too difficult to manage, now modularized into independent components that can be used separately or together.
+Originally a single HTML file that was way too difficult to manage, now modularized into independent components that can be used separately or together.
 
 ## ✨ Features
 
 ### 🎲 Number Generator
-- Multiple number types (Diatonic 1-7, Barry Harris 8-Tone, Extended 1-14, Chromatic 1-12)
-- Mathematical transformations (retrograde, inversion, rotation, randomization)
-- History management with undo/redo
-- Event-driven architecture
+- **Generation Logic Modes**:
+  - **Random**: Pure random selection within range
+  - **Melodic**: Stepwise motion with occasional leaps
+  - **Harmonic**: Common chord progression patterns (I-IV-V, ii-V-I)
+  - **Chord Tones**: Arpeggios based on current scale harmony
+  - **Functional**: Logic based on Tonic/Subdominant/Dominant function
+- **Transformations**:
+  - **Retrograde**: Reverses the sequence
+  - **Invert**: Inverts numbers around an axis
+  - **Rotate**: Shifts sequence Left or Right
+  - **Randomize**: Shuffles current numbers
+- **Scale Awareness**: Generates valid chord tones for the active scale
+- **History**: Full Undo/Redo support for all changes
 
 ### 🎼 Scale Library
-- 60+ scales from multiple musical traditions
-- 12-key selection
-- Scale characteristic analysis
-- Piano visualizer integration
-- Scale categorization (Major, Minor, Pentatonic, etc.)
+- **Extensive Collection**: 60+ scales organized by category:
+  - **Western**: Major, Minor, Modes (Dorian, Lydian, etc.)
+  - **Jazz**: Bebop, Barry Harris, Altered
+  - **World**: Middle Eastern (Hijaz, Maqam), Indian Ragas, Japanese
+  - **Pentatonic/Hexatonic**: Blues, Major/Minor Pentatonic
+- **Deep Analysis**:
+  - **Characteristics**: Intervals, Tonality, Origin, Common Usage
+  - **Citations**: Academic references for scale origins
+- **Visual Integration**:
+  - Highlights scale degrees on the Piano Visualizer
+  - Updates global key/scale state for all other modules
 
-### 🎹 Piano Visualizer
-- Accurate 2-octave piano keyboard rendering
-- Scale degree and chord visualization
-- Interactive note clicking
+### 🎹 Piano Visualizer (`piano-visualizer.js`)
+- **Interactive Keyboard**: 88-key virtual piano with mouse/touch support
+- **Dynamic Rendering**:
+  - **Scale Mode**: Highlights scale notes with role-based coloring (Root, 3rd, 5th)
+  - **Chord Mode**: Visualizes chord voicings with active note highlighting
+  - **Chord Stack**: Vertical visualization of chord structure (Root-3-5-7-9)
+- **Annotations**:
+  - **Scale Degrees**: Colored bubbles above keys (Green=Natural, Purple=Sharp, Blue=Flat)
+  - **Fingering**: Standard piano fingering display with Left/Right/Both hand toggles
+  - **Note Names**: Optional note name overlays
+- **Playback**: Visual playback of scales and chords (silent visualization)
 
-### 🎯 Progression Builder
+### 🎯 Unified Chord Explorer (`unified-chord-explorer.js`)
+- **Diatonic Grid**: Interactive grid of I-VII chords for the current scale
+- **Radial Substitution Menu**:
+  - **Harmonic Logic**: Suggests substitutions based on function (Dominant, Subdominant, Tonic)
+  - **Categories**: Secondary Dominants, Tritone Subs, Modal Interchange, Chromatic Mediants
+  - **Cluster Views**: Groups large numbers of substitutions by root or family
+  - **Exhaustive Mode**: Toggle to show all theoretically possible substitutions
+- **Insertion Mode**: Insert passing chords *before* or *after* any progression step
+- **Integration**:
+  - Syncs with Number Generator for progression highlighting
+  - Updates global key/scale state
+  - "Smart" positioning based on harmonic distance
 
-| Capability | Description |
-|------------|-------------|
-| Scale Degree Conversion | Turn number sequences (e.g. 2–5–1) into fully spelled chords (Dm7 → G7 → Cmaj7). |
-| Reharmonization | Apply secondary dominants, tritone substitutions, relative/parallel mode shifts. |
-| Interactive Editing | Drag, insert, duplicate, and transform chords without losing functional context. |
-| Direction Controls | Steering functions: to tonic, away from tonic, circle of fifths drift, pivot modulation. |
-| Cadence Assurance | Auto‑detect missing cadential resolution and suggest / insert V–I or ii–V–I. |
-| Voice Leading Hints | Highlights smooth semitone / common‑tone moves between successive chords. |
-| Export Hooks | Emits progression data for Sheet Music, Piano Visualizer, and Container Chord Tool. |
-
-Example (programmatic usage):
-```javascript
-const progression = new ProgressionBuilder(theory);
-progression.buildProgressionFromNumbers([2,5,1], 'C', 'major');
-progression.applyDirection('to_tonic');
-progression.ensureCadence();
-console.log(progression.getCurrentProgression().chords); // [ 'Dm7', 'G7', 'Cmaj7' ]
-```
+### 🎼 Progression Builder (`progression-builder.js`)
+- **2D Control System**:
+  - **X-Axis (Complexity)**: Triads → Sevenths → Extended (9th/11th/13th)
+  - **Y-Axis (Adventure)**: Experimental (Chromatic) → Perfect (Diatonic)
+- **Harmonization Modes**:
+  - **Root Mode**: Numbers treated as chord roots
+  - **Melody Mode**: Numbers treated as melody notes (harmonizes underneath)
+  - **Harmony Mode**: Advanced candidate selection with voice leading
+- **Explore Logic**: Intelligent insertion of passing chords
+  - **Functional**: Secondary dominants, ii-V setups
+  - **Jazz**: Tritone subs, turnarounds
+  - **Voice Leading**: Diminished approaches, passing chords
+- **Rule Flexibility**: "Anarchy" slider to introduce controlled randomness
 
 ### 🔍 Container Chord Tool
-- Find chords containing specific notes
-- Advanced filtering (triads, sevenths, extended, scale-based)
-- Chord grading system (★★★ Perfect, ★★ Excellent, ★ Good)
-- Detailed chord role information
-- Piano visualization integration
+- **Reverse Chord Lookup**: Find chords containing specific notes
+- **Grading System**:
+  - **Perfect (★★★)**: Contains all input notes + fits scale perfectly
+  - **Excellent (★★)**: Contains all input notes + fits scale with minor alterations
+  - **Good (★)**: Contains most input notes or fits loosely
+- **Advanced Filtering**:
+  - **Chord Types**: Triads, Sevenths, Extended (9th/11th/13th)
+  - **Scale Constraint**: Filter chords strictly within the current key
+- **Multi-Group Mode**: Analyze multiple note groups simultaneously
+- **Piano Integration**: Click results to visualize on the virtual keyboard
 
 ### 🌐 Scale Circle Explorer
-- Interactive circle of fifths/fourths/chromatic visualization
-- Key relationship exploration
-- Scale degree highlighting
-- Chord progression visualization on circle
-- Real-time updates with scale library integration
+- **Canvas-Based Visualization**: High-performance rendering of the Circle of Fifths
+- **Interactive Modes**:
+  - **Fifths**: Standard Circle of Fifths layout
+  - **Fourths**: Circle of Fourths layout
+  - **Chromatic**: Chromatic arrangement
+- **Dynamic Highlighting**:
+  - Visualizes active scale degrees on the circle
+  - Updates in real-time with key/scale changes
+- **Interactive Navigation**: Click sectors to instantly modulate key
 
 ### 🎼 Sheet Music Generator
-- Live-rendering staff notation (treble or grand staff)
-- 4-bar display with customizable layouts
-- Automatic note placement and accidentals
-- Integration with key/scale and chord selections
-- SVG-based lightweight rendering
+- **SVG Rendering**: Lightweight, scalable vector graphics for notation
+- **Staff Modes**:
+  - **Grand Staff**: Full piano score (Treble + Bass)
+  - **Treble/Bass**: Individual clef views
+- **Voicing Logic**:
+  - **Smart**: Context-aware voice leading
+  - **Smooth**: Minimizes movement between chords
+  - **Open**: Spread voicings for clarity
+  - **Jazz**: Rootless/Shell voicings
+- **Integration**:
+  - Visualizes current chord progression
+  - Exports/Syncs with external tools (Bitwig/MIDI)
 
-### 🪐 Solar System Visualizer
-- Planetary orbit visualization of scale degrees
-- Central sun represents current key
-- Expandable satellites for secondary functions
-- Interactive planet selection
-- Customizable sizing and speed modes
-- Trajectory visualization
+### 🪐 Solar System Visualizer (`solar-system-visualizer.v2.js`)
+- **Planetary Orbit System**: Visualizes scale degrees as planets orbiting a tonic sun
+- **Path Tracking**: Glowing trajectories connect notes in the active progression
+- **Satellite System**:
+  - **Secondary Dominants (V/x)**
+  - **Tritone Substitutions (bII/x)**
+  - **Secondary ii (ii/x)**
+  - **Leading Tone (vii°/x)**
+  - **Chromatic Mediants**
+- **Interactive Expansion**: Click planets to reveal/hide their satellite chords
+- **Controls**:
+  - **Sizing**: Theory-based (functional importance) vs Equal sizing
+  - **Animation**: Play/Pause, Speed control
+  - **Trajectories**: Toggle path visualization
 
 ### 🎵 Audio Visualizer
-- Real-time microphone input visualization
-- Multiple visualization modes (bars, waves)
-- Fullscreen overlay with gradient effects
-- Web Audio API integration
+- **Real-Time Analysis**: Uses Web Audio API to visualize microphone input
+- **Visualization Modes**:
+  - **Bars**: Frequency spectrum analysis (FFT)
+  - **Waves**: Time-domain waveform display
+- **Immersive UI**:
+  - Fullscreen overlay with auto-hide controls
+  - Dynamic gradient coloring (Blue → Green → Yellow)
+  - Responsive canvas rendering with high-DPI support
+
+### 🎹 Bitwig/MIDI Integration (`bitwig-midi.js`)
+- **Bridge to DAW**: Connects the web app to a local Python MIDI server
+- **Remote Control**:
+  - **Play Note/Chord**: Send real-time MIDI events to your DAW
+  - **Play Progression**: Sequence full chord progressions with timing
+- **Device Management**: List and select available MIDI output ports
+- **Architecture**: HTTP-based JSON API for cross-application communication
 
 ## 🏗️ Module Architecture
 
