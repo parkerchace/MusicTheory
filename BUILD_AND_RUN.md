@@ -2,25 +2,22 @@
 
 > Note (Optional): VST3 plugin and MIDI server steps are optional. For browser-only usage, you can simply open `modular-music-theory.html` and ignore VST3/Bitwig/server sections.
 
-## ⚡ QUICK START (5 Commands)
+## ⚡ QUICK START (4 Commands)
 
 ```powershell
-# 1. Check if you have everything needed
-.\SETUP_CHECK.bat
-
-# 2. Install Python packages
+# 1. Install Python packages
 py -m pip install fastapi uvicorn mido python-rtmidi
 
-# 3. Build the VST3 plugin (after installing prerequisites from SETUP_CHECK)
+# 2. Build the VST3 plugin (after installing prerequisites below)
 cd vst3-plugin
 .\QUICK_BUILD.bat
 
-# 4. Copy plugin to VST3 folder
+# 3. Copy plugin to VST3 folder
 copy build\Release\MusicTheoryVST3.vst3 "C:\Program Files\Common Files\VST3\"
 
-# 5. Start MIDI server
+# 4. Start MIDI server
 cd ..
-.\START_SERVER.bat
+py tools\bitwig_midi_server.py
 ```
 
 ---
@@ -59,12 +56,12 @@ cd ..
 ## 🔧 Detailed Build Instructions
 
 ### Step 1: Verify Environment
-```powershell
-# Run the automated check
-.\SETUP_CHECK.bat
-```
-
-This will verify all prerequisites and show what's missing.
+Ensure you have all prerequisites from the checklist above:
+- Python 3.9+ (run `py --version` to verify)
+- Visual Studio 2022 with C++ Desktop workload
+- CMake 3.20+ (run `cmake --version` to verify)
+- VST3 SDK extracted to correct path
+- vcpkg with curl installed
 
 ### Step 2: Install Python Dependencies
 ```powershell
@@ -114,12 +111,6 @@ Or use the CMake install command from step 3B.
 
 ### 1. Start the MIDI Server
 
-#### Option A: Quick Start Script
-```powershell
-.\START_SERVER.bat
-```
-
-#### Option B: Manual
 ```powershell
 py tools\bitwig_midi_server.py
 ```
@@ -203,8 +194,6 @@ py -m pip install --force-reinstall fastapi uvicorn mido python-rtmidi
 
 ```
 music theory v11/
-├── SETUP_CHECK.bat              # ✅ Verify all prerequisites
-├── START_SERVER.bat             # ✅ Start MIDI server with one click
 ├── requirements.txt             # Python dependencies
 ├── modular-music-theory.html    # Web UI for visualization
 │
@@ -319,7 +308,7 @@ Invoke-RestMethod http://127.0.0.1:5544/midi/chord -Method POST `
 ## ✅ Success Checklist
 
 After setup, you should be able to:
-- [ ] Run `.\SETUP_CHECK.bat` with no errors
+- [ ] All prerequisites installed (Python, VS2022, CMake, VST3 SDK, vcpkg+curl)
 - [ ] Build completes successfully
 - [ ] Plugin appears in DAW plugin list
 - [ ] Server starts and web UI accessible at http://127.0.0.1:5544
@@ -332,7 +321,7 @@ After setup, you should be able to:
 ## 🆘 Still Having Issues?
 
 1. Check **all** prerequisite versions match requirements
-2. Run `.\SETUP_CHECK.bat` and fix any errors/warnings
+2. Verify Python: `py --version`, CMake: `cmake --version`
 3. Review `vst3-plugin\logs\` for build/setup error logs
 4. Check server console output for Python errors
 5. Verify firewall allows port 5544

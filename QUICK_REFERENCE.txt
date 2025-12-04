@@ -8,19 +8,16 @@
 │  🚀 FASTEST PATH TO WORKING PLUGIN                                  │
 └─────────────────────────────────────────────────────────────────────┘
 
-  1. Double-click: MASTER_SETUP.bat
-  2. Follow the wizard
-  3. Done!
+  1. Install prerequisites (see below)
+  2. Build plugin with QUICK_BUILD.bat
+  3. Start server: py tools\bitwig_midi_server.py
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│  📋 MANUAL SETUP (5 Commands)                                       │
+│  📋 MANUAL SETUP (4 Commands)                                       │
 └─────────────────────────────────────────────────────────────────────┘
 
-  # Check what you need
-  .\SETUP_CHECK.bat
-
   # Install Python packages
-  py -m pip install -r requirements.txt
+  py -m pip install fastapi uvicorn mido python-rtmidi
 
   # Build plugin
   cd vst3-plugin
@@ -31,7 +28,7 @@
 
   # Start server
   cd ..
-  .\START_SERVER.bat
+  py tools\bitwig_midi_server.py
 
 ┌─────────────────────────────────────────────────────────────────────┐
 │  📥 PREREQUISITES DOWNLOAD LINKS                                    │
@@ -55,10 +52,10 @@
 │  🔧 ESSENTIAL COMMANDS                                              │
 └─────────────────────────────────────────────────────────────────────┘
 
-  Check setup:              .\SETUP_CHECK.bat
+  Verify Python:            py --version
+  Verify CMake:             cmake --version
   Build plugin:             .\vst3-plugin\QUICK_BUILD.bat
-  Start server:             .\START_SERVER.bat
-  Master wizard:            .\MASTER_SETUP.bat
+  Start server:             py tools\bitwig_midi_server.py
 
   Server URL:               http://127.0.0.1:5544
   Server status:            http://127.0.0.1:5544/status
@@ -71,7 +68,7 @@
 └─────────────────────────────────────────────────────────────────────┘
 
   Build fails:
-    → Run SETUP_CHECK.bat to see what's missing
+    → Verify all prerequisites installed (Python, VS2022, CMake, VST3 SDK, vcpkg)
     → Check VST3_SDK folder exists at correct location
     → Verify vcpkg + curl installed
 
@@ -99,11 +96,11 @@
   vst3-plugin\QUICKSTART.md ← 5-minute fast track
   vst3-plugin\README.md     ← Plugin technical details
 
-┌─────────────────────────────────────────────────────────────────────┐
+├─────────────────────────────────────────────────────────────────────┤
 │  🎹 USAGE WORKFLOW                                                  │
 └─────────────────────────────────────────────────────────────────────┘
 
-  1. Start MIDI server (.\START_SERVER.bat)
+  1. Start MIDI server: py tools\bitwig_midi_server.py
   2. Open http://127.0.0.1:5544
   3. Select MIDI output device
   4. Open DAW
@@ -119,11 +116,11 @@
   Rebuild after edit:  30 seconds
   Server startup:      5 seconds
 
-┌─────────────────────────────────────────────────────────────────────┐
+├─────────────────────────────────────────────────────────────────────┤
 │  ✅ SUCCESS CHECKLIST                                               │
 └─────────────────────────────────────────────────────────────────────┘
 
-  □ SETUP_CHECK.bat shows no errors
+  □ All prerequisites installed (py --version, cmake --version)
   □ Build completes without errors
   □ Plugin copied to VST3 folder
   □ Plugin appears in DAW plugin list
@@ -155,6 +152,6 @@
 ║                                                                      ║
 ║  🎶 Everything is ready to compile - just need prerequisites! 🎶    ║
 ║                                                                      ║
-║         Run MASTER_SETUP.bat to get started!                        ║
+║         See BUILD_AND_RUN.md for complete setup instructions!       ║
 ║                                                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝

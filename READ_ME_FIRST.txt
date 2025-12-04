@@ -32,12 +32,10 @@ prerequisites installed.
    - QUICK_BUILD.bat (one-click build)
    - setup_python_env.ps1 (fixed and working)
 
-4. ✅ AUTOMATION SCRIPTS (11 files)
-   - MASTER_SETUP.bat (interactive wizard)
-   - SETUP_CHECK.bat (prerequisite verification)
-   - START_SERVER.bat (auto-install + run)
-   - TEST_SERVER.bat (connectivity check)
-   - And 7 more helper scripts
+4. ✅ AUTOMATION SCRIPTS
+   - QUICK_BUILD.bat (one-click build in vst3-plugin/)
+   - setup_python_env.ps1 (fixed and working)
+   - Python MIDI server (tools/bitwig_midi_server.py)
 
 5. ✅ COMPREHENSIVE DOCUMENTATION (6 files)
    - BUILD_AND_RUN.md (master guide)
@@ -51,13 +49,11 @@ prerequisites installed.
 │  🎯 YOUR NEXT STEPS (In Order)                                       │
 └──────────────────────────────────────────────────────────────────────┘
 
-OPTION A: Interactive Wizard (Easiest)
+OPTION A: Follow BUILD_AND_RUN.md (Comprehensive Guide)
   
-  Just double-click: MASTER_SETUP.bat
-  
-  It will guide you through everything step-by-step!
+  See BUILD_AND_RUN.md for complete step-by-step instructions!
 
-OPTION B: Manual Setup (5 Minutes)
+OPTION B: Quick Manual Setup (5 Minutes)
 
   Step 1: Download VST3 SDK
       URL: https://github.com/steinbergmedia/vst3sdk
@@ -71,9 +67,9 @@ OPTION B: Manual Setup (5 Minutes)
     .\vcpkg integrate install
     .\vcpkg install curl:x64-windows
 
-  Step 3: Verify Everything
-    cd "$env:USERPROFILE\OneDrive - american.edu\music theory app\music theory v11"
-    .\SETUP_CHECK.bat
+  Step 3: Verify Python and CMake
+    py --version
+    cmake --version
 
   Step 4: Build Plugin
     cd vst3-plugin
@@ -82,20 +78,20 @@ OPTION B: Manual Setup (5 Minutes)
   Step 5: Install & Test
     copy build\Release\MusicTheoryVST3.vst3 "C:\Program Files\Common Files\VST3\"
     cd ..
-    .\START_SERVER.bat
+    py tools\bitwig_midi_server.py
 
 ┌──────────────────────────────────────────────────────────────────────┐
 │  📋 PREREQUISITES YOU NEED                                           │
 └──────────────────────────────────────────────────────────────────────┘
 
   ✅ Python 3.9+ (you have this - confirmed from terminal)
-  ❓ Visual Studio 2022 with C++ workload (check with SETUP_CHECK.bat)
-  ❓ CMake 3.20+ (check with SETUP_CHECK.bat)
+  ❓ Visual Studio 2022 with C++ workload (verify: cl.exe should be in PATH)
+  ❓ CMake 3.20+ (verify: cmake --version)
   ❌ VST3 SDK (need to download)
   ❌ vcpkg + curl (need to install)
   ⭕ loopMIDI (optional but recommended)
 
-  Run SETUP_CHECK.bat to see exactly what's missing!
+  See BUILD_AND_RUN.md for detailed prerequisites checklist!
 
 ┌──────────────────────────────────────────────────────────────────────┐
 │  📚 KEY DOCUMENTATION FILES                                          │
@@ -123,7 +119,7 @@ OPTION B: Manual Setup (5 Minutes)
 │  🎹 WHAT WORKS RIGHT NOW                                             │
 └──────────────────────────────────────────────────────────────────────┘
 
-  ✅ Python MIDI server (run START_SERVER.bat)
+  ✅ Python MIDI server (run: py tools\bitwig_midi_server.py)
   ✅ Web UI for sheet music visualization
   ✅ MIDI output selection interface
   ✅ All server endpoints functional
@@ -141,22 +137,20 @@ OPTION B: Manual Setup (5 Minutes)
   ✅ Python server runs (confirmed from your terminal history)
   ✅ Server endpoints respond correctly
 
-┌──────────────────────────────────────────────────────────────────────┐
+├──────────────────────────────────────────────────────────────────────┤
 │  💡 PRO TIPS                                                         │
 └──────────────────────────────────────────────────────────────────────┘
 
-  1. Run SETUP_CHECK.bat FIRST - it tells you exactly what's missing
+  1. See BUILD_AND_RUN.md for comprehensive setup checklist
   
-  2. Use MASTER_SETUP.bat - it's an interactive wizard that walks you
-     through everything with helpful prompts
+  2. Verify prerequisites: py --version, cmake --version, cl.exe
   
-  3. Keep START_SERVER.bat running in a separate window while using
-     the plugin in your DAW
+  3. Keep MIDI server running while using the plugin:
+     py tools\bitwig_midi_server.py
   
   4. If build fails, check vst3-plugin\logs\ for detailed error logs
   
-  5. All batch scripts can be double-clicked - no need for command line
-     (but command line gives you more control)
+  5. Use vst3-plugin\QUICK_BUILD.bat for one-click builds
 
 ┌──────────────────────────────────────────────────────────────────────┐
 │  🎁 BONUS: What You Get                                              │
@@ -183,22 +177,20 @@ OPTION B: Manual Setup (5 Minutes)
 
 ╔══════════════════════════════════════════════════════════════════════╗
 ║                                                                      ║
-║  This is your last chat, so I've made everything as foolproof as    ║
-║  possible. The interactive wizard (MASTER_SETUP.bat) will guide     ║
-║  you through each step with clear instructions.                     ║
+║  The Music Theory VST3 plugin code is complete and ready to          ║
+║  compile! See BUILD_AND_RUN.md for comprehensive setup guide.        ║
 ║                                                                      ║
-║  If anything is unclear, all documentation files have detailed      ║
-║  explanations and troubleshooting sections.                         ║
-║                                                                      ║
-║  The code is complete, tested, and ready to compile!                ║
+║  For the browser-based music theory app, simply open                 ║
+║  modular-music-theory.html - no compilation needed!                  ║
 ║                                                                      ║
 ║  Good luck with your music theory project! 🎵🎹🎶                    ║
 ║                                                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
-START HERE: Double-click MASTER_SETUP.bat or run SETUP_CHECK.bat
+START HERE: See BUILD_AND_RUN.md for VST3 plugin setup
+            Or open modular-music-theory.html for browser app
 
 All files are in your workspace - no additional downloads needed except
-the prerequisites (VST3 SDK, vcpkg).
+the prerequisites for VST3 compilation (VST3 SDK, vcpkg).
 
 - GitHub Copilot

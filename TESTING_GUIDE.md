@@ -342,35 +342,6 @@ Error: "Cannot read property 'map' of undefined"
 
 ---
 
-## Automated Tests (Optional)
-
-You can run the integration tests that exercise all modules together.
-
-### In Browser (easiest)
-- Add this tag near the end of `modular-music-theory.html` (after other scripts):
-   ```html
-   <script src="test-integration.js"></script>
-   ```
-- Reload the page and open DevTools Console to see results.
-
-### In Node.js (headless)
-- Requires Node 18+.
-- Example PowerShell commands from repo root:
-   ```powershell
-   node -e "const M=require('./music-theory-engine.js'); const N=require('./number-generator.js'); const S=require('./scale-library.js'); const P=require('./piano-visualizer.js'); const C=require('./chord-analyzer.js'); const B=require('./progression-builder.js'); const T=require('./test-integration.js'); new T();"
-   ```
-   Notes:
-   - Modules provide `module.exports` shims for Node.
-   - Some visual components are no-ops in Node but tests still validate logic.
-
-### Targeted Debug Helpers
-- Chord alias tests in browser console:
-   ```javascript
-   var s=document.createElement('script'); s.src='tools/chord_tests.js'; document.head.appendChild(s);
-   // then run
-   __chordTests.runAll()
-   ```
-
 ## Validation Scripts (Optional)
 
 Run citation/link validation for scale references.

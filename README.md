@@ -110,8 +110,8 @@ console.log(progression.getCurrentProgression().chords); // [ 'Dm7', 'G7', 'Cmaj
 ┌─────────────────────────────────────────────────────────────┐
 │                    ModularMusicTheoryApp                    │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │
-│  │ Number Gen  │ │Scale Library│ │Chord        │ │Progress │ │
-│  │             │ │             │ │Analyzer     │ │Builder  │ │
+│  │ Number Gen  │ │Scale Library│ │Unified      │ │Progress │ │
+│  │             │ │             │ │Chord Explr  │ │Builder  │ │
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘ │
 │           │              │              │              │      │
 │           └──────────────┼──────────────┼──────────────┘      │
@@ -146,14 +146,14 @@ console.log(progression.getCurrentProgression().chords); // [ 'Dm7', 'G7', 'Cmaj
 Number Generator        → (standalone)
 Scale Library           → Music Theory Engine
 Piano Visualizer        → (standalone)
-Chord Analyzer          → Music Theory Engine
+Unified Chord Explorer  → Music Theory Engine
 Progression Builder     → Music Theory Engine
 Container Chord Tool    → Music Theory Engine, Piano Visualizer
 Scale Circle Explorer   → Music Theory Engine
 Sheet Music Generator   → Music Theory Engine
 Solar System Visualizer → Music Theory Engine
 Audio Visualizer        → (standalone, Web Audio API)
-Test Integration        → All modules
+Bitwig MIDI (optional)  → (standalone, optional)
 HTML Interface          → All modules
 ```
 
@@ -178,16 +178,17 @@ HTML Interface          → All modules
 3. **Initialize** the modules you need
 ```html
 <script src="music-theory-engine.js"></script>
+<script src="sheet-music-generator.js"></script>
 <script src="number-generator.js"></script>
 <script src="scale-library.js"></script>
 <script src="piano-visualizer.js"></script>
-<script src="chord-analyzer.js"></script>
-<script src="progression-builder.js"></script>
 <script src="container-chord-tool.js"></script>
+<script src="progression-builder.js"></script>
 <script src="scale-circle-explorer.js"></script>
-<script src="sheet-music-generator.js"></script>
-<script src="solar-system-visualizer.js"></script>
+<script src="solar-system-visualizer.v2.js"></script>
 <script src="audio-visualizer.js"></script>
+<script src="unified-chord-explorer.js"></script>
+<script src="bitwig-midi.js"></script> <!-- Optional -->
 ```
 
 ### ES Module Usage (optional)
@@ -214,16 +215,15 @@ const musicTheory = new MusicTheoryEngine();
 // Initialize modules
 const numberGen = new NumberGenerator();
 const scaleLib = new ScaleLibrary(musicTheory);
-const chordAnalyzer = new ChordAnalyzer(musicTheory);
+const chordExplorer = new UnifiedChordExplorer(musicTheory);
 
 // Set up event listeners
 numberGen.on('numbersChanged', (data) => {
     console.log('New numbers:', data.numbers);
-    const notes = data.numbers.map(n => {
-        const scaleNotes = musicTheory.getScaleNotes('C', 'major');
-        return scaleNotes[(n - 1) % scaleNotes.length];
-    });
-    chordAnalyzer.analyzeChords(notes, 'C', 'major');
+    // Update chord grid to current key/scale
+    chordExplorer.setKeyAndScale('C', 'major');
+    // Highlight progression from numbers
+    chordExplorer.highlightProgression(data.numbers);
 });
 ```
 
@@ -237,7 +237,7 @@ const theory = new MusicTheoryEngine();
 const numbers = new NumberGenerator();
 const scales = new ScaleLibrary(theory);
 const piano = new PianoVisualizer();
-const chords = new ChordAnalyzer(theory);
+const chords = new UnifiedChordExplorer(theory);
 const progression = new ProgressionBuilder(theory);
 ```
 
@@ -312,16 +312,21 @@ piano.renderChord({
 piano.on('noteClicked', callback)
 ```
 
-### ChordAnalyzer
+### UnifiedChordExplorer
 ```javascript
-const analyzer = new ChordAnalyzer(theory);
+const explorer = new UnifiedChordExplorer(theory);
 
-// Analysis
-analyzer.analyzeChords(['C', 'E', 'G'], 'C', 'major')
-analyzer.setFilter('triads') // or 'sevenths', 'extended', 'scale'
+// Display diatonic chord grid for current key/scale
+explorer.setKeyAndScale('C', 'major');
+
+// Highlight progression from number generator
+explorer.highlightProgression([2, 5, 1]); // Highlights ii, V, I
+
+// Open radial substitution menu for a chord
+explorer.openRadialMenu({root: 'G', chordType: '7', degree: 5});
 
 // Event handling
-analyzer.on('chordSelected', callback)
+explorer.on('chordSelected', callback)
 ```
 
 ### ProgressionBuilder
@@ -416,7 +421,6 @@ audioViz.close();
 |--------|-------------|---------|----------|-------|
 | AudioVisualizer | Real-time microphone input visualization with multiple modes | class AudioVisualizer | Real-time microphone input<br>Multiple visualization modes (bars, waves)<br>Fullscreen overlay with gradient effects<br>Web Audio API integration<br>Responsive canvas rendering | 209 |
 | bitwig-midi.js |  |  |  | 61 |
-| ChordAnalyzer | Advanced chord analysis including container chords and functional harmony | class ChordAnalyzer | Container chord analysis (chords containing specific notes)<br>Functional harmony grouping (Tonic, Dominant, Predominant)<br>Scale matching with percentage scoring<br>Complexity filtering (triads, sevenths, extended)<br>Interactive chord cards with detailed information<br>Visual grading system (Perfect ★★★, Excellent ★★, Good ★) | 519 |
 | ContainerChordTool | Specialized tool for finding chords that contain specific notes with advanced filtering | class ContainerChordTool | Input for multiple notes<br>Scale/key context awareness<br>Chord grading system (★★★ Perfect, ★★ Excellent, ★ Good)<br>Detailed chord information display<br>Piano visualization integration<br>Filter by complexity (triads, sevenths, extended) | 1121 |
 | MusicTheoryEngine | Core music theory calculations, scales, and chord analysis used by all other modules | class MusicTheoryEngine | 60+ authentic scales from multiple traditions<br>Complete chord formula system<br>Functional harmony analysis<br>Container chord analysis<br>Scale degree calculations | 1728 |
 | NumberGenerator | Scale degree number generation, transformations, and history management | class NumberGenerator | Multiple number types (Diatonic, Barry Harris, Extended, Chromatic)<br>Mathematical transformations (retrograde, invert, rotate, randomize)<br>History management with undo/redo<br>Event system for number changes | 2248 |
@@ -425,7 +429,6 @@ audioViz.close();
 | ScaleCircleExplorer | Interactive circle visualization for scales and key relationships | class ScaleCircleExplorer | Circle of fifths/fourths/chromatic modes<br>Interactive key relationships<br>Scale degree highlighting<br>Chord progression visualization<br>Integration with scale library<br>Real-time updates | 800 |
 | ScaleLibrary | Scale selection, key selection, and piano visualization integration | class ScaleLibrary | 60+ scales from multiple musical traditions<br>12-key selection<br>Piano visualizer showing scale degrees<br>Scale categories and organization<br>Event system for scale/key changes | 582 |
 | SheetMusicGenerator | Live-rendering staff notation (treble or grand staff) with 4-bar display | class SheetMusicGenerator | Live-updates when key/scale changes<br>Live-updates when highlighted chord degree changes<br>Single staff (treble) or grand staff (treble + bass)<br>4-bar display with customizable layouts<br>Automatic note placement and accidentals<br>SVG-based lightweight rendering<br>Integration with key/scale and chord selections | 4122 |
-| SolarSystemVisualizer | Planetary orbit visualization of scale degrees with expandable satellites | class SolarSystemVisualizer | Starfield with central Sun (current key)<br>Planets for diatonic notes<br>Expandable satellites for secondary functions<br>Interactive planet selection<br>Customizable sizing and speed modes<br>Trajectory visualization | 551 |
 | SolarSystemVisualizerV2 | Enhanced planetary orbit visualization with path tracking and multiple expansion | class SolarSystemVisualizer | Enhanced version with path tracking<br>Multiple simultaneous planet expansion<br>Improved trajectory visualization<br>Mouse hover interactions<br>Active path highlighting | 608 |
 | UnifiedChordExplorer | Unified chord exploration with scale-based grid, progression highlighting, and intelligent radial substitution menu | class UnifiedChordExplorer | Scale chord grid showing all diatonic chords (I-VII)<br>Progression highlighting from NumberGenerator<br>Radial substitution menu with common subs and container chords<br>Intelligent positioning based on harmonic function and voice leading<br>Grading system (★★★ Perfect, ★★ Excellent, ★ Good)<br>Secondary dominants, tritone subs, modal interchange<br>Container chord analysis for any selected chord | 3117 |
 
@@ -434,63 +437,59 @@ audioViz.close();
 ```
 music-theory-system/
 ├── 📄 modular-music-theory.html         # Complete application
-├── 📄 test-integration.js               # Integration tests
 │
 ├── 🎼 Core Modules
-│   ├── music-theory-engine.js           # Core calculations (847 lines)
-│   ├── number-generator.js              # Number transformations (234 lines)
-│   ├── scale-library.js                 # Scale management (189 lines)
-│   ├── piano-visualizer.js              # Keyboard rendering (245 lines)
-│   ├── chord-analyzer.js                # Chord analysis (298 lines)
-│   └── progression-builder.js           # Progression tools (412 lines)
-│
-├── 🎨 Advanced Tools
-│   ├── container-chord-tool.js          # Container chord finder (1078 lines)
-│   ├── scale-circle-explorer.js         # Circle visualization (843 lines)
-│   ├── sheet-music-generator.js         # Staff notation (1306 lines)
-│   ├── solar-system-visualizer.js       # Orbital visualization (544 lines)
-│   ├── solar-system-visualizer.v2.js    # Enhanced version
-│   └── audio-visualizer.js              # Real-time audio viz (198 lines)
+│   ├── music-theory-engine.js           # Core calculations
+│   ├── sheet-music-generator.js         # Staff notation
+│   ├── number-generator.js              # Number transformations
+│   ├── scale-library.js                 # Scale management
+│   ├── piano-visualizer.js              # Keyboard rendering
+│   ├── container-chord-tool.js          # Container chord finder
+│   ├── progression-builder.js           # Progression tools
+│   ├── scale-circle-explorer.js         # Circle visualization
+│   ├── solar-system-visualizer.v2.js    # Orbital visualization
+│   ├── audio-visualizer.js              # Real-time audio viz
+│   ├── unified-chord-explorer.js        # Unified chord exploration
+│   └── bitwig-midi.js                   # Optional MIDI bridge
 │
 ├── 🎨 Styling
-│   └── aperture-theme.css               # Complete theme system
+│   ├── aperture-theme.css               # Complete theme system
+│   └── unified-chord-explorer.css       # Unified chord explorer styles
 │
-├── � Documentation
+├── 📚 Documentation
 │   ├── README.md                        # This documentation
+│   ├── CHANGELOG.md                     # Version history
+│   ├── BUILD_AND_RUN.md                 # Setup guide
 │   ├── TESTING_GUIDE.md                 # Testing procedures
-│   ├── IMPLEMENTATION_SUMMARY.md        # Implementation notes
-│   ├── PIANO_ENHANCEMENTS.md            # Piano feature docs
 │   ├── SCALE_VERIFICATION.md            # Scale validation
-│   ├── SHEET_MUSIC_IMPLEMENTATION.md    # Sheet music docs
 │   ├── SHEET_MUSIC_QUICKSTART.md        # Quick start guide
-│   ├── BEFORE_AFTER_COMPARISON.md       # Refactoring notes
-│   └── UI_CLEANUP_PLAN.md               # UI planning
+│   ├── QUICK_REFERENCE.txt              # Command reference
+│   ├── READ_ME_FIRST.txt                # Getting started
+│   ├── FILE_INDEX.md                    # Complete file index
+│   ├── FINAL_STATUS.md                  # Project status
+│   ├── SYSTEM_ARCHITECTURE.md           # Optional: VST3 architecture
+│   ├── BITWIG_MIDI_INTEGRATION.md       # Optional: DAW integration
+│   └── README_GIT_PUSH_GUI.md           # Optional: Git tools
 │
 ├── 🔧 Tools & Utilities
-│   ├── tools/                           # Utility scripts
+│   ├── tools/                           # Update and validation scripts
 │   ├── validation/                      # Validation reports
-│   └── windows xp visualizer/           # Additional visualizers
-│
-└── 🗑️ Legacy
-    └── genius.html.old                  # Original monolithic file
+│   ├── logs/                            # Interaction logs
+│   ├── midi output/                     # MIDI file exports
+│   └── vst3-plugin/                     # Optional: VST3 plugin source
 ```
 
 ## 🧪 Testing
 
-Run the complete test suite:
+See `TESTING_GUIDE.md` for complete testing instructions including:
+- Browser console tests
+- Node.js headless tests
+- Chord alias validation
+- Citation link validation
 
-```html
-<script src="test-integration.js"></script>
-<!-- Tests run automatically on page load -->
-```
-
-Or run individual tests:
+Quick test:
 
 ```javascript
-// Test all modules
-const test = new ModularMusicTheoryTest();
-test.runAllTests();
-
 // Test specific module
 const theory = new MusicTheoryEngine();
 console.log(theory.getScaleNotes('C', 'major')); // Should log scale notes
@@ -516,12 +515,15 @@ const prog = progression.getCurrentProgression();
 console.log('Progression:', prog.chords); // Dm7, G7, Cmaj7
 ```
 
-### Example 3: Container Chord Analysis
+### Example 3: Unified Chord Explorer
 ```javascript
-const analyzer = new ChordAnalyzer(theory);
-const scaleNotes = theory.getScaleNotes('C', 'major');
-const containers = theory.findAllContainerChords(['C', 'E'], scaleNotes);
-console.log('Chords containing C and E:', containers.map(c => c.fullName));
+const explorer = new UnifiedChordExplorer(theory);
+// Display diatonic chord grid for C major
+explorer.setKeyAndScale('C', 'major');
+// Highlight a progression (e.g., ii-V-I)
+explorer.highlightProgression([2, 5, 1]);
+// Open radial menu for chord substitutions
+explorer.openRadialMenu({root: 'G', chordType: '7', degree: 5});
 ```
 
 ### Example 4: Interactive Piano
@@ -648,7 +650,6 @@ The auto-generation script looks for the markers:
 |--------|-------------|---------|----------|-------|
 | AudioVisualizer | Real-time microphone input visualization with multiple modes | class AudioVisualizer | Real-time microphone input<br>Multiple visualization modes (bars, waves)<br>Fullscreen overlay with gradient effects<br>Web Audio API integration<br>Responsive canvas rendering | 209 |
 | bitwig-midi.js |  |  |  | 61 |
-| ChordAnalyzer | Advanced chord analysis including container chords and functional harmony | class ChordAnalyzer | Container chord analysis (chords containing specific notes)<br>Functional harmony grouping (Tonic, Dominant, Predominant)<br>Scale matching with percentage scoring<br>Complexity filtering (triads, sevenths, extended)<br>Interactive chord cards with detailed information<br>Visual grading system (Perfect ★★★, Excellent ★★, Good ★) | 519 |
 | ContainerChordTool | Specialized tool for finding chords that contain specific notes with advanced filtering | class ContainerChordTool | Input for multiple notes<br>Scale/key context awareness<br>Chord grading system (★★★ Perfect, ★★ Excellent, ★ Good)<br>Detailed chord information display<br>Piano visualization integration<br>Filter by complexity (triads, sevenths, extended) | 1121 |
 | MusicTheoryEngine | Core music theory calculations, scales, and chord analysis used by all other modules | class MusicTheoryEngine | 60+ authentic scales from multiple traditions<br>Complete chord formula system<br>Functional harmony analysis<br>Container chord analysis<br>Scale degree calculations | 1728 |
 | NumberGenerator | Scale degree number generation, transformations, and history management | class NumberGenerator | Multiple number types (Diatonic, Barry Harris, Extended, Chromatic)<br>Mathematical transformations (retrograde, invert, rotate, randomize)<br>History management with undo/redo<br>Event system for number changes | 2248 |
@@ -657,7 +658,6 @@ The auto-generation script looks for the markers:
 | ScaleCircleExplorer | Interactive circle visualization for scales and key relationships | class ScaleCircleExplorer | Circle of fifths/fourths/chromatic modes<br>Interactive key relationships<br>Scale degree highlighting<br>Chord progression visualization<br>Integration with scale library<br>Real-time updates | 800 |
 | ScaleLibrary | Scale selection, key selection, and piano visualization integration | class ScaleLibrary | 60+ scales from multiple musical traditions<br>12-key selection<br>Piano visualizer showing scale degrees<br>Scale categories and organization<br>Event system for scale/key changes | 582 |
 | SheetMusicGenerator | Live-rendering staff notation (treble or grand staff) with 4-bar display | class SheetMusicGenerator | Live-updates when key/scale changes<br>Live-updates when highlighted chord degree changes<br>Single staff (treble) or grand staff (treble + bass)<br>4-bar display with customizable layouts<br>Automatic note placement and accidentals<br>SVG-based lightweight rendering<br>Integration with key/scale and chord selections | 4122 |
-| SolarSystemVisualizer | Planetary orbit visualization of scale degrees with expandable satellites | class SolarSystemVisualizer | Starfield with central Sun (current key)<br>Planets for diatonic notes<br>Expandable satellites for secondary functions<br>Interactive planet selection<br>Customizable sizing and speed modes<br>Trajectory visualization | 551 |
 | SolarSystemVisualizerV2 | Enhanced planetary orbit visualization with path tracking and multiple expansion | class SolarSystemVisualizer | Enhanced version with path tracking<br>Multiple simultaneous planet expansion<br>Improved trajectory visualization<br>Mouse hover interactions<br>Active path highlighting | 608 |
 | UnifiedChordExplorer | Unified chord exploration with scale-based grid, progression highlighting, and intelligent radial substitution menu | class UnifiedChordExplorer | Scale chord grid showing all diatonic chords (I-VII)<br>Progression highlighting from NumberGenerator<br>Radial substitution menu with common subs and container chords<br>Intelligent positioning based on harmonic function and voice leading<br>Grading system (★★★ Perfect, ★★ Excellent, ★ Good)<br>Secondary dominants, tritone subs, modal interchange<br>Container chord analysis for any selected chord | 3117 |
 
