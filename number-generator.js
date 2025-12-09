@@ -1327,30 +1327,9 @@ class NumberGenerator {
                 this.state.pendingManualNumbers = parsed.slice();
                 if (romanTokens.length) {
                     this.state.manualRomanMode = true;
-                    // Do not re-render on every keystroke to avoid losing focus; still emit preview events
-                    // Include raw tokens for case/preservation: filter original tokens for roman-like entries
-                    const rawRomanTokens = tokens.filter(t => romanLike(t));
-                    this.setDisplayTokens(romanTokens.slice(), { render: false, emit: true, rawTokens: rawRomanTokens.length ? rawRomanTokens : tokens });
                 } else {
                     // If there are no roman tokens, do not force roman mode
                     this.state.manualRomanMode = false;
-                    // keep displayTokens null so numeric preview uses numbers -> roman conversion
-                    this.setDisplayTokens(null, { render: false, emit: true });
-                }
-
-                // Emit preview tokens (both numeric tokens and raw tokens)
-                try { this.emit('manualPreviewTokens', { tokens: tokens, parsed: parsed, roman: romanTokens }); } catch(_) {}
-
-                // Only auto-commit after debounce when numeric tokens are present.
-                if (this.state.manualCommitDebounce) clearTimeout(this.state.manualCommitDebounce);
-                if (parsed.length > 0) {
-                    this.state.manualCommitDebounce = setTimeout(() => {
-                        if (!this.state.isManualEditing) return;
-                        this.commitManualNumbers(manualInput, { force: false });
-                    }, 400);
-                } else {
-                    // If only roman/chord tokens are present, do not auto-commit; wait for explicit blur.
-                    this.state.manualCommitDebounce = null;
                 }
             });
             manualInput.addEventListener('blur', () => {
