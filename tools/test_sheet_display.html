@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sheet Music Display Test</title>
+    <style>
+        body { 
+            background: #1a1a1a; 
+            color: #e5e7eb; 
+            font-family: sans-serif; 
+            padding: 20px;
+        }
+        #test-container { 
+            margin: 20px auto; 
+            max-width: 1200px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        h2 { color: #60a5fa; }
+        pre { 
+            background: #111; 
+            padding: 10px; 
+            border-radius: 4px; 
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="test-container">
+        <h1>Sheet Music Display Test - C Blues Hexatonic</h1>
+        
+        <div class="test-section">
+            <h2>Test Setup</h2>
+            <p>Scale: C Blues Hexatonic (C, Db, F, F#, G, Bb)</p>
+            <p>Target Chord: Degree 4 = F# major(add6, no5)</p>
+        </div>
+        
+        <div class="test-section">
+            <h2>Expected Chord Object</h2>
+            <pre id="expected-chord"></pre>
+        </div>
+        
+        <div class="test-section">
+            <h2>Sheet Music Container</h2>
+            <div id="sheet-music-test"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Rendered Chord Label</h2>
+            <div id="chord-label-check"></div>
+        </div>
+    </div>
+
+    <script src="../music-theory-engine.js"></script>
+    <script src="../sheet-music-generator.js"></script>
+    
+    <script>
+        console.log('=== Sheet Music Display Test ===');
+        
+        // Initialize engine
+        const engine = new MusicTheoryEngine();
+        const sheetGen = new SheetMusicGenerator(engine);
+        
+        // Set up C Blues Hexatonic
+        const key = 'C';
+        const scale = 'blues_hexatonic';
+        const scaleNotes = engine.getScaleNotesWithKeySignature(key, scale);
+        
+        console.log('Scale notes:', scaleNotes);
+        
+        // Get degree 4 chord (should be F#maj(add6, no5))
+        const deg4 = engine.getDiatonicChord(4, key, scale);
+        console.log('Degree 4 chord:', deg4);
+        
+        // Display expected chord
+        document.getElementById('expected-chord').textContent = JSON.stringify(deg4, null, 2);
+        
+        // Mount sheet music
+        sheetGen.mount('#sheet-music-test');
+        sheetGen.setKeyAndScale(key, scale, scaleNotes);
+        
+        // Set the chord
+        sheetGen.setBarChords([deg4]);
+        sheetGen.setBarMode('per-bar');
+        
+        // Check what was actually rendered
+        setTimeout(() => {
+            const labels = document.querySelectorAll('.sheet-chord-label');
+            const labelCheck = document.getElementById('chord-label-check');
+            
+            if (labels.length > 0) {
+                const actualText = labels[0].textContent;
+                labelCheck.innerHTML = `
+                    <p><strong>Rendered label:</strong> ${actualText}</p>
+                    <p><strong>Expected:</strong> F#maj(add6, no5)</p>
+                    <p><strong>Match:</strong> ${actualText.includes('F#maj(add6, no5)') ? '✅ PASS' : '❌ FAIL'}</p>
+                `;
+                
+                if (!actualText.includes('F#maj(add6, no5)')) {
+                    labelCheck.innerHTML += `<p style="color: #ef4444;">Issue detected! The chord label is not displaying correctly.</p>`;
+                    
+                    // Debug info
+                    console.error('Label mismatch!');
+                    console.log('Chord object:', deg4);
+                    console.log('fullName:', deg4.fullName);
+                    console.log('chordType:', deg4.chordType);
+                    console.log('Rendered text:', actualText);
+                }
+            } else {
+                labelCheck.innerHTML = '<p style="color: #ef4444;">No chord labels found!</p>';
+            }
+        }, 500);
+    </script>
+</body>
+</html>

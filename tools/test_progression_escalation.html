@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Progression Builder Escalation</title>
+</head>
+<body>
+    <h1>Testing escalateToSeventh for Whole Tone Hexatonic</h1>
+    <pre id="output"></pre>
+    
+    <script src="../music-theory-engine.js"></script>
+    <script src="../progression-builder.js"></script>
+    
+    <script>
+        const output = document.getElementById('output');
+        const log = (msg) => output.textContent += msg + '\n';
+        
+        // Initialize
+        const engine = new MusicTheoryEngine();
+        const builder = new ProgressionBuilder(engine, null);
+        
+        // Set to C Whole Tone Hexatonic
+        builder.setKeyAndScale('C', 'whole_tone_hexatonic');
+        
+        log('=== Testing Progression Builder ===');
+        log('Key: C');
+        log('Scale: whole_tone_hexatonic');
+        log('');
+        
+        // Generate chords for each degree
+        log('--- Generated Chords ---');
+        for (let degree = 1; degree <= 6; degree++) {
+            const chord = builder.generateChordForDegree(degree, 0);
+            log(`Degree ${degree}: ${chord ? chord.fullName : 'null'} (${chord ? chord.chordType : 'N/A'})`);
+        }
+        
+        log('');
+        log('Expected: All should be "aug" (Caug, Daug, Eaug, etc.)');
+    </script>
+</body>
+</html>

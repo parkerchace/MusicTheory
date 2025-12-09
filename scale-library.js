@@ -475,12 +475,15 @@ class ScaleLibrary {
                 .scale-citation {
                     margin-top: 12px;
                     padding: 12px 16px;
-                    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-                    border-left: 3px solid #0ea5e9;
-                    border-radius: 4px;
+                    background: linear-gradient(135deg, rgba(0, 243, 255, 0.1) 0%, rgba(5, 10, 15, 0.9) 100%);
+                    border-left: 3px solid var(--accent-primary);
+                    border-radius: 0;
                     font-size: 0.85rem;
-                    color: #0c4a6e;
+                    color: var(--text-main);
                     line-height: 1.6;
+                    font-family: var(--font-tech);
+                    border: 1px solid var(--border-light);
+                    border-left-width: 3px;
                 }
                 .scale-citation-content {
                     display: flex;
@@ -489,37 +492,39 @@ class ScaleLibrary {
                 }
                 .citation-description {
                     font-weight: 500;
-                    color: #075985;
+                    color: var(--accent-primary);
                 }
                 .citation-references {
                     font-size: 0.8rem;
-                    color: #0369a1;
+                    color: var(--text-muted);
                 }
                 .citation-references strong {
-                    color: #075985;
+                    color: var(--accent-primary);
                     margin-right: 4px;
                 }
                 .citation-references a {
-                    color: #0284c7;
+                    color: var(--accent-secondary);
                     text-decoration: none;
-                    border-bottom: 1px dotted #0284c7;
+                    border-bottom: 1px dotted var(--accent-secondary);
                     transition: all 0.2s ease;
                 }
                 .citation-references a:hover {
-                    color: #0369a1;
+                    color: var(--accent-primary);
                     border-bottom-style: solid;
-                    background: rgba(14, 165, 233, 0.1);
+                    background: rgba(0, 243, 255, 0.1);
                     padding: 2px 4px;
-                    border-radius: 3px;
                 }
                 #scale-select optgroup {
                     font-weight: bold;
                     font-style: normal;
-                    color: #1e293b;
+                    color: var(--accent-primary);
+                    background: #000;
                 }
                 #scale-select option {
                     font-weight: normal;
                     padding-left: 8px;
+                    background: #000;
+                    color: var(--text-main);
                 }
             </style>
         `;

@@ -1052,9 +1052,9 @@ class NumberGenerator {
                 </div>
 
                 <!-- Generation Logic Selector -->
-                <div style="margin: 12px 0; padding: 10px; background: var(--surface-color); border-radius: 8px;">
-                    <label style="display: block; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Generation Logic:</label>
-                    <select id="generation-logic" class="form-input" style="width: 100%; padding: 6px; font-size: 0.85rem;">
+                <div style="margin: 12px 0; padding: 10px; background: var(--bg-input); border-radius: 0; border: 1px solid var(--border-light);">
+                    <label style="display: block; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-family: var(--font-tech);">Generation Logic:</label>
+                    <select id="generation-logic" class="form-input" style="width: 100%; padding: 6px; font-size: 0.85rem; background: #000; color: var(--accent-primary); border: 1px solid var(--border-light); font-family: var(--font-tech);">
                         <option value="random" ${this.state.generationLogic === 'random' ? 'selected' : ''}>🎲 Random (Pure Chance)</option>
                         <option value="melodic" ${this.state.generationLogic === 'melodic' ? 'selected' : ''}>🎵 Melodic (Stepwise Motion)</option>
                         <option value="harmonic" ${this.state.generationLogic === 'harmonic' ? 'selected' : ''}>🎹 Harmonic (Chord Progressions)</option>
@@ -1074,7 +1074,6 @@ class NumberGenerator {
                 </div>
 
                 <div class="manual-input-container" style="margin: 12px 0;">
-                    <label for="manual-numbers" style="display: block; font-size: 0.85rem; margin-bottom: 4px; color: var(--text-secondary);">Manual Degrees:</label>
                     <div style="display:flex; gap:6px; align-items:center; justify-content:center; margin-bottom:6px; flex-wrap:wrap;">
                         <button class="btn btn-secondary" id="ng-undo" title="Undo (Ctrl+Z)">↶ Undo</button>
                         <button class="btn btn-secondary" id="ng-redo" title="Redo (Ctrl+Y / Ctrl+Shift+Z)">↷ Redo</button>
@@ -1082,21 +1081,22 @@ class NumberGenerator {
                         <button class="btn" id="ng-rotate-left" title="Rotate left (Alt+←)">◀</button>
                         <button class="btn" id="ng-rotate-right" title="Rotate right (Alt+→)">▶</button>
                     </div>
-                            <input type="text" id="manual-numbers" 
-                                    class="form-input" 
-                                    placeholder="e.g., 2 5 1 6"
-                  value="${(this.state.isManualEditing && this.state.manualRawInput != null
+                    <input type="text" id="manual-numbers" 
+                           class="form-input" 
+                           placeholder="e.g., 2 5 1 6"
+                           value="${(this.state.isManualEditing && this.state.manualRawInput != null
                         ? this.state.manualRawInput
                         : effectiveTokens.join(' '))}"
-                  style="width: 100%; padding: 8px; font-size: 0.95rem; text-align: center; font-weight: 600;">
-                                        <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 4px; text-align: center;">Enter scale degree numbers, roman numerals, or chord names (e.g. 1 4 5 1, IV, iv, bII, F#m7)</div>
-                                        <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 2px; line-height:1.25; text-align:center;">Non-diatonic entries will be highlighted below.</div>
+                           style="width: 100%; padding: 8px; font-size: 0.95rem; text-align: center; font-weight: 600; background: #000; color: var(--accent-primary); border: 1px solid var(--border-light); font-family: var(--font-tech);">
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; text-align: center;">Enter scale degree numbers, roman numerals, or chord names (e.g. 1 4 5 1, IV, iv, bII, F#m7)</div>
+                    <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; line-height:1.25; text-align:center;">Non-diatonic entries will be highlighted below.</div>
+                    <div style="font-size: 0.7rem; color: var(--accent-secondary); margin-top: 6px; text-align: center; opacity:0.8;">💡 Primary input moved to Control Deck above</div>
                 </div>
                 <div class="numbers-display">
                     ${effectiveTokens.map((token, idx) => {
                         // Determine if token is diatonic
                         const isDiatonic = isDiatonicToken(token);
-                        let color = isDiatonic ? '#10b981' : '#dc2626'; // Green for diatonic, red for chromatic
+                        let color = isDiatonic ? '#34d399' : '#fca5a5'; // Bright green for diatonic, light red for chromatic
                         let noteLabel = '';
                         let tooltip = '';
                         if (isDiatonic) {
@@ -1159,19 +1159,19 @@ class NumberGenerator {
                         const label = String(token);
                         return `
                             <div class="number-container" data-degree="${label}">
-                                <span class="number-bubble" data-degree="${label}" style="background: ${color}; color: white; cursor: pointer;" title="${tooltip}">${label}${!isDiatonic ? ' ⚡' : ''}</span>
-                                <div class="note-indicator" style="color: ${color};">${noteLabel}</div>
+                                <span class="number-bubble" data-degree="${label}" style="background: transparent; border: 1px solid ${color}; color: ${color}; cursor: pointer; font-family: var(--font-tech);" title="${tooltip}">${label}${!isDiatonic ? ' ⚡' : ''}</span>
+                                <div class="note-indicator" style="color: ${color}; font-family: var(--font-tech);">${noteLabel}</div>
                             </div>
                         `;
                     }).join('')}
                 </div>
                 <button class="btn" id="generate-btn">Generate New</button>
-                <button class="btn btn-secondary" id="common-progression-btn" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); margin-top: 8px;">🎼 Common Progression</button>
+                <button class="btn btn-secondary" id="common-progression-btn" style="background: var(--accent-secondary); color: #000; border: none; margin-top: 8px; font-family: var(--font-tech);">🎼 Common Progression</button>
                 <button class="btn" id="retrograde-btn">Retrograde</button>
                 
                 <!-- Harmonization Mode Toggle -->
-                <div style="margin: 12px 0; padding: 10px; background: var(--surface-color); border-radius: 8px; border: 1px solid var(--border-color);">
-                    <label style="display: block; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Harmonization Mode:</label>
+                <div style="margin: 12px 0; padding: 10px; background: var(--bg-input); border-radius: 0; border: 1px solid var(--border-light);">
+                    <label style="display: block; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-family: var(--font-tech);">Harmonization Mode:</label>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                         <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 0.85rem;">
                             <input type="radio" name="harm-mode" value="melody" id="harm-mode-melody">
@@ -1186,14 +1186,14 @@ class NumberGenerator {
                             <span>🌱 Numbers as Root</span>
                         </label>
                     </div>
-                    <div id="harm-mode-description" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 6px; line-height: 1.3;">
+                    <div id="harm-mode-description" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; line-height: 1.3;">
                         Melody: Each number = melody note, generate one chord per note. Harmony: Each number = chord tone, pick chords that contain the number. Root: Each number maps to a scale degree used as the chord root; chord quality is chosen from current complexity/grade settings.
                     </div>
                 </div>
                 
                 <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:8px;">
                     <button class="btn btn-primary" id="ng-map-melody" title="Play these numbers on the piano as a melody">🎵 Play Sequence</button>
-                    <button class="btn btn-primary" id="ng-harmonize" title="Generate chords based on harmonization mode" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">🎼 Harmonize</button>
+                    <button class="btn btn-primary" id="ng-harmonize" title="Generate chords based on harmonization mode" style="background: var(--accent-primary); color: #000; border: none; font-family: var(--font-tech);">🎼 Harmonize</button>
                 </div>
                 <style>
                     .length-controls {
@@ -1240,13 +1240,16 @@ class NumberGenerator {
                     .scale-tip {
                         margin-top: 8px;
                         padding: 8px 12px;
-                        background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%);
-                        border-left: 3px solid #4f46e5;
-                        border-radius: 4px;
+                        background: linear-gradient(135deg, rgba(0, 243, 255, 0.1) 0%, rgba(5, 10, 15, 0.9) 100%);
+                        border-left: 3px solid var(--accent-primary);
+                        border-radius: 0;
                         font-size: 0.85rem;
-                        color: #1e293b;
+                        color: var(--text-main);
                         text-align: left;
                         line-height: 1.4;
+                        font-family: var(--font-tech);
+                        border: 1px solid var(--border-light);
+                        border-left-width: 3px;
                     }
                 </style>
             </div>

@@ -385,6 +385,10 @@ class SheetMusicGenerator {
 		wrapper.style.flexDirection = 'column';
 		wrapper.style.gap = '8px';
 		wrapper.style.flex = '1';
+		wrapper.style.background = 'var(--bg-panel, #27272a)';
+		wrapper.style.padding = '12px';
+		wrapper.style.borderRadius = '4px';
+		wrapper.style.border = '1px solid rgba(255,255,255,0.1)';
 
 		// Controls row
 		const controls = document.createElement('div');
@@ -396,14 +400,16 @@ class SheetMusicGenerator {
 
 		const title = document.createElement('div');
 		title.textContent = 'Sheet Music';
-		title.style.fontSize = '0.9rem';
-		title.style.fontWeight = '600';
+		title.style.fontSize = '0.95rem';
+		title.style.fontWeight = '700';
+		title.style.color = '#ffffff';
 		controls.appendChild(title);
 
 		// Staff type select
 		const staffLabel = document.createElement('label');
 		staffLabel.textContent = 'Staff:';
 		staffLabel.style.fontSize = '0.8rem';
+		staffLabel.style.color = '#f9fafb';
 		const staffSelect = document.createElement('select');
 		staffSelect.innerHTML = `
 			<option value="treble">Treble</option>
@@ -422,6 +428,7 @@ class SheetMusicGenerator {
 		const modeLabel = document.createElement('label');
 		modeLabel.textContent = 'Bars:';
 		modeLabel.style.fontSize = '0.8rem';
+		modeLabel.style.color = '#f9fafb';
 		const modeSelect = document.createElement('select');
 		modeSelect.innerHTML = `
 			<option value="single">Current chord only</option>
@@ -451,6 +458,7 @@ class SheetMusicGenerator {
 		});
 		const followLabelText = document.createElement('span');
 		followLabelText.textContent = 'Follow generated progression';
+		followLabelText.style.color = '#f9fafb';
 		followWrap.appendChild(followCb);
 		followWrap.appendChild(followLabelText);
 		controls.appendChild(followWrap);
@@ -459,6 +467,7 @@ class SheetMusicGenerator {
 		const invLabel = document.createElement('label');
 		invLabel.textContent = 'Inversion:';
 		invLabel.style.fontSize = '0.8rem';
+		invLabel.style.color = '#f9fafb';
 		const invSelect = document.createElement('select');
 		invSelect.innerHTML = `
 			<option value="0">Root</option>
@@ -486,17 +495,81 @@ class SheetMusicGenerator {
 		midiWrap.style.fontSize = '0.7rem';
 
 		// (MIDI output selection moved to server HTML UI; frontend no longer lists outputs)
+		
+		// BPM Control
+		const bpmWrap = document.createElement('div');
+		bpmWrap.style.display = 'flex';
+		bpmWrap.style.alignItems = 'center';
+		bpmWrap.style.gap = '6px';
+		
+		const bpmLabel = document.createElement('label');
+		bpmLabel.textContent = 'BPM:';
+		bpmLabel.style.fontSize = '0.7rem';
+		bpmLabel.style.color = '#38bdf8';
+		bpmLabel.style.fontWeight = '600';
+		
+		const bpmInput = document.createElement('input');
+		bpmInput.type = 'number';
+		bpmInput.min = '40';
+		bpmInput.max = '240';
+		bpmInput.value = '120';
+		bpmInput.style.width = '50px';
+		bpmInput.style.fontSize = '0.7rem';
+		bpmInput.style.padding = '2px 4px';
+		bpmInput.style.background = 'rgba(15, 23, 42, 0.8)';
+		bpmInput.style.border = '1px solid #334155';
+		bpmInput.style.borderRadius = '3px';
+		bpmInput.style.color = '#e5e7eb';
+		bpmInput.style.textAlign = 'center';
+		
+		const bpmSlider = document.createElement('input');
+		bpmSlider.type = 'range';
+		bpmSlider.min = '40';
+		bpmSlider.max = '240';
+		bpmSlider.value = '120';
+		bpmSlider.style.width = '100px';
+		bpmSlider.style.accentColor = '#38bdf8';
+		
+		// Sync slider and input
+		bpmInput.addEventListener('input', (e) => {
+			let val = parseInt(e.target.value, 10);
+			if (isNaN(val)) val = 120;
+			if (val < 40) val = 40;
+			if (val > 240) val = 240;
+			bpmSlider.value = val;
+		});
+		bpmSlider.addEventListener('input', (e) => {
+			bpmInput.value = e.target.value;
+		});
+		
+		bpmWrap.appendChild(bpmLabel);
+		bpmWrap.appendChild(bpmInput);
+		bpmWrap.appendChild(bpmSlider);
+		
 		const playBtn = document.createElement('button');
 		playBtn.textContent = '▶ Play';
 		playBtn.style.fontSize = '0.7rem';
 		playBtn.style.padding = '2px 8px';
+		playBtn.style.color = '#f9fafb';
+		playBtn.style.background = '#1e293b';
+		playBtn.style.border = '1px solid #64748b';
+		playBtn.style.borderRadius = '3px';
+		playBtn.style.cursor = 'pointer';
 		playBtn.addEventListener('click', () => {
-			try { this.playMidiFromRendered(); } catch(e){ console.warn(e); }
+			try { 
+				const tempo = parseInt(bpmInput.value, 10) || 120;
+				this.playMidiFromRendered({ tempo }); 
+			} catch(e){ console.warn(e); }
 		});
 		const stopBtn = document.createElement('button');
 		stopBtn.textContent = '■ Stop';
 		stopBtn.style.fontSize = '0.7rem';
 		stopBtn.style.padding = '2px 8px';
+		stopBtn.style.color = '#f9fafb';
+		stopBtn.style.background = '#1e293b';
+		stopBtn.style.border = '1px solid #64748b';
+		stopBtn.style.borderRadius = '3px';
+		stopBtn.style.cursor = 'pointer';
 		stopBtn.addEventListener('click', () => {
 			try { this.stopMidiPlayback(); } catch(e){ console.warn(e); }
 		});
@@ -512,7 +585,8 @@ class SheetMusicGenerator {
 			try {
 				bitwigBtn.textContent = '⏳ Sending...';
 				bitwigBtn.disabled = true;
-				const result = await this.sendProgressionToBitwig();
+				const tempo = parseInt(bpmInput.value, 10) || 120;
+				const result = await this.sendProgressionToBitwig({ bpm: tempo });
 				if (result && result.ok) {
 					bitwigBtn.textContent = '✓ Sent!';
 					setTimeout(() => { bitwigBtn.textContent = origText; bitwigBtn.disabled = false; }, 1500);
@@ -536,6 +610,7 @@ class SheetMusicGenerator {
 		saveBtn.addEventListener('click', () => {
 			try { this.saveMidiFile(); } catch(e){ console.warn(e); }
 		});
+		midiWrap.appendChild(bpmWrap);
 		midiWrap.appendChild(playBtn);
 		midiWrap.appendChild(stopBtn);
 		midiWrap.appendChild(bitwigBtn);
@@ -677,7 +752,7 @@ class SheetMusicGenerator {
 		popupChk.addEventListener('change', () => { this.state.popupPinned = popupChk.checked; });
 		const popupLbl = document.createElement('span');
 		popupLbl.textContent = 'Pin piano popup';
-		popupLbl.style.color = '#e5e7eb';
+		popupLbl.style.color = '#f9fafb';
 		popupWrap.appendChild(popupChk);
 		popupWrap.appendChild(popupLbl);
 		controls.appendChild(popupWrap);
@@ -687,6 +762,7 @@ class SheetMusicGenerator {
 		octaveLabel.textContent = 'Octave:';
 		octaveLabel.style.fontSize = '0.8rem';
 		octaveLabel.style.marginLeft = '8px';
+		octaveLabel.style.color = '#f9fafb';
 		controls.appendChild(octaveLabel);
 
 		const octaveDown = document.createElement('button');
@@ -745,6 +821,7 @@ class SheetMusicGenerator {
 		});
 		const splitLabelText = document.createElement('span');
 		splitLabelText.textContent = 'Split across staves';
+		splitLabelText.style.color = '#f9fafb';
 		splitWrap.appendChild(splitCb);
 		splitWrap.appendChild(splitLabelText);
 		// Only show split control when on grand staff
@@ -768,6 +845,7 @@ class SheetMusicGenerator {
 		});
 		const ksLabelText = document.createElement('span');
 		ksLabelText.textContent = 'Show key signature';
+		ksLabelText.style.color = '#f9fafb';
 		ksWrap.appendChild(ksCb);
 		ksWrap.appendChild(ksLabelText);
 		controls.appendChild(ksWrap);
@@ -789,6 +867,7 @@ class SheetMusicGenerator {
 		});
 		const simplifyLabelText = document.createElement('span');
 		simplifyLabelText.textContent = 'Simplify modal signatures';
+		simplifyLabelText.style.color = '#f9fafb';
 		simplifyWrap.appendChild(simplifyCb);
 		simplifyWrap.appendChild(simplifyLabelText);
 		controls.appendChild(simplifyWrap);
@@ -800,7 +879,7 @@ class SheetMusicGenerator {
         // SVG host
         const svgHost = document.createElement('div');
         svgHost.className = 'sheet-music-svg-host';
-        svgHost.style.background = '#faf9f6';
+        svgHost.style.background = 'var(--bg-panel, #1a1a1a)';
         svgHost.style.border = '2px solid #8b7355';
         svgHost.style.borderRadius = '4px';
         svgHost.style.padding = '12px';
@@ -1371,7 +1450,7 @@ class SheetMusicGenerator {
 		svg.setAttribute('height', String(svgHeight));
 		svg.setAttribute('viewBox', `0 0 ${width} ${svgHeight}`);
 		svg.style.display = 'block';
-		svg.style.background = '#faf9f6'; // cream/parchment background for traditional look
+		svg.style.background = 'var(--bg-panel, #1a1a1a)'; // dark background for modern theme
 
 		const barCount = dynamicBarCount;
 		const barWidth = baseBarWidth;
@@ -1381,7 +1460,7 @@ class SheetMusicGenerator {
 			line.setAttribute('y1', y1);
 			line.setAttribute('x2', x2);
 			line.setAttribute('y2', y2);
-			line.setAttribute('stroke', opts.stroke || '#1a1a1a');
+			line.setAttribute('stroke', opts.stroke || '#d1d5db');
 			line.setAttribute('stroke-width', opts['stroke-width'] || '1.2');
 			svg.appendChild(line);
 			return line;
@@ -1412,7 +1491,7 @@ class SheetMusicGenerator {
 				clefSymbol.setAttribute('y', String(gLineY - 2)); // slightly higher to center swirl on G line
 				clefSymbol.setAttribute('font-size', '50');
 				clefSymbol.setAttribute('font-family', 'Bravura, Georgia, serif');
-				clefSymbol.setAttribute('fill', '#1a1a1a');
+				clefSymbol.setAttribute('fill', '#d1d5db');
 				clefSymbol.setAttribute('text-anchor', 'start');
 				clefSymbol.setAttribute('dominant-baseline', 'middle');
 				clefSymbol.textContent = '\u{1D11E}'; // 𝄞 treble clef
@@ -1425,7 +1504,7 @@ class SheetMusicGenerator {
 				clefSymbol.setAttribute('y', String(fLineY)); // center on F line
 				clefSymbol.setAttribute('font-size', '40');
 				clefSymbol.setAttribute('font-family', 'Bravura, Georgia, serif');
-				clefSymbol.setAttribute('fill', '#1a1a1a');
+				clefSymbol.setAttribute('fill', '#d1d5db');
 				clefSymbol.setAttribute('text-anchor', 'start');
 				clefSymbol.setAttribute('dominant-baseline', 'middle');
 				clefSymbol.textContent = '\u{1D122}'; // 𝄢 bass clef
@@ -1443,7 +1522,7 @@ class SheetMusicGenerator {
 		const bassTop = treble.topY + treble.spacing * 5 + gapBetweenStaves;
 		bass = drawStaff(bassTop, 'bass');
 		// Simple connecting brace
-		addLine(staffLeft - 4, treble.topY, staffLeft - 4, bassTop + 4 * bass.spacing, { 'stroke-width': '2.5', 'stroke': '#1a1a1a' });
+		addLine(staffLeft - 4, treble.topY, staffLeft - 4, bassTop + 4 * bass.spacing, { 'stroke-width': '2.5', 'stroke': '#d1d5db' });
 	} else if (this.state.staffType === 'bass') {
 		bass = drawStaff(baseStaffTopY, 'bass');
 	} else {
@@ -1688,7 +1767,7 @@ class SheetMusicGenerator {
 
                 // Determine if this is a base signature accidental or scale-specific
                 const isBaseAccidental = baseAccidentals.includes(acc);
-                const color = isBaseAccidental ? '#1a1a1a' : '#c2410c'; // Black for traditional, red-orange for scale-specific
+                const color = isBaseAccidental ? '#d1d5db' : '#fdba74'; // Black for traditional, red-orange for scale-specific
 
                 const t = document.createElementNS(svgNS, 'text');
                 t.setAttribute('x', String(x));
@@ -1787,10 +1866,10 @@ class SheetMusicGenerator {
 		}
 
         // Small key/scale text label (for context)
-        const keyText = document.createElementNS(svgNS, 'text');
-        keyText.setAttribute('x', String(4));
+		const keyText = document.createElementNS(svgNS, 'text');
+		keyText.setAttribute('x', String(4));
 	keyText.setAttribute('y', String((treble ? treble.topY : bass.topY) - 4));
-        keyText.setAttribute('fill', '#666');
+		keyText.setAttribute('fill', '#e5e7eb');
         keyText.setAttribute('font-size', '10');
         keyText.setAttribute('font-style', 'italic');
         keyText.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
@@ -2509,7 +2588,7 @@ class SheetMusicGenerator {
 				line.setAttribute('y1', String(y));
 				line.setAttribute('x2', String(noteX + lineLength));
 				line.setAttribute('y2', String(y));
-				line.setAttribute('stroke', '#1a1a1a');
+				line.setAttribute('stroke', '#d1d5db');
 				line.setAttribute('stroke-width', '1.2');
 				svg.appendChild(line);
 			};
@@ -2550,7 +2629,7 @@ class SheetMusicGenerator {
 			t.setAttribute('x', String(x));
 			// Align glyph vertical center to the note's center
 			t.setAttribute('y', String(noteY));
-			t.setAttribute('fill', '#1a1a1a');
+			t.setAttribute('fill', '#d1d5db');
 			t.setAttribute('font-size', '14');
 			t.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
 			// Place the glyph to the left of the notehead
@@ -2664,7 +2743,7 @@ class SheetMusicGenerator {
 			const text = document.createElementNS(svgNS, 'text');
 			text.setAttribute('x', String(xCenter));
 			text.setAttribute('y', String(trebleMeta.topY - labelOffsetY));
-			text.setAttribute('fill', '#1a1a1a');
+			text.setAttribute('fill', '#ffffff');
 			text.setAttribute('font-size', '12');
 			text.setAttribute('font-weight', 'bold');
 			text.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
@@ -2672,18 +2751,27 @@ class SheetMusicGenerator {
 			const invSuffix = this.state.inversion === 0 ? '' : (this.state.inversion === 1 ? ' (1st inv)' : (this.state.inversion === 2 ? ' (2nd inv)' : ' (3rd inv)'));
 			// Use the original diatonic chord type for label display
 			// Do not reclassify from voiced notes to prevent misidentification
-			let displayType = chord.chordType || '';
-			// Special case: G lydian_augmented, degree 1 should display '+maj7' or 'maj7#5' if notes match
-			if (this.state.key === 'G' && this.state.scale === 'lydian_augmented' && barIndex === 0) {
-				// If notes match G B D F#, force label to '+maj7' or 'maj7#5'
-				const notes = (chord.chordNotes && chord.chordNotes.length) ? chord.chordNotes : chord.diatonicNotes;
-				if (Array.isArray(notes) && notes.join(',') === 'G,B,D,F#') {
-					displayType = '+maj7';
+			// Prefer fullName if available (it may contain specific modifiers like 'add6' or 'no5' from the engine)
+			let displayFull = chord.fullName || '';
+			if (!displayFull) {
+				let displayType = chord.chordType || '';
+				// Special case: G lydian_augmented, degree 1 should display '+maj7' or 'maj7#5' if notes match
+				if (this.state.key === 'G' && this.state.scale === 'lydian_augmented' && barIndex === 0) {
+					// If notes match G B D F#, force label to '+maj7' or 'maj7#5'
+					const notes = (chord.chordNotes && chord.chordNotes.length) ? chord.chordNotes : chord.diatonicNotes;
+					if (Array.isArray(notes) && notes.join(',') === 'G,B,D,F#') {
+						displayType = '+maj7';
+					}
 				}
+				displayFull = `${chord.root || ''}${displayType}`;
 			}
-			// Always construct label from current root + diatonic chord type, ignoring stale fullName
-			const displayFull = `${chord.root || ''}${displayType}`;
 			const chordLabelStr = displayFull + invSuffix;
+			// Auto-scale font size for long chord names to prevent overlap
+			if (chordLabelStr.length > 15) {
+				text.setAttribute('font-size', '10');
+			} else if (chordLabelStr.length > 12) {
+				text.setAttribute('font-size', '11');
+			}
 			text.textContent = chordLabelStr;
 			text.setAttribute('class', 'sheet-chord-label');
 			text.setAttribute('data-bar-index', String(barIndex));
@@ -2800,12 +2888,10 @@ class SheetMusicGenerator {
 				}
 				// Append inversion and voice-leading info
 				if (inversionLabel) pillText += ` · ${inversionLabel}`;
-				// Draw pill under the bass staff label area
-				const pillY = bottomY + 6;
-				drawVoicingPill(xCenter, pillY, pillText, { fill: '#f8fafc', textColor: '#0f172a', fontSize: 10 });
-			} catch (e) { /* non-fatal */ }
-
-			const drawSet = (notesArr, staffMeta) => {
+			// Draw pill under the bass staff label area
+			const pillY = bottomY + 6;
+			drawVoicingPill(xCenter, pillY, pillText, { fill: '#374151', textColor: '#f3f4f6', fontSize: 10 });
+		} catch (e) { /* non-fatal */ }			const drawSet = (notesArr, staffMeta) => {
 				const smallNoteTexts = [];
 				// Derive accidental preference from chord root when available so
 				// small-note labels match the chord title's enharmonic spelling.
@@ -2821,17 +2907,15 @@ class SheetMusicGenerator {
 				notesArr.forEach((note, idx) => {
 					const staffPosition = noteToStaffPosition(note, staffMeta.clef);
 					const y = staffPositionToY(staffPosition, staffMeta);
-					const x = xCenter + (idx - (notesArr.length - 1) / 2) * (radius * 2.2);
-					const circle = document.createElementNS(svgNS, 'circle');
-					circle.setAttribute('cx', String(x));
-					circle.setAttribute('cy', String(y));
-					circle.setAttribute('r', String(radius));
-					circle.setAttribute('fill', '#1a1a1a');
-					circle.setAttribute('stroke', '#1a1a1a');
-					circle.setAttribute('stroke-width', '1.2');
-					svg.appendChild(circle);
-
-					// Draw the note letter (include accidental if present) inside the notehead
+				const x = xCenter + (idx - (notesArr.length - 1) / 2) * (radius * 2.2);
+				const circle = document.createElementNS(svgNS, 'circle');
+				circle.setAttribute('cx', String(x));
+				circle.setAttribute('cy', String(y));
+				circle.setAttribute('r', String(radius - 0.5));
+				circle.setAttribute('fill', '#e5e7eb');
+				circle.setAttribute('stroke', '#e5e7eb');
+				circle.setAttribute('stroke-width', '1');
+				svg.appendChild(circle); 					// Draw the note letter (include accidental if present) inside the notehead
 					// Prefer the chord root's enharmonic spelling when possible so small-note
 					// labels agree with the chord title (e.g., 'Db' vs 'C#').
 					let noteLabel = null;
@@ -2858,7 +2942,7 @@ class SheetMusicGenerator {
 					const t = document.createElementNS(svgNS, 'text');
 					t.setAttribute('x', String(x));
 					t.setAttribute('y', String(y));
-					t.setAttribute('fill', '#ffffff');
+					t.setAttribute('fill', '#111827');
 					t.setAttribute('font-size', '8');
 					t.setAttribute('font-weight', '700');
 					t.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
@@ -2979,19 +3063,29 @@ class SheetMusicGenerator {
 			}
 
             // Draw chord name above bar
-            const text = document.createElementNS(svgNS, 'text');
-            text.setAttribute('x', String(xCenter));
-            text.setAttribute('y', String(staffMeta.topY - labelOffsetY));
-            text.setAttribute('fill', '#1a1a1a');
+			const text = document.createElementNS(svgNS, 'text');
+			text.setAttribute('x', String(xCenter));
+			text.setAttribute('y', String(staffMeta.topY - labelOffsetY));
+			text.setAttribute('fill', '#f9fafb');
             text.setAttribute('font-size', '12');
             text.setAttribute('font-weight', 'bold');
             text.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
             text.setAttribute('text-anchor', 'middle');
 			const invSuffix = maxInv === 0 ? '' : (maxInv === 1 ? ' (1st inv)' : (maxInv === 2 ? ' (2nd inv)' : ' (3rd inv)'));
 			// For single-staff rendering, also trust the stored diatonic chordType
-			const displayTypeSingle = chord.chordType || '';
-			const displayFullSingle = `${chord.root || ''}${displayTypeSingle}`;
+			// Prefer fullName if available (it may contain specific modifiers like 'add6' or 'no5' from the engine)
+			let displayFullSingle = chord.fullName || '';
+			if (!displayFullSingle) {
+				const displayTypeSingle = chord.chordType || '';
+				displayFullSingle = `${chord.root || ''}${displayTypeSingle}`;
+			}
 			const chordLabelStrSingle = displayFullSingle + invSuffix;
+			// Auto-scale font size for long chord names
+			if (chordLabelStrSingle.length > 15) {
+				text.setAttribute('font-size', '10');
+			} else if (chordLabelStrSingle.length > 12) {
+				text.setAttribute('font-size', '11');
+			}
 			text.textContent = chordLabelStrSingle;
 			text.setAttribute('class', 'sheet-chord-label');
 			text.setAttribute('data-bar-index', String(barIndex));
@@ -3100,13 +3194,11 @@ class SheetMusicGenerator {
 					pillText += ` (${voicingNames[usedStyle] || usedStyle})`;
 				}
 				// Append inversion info
-				if (inversionLabel) pillText += ` · ${inversionLabel}`;
-				// Draw pill a bit below the style label
-				const pillY = bottomY + 6;
-				drawVoicingPill(xCenter, pillY, pillText, { fill: '#f8fafc', textColor: '#0f172a', fontSize: 10 });
-			} catch (e) { /* non-fatal */ }
-
-			// Capture voiced chord for this bar (once per chord, not per note)
+			if (inversionLabel) pillText += ` · ${inversionLabel}`;
+			// Draw pill a bit below the style label
+			const pillY = bottomY + 6;
+			drawVoicingPill(xCenter, pillY, pillText, { fill: '#374151', textColor: '#f3f4f6', fontSize: 10 });
+		} catch (e) { /* non-fatal */ }			// Capture voiced chord for this bar (once per chord, not per note)
 			try { 
 				this.state.lastRenderedChords.push(notes.slice()); 
 				if (!Array.isArray(this.state.lastRenderedChordNames)) this.state.lastRenderedChordNames = [];
@@ -3135,8 +3227,8 @@ class SheetMusicGenerator {
 				circle.setAttribute('cx', String(x));
 				circle.setAttribute('cy', String(y));
 				circle.setAttribute('r', String(radius));
-				circle.setAttribute('fill', '#1a1a1a');
-				circle.setAttribute('stroke', '#1a1a1a');
+				circle.setAttribute('fill', '#d1d5db');
+				circle.setAttribute('stroke', '#d1d5db');
 				circle.setAttribute('stroke-width', '1.2');
 				svg.appendChild(circle);
 
@@ -3164,7 +3256,7 @@ class SheetMusicGenerator {
 				const t = document.createElementNS(svgNS, 'text');
 				t.setAttribute('x', String(x));
 				t.setAttribute('y', String(y));
-				t.setAttribute('fill', '#ffffff');
+				t.setAttribute('fill', '#111827');
 				t.setAttribute('font-size', '8');
 				t.setAttribute('font-weight', '700');
 				t.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
@@ -3233,8 +3325,8 @@ class SheetMusicGenerator {
 						} catch(err){ console.warn(err); } 
 					}
 				});
-				lbl.addEventListener('mouseenter', ()=>{ lbl.setAttribute('fill', '#0f172a'); });
-				lbl.addEventListener('mouseleave', ()=>{ lbl.setAttribute('fill', '#1a1a1a'); });
+				lbl.addEventListener('mouseenter', ()=>{ lbl.setAttribute('fill', '#bae6fd'); });
+				lbl.addEventListener('mouseleave', ()=>{ lbl.setAttribute('fill', '#ffffff'); });
 			});
 		} catch(e) { /* non-fatal */ }
 
@@ -3575,17 +3667,20 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		if (!this._audioCtx) {
 			try { this._audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ console.warn('AudioContext unavailable', e); return; }
 		}
+        if (this._audioCtx.state === 'suspended') {
+            this._audioCtx.resume();
+        }
 		this.stopMidiPlayback();
 		this._midiSources = [];
 		this._isPlayingMidi = true;
 		const secondsPerBeat = 60 / tempo;
 		const beatsPerMeasure = 4;
-		const wholeNoteDur = beatsPerMeasure * secondsPerBeat; // whole note = 4 beats
+		const chordDuration = secondsPerBeat * 0.9; // chord plays for 90% of one beat (quarter note)
 		const measureDur = beatsPerMeasure * secondsPerBeat;
 		const startTime = this._audioCtx.currentTime + 0.05;
 		chords.forEach((voices, barIdx) => {
-			const chordStart = startTime + barIdx * measureDur;
-			const chordEnd = chordStart + wholeNoteDur; // play for exactly 4 beats (whole note)
+			const chordStart = startTime + barIdx * secondsPerBeat; // chords on each beat
+			const chordEnd = chordStart + chordDuration;
 			voices.forEach(note => {
 				const m = String(note).match(/^([A-G][#b]?)(\d+)$/);
 				if (!m) return;
@@ -3993,11 +4088,11 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		};
 		const intervalColor = (m) => {
 			const semis = (m - rootMidi + 120) % 12;
-			if (semis === 0) return '#ef4444'; // root red
-			if (semis === 3 || semis === 4) return '#0d9488'; // third teal
-			if (semis === 7) return '#eab308'; // fifth gold
-			if (semis === 10 || semis === 11) return '#8b5cf6'; // seventh purple
-			return '#3b82f6'; // tensions blue
+			if (semis === 0) return '#fca5a5'; // root light red
+			if (semis === 3 || semis === 4) return '#2dd4bf'; // third bright teal
+			if (semis === 7) return '#fcd34d'; // fifth bright gold
+			if (semis === 10 || semis === 11) return '#c4b5fd'; // seventh light purple
+			return '#93c5fd'; // tensions light blue
 		};
 		const minMidi = Math.min(...midiNotes) - 3;
 		const maxMidi = Math.max(...midiNotes) + 3;
@@ -4023,7 +4118,7 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 			const baseActiveColor = intervalColor(midi);
 			key.style.background = isActive 
 				? (isBlack ? `linear-gradient(180deg, ${baseActiveColor} 0%, ${baseActiveColor} 90%)` : `linear-gradient(180deg, ${baseActiveColor} 0%, ${baseActiveColor} 85%)`)
-				: (isBlack ? 'linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%)' : 'linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%)');
+				: (isBlack ? 'linear-gradient(180deg, #4b5563 0%, #374151 100%)' : 'linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%)');
 			key.style.border = isBlack ? '1px solid #000' : '1px solid #999';
 			key.style.borderRadius = isBlack ? '0 0 4px 4px' : '0 0 6px 6px';
 			key.style.boxShadow = isActive 

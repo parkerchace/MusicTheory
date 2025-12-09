@@ -47,6 +47,18 @@ class ProgressionBuilder {
         this.numberGenerator = null;
         this.scaleLibrary = null;
         this.isDragging = false;
+
+        // Subscribe to shared grading mode changes
+        if (this.musicTheory.subscribe) {
+            this.musicTheory.subscribe((event, data) => {
+                if (event === 'gradingModeChanged') {
+                    this.state.gradingType = data;
+                    this.render();
+                }
+            });
+            // Initialize state from engine
+            this.state.gradingType = this.musicTheory.gradingMode;
+        }
     }
 
     /**
@@ -225,12 +237,16 @@ class ProgressionBuilder {
             const chord = this.generateChordForDegree(degree, index);
             if (chord) {
                 progression.push(chord.fullName);
+                // Get the actual diatonic chord to retrieve scale-based notes
+                const diatonicChord = this.musicTheory.getDiatonicChord(degree, this.state.currentKey, this.state.currentScale);
                 meta.push({
                     degree,
                     complexity: this.state.complexity,
                     gradeTier: this.state.gradeTier,
                     chordType: chord.chordType,
                     chordRoot: chord.root,
+                    fullName: chord.fullName,
+                    diatonicNotes: diatonicChord && diatonicChord.diatonicNotes ? diatonicChord.diatonicNotes : undefined,
                     chosenGrade: typeof chord.__grade === 'number' ? chord.__grade : undefined,
                     isSubstitution: !!chord.__isSubstitution,
                     functions: Array.isArray(chord.functions) ? chord.functions : undefined,
@@ -420,6 +436,15 @@ class ProgressionBuilder {
      */
     generateChordForDegree(degree, position) {
     const mode = this.state.harmonizationMode || 'root';
+    const keyName = this.state.currentKey;
+    const scaleName = this.state.currentScale;
+    let scaleNotes = [];
+    try {
+        scaleNotes = this.musicTheory.getScaleNotes(keyName, scaleName) || [];
+    } catch(_) {
+        scaleNotes = [];
+    }
+    const isSmallScale = scaleNotes.length > 0 && scaleNotes.length < 7;
     // Local helpers for advanced candidate construction & scoring (harmony mode)
     const buildHarmonyCandidates = (targetNote, degree) => {
         const key = this.state.currentKey;
@@ -516,12 +541,27 @@ class ProgressionBuilder {
         // Helper: escalate a basic chordType to its 7th form unless already extended.
         const escalateToSeventh = (root, chordType, degree) => {
             if (!chordType) return chordType;
+            
+            // Check if scale supports 7ths (heptatonic or larger)
+            // If hexatonic (6 notes) or pentatonic (5 notes), stick to triads unless manually forced
+            try {
+                const scaleNotes = this.musicTheory.getScaleNotes(this.state.currentKey, this.state.currentScale) || [];
+                if (scaleNotes.length < 7) {
+                    // Debug logging for small scales
+                    if (window.__debugProgressionBuilder) {
+                        console.log(`[escalateToSeventh] Small scale (${scaleNotes.length} notes): keeping ${root}${chordType} as-is`);
+                    }
+                    // For hexatonic/pentatonic, do NOT escalate to 7th automatically
+                    return chordType;
+                }
+            } catch(_) {}
+
             // If already has 7/9/11/13/6 keep as is.
             if (/(maj7|m7b5|m7|dim7|7|9|11|13|6)/i.test(chordType)) return chordType;
             const t = chordType.toLowerCase();
             if (t === 'm' || /^m$/.test(t)) return 'm7';
             if (t === 'dim' || t === '°') return 'm7b5'; // diatonic diminished becomes half-dim unless manual override says full dim
-            if (t === 'aug' || /\+/.test(t)) return 'maj7'; // treat augmented as maj7 color
+            if (t === 'aug' || /\+/.test(t)) return 'maj7'; // treat augmented as maj7 color (only for 7+ note scales)
             // For suspended triads, map to a supported dominant suspension.
             // Engine supports '7sus4'; normalize both sus2/sus4 to 7sus4 to avoid unsupported labels like 'sus27'/'sus47'.
             if (t === 'sus4') return '7sus4';
@@ -545,6 +585,7 @@ class ProgressionBuilder {
             return tokens[position] || null;
         };
         const manualTok = getManualTokenForPosition();
+        const manualTokStr = manualTok ? String(manualTok) : '';
         const manualLow = manualTok ? String(manualTok).toLowerCase() : '';
         const manualHalfDim = manualTok ? /ø|m7b5|half[-]?dim(inished)?/.test(manualTok) : false;
         const manualFullDim = manualTok ? ((/°/.test(manualTok) || /(^|[^a-z])dim($|[^a-z0-9])/i.test(manualLow)) && !/half[-]?dim/.test(manualLow)) : false;
@@ -603,24 +644,72 @@ class ProgressionBuilder {
         } else if (mode === 'root') {
             // ROOT MODE: treat each number as the root degree for the chord
             try {
-                const scaleNotes = this.musicTheory.getScaleNotes(this.state.currentKey, this.state.currentScale) || [];
                 if (!scaleNotes.length) return null;
                 const root = scaleNotes[(degree - 1) % scaleNotes.length];
                 const baseChord = this.musicTheory.getDiatonicChord(degree, this.state.currentKey, this.state.currentScale);
+
+                // For hexatonic / pentatonic scales, default to the diatonic triad unless manual tokens demand extensions
+                if (isSmallScale && (!manualTokStr || !/[79]|11|13/.test(manualTokStr))) {
+                    return {
+                        root: baseChord.root,
+                        chordType: baseChord.chordType,
+                        fullName: baseChord.fullName,
+                        chordNotes: baseChord.diatonicNotes || [],
+                        diatonicNotes: baseChord.diatonicNotes || [],
+                        __grade: 4,
+                        __isSubstitution: false,
+                        functions: ['Diatonic'],
+                        scaleMatchPercent: 100
+                    };
+                }
 
                 // Find candidate chords that have this root (findAllContainerChords will include chords that contain the root)
                 let candidates = this.musicTheory.findAllContainerChords([root], scaleNotes) || [];
                 candidates = candidates.filter(c => c.root === root);
 
+                // Inject the diatonic base chord if it's not in the standard candidate list (e.g. synthetic chords)
+                // This ensures the "native" scale chord is always an option
+                const baseTypeLower = (baseChord.chordType || '').toLowerCase();
+                if (!candidates.some(c => (c.chordType || '').toLowerCase() === baseTypeLower)) {
+                    candidates.push({
+                        root: baseChord.root,
+                        chordType: baseChord.chordType,
+                        fullName: baseChord.fullName,
+                        chordNotes: baseChord.diatonicNotes || [],
+                        scaleMatchPercent: 100,
+                        functions: ['Diatonic'],
+                        complexity: 'triad' // Treat as base complexity
+                    });
+                }
+
                 // Hard filters to keep root-mode aligned with diatonic defaults unless explicitly requested
-                const manualTokStr = manualTok ? String(manualTok) : '';
                 const manualWantsSus = /sus\s*[24]|7\s*sus|sus\s*7/i.test(manualTokStr);
                 const manualWantsAug = /(\+|aug|#5)/i.test(manualTokStr);
                 const baseIsSharp5 = /#5/.test(baseChord.chordType || '');
+                const baseIsSus = /sus/i.test(baseChord.chordType || '');
 
-                // 1) Drop suspensions unless manually requested
+                // 0) For small scales (hexatonic/pentatonic), strictly filter out 7ths/extensions unless manually requested
+                if (isSmallScale) {
+                    candidates = candidates.filter(c => {
+                        // Allow if manually requested
+                        if (manualTokStr && (manualTokStr.includes('7') || manualTokStr.includes('9') || manualTokStr.includes('11') || manualTokStr.includes('13'))) return true;
+                        
+                        const type = (c.chordType || '').toLowerCase();
+                        
+                        // Allow if it matches the base chord type exactly (e.g. maj(add6, no5))
+                        if (type === (baseChord.chordType || '').toLowerCase()) return true;
+
+                        // Filter out anything with 7, 9, 11, 13, 6 (unless it's just part of the name like 'sus4' but not '7sus4')
+                        if (type.includes('7') || type.includes('9') || type.includes('11') || type.includes('13') || type.includes('6')) {
+                            return false;
+                        }
+                        return true;
+                    });
+                }
+
+                // 1) Drop suspensions unless manually requested OR it matches the base chord
                 candidates = candidates.filter(c => {
-                    if (/sus/i.test(c.chordType)) return manualWantsSus;
+                    if (/sus/i.test(c.chordType)) return manualWantsSus || baseIsSus;
                     return true;
                 });
 
@@ -687,18 +776,46 @@ class ProgressionBuilder {
 
                 if (!choice) return null;
                 let ct = choice.chordType;
-                // Manual overrides
-                if (manualFullDim) ct = 'dim7';
-                else if (manualHalfDim) ct = 'm7b5';
-                else ct = escalateToSeventh(choice.root, ct, degree);
-                // Align triad escalation with diatonic target (e.g., IV → 7 in Dorian b2)
-                if (/^maj$/i.test(choice.chordType)) {
-                    if (/^7$/.test(baseChord.chordType || '')) ct = '7';
-                    else if (/maj7#5/.test(baseChord.chordType || '')) ct = 'maj7#5';
-                    else if (!/(maj7|7)/i.test(ct)) ct = 'maj7';
+                
+                // Debug: log what we're starting with
+                if (window.__debugProgressionBuilder) {
+                    console.log(`[generateChordForDegree] degree=${degree}, choice.chordType=${choice.chordType}, scaleNotes.length=${scaleNotes.length}`);
                 }
-                if (/^dim$/i.test(choice.chordType) && !/(dim7|m7b5)/i.test(ct)) ct = 'm7b5';
-                if (/^aug$|\+$/.test(choice.chordType) && !/(maj7#5)/i.test(ct)) ct = 'maj7#5';
+                
+                // Manual overrides
+                if (manualFullDim) {
+                    ct = 'dim7';
+                } else if (manualHalfDim) {
+                    ct = 'm7b5';
+                } else if (!isSmallScale || /7|9|11|13/.test(manualTokStr)) {
+                    ct = escalateToSeventh(choice.root, ct, degree);
+                } else {
+                    ct = choice.chordType;
+                }
+                
+                // Debug: log after escalation
+                if (window.__debugProgressionBuilder) {
+                    console.log(`[generateChordForDegree] after escalateToSeventh: ct=${ct}`);
+                }
+                
+                // Only apply automatic escalations for heptatonic+ scales
+                // Small scales (hexatonic/pentatonic) should preserve their native triadic structures
+                if (!isSmallScale) {
+                    // Align triad escalation with diatonic target (e.g., IV → 7 in Dorian b2)
+                    if (/^maj$/i.test(choice.chordType)) {
+                        if (/^7$/.test(baseChord.chordType || '')) ct = '7';
+                        else if (/maj7#5/.test(baseChord.chordType || '')) ct = 'maj7#5';
+                        else if (!/(maj7|7)/i.test(ct)) ct = 'maj7';
+                    }
+                    if (/^dim$/i.test(choice.chordType) && !/(dim7|m7b5)/i.test(ct)) ct = 'm7b5';
+                    if (/^aug$|\+$/.test(choice.chordType) && !/(maj7#5)/i.test(ct)) ct = 'maj7#5';
+                }
+                
+                // Debug: log final result
+                if (window.__debugProgressionBuilder) {
+                    console.log(`[generateChordForDegree] final ct=${ct}`);
+                }
+                
                 const isPerfect = choice.root === baseChord.root && ct === baseChord.chordType && choice.__grade === 4;
                 return {
                     root: choice.root,
@@ -717,12 +834,27 @@ class ProgressionBuilder {
             // MELODY MODE: degree represents scale degree for diatonic chord
             const baseChord = this.musicTheory.getDiatonicChord(degree, this.state.currentKey, this.state.currentScale);
             if (!baseChord) return null;
+            if (isSmallScale && (!manualTokStr || !/[79]|11|13/.test(manualTokStr))) {
+                return {
+                    ...baseChord,
+                    chordNotes: baseChord.diatonicNotes || [],
+                    diatonicNotes: baseChord.diatonicNotes || [],
+                    __grade: 4,
+                    __isSubstitution: false,
+                    functions: ['Diatonic'],
+                    scaleMatchPercent: 100
+                };
+            }
             // Use grade tier-based selection
             const chosen = this.pickChordByGradeAndComplexity(degree, baseChord) || baseChord;
             let ct = chosen.chordType;
-            if (manualFullDim) ct = 'dim7';
-            else if (manualHalfDim) ct = 'm7b5';
-            else ct = escalateToSeventh(chosen.root, ct, degree);
+            if (manualFullDim) {
+                ct = 'dim7';
+            } else if (manualHalfDim) {
+                ct = 'm7b5';
+            } else if (!isSmallScale || /7|9|11|13/.test(manualTokStr || '')) {
+                ct = escalateToSeventh(chosen.root, ct, degree);
+            }
             return { ...chosen, chordType: ct, fullName: chosen.root + ct };
         }
     }
@@ -806,14 +938,7 @@ class ProgressionBuilder {
      * Get grade tier info for display and filtering
      */
     getGradeTierInfo(tier) {
-        const tiers = [
-            { label: '○ Experimental', color: '#6b7280', short: '○', name: 'Experimental' },
-            { label: '◐ Fair', color: '#8b5cf6', short: '◐', name: 'Fair' },
-            { label: '★ Good', color: '#f59e0b', short: '★', name: 'Good' },
-            { label: '★★ Excellent', color: '#0ea5e9', short: '★★', name: 'Excellent' },
-            { label: '★★★ Perfect', color: '#10b981', short: '★★★', name: 'Perfect' }
-        ];
-        return tiers[tier] || tiers[2];
+        return this.musicTheory.getGradingTierInfo(tier);
     }
 
     /**
@@ -894,12 +1019,16 @@ class ProgressionBuilder {
                 // TRIAD MODE: Strictly filter to triads or degrade seventh/extended to triads
                 const isTriadType = (t) => !/(maj13|13|11|9|maj9|maj11|m13|m11|m9|maj7|m7b5|m7|dim7|7|alt|b9|#9|b13)/i.test(t);
                 const simplifyToTriad = (root, type) => {
+                    // Preserve synthetic names like maj(add6, no5)
+                    if (type.includes('(')) return type;
+                    
                     if (/m7b5|ø/i.test(type)) return 'm';
                     if (/maj7|maj9|maj11|maj13/i.test(type)) return 'maj';
                     if (/m13|m11|m9|m7/i.test(type)) return 'm';
                     if (/13|11|9|7|alt|b9|#9|b13/i.test(type)) return 'maj';
                     if (/dim7/i.test(type)) return 'dim';
-                    if (/dim|°|o/i.test(type)) return 'dim';
+                    // Fix: Ensure 'o' matches only as full token or start, not inside 'no5'
+                    if (/dim|°|^o$/i.test(type)) return 'dim';
                     if (/aug|\+/i.test(type)) return 'aug';
                     if (/^m$/i.test(type)) return 'm';
                     if (/^maj$/i.test(type) || type === '') return 'maj';
@@ -1034,6 +1163,9 @@ class ProgressionBuilder {
      * Apply chord complexity (West-East axis)
      */
     applyChordComplexity(baseType, root, degree) {
+        // If baseType is a synthetic chord (contains parens), preserve it unless explicitly simplifying
+        if (baseType && baseType.includes('(')) return baseType;
+
         const complexity = this.state.complexity;
 
         // West (0-30): Triads only
@@ -1212,11 +1344,11 @@ class ProgressionBuilder {
 
                         <div class="pb-controls">
                             <div class="pg-target">
-                                <button id="pg-mode-prog" class="btn ${this.state.generateMode==='progression' ? 'btn-primary' : ''}" style="padding:6px 10px;">Whole Progression</button>
+                                <button id="pg-mode-prog" class="btn ${this.state.generateMode==='progression' ? 'btn-primary' : ''}" style="padding:6px 10px; font-family: var(--font-tech);">Whole Progression</button>
                                 <div class="pg-degree-list">
                                     ${this.state.inputNumbers.map((n, i) => `
                                         <button class="btn pg-degree-btn ${this.state.generateMode==='degree' && this.state.generateIndex===i ? 'btn-primary' : ''}"
-                                                data-index="${i}" style="padding:6px 10px;">
+                                                data-index="${i}" style="padding:6px 10px; font-family: var(--font-tech);">
                                             Input ${i+1}
                                         </button>
                                     `).join('')}
@@ -1238,18 +1370,17 @@ class ProgressionBuilder {
 
                     <div class="pb-pad">
                         <div class="pb-pad-wrap">
-                            <div class="pb-axis-label pb-axis-top">NORTH <span class="pb-axis-badge">★★★</span></div>
-                            <div class="pb-axis-label pb-axis-bottom">SOUTH <span class="pb-axis-badge">○</span></div>
+                            <div class="pb-axis-label pb-axis-top">NORTH <span class="pb-axis-badge" style="color:${this.getGradeTierInfo(4).color}">${this.getGradeTierInfo(4).short}</span></div>
+                            <div class="pb-axis-label pb-axis-bottom">SOUTH <span class="pb-axis-badge" style="color:${this.getGradeTierInfo(0).color}">${this.getGradeTierInfo(0).short}</span></div>
                             <div class="pb-axis-label pb-axis-left">WEST<br/><span class="pb-axis-sub">Triads</span></div>
                             <div class="pb-axis-label pb-axis-right">EAST<br/><span class="pb-axis-sub">13ths</span></div>
                             <div id="pg-2d-pad" class="pb-pad-surface">
-                                <div class="pb-tier-band tier-0"></div>
-                                <div class="pb-tier-band tier-1"></div>
-                                <div class="pb-tier-band tier-2"></div>
-                                <div class="pb-tier-band tier-3"></div>
-                                <div class="pb-tier-band tier-4"></div>
+                                ${[4,3,2,1,0].map((t, i) => {
+                                    const info = this.getGradeTierInfo(t);
+                                    return `<div class="pb-tier-band" style="top:${i*20}%; height:20%; background:${info.color}15;"></div>`;
+                                }).join('')}
                                 <div class="pb-grid-lines"></div>
-                                <div id="pg-2d-cursor" class="pb-cursor" style="border-color:${gradeTierInfo.color}; box-shadow:0 0 12px ${gradeTierInfo.color};"></div>
+                                <div id="pg-2d-cursor" class="pb-cursor" style="border-color:${gradeTierInfo.color}; box-shadow:0 0 12px ${gradeTierInfo.color}; border-radius: 0;"></div>
                             </div>
                         </div>
                         <div class="pb-status">
@@ -1258,9 +1389,9 @@ class ProgressionBuilder {
                                 <div class="pb-card-value">${complexityLabel}</div>
                                 <div class="pb-card-sub">${this.state.complexity}</div>
                             </div>
-                            <div class="pb-card pb-card-tier" style="border-color:${gradeTierInfo.color};">
+                            <div class="pb-card pb-card-tier" style="border-color:${gradeTierInfo.color}; border-radius: 0;">
                                 <div class="pb-card-label">Grade Tier</div>
-                                <div class="pb-card-value" style="color:${gradeTierInfo.color};">${gradeTierInfo.label}</div>
+                                <div class="pb-card-value" style="color:${gradeTierInfo.color}; font-family: var(--font-tech);">${gradeTierInfo.label}</div>
                                 <div class="pb-card-sub">Tier ${this.state.gradeTier}</div>
                             </div>
                         </div>
@@ -1271,10 +1402,10 @@ class ProgressionBuilder {
                     <!-- pb-gen-scroll removed as requested -->
                 </div>
                 <!-- Advanced harmony controls removed (pb-advanced-controls). Underlying logic & defaults retained. -->
-                <div id="pb-sub-panel" class="pb-sub-panel" style="display: none; margin-top: 12px; padding: 12px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px;">
+                <div id="pb-sub-panel" class="pb-sub-panel" style="display: none; margin-top: 12px; padding: 12px; background: var(--bg-input); border: 1px solid var(--border-light); border-radius: 0;">
                     <div class="pb-sub-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <span style="font-weight: 600; font-size: 0.875rem;">Substitution Options</span>
-                        <button id="pb-sub-close" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem; line-height: 1;">&times;</button>
+                        <button id="pb-sub-close" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1;">&times;</button>
                     </div>
                     <div id="pb-sub-content"></div>
                 </div>
@@ -1408,7 +1539,9 @@ class ProgressionBuilder {
         const modeBtn = this.container.querySelector('#pg-mode-prog');
         const degreeBtns = this.container.querySelectorAll('.pg-degree-btn');
         const exploreSel = this.container.querySelector('#pg-explore-logic');
+        
     // Advanced harmony UI removed; keep internal state defaults.
+    // Grading selector moved to control deck, handled by modular-music-theory.html
 
         if (modeBtn) {
             modeBtn.addEventListener('click', () => {
@@ -1557,12 +1690,13 @@ class ProgressionBuilder {
             // Secondary dominant
             const targetRoot = this.musicTheory.getNoteFromInterval(root, 5);
             if (targetRoot) {
+                const tierInfo = this.getGradeTierInfo(3); // Excellent
                 subs.push({
                     fullName: root + '7',
                     root,
                     chordType: '7',
                     label: 'V7',
-                    color: '#f59e0b',
+                    color: tierInfo.color,
                     reason: `Secondary dominant → ${targetRoot}`
                 });
             }
@@ -1570,12 +1704,13 @@ class ProgressionBuilder {
             // Tritone substitution
             const subRoot = this.musicTheory.getNoteFromInterval(root, 6);
             if (subRoot) {
+                const tierInfo = this.getGradeTierInfo(2); // Good
                 subs.push({
                     fullName: subRoot + '7',
                     root: subRoot,
                     chordType: '7',
                     label: 'SubV',
-                    color: '#8b5cf6',
+                    color: tierInfo.color,
                     reason: `Tritone sub of ${root}7`
                 });
             }
@@ -1583,21 +1718,23 @@ class ProgressionBuilder {
             // Modal interchange (parallel minor/major)
             const isMajor = this.state.currentScale === 'major';
             if (isMajor && type.includes('maj')) {
+                const tierInfo = this.getGradeTierInfo(3); // Excellent
                 subs.push({
                     fullName: root + 'm7',
                     root,
                     chordType: 'm7',
                     label: 'MI',
-                    color: '#3b82f6',
+                    color: tierInfo.color,
                     reason: 'Modal interchange from parallel minor'
                 });
             } else if (!isMajor && type.includes('m')) {
+                const tierInfo = this.getGradeTierInfo(3); // Excellent
                 subs.push({
                     fullName: root + 'maj7',
                     root,
                     chordType: 'maj7',
                     label: 'MI',
-                    color: '#3b82f6',
+                    color: tierInfo.color,
                     reason: 'Modal interchange from parallel major'
                 });
             }
@@ -1605,12 +1742,13 @@ class ProgressionBuilder {
             // Related ii-V
             const iiRoot = this.musicTheory.getNoteFromInterval(root, 2);
             if (iiRoot && type.includes('7') && !type.includes('maj7')) {
+                const tierInfo = this.getGradeTierInfo(4); // Perfect
                 subs.push({
                     fullName: iiRoot + 'm7',
                     root: iiRoot,
                     chordType: 'm7',
                     label: 'ii',
-                    color: '#10b981',
+                    color: tierInfo.color,
                     reason: `Setup: ${iiRoot}m7 → ${root}7`
                 });
             }

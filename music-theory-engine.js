@@ -19,6 +19,10 @@ class MusicTheoryEngine {
             'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
         };
 
+        // Shared state for grading system
+        this.gradingMode = 'functional'; // 'functional' | 'emotional' | 'color'
+        this.listeners = new Set();
+
         // Key signatures and their preferred accidentals
         this.keySignatures = {
             // Sharp keys
@@ -1134,6 +1138,9 @@ class MusicTheoryEngine {
         if ((has(3) && has(6) && has(9))) return 'dim7';
         if ((has(3) && has(7) && has(11))) return 'mMaj7';
         if ((has(5) && has(7) && has(10))) return '7sus4';
+        // Shell voicings (no 5th)
+        if (has(5) && has(10) && !has(3) && !has(4)) return '7sus4';
+        if (has(2) && has(10) && !has(3) && !has(4)) return '7sus2';
 
         // Sixths (prefer over plain triads when 6th is present)
         if ((has(4) && has(7) && has(9))) return '6';
@@ -1210,8 +1217,13 @@ class MusicTheoryEngine {
         }
 
         // Seventh suffix (if present)
-        if (hasMaj7) base += (base === 'maj' ? '7' : 'maj7');
-        else if (hasMin7) base += '7';
+        if (base.includes('sus')) {
+            if (hasMin7) base = '7' + base;
+            else if (hasMaj7) base = 'maj7' + base;
+        } else {
+            if (hasMaj7) base += (base === 'maj' ? '7' : 'maj7');
+            else if (hasMin7) base += '7';
+        }
 
         // Build modifiers
         const mods = [];
@@ -1235,7 +1247,7 @@ class MusicTheoryEngine {
             if (hasSharp5) mods.push('#5');
         }
         // Omissions
-        if (!hasMaj3 && !hasMin3) mods.push('no3');
+        if (!hasMaj3 && !hasMin3 && !base.includes('sus') && !base.includes('modal')) mods.push('no3');
         if (!hasP5 && !hasb5 && !hasSharp5) mods.push('no5');
 
         return mods.length ? `${base}(${mods.join(', ')})` : base;
@@ -1262,13 +1274,27 @@ class MusicTheoryEngine {
         if (!scaleNotes.length) return { notes: [], degrees: [] };
 
         const n = scaleNotes.length;
-        const effSize = Math.max(1, Math.min(size, n));
+        // For small scales (hexatonic/pentatonic), force triad size (3) unless explicitly larger
+        // This prevents automatic 7th chord generation which often sounds wrong in these contexts
+        let effSize = size;
+        if (n < 7 && size > 3) {
+            effSize = 3;
+        }
+        effSize = Math.max(1, Math.min(effSize, n));
+
         const start = ((degree - 1) % n + n) % n;
         const notes = [];
         const degrees = [];
 
+        // Stacking logic:
+        // For heptatonic (7 notes): skip 1 (thirds) -> index + 2
+        // For hexatonic (6 notes): skip 1 (thirds) -> index + 2
+        // For pentatonic (5 notes): skip 1 (thirds) -> index + 2
+        // The "skip 1" logic is consistent for tertian harmony regardless of scale size
+        const step = 2; 
+
         for (let k = 0; k < effSize; k++) {
-            const idx = (start + k * 2) % n; // stacked diatonic 3rds within the scale
+            const idx = (start + k * step) % n; 
             notes.push(scaleNotes[idx]);
             const rel = ((idx - start + n) % n);
             degrees.push(rel === 0 ? 1 : (rel + 1));
@@ -1451,8 +1477,12 @@ class MusicTheoryEngine {
 
         // Normalize scale identifier
         const scaleId = this.normalizeScaleId ? this.normalizeScaleId(scaleType) : String(scaleType);
+        
+        // Determine default chord size: 4 (sevenths) for heptatonic+, 3 (triads) for smaller scales
+        const defaultSize = (scaleNotes.length < 7) ? 3 : 4;
+        
         // Build diatonic stacked-third chord from the selected scale
-        let stacked = this.buildScaleChord(key, scaleId, degree, 4);
+        let stacked = this.buildScaleChord(key, scaleId, degree, defaultSize);
 
         // For melodic-minor family scales, prefer flat spellings for roots/notes
         // to avoid enharmonic mis-labeling (e.g., prefer 'Eb' over 'D#').
@@ -1713,6 +1743,60 @@ class MusicTheoryEngine {
      */
     getKeys() {
         return ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
+    }
+
+    // --- Shared Grading System ---
+
+    setGradingMode(mode) {
+        if (['functional', 'emotional', 'color'].includes(mode)) {
+            this.gradingMode = mode;
+            this.notifyListeners('gradingModeChanged', mode);
+        }
+    }
+
+    subscribe(callback) {
+        this.listeners.add(callback);
+        return () => this.listeners.delete(callback);
+    }
+
+    notifyListeners(event, data) {
+        this.listeners.forEach(callback => callback(event, data));
+    }
+
+    getGradingTierInfo(tier) {
+        const type = this.gradingMode;
+
+        if (type === 'emotional') {
+            const tiers = [
+                { label: '🌑 Somber', color: '#60a5fa', short: '🌑', name: 'Somber', desc: 'Deep, sad, serious' },
+                { label: '🌧️ Melancholy', color: '#93c5fd', short: '🌧️', name: 'Melancholy', desc: 'Pensive, longing' },
+                { label: '😐 Neutral', color: '#d1d5db', short: '😐', name: 'Neutral', desc: 'Balanced, plain' },
+                { label: '☀️ Bright', color: '#fbbf24', short: '☀️', name: 'Bright', desc: 'Happy, energetic' },
+                { label: '✨ Radiant', color: '#f9a8d4', short: '✨', name: 'Radiant', desc: 'Ecstatic, magical' }
+            ];
+            return tiers[tier] || tiers[2];
+        }
+
+        if (type === 'color') {
+             const tiers = [
+                { label: 'Deep Blue', color: '#93c5fd', short: 'Blue', name: 'Deep', desc: 'Calm, depth' },
+                { label: 'Purple', color: '#c4b5fd', short: 'Purp', name: 'Rich', desc: 'Royal, complex' },
+                { label: 'Green', color: '#6ee7b7', short: 'Grn', name: 'Natural', desc: 'Organic, grounded' },
+                { label: 'Orange', color: '#fdba74', short: 'Org', name: 'Warm', desc: 'Energetic, friendly' },
+                { label: 'Yellow', color: '#fde68a', short: 'Yel', name: 'Bright', desc: 'Optimistic, light' }
+            ];
+            return tiers[tier] || tiers[2];
+        }
+
+        // Default: Functional
+        const tiers = [
+            { label: '○ Experimental', color: '#9ca3af', short: '○', name: 'Experimental', desc: '(chromatic)' },
+            { label: '◐ Fair', color: '#c4b5fd', short: '◐', name: 'Fair', desc: '(chromatic functional)' },
+            { label: '★ Good', color: '#fbbf24', short: '★', name: 'Good', desc: '(in-scale)' },
+            { label: '★★ Excellent', color: '#38bdf8', short: '★★', name: 'Excellent', desc: '(in-scale functional)' },
+            { label: '★★★ Perfect', color: '#10b981', short: '★★★', name: 'Perfect', desc: '(diatonic scale chord)' }
+        ];
+        return tiers[tier] || tiers[2];
     }
 }
 

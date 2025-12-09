@@ -52,6 +52,18 @@ class UnifiedChordExplorer {
             layout: false,
             sequence: false
         };
+
+        // Subscribe to shared grading mode changes
+        if (this.musicTheory.subscribe) {
+            this.musicTheory.subscribe((event, data) => {
+                if (event === 'gradingModeChanged') {
+                    this.render();
+                    if (this.state.radialMenuOpen) {
+                        this.renderRadialMenu();
+                    }
+                }
+            });
+        }
     }
 
     /** Internal conditional logger */
@@ -753,7 +765,33 @@ class UnifiedChordExplorer {
 
         this._log('radial', `[generateSubstitutions] total=${subs.length}`);
         // Sort by family and grade for better clustering
-        return this.sortSubstitutionsByHarmonicDistance(subs, chord);
+        const sorted = this.sortSubstitutionsByHarmonicDistance(subs, chord);
+        // Add tier and color properties to all substitutions
+        return sorted.map(sub => this.enrichSubstitutionWithGrading(sub));
+    }
+
+    /**
+     * Enrich a substitution object with tier number and color from grading system
+     */
+    enrichSubstitutionWithGrading(sub) {
+        // Skip if already has tier and color (e.g., container chords)
+        if (sub.tier !== undefined && sub.color) return sub;
+        
+        // Convert grade string to tier number
+        let tier;
+        if (sub.grade === 'perfect') tier = 4;
+        else if (sub.grade === 'excellent') tier = 3;
+        else if (sub.grade === 'good') tier = 2;
+        else if (sub.grade === 'fair') tier = 1;
+        else tier = 0; // experimental/default
+        
+        const tierInfo = this.musicTheory.getGradingTierInfo(tier);
+        return {
+            ...sub,
+            tier,
+            color: tierInfo.color,
+            grade: tierInfo.label // Replace string grade with tier label
+        };
     }
 
     /**
@@ -932,7 +970,8 @@ class UnifiedChordExplorer {
                 containers.push({
                     ...chord,
                     grade: grade.label,
-                    gradeClass: grade.class
+                    tier: grade.tier,
+                    color: grade.color
                 });
             }
         });
@@ -959,11 +998,17 @@ class UnifiedChordExplorer {
         const inScale = extra.every(n => scaleNotes.includes(n));
 
         if (extra.length === 0) {
-            return { class: 'grade-perfect', label: 'perfect' };
+            // Perfect match - tier 4
+            const tierInfo = this.musicTheory.getGradingTierInfo(4);
+            return { class: '', label: tierInfo.label, tier: 4, color: tierInfo.color };
         } else if (extra.length === 1 && inScale) {
-            return { class: 'grade-excellent', label: 'excellent' };
+            // Excellent - tier 3
+            const tierInfo = this.musicTheory.getGradingTierInfo(3);
+            return { class: '', label: tierInfo.label, tier: 3, color: tierInfo.color };
         } else if (extra.length <= 2 && inScale) {
-            return { class: 'grade-good', label: 'good' };
+            // Good - tier 2
+            const tierInfo = this.musicTheory.getGradingTierInfo(2);
+            return { class: '', label: tierInfo.label, tier: 2, color: tierInfo.color };
         }
         return null;
     }
@@ -1197,6 +1242,15 @@ class UnifiedChordExplorer {
         layoutWrapper.className = 'layout-mode-wrapper';
         layoutWrapper.appendChild(layoutSelect);
         header.appendChild(layoutWrapper);
+
+        // Grading Key
+        const gradingKey = document.createElement('div');
+        gradingKey.style.cssText = 'margin-top:4px; font-size:0.75rem; display:flex; justify-content:center; gap:12px; flex-wrap:wrap; padding-top:4px; border-top:1px dashed var(--border-light);';
+        [4, 3, 2].forEach(tier => {
+             const info = this.musicTheory.getGradingTierInfo(tier);
+             gradingKey.innerHTML += `<span style="color:${info.color}; font-weight:bold;">${info.short} ${info.name}</span>`;
+        });
+        header.appendChild(gradingKey);
 
         this.containerElement.appendChild(header);
 
@@ -1727,14 +1781,16 @@ class UnifiedChordExplorer {
                     byRoot.get(c.root).push(c);
                 });
                 // Build cluster placeholder subs (one per root)
+                const tierInfo = this.musicTheory.getGradingTierInfo(3);
                 const clusterPlaceholders = Array.from(byRoot.entries()).map(([root, members]) => ({
                     root,
                     chordType: members[0].chordType,
                     fullName: `${root} · ${members.length} variants`,
                     label: 'root cluster',
                     family: 'extension',
-                    grade: 'excellent',
-                    gradeClass: 'grade-excellent',
+                    grade: tierInfo.label,
+                    tier: 3,
+                    color: tierInfo.color,
                     _clusterMembers: members,
                     type: 'container_root_cluster'
                 }));
@@ -2235,8 +2291,14 @@ class UnifiedChordExplorer {
      */
     createRadialNode(sub) {
         const node = document.createElement('div');
-        node.className = `radial-node ${sub.gradeClass || 'grade-' + sub.grade} family-${sub.family}`;
+        node.className = `radial-node family-${sub.family}`;
         node.style.transform = `translate(${sub.x}px, ${sub.y}px)`;
+        
+        // Apply grading color dynamically
+        if (sub.color) {
+            node.style.borderColor = sub.color;
+            node.style.boxShadow = `0 0 8px ${sub.color}40`;
+        }
         
         node.innerHTML = `
             <div class="node-chord">${sub.fullName}</div>
@@ -2356,8 +2418,15 @@ class UnifiedChordExplorer {
                 const x = Math.cos(rad) * radius;
                 const y = Math.sin(rad) * radius;
                 const node = document.createElement('div');
-                node.className = `radial-node cluster-member cat-${cat} ${m.gradeClass || 'grade-' + m.grade}`;
+                node.className = `radial-node cluster-member cat-${cat}`;
                 node.style.transform = `translate(${x}px, ${y}px)`;
+                
+                // Apply grading color dynamically
+                if (m.color) {
+                    node.style.borderColor = m.color;
+                    node.style.boxShadow = `0 0 8px ${m.color}40`;
+                }
+                
                 node.innerHTML = `<div class="node-chord">${m.fullName}</div><div class="node-label">${m.label || cat}</div>`;
                 node.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -2464,8 +2533,14 @@ class UnifiedChordExplorer {
             const y = Math.sin(rad) * radius;
 
             const node = document.createElement('div');
-            node.className = `radial-node ${m.gradeClass || 'grade-' + m.grade} family-${m.family}`;
+            node.className = `radial-node family-${m.family}`;
             node.style.transform = `translate(${x}px, ${y}px)`;
+            
+            // Apply grading color dynamically
+            if (m.color) {
+                node.style.borderColor = m.color;
+                node.style.boxShadow = `0 0 8px ${m.color}40`;
+            }
             node.innerHTML = `<div class="node-chord">${m.fullName}</div><div class="node-label">${m.label}</div>`;
             node.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -2492,12 +2567,16 @@ class UnifiedChordExplorer {
      * Format grade string
      */
     formatGrade(grade) {
-        const grades = {
-            perfect: '★★★',
-            excellent: '★★',
-            good: '★'
+        const map = {
+            'perfect': 4,
+            'excellent': 3,
+            'good': 2,
+            'fair': 1,
+            'experimental': 0
         };
-        return grades[grade] || '';
+        const tier = map[grade] !== undefined ? map[grade] : 2;
+        const info = this.musicTheory.getGradingTierInfo(tier);
+        return `<span style="color:${info.color}">${info.short}</span>`;
     }
 
     /**
@@ -2864,8 +2943,14 @@ class UnifiedChordExplorer {
             if (cluster && cluster.length >= clusters.threshold) return;
 
             const node = document.createElement('div');
-            node.className = `radial-node ${sub.gradeClass || 'grade-' + sub.grade} family-${sub.family}`;
+            node.className = `radial-node family-${sub.family}`;
             node.style.transform = `translate(${sub.x}px, ${sub.y}px)`;
+            
+            // Apply grading color dynamically
+            if (sub.color) {
+                node.style.borderColor = sub.color;
+                node.style.boxShadow = `0 0 8px ${sub.color}40`;
+            }
             node.innerHTML = `
                 <div class="node-chord">${sub.fullName}</div>
                 <div class="node-label">${sub.label}</div>

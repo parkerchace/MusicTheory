@@ -1,65 +1,82 @@
-/* Unified Chord Explorer Styles */
+/* Unified Chord Explorer Styles - Y2K FUTURISM EDITION */
 
 .unified-chord-explorer {
-    padding: 20px;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    padding: 4px;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: auto;
 }
 
 .chord-explorer-header {
-    margin-bottom: 24px;
+    margin-bottom: 8px;
     text-align: center;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 4px;
 }
 
 .chord-explorer-header h3 {
-    color: #fff;
-    font-size: 1.8em;
-    margin: 0 0 8px 0;
-    font-weight: 600;
+    color: var(--accent-primary);
+    font-size: 1.2em;
+    margin: 0 0 4px 0;
+    font-weight: 700;
+    font-family: var(--font-tech);
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 
 .chord-explorer-header .hint {
-    color: #94a3b8;
-    font-size: 0.9em;
+    color: var(--text-muted);
+    font-size: 0.8em;
     margin: 0;
+    font-family: var(--font-tech);
 }
 
 .layout-mode-wrapper {
-
     margin-left: 10px;
 }
 .layout-mode-select {
-    font-size: 12px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    border: 1px solid #666;
-    background: #1e1e1e;
-    color: #ddd;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 0;
+    border: 1px solid var(--border-light);
+    background: var(--bg-input);
+    color: var(--accent-primary);
+    font-family: var(--font-tech);
+    text-transform: uppercase;
 }
 .layout-mode-select:focus {
-    outline: 1px solid #999;
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 8px var(--accent-glow);
 }
 
 /* Chord Grid */
 .chord-explorer-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 16px;
-    max-width: 1200px;
-    margin: 0 auto;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+    width: 100%;
+    padding: 4px;
 }
 
 /* Chord Card */
 .chord-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 16px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 8px;
     text-align: center;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .chord-card::before {
@@ -67,11 +84,11 @@
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    width: 3px;
+    height: 100%;
+    background: var(--accent-primary);
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.2s ease;
 }
 
 .chord-card:hover::before {
@@ -79,119 +96,99 @@
 }
 
 .chord-card:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.2);
-    transform: translateY(-2px);
+    background: rgba(0, 243, 255, 0.05);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 15px var(--accent-glow);
 }
 
 /* Progression highlighting */
 .chord-card.in-progression {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
-    border-color: #3b82f6;
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-}
-
-.chord-card.in-progression.clickable {
-    padding: 10px 12px;
+    background: rgba(0, 243, 255, 0.1);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .chord-card.in-progression::before {
     opacity: 1;
+    background: var(--accent-secondary); /* Green for active */
 }
 
 .chord-card.clickable {
     cursor: pointer;
 }
 
-.chord-card.clickable:hover {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3));
-    border-color: #60a5fa;
-    box-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
-}
-
-.chord-card.in-progression.clickable .chord-degree {
-    font-size: 0.8em;
-    margin: 4px 0 4px 0;
-}
-
-.chord-card.in-progression.clickable .chord-name {
-    font-size: 1.2em;
-    margin-bottom: 4px;
-}
-
 /* Substitution visual markers */
 .chord-card.substituted {
     border-style: dashed;
+    border-color: var(--text-muted);
 }
 
 .substitution-badge {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0,0,0,0.6);
-    color: #fff;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.7em;
+    top: 2px;
+    right: 2px;
+    background: var(--bg-header);
+    color: var(--accent-primary);
+    padding: 1px 4px;
+    font-size: 0.6em;
     text-transform: uppercase;
-    letter-spacing: 0.6px;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid var(--accent-primary);
+    font-family: var(--font-tech);
 }
 
-/* Insert plus button to add passing chords */
+/* Insert plus button */
 .insert-plus {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.12);
-    background: rgba(30, 30, 40, 0.9);
-    color: #fff;
-    font-weight: 800;
+    border: 2px solid var(--accent-primary);
+    background: rgba(0, 0, 0, 0.9);
+    color: var(--accent-primary);
+    font-weight: bold;
+    font-size: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.6);
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    z-index: 100;
+    font-family: var(--font-tech);
+    line-height: 1;
 }
 
-.insert-plus.left {
-    left: -10px;
-}
-
-.insert-plus.right {
-    right: -10px;
-}
+.insert-plus.left { left: -12px; }
+.insert-plus.right { right: -12px; }
 
 .insert-plus:hover {
-    transform: translateY(-50%) scale(1.06);
-    box-shadow: 0 10px 26px rgba(59,130,246,0.18);
+    background: var(--accent-primary);
+    color: #000;
+    box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .chord-card.plus-pressed {
-    outline: 2px solid rgba(59,130,246,0.22);
+    outline: 2px solid var(--accent-primary);
 }
 
-/* Chord degree (Roman numeral) */
+/* Chord degree */
 .chord-degree {
-    font-size: 0.9em; /* de-emphasize numeral */
-    font-weight: 700;
-    color: rgba(255,255,255,0.65);
-    margin: 6px 0 8px 0;
-    font-family: 'Georgia', serif;
-    /* Removed forced uppercase so minor, diminished and half-diminished numerals can show in lowercase with ø/° */
+    font-size: 0.75em;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin: 2px 0 4px 0;
+    font-family: var(--font-tech);
+    letter-spacing: 1px;
 }
 
 /* Chord name */
 .chord-name {
-    font-size: 1.5em; /* emphasize chord name */
-    color: #ffffff;
+    font-size: 1.1em;
+    color: var(--text-main);
     margin-bottom: 6px;
-    font-weight: 800;
-    letter-spacing: 0.4px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    text-shadow: 0 0 5px rgba(255,255,255,0.2);
 }
 
 /* Function tags */
@@ -203,82 +200,77 @@
 }
 
 .function-tag {
-    font-size: 0.7em;
-    padding: 2px 8px;
-    border-radius: 12px;
+    font-size: 0.65em;
+    padding: 2px 6px;
+    border-radius: 0;
     text-transform: uppercase;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    font-family: var(--font-tech);
+    border: 1px solid transparent;
 }
 
 .function-tag.tonic {
-    background: rgba(16, 185, 129, 0.2);
-    color: #10b981;
-    border: 1px solid #10b981;
+    color: var(--accent-secondary);
+    border-color: var(--accent-secondary);
+    background: rgba(0, 255, 65, 0.1);
 }
 
 .function-tag.dominant {
-    background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
-    border: 1px solid #ef4444;
+    color: #ff0055;
+    border-color: #ff0055;
+    background: rgba(255, 0, 85, 0.1);
 }
 
 .function-tag.predominant,
 .function-tag.subdominant {
-    background: rgba(245, 158, 11, 0.2);
-    color: #f59e0b;
-    border: 1px solid #f59e0b;
+    color: #ffcc00;
+    border-color: #ffcc00;
+    background: rgba(255, 204, 0, 0.1);
 }
 
 .function-tag.supertonic,
 .function-tag.submediant,
 .function-tag.leading-tone {
-    background: rgba(139, 92, 246, 0.2);
-    color: #8b5cf6;
-    border: 1px solid #8b5cf6;
+    color: #bd00ff;
+    border-color: #bd00ff;
+    background: rgba(189, 0, 255, 0.1);
 }
 
-/* Radial Menu System */
+/* Radial Menu System - CYBER HUD STYLE */
 .radial-menu-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(2px);
     z-index: 9999;
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Grid overlay effect */
+    background-image: 
+        linear-gradient(rgba(0, 243, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 243, 255, 0.1) 1px, transparent 1px);
+    background-size: 40px 40px;
     animation: fadeIn 0.2s ease;
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .radial-menu {
     position: absolute;
-    width: 80px;
-    height: 80px;
+    width: 100px;
+    height: 100px;
     animation: radialExpand 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes radialExpand {
-    from {
-        transform: scale(0);
-        opacity: 0;
-    }
-    to {
-        transform: scale(1);
-        opacity: 1;
-    }
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }
 
 /* Center node (original chord) */
@@ -287,31 +279,33 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 80px;
-    height: 80px;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    width: 90px;
+    height: 90px;
+    background: #000;
+    border: 2px solid var(--accent-primary);
     border-radius: 50%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4);
-    border: 3px solid rgba(255, 255, 255, 0.3);
     z-index: 10;
+    box-shadow: 0 0 20px var(--accent-glow), inset 0 0 20px var(--accent-glow);
 }
 
 .center-chord {
-    font-size: 1em;
+    font-size: 1.2em;
     font-weight: 700;
-    color: #fff;
+    color: var(--accent-primary);
+    font-family: var(--font-tech);
 }
 
 .center-label {
-    font-size: 0.65em;
-    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.7em;
+    color: var(--text-main);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
     margin-top: 2px;
+    font-family: var(--font-tech);
 }
 
 /* Radial nodes (substitutions) */
@@ -321,27 +315,28 @@
     left: 50%;
     width: 90px;
     min-height: 75px;
-    background: rgba(30, 30, 30, 0.95);
-    border-radius: 12px;
+    background: rgba(5, 10, 15, 0.95);
+    border-radius: 0; /* Tech shape */
     transform-origin: center center;
     margin: -37.5px 0 0 -45px;
     padding: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-light);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     animation: nodeAppear 0.3s ease forwards;
-    /* Make nodes visible by default; animation still fades but from 1 to 1 visually */
     opacity: 1;
+    clip-path: polygon(10% 0, 90% 0, 100% 10%, 100% 90%, 90% 100%, 10% 100%, 0 90%, 0 10%);
 }
 
 .radial-center .center-summary {
     margin-top: 6px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
     line-height: 1.2;
     opacity: 0.9;
     text-align: center;
+    color: var(--text-muted);
 }
 
 .radial-center .center-summary-line {
@@ -349,13 +344,13 @@
 }
 
 .radial-node.root-cluster {
-    background: linear-gradient(145deg, #1e293b 0%, #334155 100%);
-    border: 2px solid #64748b;
+    background: linear-gradient(145deg, #000 0%, #111 100%);
+    border: 1px solid var(--text-muted);
 }
 
 .radial-node.root-cluster:hover {
-    border-color: #94a3b8;
-    box-shadow: 0 0 0 3px rgba(148,163,184,0.35);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .radial-menu.cluster-mode .radial-node.cluster-member.cat-dominant { border-color: #ef4444; }
@@ -372,119 +367,64 @@
     top: 0;
     transform: translate(-50%, -50%);
     padding: 4px 8px;
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(4px);
-    color: #f1f5f9;
-    font-size: 11px;
-    border-radius: 6px;
-    letter-spacing: 0.5px;
+    background: #000;
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary);
+    font-size: 10px;
+    border-radius: 0;
+    letter-spacing: 1px;
     pointer-events: none;
     text-transform: uppercase;
+    font-family: var(--font-tech);
 }
-/* removed stray declarations */
 
 /* Family-specific border colors */
-.radial-node.family-dominant {
-    border-color: #ef4444;
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(30, 30, 30, 0.95));
-}
+.radial-node.family-dominant { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.radial-node.family-secondary { border-color: #fb923c; background: rgba(251, 146, 60, 0.1); }
+.radial-node.family-tonic { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+.radial-node.family-modal { border-color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
+.radial-node.family-extension { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+.radial-node.family-mediant { border-color: #ec4899; background: rgba(236, 72, 153, 0.1); }
 
-.radial-node.family-secondary {
-    border-color: #fb923c;
-    background: linear-gradient(135deg, rgba(251, 146, 60, 0.15), rgba(30, 30, 30, 0.95));
-}
-
-.radial-node.family-tonic {
-    border-color: #10b981;
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(30, 30, 30, 0.95));
-}
-
-.radial-node.family-modal {
-    border-color: #8b5cf6;
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(30, 30, 30, 0.95));
-}
-
-.radial-node.family-extension {
-    border-color: #3b82f6;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(30, 30, 30, 0.95));
-}
-
-.radial-node.family-mediant {
-    border-color: #ec4899;
-    background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(30, 30, 30, 0.95));
-}
-
-@keyframes nodeAppear {
-    to {
-        opacity: 1;
-    }
-}
+@keyframes nodeAppear { to { opacity: 1; } }
 
 .radial-node:hover {
-    transform: translate(0, 0) scale(1.15);
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.7);
+    transform: translate(0, 0) scale(1.1);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 15px var(--accent-glow);
     z-index: 15;
-}
-
-/* Enhanced hover for family nodes */
-.radial-node.family-dominant:hover {
-    border-color: #ef4444;
-    box-shadow: 0 8px 32px rgba(239, 68, 68, 0.5);
-}
-
-.radial-node.family-secondary:hover {
-    border-color: #fb923c;
-    box-shadow: 0 8px 32px rgba(251, 146, 60, 0.5);
-}
-
-.radial-node.family-tonic:hover {
-    border-color: #10b981;
-    box-shadow: 0 8px 32px rgba(16, 185, 129, 0.5);
-}
-
-.radial-node.family-modal:hover {
-    border-color: #8b5cf6;
-    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.5);
-}
-
-.radial-node.family-extension:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.5);
-}
-
-.radial-node.family-mediant:hover {
-    border-color: #ec4899;
-    box-shadow: 0 8px 32px rgba(236, 72, 153, 0.5);
+    background: #000;
 }
 
 .node-chord {
-    font-size: 0.95em;
+    font-size: 1em;
     font-weight: 700;
-    color: #fff;
+    color: var(--text-main);
     margin-bottom: 4px;
     text-align: center;
+    font-family: var(--font-tech);
 }
 
 .node-label {
     font-size: 0.7em;
-    color: #94a3b8;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 4px;
     text-align: center;
+    font-family: var(--font-tech);
 }
 
 .node-grade {
     font-size: 0.9em;
-    color: #fbbf24;
+    color: var(--accent-secondary);
     margin-top: 4px;
     text-align: center;
 }
 
 .node-voice-leading {
     font-size: 0.65em;
-    color: rgba(148, 163, 184, 0.8);
+    color: var(--text-muted);
     margin-top: 4px;
     font-style: italic;
     text-align: center;
@@ -494,32 +434,24 @@
     white-space: nowrap;
 }
 
-/* Tooltips for substitution details */
+/* Tooltips */
 .node-tooltip {
     position: absolute;
     bottom: calc(100% + 12px);
     left: 50%;
     transform: translateX(-50%) scale(0.9);
-    background: rgba(15, 15, 25, 0.98);
-    border: 2px solid currentColor;
-    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.95);
+    border: 1px solid var(--accent-primary);
+    border-radius: 0;
     padding: 12px 16px;
     min-width: 220px;
     max-width: 320px;
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s;
     z-index: 10000;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(12px);
+    box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
 }
-
-.radial-node.family-dominant .node-tooltip { border-color: #ef4444; }
-.radial-node.family-secondary .node-tooltip { border-color: #fb923c; }
-.radial-node.family-tonic .node-tooltip { border-color: #10b981; }
-.radial-node.family-modal .node-tooltip { border-color: #8b5cf6; }
-.radial-node.family-extension .node-tooltip { border-color: #3b82f6; }
-.radial-node.family-mediant .node-tooltip { border-color: #ec4899; }
 
 .radial-node:hover .node-tooltip {
     opacity: 1;
@@ -529,30 +461,25 @@
 .node-tooltip strong {
     display: block;
     font-size: 1em;
-    color: #fff;
+    color: var(--accent-primary);
     margin-bottom: 8px;
     font-weight: 700;
+    font-family: var(--font-tech);
 }
 
 .tooltip-type {
     font-size: 0.75em;
-    color: currentColor;
+    color: var(--text-main);
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 1px;
     margin-bottom: 8px;
     font-weight: 600;
+    font-family: var(--font-tech);
 }
-
-.radial-node.family-dominant .tooltip-type { color: #ef4444; }
-.radial-node.family-secondary .tooltip-type { color: #fb923c; }
-.radial-node.family-tonic .tooltip-type { color: #10b981; }
-.radial-node.family-modal .tooltip-type { color: #8b5cf6; }
-.radial-node.family-extension .tooltip-type { color: #3b82f6; }
-.radial-node.family-mediant .tooltip-type { color: #ec4899; }
 
 .tooltip-voice {
     font-size: 0.85em;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--text-muted);
     margin-bottom: 8px;
     font-style: italic;
     line-height: 1.4;
@@ -560,65 +487,34 @@
 
 .tooltip-desc {
     font-size: 0.8em;
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--text-main);
     line-height: 1.5;
 }
 
-/* Family arc backgrounds for visual grouping */
+/* Family arc backgrounds */
 .family-arc {
     position: absolute;
     width: 200px;
     height: 200px;
     border-radius: 50%;
     pointer-events: none;
-    opacity: 0.3;
+    opacity: 0.1;
     transition: opacity 0.3s ease;
     z-index: 2;
     mix-blend-mode: screen;
+    border: 1px solid var(--accent-primary); /* Tech ring */
 }
 
-.radial-menu:hover .family-arc {
-    opacity: 0.5;
-}
+.radial-menu:hover .family-arc { opacity: 0.3; }
 
 /* Center node hint */
 .center-hint {
     font-size: 0.6em;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
     margin-top: 4px;
-}
-
-/* Grade-specific colors for nodes */
-.radial-node.grade-perfect {
-    border-color: #10b981;
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(30, 30, 30, 0.95));
-}
-
-.radial-node.grade-perfect:hover {
-    border-color: #10b981;
-    box-shadow: 0 6px 30px rgba(16, 185, 129, 0.4);
-}
-
-.radial-node.grade-excellent {
-    border-color: #3b82f6;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(30, 30, 30, 0.95));
-}
-
-.radial-node.grade-excellent:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 6px 30px rgba(59, 130, 246, 0.4);
-}
-
-.radial-node.grade-good {
-    border-color: #8b5cf6;
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(30, 30, 30, 0.95));
-}
-
-.radial-node.grade-good:hover {
-    border-color: #8b5cf6;
-    box-shadow: 0 6px 30px rgba(139, 92, 246, 0.4);
+    font-family: var(--font-tech);
 }
 
 /* Connection lines */
@@ -626,48 +522,16 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    height: 2px;
-    background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.05));
+    height: 1px;
+    background: var(--accent-primary);
     transform-origin: left center;
     pointer-events: none;
     z-index: 1;
     animation: lineGrow 0.4s ease forwards;
+    opacity: 0.5;
 }
 
-/* Family-specific line colors */
-.radial-line.family-dominant {
-    background: linear-gradient(90deg, rgba(239, 68, 68, 0.5), rgba(239, 68, 68, 0.05));
-}
-
-.radial-line.family-secondary {
-    background: linear-gradient(90deg, rgba(251, 146, 60, 0.5), rgba(251, 146, 60, 0.05));
-}
-
-.radial-line.family-tonic {
-    background: linear-gradient(90deg, rgba(16, 185, 129, 0.5), rgba(16, 185, 129, 0.05));
-}
-
-.radial-line.family-modal {
-    background: linear-gradient(90deg, rgba(139, 92, 246, 0.5), rgba(139, 92, 246, 0.05));
-}
-
-.radial-line.family-extension {
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.5), rgba(59, 130, 246, 0.05));
-}
-
-.radial-line.family-mediant {
-    background: linear-gradient(90deg, rgba(236, 72, 153, 0.5), rgba(236, 72, 153, 0.05));
-}
-
-@keyframes lineGrow {
-    from {
-        width: 0;
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
+@keyframes lineGrow { from { width: 0; opacity: 0; } to { opacity: 0.5; } }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
@@ -675,31 +539,10 @@
         grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
         gap: 12px;
     }
-
-    .chord-card {
-        padding: 12px;
-    }
-
-    .chord-degree {
-        font-size: 1.6em;
-    }
-
-    .chord-name {
-        font-size: 0.95em;
-    }
-
-    .radial-center {
-        width: 70px;
-        height: 70px;
-    }
-
-    .center-chord {
-        font-size: 0.9em;
-    }
-
-    .radial-node {
-        width: 75px;
-        min-height: 65px;
-        margin: -32.5px 0 0 -37.5px;
-    }
+    .chord-card { padding: 12px; }
+    .chord-degree { font-size: 1.6em; }
+    .chord-name { font-size: 0.95em; }
+    .radial-center { width: 70px; height: 70px; }
+    .center-chord { font-size: 0.9em; }
+    .radial-node { width: 75px; min-height: 65px; margin: -32.5px 0 0 -37.5px; }
 }

@@ -164,14 +164,27 @@ class PianoVisualizer {
 
         this.pianoElement = document.createElement('div');
         this.pianoElement.className = 'piano-visualizer';
-        this.pianoElement.style.overflowX = this.options.fitToContainer ? 'hidden' : 'auto';
-        this.pianoElement.style.width = '100%';
+        this.pianoElement.style.overflowX = 'visible';
+        this.pianoElement.style.overflowY = 'visible';
+        this.pianoElement.style.width = 'auto';
+        this.pianoElement.style.minWidth = 'max-content';
+        this.pianoElement.style.display = 'flex';
+        this.pianoElement.style.flexDirection = 'column';
+        this.pianoElement.style.alignItems = 'flex-start';
+        this.pianoElement.style.margin = '0';
+        this.pianoElement.style.padding = '0';
 
         // Inner container that actually has the full keyboard width
         this.keysInner = document.createElement('div');
         this.keysInner.className = 'piano-keys-inner';
         this.keysInner.style.position = 'relative';
-        this.keysInner.style.height = '140px';
+        this.keysInner.style.height = 'auto';
+        this.keysInner.style.display = 'flex';
+        this.keysInner.style.minWidth = 'max-content';
+        this.keysInner.style.margin = '0';
+        this.keysInner.style.padding = '0';
+        // Reserve space above the keys for degree bubbles so they are fully visible
+        this.keysInner.style.paddingTop = '28px';
 
         // Create layers for white and black keys inside inner container
         this.whitesLayer = document.createElement('div');
@@ -218,8 +231,9 @@ class PianoVisualizer {
         }
         const totalWidth = whiteCount * this.options.whiteKeyWidth;
 
-        // Set container sizes with increased height for annotations
-        const totalHeight = this.options.whiteKeyHeight + 80; // Extra space for roman numerals and fingering
+        // Set container sizes with reserved top padding for degree bubbles
+        const topPadding = 28; // should match keysInner.paddingTop
+        const totalHeight = this.options.whiteKeyHeight + topPadding; // reserve space for annotations
         this.keysInner.style.width = `${totalWidth}px`;
         this.keysInner.style.height = `${totalHeight}px`;
 
@@ -263,11 +277,11 @@ class PianoVisualizer {
             key.style.left = `${whiteIndex * this.options.whiteKeyWidth}px`;
             key.style.width = `${this.options.whiteKeyWidth}px`;
             key.style.height = `${this.options.whiteKeyHeight}px`;
-            key.style.top = '20px'; // Space for roman numerals above
+            key.style.top = '0px';
             key.style.position = 'absolute';
             key.style.background = 'linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%)';
-            key.style.border = '2px solid #cbd5e1';
-            key.style.borderRadius = '0 0 6px 6px';
+            key.style.border = '1px solid var(--border-light)';
+            key.style.borderRadius = '0';
             key.style.cursor = 'pointer';
             key.style.transition = 'all 0.2s ease';
             key.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
@@ -280,7 +294,7 @@ class PianoVisualizer {
             labelContainer.style.right = '0';
             labelContainer.style.textAlign = 'center';
             labelContainer.style.fontSize = '10px';
-            labelContainer.style.color = '#64748b';
+            labelContainer.style.color = 'var(--text-muted)';
             labelContainer.style.fontWeight = '500';
             labelContainer.style.pointerEvents = 'none';
 
@@ -305,28 +319,23 @@ class PianoVisualizer {
             key.addEventListener('mouseenter', () => {
                 if (key.classList.contains('active')) {
                     // Brighter version of active yellow/orange
-                    key.style.background = 'linear-gradient(180deg, #fef08a 0%, #f59e0b 100%)';
+                    key.style.background = 'linear-gradient(180deg, #fef08a 0%, #fbbf24 100%)';
+                    key.style.boxShadow = '0 0 0 3px rgba(245, 158, 11, 0.7), 0 8px 12px rgba(0, 0, 0, 0.4)';
+                } else if (key.classList.contains('highlighted')) {
+                    // Brighter version of highlighted golden
+                    key.style.background = 'linear-gradient(180deg, #fef9c3 0%, #fef08a 100%)';
+                    key.style.boxShadow = '0 0 0 3px rgba(245, 158, 11, 0.7), 0 6px 10px rgba(245, 158, 11, 0.35)';
                 } else {
-                    key.style.background = 'linear-gradient(180deg, #f0f4f8 0%, #e2e8f0 100%)';
+                    // Subtle cyan hover for non-highlighted keys
+                    key.style.background = 'linear-gradient(180deg, #f0fdfa 0%, #ccfbf1 100%)';
+                    key.style.boxShadow = '0 0 0 2px rgba(0, 243, 255, 0.3), 0 4px 8px rgba(0, 0, 0, 0.15)';
                 }
                 key.style.transform = 'translateY(-2px)';
-                key.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
             });
             key.addEventListener('mouseleave', () => {
                 key.style.transform = 'translateY(0)';
-                if (key.classList.contains('active')) {
-                    // Restore active yellow/orange
-                    key.style.background = 'linear-gradient(180deg, #fde047 0%, #f59e0b 100%)';
-                    key.style.boxShadow = '0 0 0 3px rgba(245, 158, 11, 0.5), 0 6px 10px rgba(0, 0, 0, 0.35)';
-                } else {
-                    // Restore default white
-                    key.style.background = 'linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%)';
-                    if (key.classList.contains('highlighted')) {
-                        key.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.5)';
-                    } else {
-                        key.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-                    }
-                }
+                // Trigger re-apply of current state
+                this.applyState();
             });
 
             this.whitesLayer.appendChild(key);
@@ -354,11 +363,11 @@ class PianoVisualizer {
             key.style.left = `${lastWhiteX + (this.options.whiteKeyWidth * 0.7)}px`;
             key.style.width = `${this.options.whiteKeyWidth * 0.6}px`;
             key.style.height = `${this.options.blackKeyHeight}px`;
-            key.style.top = '20px'; // Space for roman numerals above
+            key.style.top = '0px';
             key.style.position = 'absolute';
-            key.style.background = 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)';
-            key.style.border = '2px solid #0f172a';
-            key.style.borderRadius = '0 0 4px 4px';
+            key.style.background = 'linear-gradient(180deg, #1a1a1a 0%, #000000 100%)';
+            key.style.border = '1px solid var(--border-light)';
+            key.style.borderRadius = '0';
             key.style.cursor = 'pointer';
             key.style.transition = 'all 0.2s ease';
             key.style.zIndex = '10';
@@ -372,7 +381,7 @@ class PianoVisualizer {
             labelContainer.style.right = '0';
             labelContainer.style.textAlign = 'center';
             labelContainer.style.fontSize = '8px';
-            labelContainer.style.color = '#94a3b8';
+            labelContainer.style.color = 'var(--text-muted)';
             labelContainer.style.fontWeight = '500';
             labelContainer.style.pointerEvents = 'none';
 
@@ -392,28 +401,24 @@ class PianoVisualizer {
 
             key.addEventListener('mouseenter', () => {
                 if (key.classList.contains('active')) {
-                    // Brighter version of active green
-                    key.style.background = 'linear-gradient(180deg, #4ade80 0%, #16a34a 100%)';
+                    // Brighter version of active (keep green for active black keys)
+                    key.style.background = 'linear-gradient(180deg, #4ade80 0%, #22c55e 100%)';
+                    key.style.boxShadow = '0 0 0 3px rgba(34, 197, 94, 0.7), 0 8px 12px rgba(0, 0, 0, 0.4)';
+                } else if (key.classList.contains('highlighted')) {
+                    // Brighter version of highlighted golden for black keys
+                    key.style.background = 'linear-gradient(180deg, #fcd34d 0%, #fbbf24 100%)';
+                    key.style.boxShadow = '0 0 0 3px rgba(245, 158, 11, 0.7), 0 6px 10px rgba(245, 158, 11, 0.35)';
                 } else {
+                    // Subtle lighter hover for non-highlighted black keys
                     key.style.background = 'linear-gradient(180deg, #334155 0%, #1e293b 100%)';
+                    key.style.boxShadow = '0 0 0 2px rgba(0, 243, 255, 0.3), 0 6px 8px rgba(0, 0, 0, 0.4)';
                 }
                 key.style.transform = 'translateY(-1px)';
             });
             key.addEventListener('mouseleave', () => {
                 key.style.transform = 'translateY(0)';
-                if (key.classList.contains('active')) {
-                    // Restore active green
-                    key.style.background = 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)';
-                    key.style.boxShadow = '0 0 0 3px rgba(34, 197, 94, 0.5), 0 6px 10px rgba(0, 0, 0, 0.35)';
-                } else {
-                    // Restore default black
-                    key.style.background = 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)';
-                    if (key.classList.contains('highlighted')) {
-                        key.style.boxShadow = '0 0 0 2px rgba(147, 197, 253, 0.5)';
-                    } else {
-                        key.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.3)';
-                    }
-                }
+                // Trigger re-apply of current state
+                this.applyState();
             });
 
             this.blacksLayer.appendChild(key);
@@ -671,8 +676,8 @@ class PianoVisualizer {
                     // Show hands based on toggle settings
                     const parts = [];
                     const fontSize = isBlackKey ? '8px' : '9px';
-                    if (fingeringRH && this.options.showRightHandFingering) parts.push(`<div style="color: #dc2626; font-size: ${fontSize};">R:${fingeringRH}</div>`);
-                    if (fingeringLH && this.options.showLeftHandFingering) parts.push(`<div style="color: #2563eb; font-size: ${fontSize}; margin-top: 1px;">L:${fingeringLH}</div>`);
+                    if (fingeringRH && this.options.showRightHandFingering) parts.push(`<div style="color: #fca5a5; font-size: ${fontSize};">R:${fingeringRH}</div>`);
+                    if (fingeringLH && this.options.showLeftHandFingering) parts.push(`<div style="color: #93c5fd; font-size: ${fontSize}; margin-top: 1px;">L:${fingeringLH}</div>`);
                     fingeringLabel.innerHTML = parts.join('');
                     
                     key.appendChild(fingeringLabel);
@@ -1073,14 +1078,35 @@ class PianoVisualizer {
 
         // Apply highlighted state (subtle but clear) only for scale notes within center octave
         this.state.highlightedNotes.forEach(note => {
-            if (this.state.mode !== 'chord' && !isNoteInScale(note)) return;
+            const inScale = isNoteInScale(note);
+            if (this.state.mode !== 'chord' && !inScale) return;
+            
             this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key').forEach(key => {
                 if (isInCenter(key) && keyMatchesNote(key, note)) {
                     key.classList.add('highlighted');
-                    if (key.classList.contains('piano-white-key')) {
-                        key.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.5)';
-                    } else if (key.classList.contains('piano-black-key')) {
-                        key.style.boxShadow = '0 0 0 2px rgba(147, 197, 253, 0.5)';
+                    
+                    if (inScale) {
+                        // Scale notes: enhance the golden color with a brighter glow
+                        if (key.classList.contains('piano-white-key')) {
+                            key.style.background = 'linear-gradient(180deg, #fef3c7 0%, #fde047 100%)';
+                            key.style.borderColor = '#f59e0b';
+                            key.style.boxShadow = '0 0 0 2px rgba(245, 158, 11, 0.6), 0 4px 8px rgba(245, 158, 11, 0.3)';
+                        } else if (key.classList.contains('piano-black-key')) {
+                            key.style.background = 'linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%)';
+                            key.style.borderColor = '#d97706';
+                            key.style.boxShadow = '0 0 0 2px rgba(245, 158, 11, 0.6), 0 4px 8px rgba(245, 158, 11, 0.3)';
+                        }
+                    } else {
+                        // Non-scale notes: use a subtle purple/magenta accent (complementary to golden)
+                        if (key.classList.contains('piano-white-key')) {
+                            key.style.background = 'linear-gradient(180deg, #e9d5ff 0%, #d8b4fe 100%)';
+                            key.style.borderColor = '#a855f7';
+                            key.style.boxShadow = '0 0 0 2px rgba(168, 85, 247, 0.5), 0 4px 8px rgba(168, 85, 247, 0.25)';
+                        } else if (key.classList.contains('piano-black-key')) {
+                            key.style.background = 'linear-gradient(180deg, #c084fc 0%, #a855f7 100%)';
+                            key.style.borderColor = '#7e22ce';
+                            key.style.boxShadow = '0 0 0 2px rgba(168, 85, 247, 0.5), 0 4px 8px rgba(168, 85, 247, 0.25)';
+                        }
                     }
                 }
             });
@@ -1123,216 +1149,57 @@ class PianoVisualizer {
             window.addEventListener('resize', this._resizeHandler);
         }
         
-        // Create a compact toolbar container below the piano
-        const toolbar = document.createElement('div');
-        toolbar.style.marginTop = '10px';
-        toolbar.style.marginBottom = '10px';
-        toolbar.style.display = 'flex';
-        toolbar.style.flexDirection = 'column';
-        toolbar.style.gap = '8px';
-        toolbar.style.alignItems = 'center';
-        container.appendChild(toolbar);
-
-        // Row: key transpose and progression
-        const keyRow = document.createElement('div');
-        keyRow.style.display = 'flex';
-        keyRow.style.alignItems = 'center';
-        keyRow.style.justifyContent = 'center';
-        keyRow.style.gap = '8px';
-        keyRow.style.flexWrap = 'wrap';
-
-        const mkBtn = (id, label, title) => {
-            const b = document.createElement('button');
-            b.id = id; b.className = 'btn'; b.textContent = label; b.title = title || '';
-            b.style.padding = '4px 8px'; b.style.fontSize = '12px';
-            return b;
-        };
-    const minus = mkBtn('piano-transpose-down', '−', 'Transpose key down');
-        // Container for relocated key/scale selects (replaces pill)
-        const keyScaleWrap = document.createElement('div');
-        keyScaleWrap.style.display = 'flex';
-        keyScaleWrap.style.alignItems = 'center';
-        keyScaleWrap.style.gap = '6px';
-        keyScaleWrap.style.flexWrap = 'wrap';
-        // Key select
-        const keySelect = document.createElement('select');
-        keySelect.id = 'cc-key-select';
-        keySelect.style.background = '#334155'; keySelect.style.color = '#f1f5f9';
-        keySelect.style.padding = '3px 8px'; keySelect.style.borderRadius = '6px';
-        keySelect.style.fontSize = '12px'; keySelect.style.fontWeight = '600';
-        keySelect.style.border = '1px solid rgba(148,163,184,0.35)';
-
-        // Scale select
-        const scaleSelect = document.createElement('select');
-        scaleSelect.id = 'cc-scale-select';
-        scaleSelect.style.background = '#334155'; scaleSelect.style.color = '#f1f5f9';
-        scaleSelect.style.padding = '3px 8px'; scaleSelect.style.borderRadius = '6px';
-        scaleSelect.style.fontSize = '12px'; scaleSelect.style.fontWeight = '600';
-        scaleSelect.style.border = '1px solid rgba(148,163,184,0.35)';
-
-        // Helper to (re)populate key and scale selects from available providers.
-        const populateKeyAndScaleSelects = () => {
-            // Clear existing
-            keySelect.innerHTML = '';
-            scaleSelect.innerHTML = '';
-
-            const providerKeys = (this.options && this.options.musicTheory) || (window.modularApp && window.modularApp.musicTheory) || null;
-            const scaleLib = window.modularApp && window.modularApp.scaleLibrary;
-            const appTheory = window.modularApp && window.modularApp.musicTheory;
-            const optsTheory = this.options && this.options.musicTheory;
-
-            // Keys
-            let keys = [];
-            try {
-                if (providerKeys && typeof providerKeys.getKeys === 'function') keys = providerKeys.getKeys();
-                else if (appTheory && typeof appTheory.getKeys === 'function') keys = appTheory.getKeys();
-            } catch (e) { keys = []; }
-            if (!Array.isArray(keys) || keys.length === 0) keys = ['C'];
-            keys.forEach(k => {
-                const opt = document.createElement('option'); opt.value = k; opt.textContent = k; if (k===this.state.currentKey) opt.selected = true; keySelect.appendChild(opt);
-            });
-
-            // Scales (try scaleLibrary -> appTheory -> optsTheory)
-            let scaleCats = null;
-            try { if (scaleLib && typeof scaleLib.getScaleCategories === 'function') scaleCats = scaleLib.getScaleCategories(); } catch(_){}
-            try { if ((!scaleCats || Object.keys(scaleCats).length === 0) && appTheory && typeof appTheory.getScaleCategories === 'function') scaleCats = appTheory.getScaleCategories(); } catch(_){}
-            try { if ((!scaleCats || Object.keys(scaleCats).length === 0) && optsTheory && typeof optsTheory.getScaleCategories === 'function') scaleCats = optsTheory.getScaleCategories(); } catch(_){}
-            if (!scaleCats || Object.keys(scaleCats).length === 0) {
-                scaleCats = { 'Common': ['major','minor','dorian','phrygian','lydian','mixolydian','aeolian','locrian'] };
-            }
-
-            const currentScale = (scaleLib && typeof scaleLib.getCurrentScale === 'function' && scaleLib.getCurrentScale()) || (appTheory && appTheory.getCurrentScale && appTheory.getCurrentScale()) || this.state.scaleType || '';
-
-            Object.entries(scaleCats).forEach(([group, scales]) => {
-                const og = document.createElement('optgroup'); og.label = group;
-                (scales || []).forEach(sid => {
-                    const opt = document.createElement('option');
-                    let name = sid;
-                    try {
-                        if (scaleLib && typeof scaleLib.getScaleDisplayName === 'function') name = scaleLib.getScaleDisplayName(sid);
-                        else if (appTheory && typeof appTheory.getScaleDisplayName === 'function') name = appTheory.getScaleDisplayName(sid);
-                        else name = sid.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());
-                    } catch (e) { name = sid; }
-                    opt.value = sid; opt.textContent = name;
-                    if (sid === currentScale) opt.selected = true;
-                    og.appendChild(opt);
-                });
-                scaleSelect.appendChild(og);
-            });
-        };
-
-        // Initial populate
-        populateKeyAndScaleSelects();
-        // If modularApp wasn't yet available when mount ran, try again shortly after window assignment.
-        setTimeout(() => {
-            try { populateKeyAndScaleSelects(); } catch(_){}
-        }, 50);
-
-        // If the global scaleLibrary becomes available later, update selects to reflect full catalog
-        try {
-            if (window && window.modularApp && window.modularApp.scaleLibrary && typeof window.modularApp.scaleLibrary.on === 'function') {
-                window.modularApp.scaleLibrary.on('scaleChanged', () => populateKeyAndScaleSelects());
-            }
-        } catch(_){}
-        keyScaleWrap.appendChild(keySelect);
-        keyScaleWrap.appendChild(scaleSelect);
-        const plus = mkBtn('piano-transpose-up', '+', 'Transpose key up');
-    keyRow.appendChild(minus); keyRow.appendChild(keyScaleWrap); keyRow.appendChild(plus);
-        toolbar.appendChild(keyRow);
-
-        // Wire handlers
-        const doTranspose = (semitones) => {
-            try {
-                // If the circle explorer is present prefer to ask it to transpose (it will manage internal state)
-                if (window.modularApp && window.modularApp.scaleCircleExplorer && typeof window.modularApp.scaleCircleExplorer.transpose === 'function') {
-                    window.modularApp.scaleCircleExplorer.transpose(semitones);
-                    // Try to read the new key from the explorer and update the piano select so UI stays in sync
-                    try {
-                        const newKey = (window.modularApp.scaleCircleExplorer && window.modularApp.scaleCircleExplorer.state && window.modularApp.scaleCircleExplorer.state.currentKey) || null;
-                        if (newKey) {
-                            try { keySelect.value = newKey; } catch(_){}
-                            try { keySelect.dispatchEvent(new Event('change')); } catch(_){}
-                        }
-                    } catch(_){}
-                    return;
-                }
-                // Otherwise, update the shared scaleLibrary if available
-                if (window.modularApp && window.modularApp.scaleLibrary && window.modularApp.musicTheory) {
-                    const keys = window.modularApp.musicTheory.getKeys();
-                    const cur = window.modularApp.scaleLibrary.getCurrentKey();
-                    const idx = keys.indexOf(cur);
-                    if (idx !== -1) {
-                        const next = keys[(idx + semitones + keys.length) % keys.length];
-                        window.modularApp.scaleLibrary.setKey(next);
-                        // Update select UI immediately
-                        try { keySelect.value = next; } catch(_){}
-                        try { keySelect.dispatchEvent(new Event('change')); } catch(_){}
-                    }
-                }
-            } catch(e) { console.error(e); }
-        };
-        minus.addEventListener('click', () => doTranspose(-1));
-        plus.addEventListener('click', () => doTranspose(1));
-        // Key select change
-        keySelect.addEventListener('change', e => {
-            const newKey = e.target.value;
-            try {
-                const scaleLibNow = window.modularApp && window.modularApp.scaleLibrary;
-                const sce = window.modularApp && window.modularApp.scaleCircleExplorer;
-                // Prefer updating the shared ScaleLibrary when present so all modules sync via its events
-                if (scaleLibNow && typeof scaleLibNow.setKey === 'function') {
-                    scaleLibNow.setKey(newKey);
-                } else {
-                    // Local fallback: update piano state and notify circle explorer directly
-                    this.state.currentKey = newKey;
-                    if (sce && typeof sce.setKey === 'function') sce.setKey(newKey);
-                }
-                // Always try to inform the circle explorer as well
-                if (sce && typeof sce.setKey === 'function') {
-                    try { sce.setKey(newKey); } catch(_){}
-                }
-            } catch(err){ console.warn('Key change failed', err); }
-        });
-        // Scale select change
-        scaleSelect.addEventListener('change', e => {
-            const newScale = e.target.value;
-            try {
-                const scaleLibNow = window.modularApp && window.modularApp.scaleLibrary;
-                const sce = window.modularApp && window.modularApp.scaleCircleExplorer;
-                if (scaleLibNow && typeof scaleLibNow.setScale === 'function') {
-                    scaleLibNow.setScale(newScale);
-                } else {
-                    this.state.scaleType = newScale;
-                    if (sce && typeof sce.setScaleType === 'function') sce.setScaleType(newScale);
-                    // Emit local event if circle explorer isn't present
-                    if (!sce) this.emit('scaleTypeChanged', { scale: newScale });
-                }
-                if (sce && typeof sce.setScaleType === 'function') {
-                    try { sce.setScaleType(newScale); } catch(_){}
-                }
-            } catch(err){ console.warn('Scale change failed', err); }
-        });
-
-        // Progression button intentionally removed per request
-
-        // Fingering controls row
-        const controlsDiv = document.createElement('div');
-        controlsDiv.style.marginTop = '10px';
-        controlsDiv.style.marginBottom = '10px';
-        controlsDiv.style.display = 'flex';
-        controlsDiv.style.justifyContent = 'center';
-        controlsDiv.style.gap = '8px';
-        controlsDiv.style.flexWrap = 'wrap';
+        // Fingering controls moved above piano to sit left of keyboard
+        const fingeringRow = document.createElement('div');
+        fingeringRow.style.display = 'flex';
+        fingeringRow.style.flexDirection = 'row';
+        fingeringRow.style.alignItems = 'center';
+        fingeringRow.style.justifyContent = 'flex-start';
+        fingeringRow.style.gap = '12px';
+        fingeringRow.style.flexWrap = 'wrap';
+        fingeringRow.style.marginBottom = '2px';
+        fingeringRow.style.padding = '3px 8px';
+        fingeringRow.style.fontSize = '11px';
+        fingeringRow.style.background = 'rgba(0, 0, 0, 0.4)';
+        fingeringRow.style.border = '1px solid var(--border-light)';
+        fingeringRow.style.borderRadius = '0';
+        fingeringRow.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.05)';
+        
+        // Create section for buttons (centered)
+        const buttonSection = document.createElement('div');
+        buttonSection.style.display = 'flex';
+        buttonSection.style.alignItems = 'center';
+        buttonSection.style.justifyContent = 'center';
+        buttonSection.style.gap = '4px';
+        buttonSection.style.flexWrap = 'wrap';
+        buttonSection.style.marginLeft = 'auto'; // Push to right
         
         // Create fingering toggle controls
         const createToggleButton = (label, isActive, clickHandler) => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = `btn ${isActive ? 'btn-primary' : ''}`;
-            btn.style.padding = '4px 8px';
-            btn.style.fontSize = '12px';
+            btn.style.padding = '3px 8px';
+            btn.style.fontSize = '10px';
+            btn.style.fontWeight = '600';
+            btn.style.letterSpacing = '0.3px';
+            btn.style.transition = 'all 0.15s ease';
+            btn.style.textTransform = 'uppercase';
             btn.textContent = label;
             btn.addEventListener('click', clickHandler);
+            
+            // Add hover effect
+            btn.addEventListener('mouseenter', () => {
+                if (!btn.classList.contains('btn-primary')) {
+                    btn.style.transform = 'translateY(-1px)';
+                    btn.style.boxShadow = '0 2px 8px rgba(0, 243, 255, 0.2)';
+                }
+            });
+            btn.addEventListener('mouseleave', () => {
+                btn.style.transform = 'translateY(0)';
+                btn.style.boxShadow = 'none';
+            });
+            
             return btn;
         };
         
@@ -1381,14 +1248,49 @@ class PianoVisualizer {
             noneBtn.className = `btn ${!this.options.showLeftHandFingering && !this.options.showRightHandFingering ? 'btn-primary' : ''}`;
         };
         
-        // Add buttons to controls
-        controlsDiv.appendChild(bothBtn);
-        controlsDiv.appendChild(rightBtn);
-        controlsDiv.appendChild(leftBtn);
-        controlsDiv.appendChild(noneBtn);
-    toolbar.appendChild(controlsDiv);
+        // Add buttons to button section
+        buttonSection.appendChild(bothBtn);
+        buttonSection.appendChild(rightBtn);
+        buttonSection.appendChild(leftBtn);
+        buttonSection.appendChild(noneBtn);
         
-        // Hand diagrams removed as requested
+        // Scale info display (centered above keyboard)
+        const scaleInfoDisplay = document.createElement('div');
+        scaleInfoDisplay.id = 'piano-scale-info';
+        scaleInfoDisplay.style.fontFamily = 'var(--font-tech)';
+        scaleInfoDisplay.style.fontSize = '0.65rem';
+        scaleInfoDisplay.style.color = 'var(--text-muted)';
+        scaleInfoDisplay.style.maxWidth = '100%';
+        scaleInfoDisplay.style.lineHeight = '1.3';
+        scaleInfoDisplay.style.padding = '2px 6px';
+        scaleInfoDisplay.style.background = 'rgba(0, 243, 255, 0.05)';
+        scaleInfoDisplay.style.border = '1px solid rgba(0, 243, 255, 0.15)';
+        scaleInfoDisplay.style.borderRadius = '0';
+        scaleInfoDisplay.style.textAlign = 'center';
+        
+        // Add sections to fingering row (scale info on top, buttons below)
+        fingeringRow.appendChild(scaleInfoDisplay);
+
+        // Move scale library container here if it exists
+        const scaleLibraryContainer = document.getElementById('scale-library-container');
+        if (scaleLibraryContainer) {
+            // Ensure it displays as flex row
+            scaleLibraryContainer.style.display = 'flex';
+            scaleLibraryContainer.style.alignItems = 'center';
+            scaleLibraryContainer.style.gap = '8px';
+            fingeringRow.appendChild(scaleLibraryContainer);
+            
+            // Hide the original header container if it's now empty
+            const headerContainer = document.getElementById('header-scale-controls');
+            if (headerContainer) {
+                headerContainer.style.display = 'none';
+            }
+        }
+
+        fingeringRow.appendChild(buttonSection);
+        
+        // Insert fingering row before piano
+        container.insertBefore(fingeringRow, this.pianoElement);
     }
 
     /**

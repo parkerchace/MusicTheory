@@ -35,6 +35,15 @@ class ContainerChordTool {
 
         this.listeners = new Map();
         this.containerElement = null;
+
+        // Subscribe to shared grading mode changes
+        if (this.musicTheory.subscribe) {
+            this.musicTheory.subscribe((event, data) => {
+                if (event === 'gradingModeChanged') {
+                    this.render();
+                }
+            });
+        }
     }
 
     /**
@@ -436,15 +445,25 @@ class ContainerChordTool {
      * Get grade information for match percentage
      */
     getGradeInfo(matchPercent) {
+        let tier;
         if (matchPercent === 100) {
-            return { class: 'grade-perfect', label: '★★★ Perfect', short: '★★★' };
+            tier = 4; // Perfect
         } else if (matchPercent >= 75) {
-            return { class: 'grade-excellent', label: '★★ Excellent', short: '★★' };
+            tier = 3; // Excellent
         } else if (matchPercent >= 50) {
-            return { class: 'grade-good', label: '★ Good', short: '★' };
+            tier = 2; // Good
         } else {
-            return { class: 'grade-fair', label: 'Fair', short: '' };
+            tier = 1; // Fair
         }
+        
+        const tierInfo = this.musicTheory.getGradingTierInfo(tier);
+        return { 
+            class: '', 
+            label: `${tierInfo.short} ${tierInfo.name}`, 
+            short: tierInfo.short,
+            color: tierInfo.color,
+            tier
+        };
     }
 
     /**
@@ -555,17 +574,27 @@ class ContainerChordTool {
             } catch (e) {}
         }
 
+        let tier;
         if (isDiatonicRootChord) {
-            return { class: 'grade-perfect', label: '★★★ Perfect', color: '#10b981', short: '★★★' };
+            tier = 4; // Perfect
         } else if (isDiatonic && isFunctional) {
-            return { class: 'grade-excellent', label: '★★ Excellent', color: '#0ea5e9', short: '★★' };
+            tier = 3; // Excellent
         } else if (isDiatonic) {
-            return { class: 'grade-good', label: '★ Good', color: '#f59e0b', short: '★' };
+            tier = 2; // Good
         } else if (isFunctional) {
-            return { class: 'grade-fair', label: 'Fair', color: '#8b5cf6', short: '◐' };
+            tier = 1; // Fair
         } else {
-            return { class: 'grade-weak', label: 'Experimental', color: '#6b7280', short: '○' };
+            tier = 0; // Experimental
         }
+        
+        const tierInfo = this.musicTheory.getGradingTierInfo(tier);
+        return { 
+            class: '', 
+            label: `${tierInfo.short} ${tierInfo.name}`, 
+            color: tierInfo.color, 
+            short: tierInfo.short,
+            tier
+        };
     }
 
     /**
@@ -746,7 +775,7 @@ class ContainerChordTool {
             const deg = p && (p.degree || p.degree === 0) ? p.degree : '';
             const label = `${deg ? deg + ' ' : ''}${note}`;
             const isActive = this.state.selectedNote ? (this.state.selectedNote === note) : this.state.inputNotes.includes(note);
-            const activeClass = isActive ? 'style="outline:2px solid rgba(59,130,246,0.9); outline-offset:2px;"' : '';
+            const activeClass = isActive ? 'style="outline:1px solid var(--accent-primary); outline-offset:2px; box-shadow: 0 0 8px var(--accent-glow); background: var(--accent-primary); color: #000;"' : '';
             return `<button class="gen-note-bubble" data-note="${note}" ${activeClass} title="Click to toggle ${note} for multi-note search; Alt-click to make it the only note">☁️ ${label}</button>`;
         }).join(' ');
 
@@ -826,12 +855,12 @@ class ContainerChordTool {
                     <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap:6px;">
                         ${vars.map(v => `
                             <button class="chord-var-option" data-root="${v.root}" data-type="${v.chordType}" title="${v.reason} · ${v.chordNotes.join(' ')}" 
-                                style="padding:6px 8px; text-align:left; border:1px solid var(--border-color); border-left:3px solid ${grade.color}; background: var(--background-color); border-radius:4px; cursor:pointer; font-size:0.75rem;">
+                                style="padding:6px 8px; text-align:left; border:1px solid var(--border-light); border-left:3px solid ${grade.color}; background: var(--bg-input); border-radius:0; cursor:pointer; font-size:0.75rem; font-family:var(--font-tech);">
                                 <div style="display:flex; justify-content:space-between; gap:6px; align-items:center;">
-                                    <span style="font-weight:600;">${v.fullName}</span>
+                                    <span style="font-weight:600; color:var(--text-main);">${v.fullName}</span>
                                     <span style="font-size:0.65rem; color:${grade.color};">${v.scaleMatchPercent === 100 ? '★★★' : v.scaleMatchPercent >= 75 ? '★★' : v.scaleMatchPercent >= 50 ? '★' : '◐'}</span>
                                 </div>
-                                <div style="font-size:0.65rem; color:var(--text-secondary);">${v.reason}</div>
+                                <div style="font-size:0.65rem; color:var(--text-muted);">${v.reason}</div>
                             </button>
                         `).join('')}
                     </div>
@@ -842,14 +871,14 @@ class ContainerChordTool {
             const grade = this.getChordGrade(chord);
             const movements = this.getChordMovements(chord);
             return `
-                <div class="chord-result ${this.state.selectedChord && this.state.selectedChord.fullName===chord.fullName ? 'selected' : ''}" data-chord="${chord.fullName}" style="padding:8px; border:1px solid var(--border-color); border-left:4px solid ${grade.color}; border-radius:4px; margin:6px 0; background: var(--background-color);">
+                <div class="chord-result ${this.state.selectedChord && this.state.selectedChord.fullName===chord.fullName ? 'selected' : ''}" data-chord="${chord.fullName}" style="padding:8px; border:1px solid var(--border-light); border-left:4px solid ${grade.color}; border-radius:0; margin:6px 0; background: var(--bg-input); box-shadow: 0 0 5px rgba(0,0,0,0.5);">
                     <div class="chord-header" style="display:flex; justify-content: space-between; align-items:center; margin-bottom:4px;">
-                        <span class="chord-name" style="font-weight:600; font-size:0.875rem;">${chord.fullName}</span>
-                        <span class="chord-grade ${grade.class}" style="color:${grade.color}; font-size:0.75rem;" title="${grade.label}">${grade.short}</span>
+                        <span class="chord-name" style="font-weight:700; font-size:0.9rem; color:var(--text-main); font-family:var(--font-ui);">${chord.fullName}</span>
+                        <span class="chord-grade ${grade.class}" style="color:${grade.color}; font-size:0.75rem; font-family:var(--font-tech);" title="${grade.label}">${grade.short}</span>
                     </div>
-                    <div class="chord-notes" style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:4px;">Notes: ${chord.chordNotes.join(', ')}</div>
-                    <div class="chord-movements" style="font-size:0.7rem; color:var(--text-secondary); font-style:italic; padding:4px 0; border-top:1px solid var(--border-color);">
-                        ${movements.map(m => `<div style="margin:2px 0;">• ${m}</div>`).join('')}
+                    <div class="chord-notes" style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; font-family:var(--font-tech);">Notes: ${chord.chordNotes.join(', ')}</div>
+                    <div class="chord-movements" style="font-size:0.7rem; color:var(--text-muted); font-style:italic; padding:4px 0; border-top:1px solid var(--border-light);">
+                        ${movements.map(m => `<div style="margin:2px 0;">> ${m}</div>`).join('')}
                     </div>
                     ${renderVariants(chord, grade)}
                 </div>`;
@@ -857,13 +886,13 @@ class ContainerChordTool {
 
         const renderSingle = () => {
             if (sortedRoles.length === 0 && this.state.selectedNote) {
-                return `<div style="padding:20px; text-align:center; color:var(--text-secondary);">No chords found containing ${this.state.selectedNote}. Try clicking a different note bubble or typing a note in the current scale.</div>`;
+                return `<div style="padding:20px; text-align:center; color:var(--text-muted); font-family:var(--font-tech);">No chords found containing ${this.state.selectedNote}. Try clicking a different note bubble or typing a note in the current scale.</div>`;
             }
             return sortedRoles.map(role => `
                 <div class="role-group" data-role="${role}">
-                    <div class="role-header" style="cursor:pointer; padding:6px; border-bottom: 1px solid var(--border-color); display:flex; justify-content: space-between; align-items:center;">
-                        <span>${displayRole(role)} <small style="color:var(--text-secondary)">(${groups.get(role).length})</small></span>
-                        <button class="btn toggle-group" data-role="${role}">${this.state.openRoles.has(role) ? 'Collapse' : 'Expand'}</button>
+                    <div class="role-header" style="cursor:pointer; padding:6px; border-bottom: 1px solid var(--border-light); display:flex; justify-content: space-between; align-items:center; background:var(--bg-header);">
+                        <span style="font-family:var(--font-tech); color:var(--accent-primary); font-size:0.8rem;">${displayRole(role)} <small style="color:var(--text-muted)">(${groups.get(role).length})</small></span>
+                        <button class="btn toggle-group" data-role="${role}" style="background:transparent; border:1px solid var(--border-light); color:var(--text-muted); font-size:0.7rem; padding:2px 6px; cursor:pointer;">${this.state.openRoles.has(role) ? '[-]' : '[+]'}</button>
                     </div>
                     <div class="role-content ${this.state.openRoles.has(role) ? '' : 'hidden'}" data-role="${role}">
                         ${groups.get(role).map(chord => renderChordCard(chord)).join('')}
@@ -931,14 +960,6 @@ class ContainerChordTool {
                 <div class="filter-bar">
                     <button class="filter-btn ${this.state.filter === 'all' ? 'active' : ''}" data-filter="all">All</button>
                     <button class="filter-btn ${this.state.filter === 'scale' ? 'active' : ''}" data-filter="scale">In Scale</button>
-                </div>
-                <div style="margin:8px 0; padding:8px; background:var(--surface-color); border-radius:4px; font-size:0.7rem; color:var(--text-secondary);">
-                    <strong>Grade key:</strong> 
-                    <span style="color:#10b981;">★★★ Perfect</span> (diatonic scale chord) · 
-                    <span style="color:#0ea5e9;">★★ Excellent</span> (in-scale functional) · 
-                    <span style="color:#f59e0b;">★ Good</span> (in-scale) · 
-                    <span style="color:#8b5cf6;">◐ Fair</span> (chromatic functional) · 
-                    <span style="color:#6b7280;">○ Experimental</span> (chromatic)
                 </div>
                 <div class="results-area">
                     ${this.state.selectedNote ? `<div style="margin-bottom:8px; font-size:0.875rem; color:var(--text-secondary);">Showing chords containing <strong>${this.state.selectedNote}</strong> in ${this.state.currentKey} ${this.state.currentScale}</div>` : ''}

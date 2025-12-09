@@ -376,8 +376,8 @@
 
     colorForIndex(i){
       const func = this.state.planets[i] ? this.classifyFunction(this.state.planets[i].note) : 'other';
-      const map = { tonic: '#60a5fa', predominant: '#34d399', dominant: '#f87171', leading: '#a78bfa', mediant: '#fbbf24', other: '#2dd4bf' };
-      return map[func] || '#2dd4bf';
+      const map = { tonic: '#93c5fd', predominant: '#6ee7b7', dominant: '#fca5a5', leading: '#ddd6fe', mediant: '#fde68a', other: '#5eead4' };
+      return map[func] || '#5eead4';
     }
 
     classifyFunction(note){
