@@ -1,5 +1,77 @@
 # Changelog
 
+## [2025-12-09] - Interactive Tutorial System & Learning Modes
+
+### Added
+- **Easy Mode**: Complete interactive guided tutorial system
+  - 8-step progressive learning path from basics to advanced
+  - Visual highlights with pulsing animations on target elements
+  - Step-by-step tooltips with clear explanations
+  - Progress counter showing current step
+  - Skip/Next navigation controls
+  - First-time visitor detection with automatic tutorial offer
+  - Green badge indicator when active
+  
+- **Demo Mode**: Hover-activated help system
+  - Instant tooltips when hovering over any tool or module
+  - Covers 12+ interface elements with detailed explanations
+  - Non-intrusive, always-available on-demand help
+  - Smart positioning (auto-adjusts to viewport)
+  - Blue badge indicator when active
+  
+- **Module Toggle Dropdown Styling**: Professional UI for module visibility controls
+  - Properly styled checkboxes with hover effects
+  - Smooth open/close animations
+  - Color-coded labels matching module themes
+  - Dropdown panel with backdrop and shadow
+  
+- **Tutorial System Features**:
+  - Full-screen dimmed overlay during lessons
+  - Z-indexed layer system (9998-10001) for proper stacking
+  - Click-through for targeted interactive elements
+  - Animated highlight boxes with glow effects
+  - Responsive tooltip positioning
+  - LocalStorage persistence for preferences
+
+### Tutorial Content
+1. **Welcome**: Introduction to scales and music theory
+2. **Scale Selection**: Choosing C Major as starting point
+3. **Circle of Fifths**: Understanding note relationships
+4. **Number Generator**: Creating melody patterns (1-3-5-1)
+5. **Chord Building**: Basics of harmony and chords
+6. **Piano Visualizer**: Playing and hearing notes
+7. **Progressions**: Common patterns like I-IV-V-I
+8. **Next Steps**: Enabling Demo Mode for continued learning
+
+### Demo Tooltips Coverage
+- Scale Selector, Circle of Fifths, Number Generator
+- Container Chord Tool, Sheet Music Generator
+- Chord Explorer, Piano Visualizer
+- Manual Chord Input, Grading View selector
+- Theme Switcher, Layout Toggle, Module toggles
+
+### Technical Implementation
+- ~500 lines of new JavaScript for tutorial engine
+- ~200 lines of CSS for overlays, tooltips, badges
+- Event-driven architecture with state management
+- Keyboard-friendly navigation
+- WCAG-compliant color contrast
+- Mobile-responsive (adapts to small screens)
+
+### Documentation
+- Added `TUTORIAL_SYSTEM.md` - Developer documentation
+- Added `TUTORIAL_QUICK_REFERENCE.txt` - User guide
+- Updated code comments for maintainability
+
+### User Experience
+- Beginner-friendly onboarding flow
+- Self-paced learning with skip option
+- Context-aware help that highlights relevant tools
+- Visual feedback (badges, highlights, animations)
+- Persistent preferences across sessions
+
+---
+
 ## [2025-12-07] - Layout & Spacing Fixes
 
 ### Fixed
