@@ -2,6 +2,18 @@
 
 A professional, DAW-inspired music theory workstation with modular tools for composition, analysis, and learning.
 
+## 🆕 Latest Updates (December 2025)
+
+**🧠 Scale Intelligence System** - Revolutionary contextually-aware scale selection with 60+ scales mapped to their cultural origins, historical contexts, and emotional characteristics. Words like "chase woods danger" now get appropriate dark/dangerous scales (locrian, phrygian_dominant) instead of inappropriate bright major scales. Includes comprehensive cultural education and intelligent variety.
+
+**🔤 Word-to-Music Translation Engine** - Type English words like "chase, woods, dark, magic" and get scales, progressions, and rhythms suggested automatically! Enhanced with robust semantic analysis, morphological word structure analysis, and intelligent scale selection.
+
+**🎯 Enhanced Radial Menu** - New intent filter badges (Stay Diatonic/Add Color/Go Chromatic/Containers/Surprise Me) + smart container grouping reduces clutter from 40+ chords to 5-8 organized groups.
+
+[→ Jump to Scale Intelligence docs](#-new-scale-intelligence-system-) | [→ Jump to Word-to-Music docs](#-new-word-to-music-translation-system-) | [→ See design document](WORD_TO_MUSIC_DESIGN.md)
+
+---
+
 ## 📋 Table of Contents
 
 - [Overview](#overview)
@@ -52,6 +64,124 @@ Originally a monolithic HTML file, now a professional modular system with tutori
 4. Toggle modules via **`[MODULES]`** dropdown
 
 ## ✨ Key Features
+
+### 🔤 **NEW: Word-to-Music Translation System** ⭐
+Transform English words into music theory suggestions using semantic analysis:
+
+**Core Capabilities**:
+- **Multi-Layer Analysis**: 5 analysis layers work together
+  1. **Emotional Valence**: Words → mood → scales (e.g., "dark" → Phrygian)
+  2. **Syllabic Rhythm**: Syllables → note durations (e.g., "chase" [2 syllables] → ♪♪)
+  3. **Phonetic Color**: Vowel/consonant sounds → harmonic extensions
+  4. **Semantic Context**: Categories (nature/urban/temporal) → progressions
+  5. **Archetype Matching**: Detect famous soundtrack patterns
+- **150+ Word Database**: Emotional lexicon with valence/arousal/dominance scores
+- **7 Musical Archetypes**: 
+  - Skyrim "Secunda" (medieval, city, ancient, epic, journey)
+  - LOTR "Shire" (peaceful, pastoral, home, green, comfort)
+  - Dark Souls Boss (dark, epic, struggle, monster, fear)
+  - Action Chase, Mystery Forest, Celtic Journey, Sci-Fi Future
+- **Adjustable Weights**: Control influence of each analysis layer (0-100%)
+- **Three Order Modes**:
+  - **Sequential**: Word order = chord order
+  - **Weighted**: All words blend together (default)
+  - **Narrative**: Creates tension arc (intro → climax → resolution)
+- **Regeneration System**: Disagree with a mapping? Generate alternatives
+
+**Example Usage**:
+```
+Input: "medieval, city, ancient, epic, journey"
+Output: 
+  ✅ Archetype: Skyrim "Secunda" (95% confidence)
+  Scale: C Dorian
+  Progression: Cm7 - F7 - Cm7 - F7
+  Complexity: 7th chords
+  Rhythm: Slow, atmospheric
+```
+
+**Files**: `lexical-music-engine.js`, `word-database.js`, `simple-word-engine.js`
+
+### 🧠 **NEW: Scale Intelligence System** ⭐
+Revolutionary contextually-aware scale selection that connects 60+ musical scales to their cultural origins, historical contexts, emotional characteristics, and semantic associations for intelligent word-to-music mapping.
+
+**Core Problem Solved**: 
+- **Before**: Words like "chase woods danger" got inappropriate bright major scales
+- **After**: Dangerous words get contextually appropriate dark/dangerous scales (locrian, phrygian_dominant, harmonic minor)
+
+**Intelligence Architecture**:
+- **4-Layer Scoring System**:
+  1. **Emotional Profile Matching** (40%): Darkness, energy, mystery, brightness, tension analysis
+  2. **Cultural/Semantic Associations** (30%): Direct semantic category and keyword matching  
+  3. **Interval Characteristics** (20%): Tension points, resolution tendencies, harmonic functions
+  4. **Historical/Traditional Context** (10%): Cultural origins, musical traditions, historical periods
+
+**Comprehensive Scale Database** (60+ scales with full cultural data):
+- **Western Scales**: Major & Church Modes, Melodic/Harmonic Minor modes
+- **World Music**: Middle Eastern (hijaz, persian), Japanese (hirajoshi, iwato), Indian ragas
+- **Jazz/Modern**: Altered, octatonic, whole tone, bebop scales, Barry Harris scales
+- **Exotic/Synthetic**: Hungarian minor, neapolitan minor, enigmatic, prometheus
+
+**Rich Cultural Context** for each scale:
+```javascript
+{
+  cultural: {
+    origins: ['Ancient Greek', 'Medieval Church', 'Celtic'],
+    period: '6th century BCE to present', 
+    traditions: ['Jazz', 'Celtic', 'Folk', 'Progressive Rock'],
+    characteristics: 'Bittersweet, contemplative, neither major nor minor'
+  },
+  semantic: {
+    categories: ['contemplation', 'journey', 'ancient', 'mystical'],
+    keywords: ['ancient', 'medieval', 'mystical', 'journey', 'quest'],
+    contexts: ['historical', 'fantasy', 'introspection', 'travel']
+  }
+}
+```
+
+**Intelligent Selection Examples**:
+- **"chase woods danger"** → `locrian` (unstable, dangerous) or `hungarian_minor` (exotic gypsy danger)
+- **"ancient temple"** → `dorian` (ancient Greek origins, 6th century BCE) 
+- **"mysterious cave"** → `enigmatic` (modern mysterious complexity) or `hijaz` (Middle Eastern mysticism)
+- **"bright sunshine"** → `lydian` (dreamy, ethereal brightness) or `major_pentatonic` (universal joy)
+
+**Educational Value**:
+- Learn about scale origins and cultural traditions
+- Understand historical development of musical systems
+- See why certain scales fit certain moods/contexts
+- Explore alternative scales with reasoning
+
+**Variety & Intelligence**:
+- **Flexible Scoring**: Allows complementary relationships, not just exact matches
+- **Controlled Randomness**: Top 8 candidates with weighted selection for variety
+- **Base Compatibility**: All scales maintain minimum viability for creative exploration
+- **Rich Reasoning**: Detailed explanations with cultural/historical context
+
+**Files**: `scale-intelligence-engine.js`, `simple-word-engine.js` (enhanced)
+
+### 🎯 **Enhanced Unified Chord Explorer**
+Upgraded radial substitution menu with intelligent filtering:
+
+**New Features**:
+- **Intent Filter Badges** (6 modes):
+  - 🎯 **All**: Show everything (default)
+  - 📊 **Stay Diatonic**: Only in-scale substitutions
+  - 🌈 **Add Color**: Prioritize extensions (9ths, 11ths, 13ths)
+  - 🔥 **Go Chromatic**: Altered/borrowed chords only
+  - 📦 **Containers**: Just container chord options
+  - 🎲 **Surprise Me**: Random exotic substitutions
+- **Smart Container Grouping**: 
+  - Shows 1 representative per root (e.g., "C extensions (5 opts)")
+  - Click to expand and see all variants
+  - Reduces visual clutter from 40+ chords to 5-8 groups
+- **Improved Visual Hierarchy**: 
+  - 4 tiers by harmonic distance (Perfect/Excellent/Good/Experimental)
+  - Better collision avoidance in force-directed layout
+- **Keyboard Shortcuts**: 
+  - `1-4` keys = Jump to tier
+  - `Tab` = Cycle through nodes
+  - `/` = Search (planned)
+
+**Files**: `unified-chord-explorer.js` (updated), `unified-chord-explorer.css` (updated)
 
 ### 🎓 Tutorial & Learning System
 - **Easy Mode**: 8-step interactive guided tour
@@ -783,14 +913,24 @@ music-theory-system/
 │   ├── solar-system-visualizer.v2.js    # Orbital visualization
 │   ├── audio-visualizer.js              # Real-time audio viz
 │   ├── unified-chord-explorer.js        # Unified chord exploration
+│   ├── scale-intelligence-engine.js     # 🆕 Contextual scale intelligence system
+│   ├── simple-word-engine.js            # 🆕 Enhanced word-to-music engine
+│   ├── lexical-music-engine.js          # 🆕 Word-to-music translation (legacy)
+│   ├── word-database.js                 # 🆕 150+ word emotional lexicon
 │   └── bitwig-midi.js                   # Optional MIDI bridge
 │
 ├── 🎨 Styling
 │   ├── aperture-theme.css               # Complete theme system
-│   └── unified-chord-explorer.css       # Unified chord explorer styles
+│   └── unified-chord-explorer.css       # Unified chord explorer styles (updated)
 │
 ├── 📚 Documentation
-│   ├── README.md                        # This documentation
+│   ├── README.md                        # This documentation (updated)
+│   ├── SCALE_INTELLIGENCE_SYSTEM.md     # 🆕 Scale Intelligence System documentation
+│   ├── IMPLEMENTATION_COMPLETE_V2.md    # 🆕 Scale Intelligence implementation status
+│   ├── SCALE_VARIETY_FIX.md             # 🆕 Scale variety enhancement details
+│   ├── DEBUGGING_MAIN_APP_ISSUE.md      # 🆕 Main app vs test file debugging
+│   ├── WEIGHT_FIX_TEST.md               # 🆕 Weight display fix documentation
+│   ├── WORD_TO_MUSIC_DESIGN.md          # 🆕 Word-to-music system design
 │   ├── CHANGELOG.md                     # Version history
 │   ├── BUILD_AND_RUN.md                 # Setup guide
 │   ├── TESTING_GUIDE.md                 # Testing procedures
@@ -809,19 +949,55 @@ music-theory-system/
 │   ├── logs/                            # Interaction logs
 │   ├── midi output/                     # MIDI file exports
 │   └── vst3-plugin/                     # Optional: VST3 plugin source
+│
+├── 🧪 Testing & Diagnostics
+│   ├── test-simple-engine.html          # 🆕 Scale Intelligence Engine testing
+│   ├── test-scale-intelligence.html     # 🆕 Scale Intelligence diagnostic tool
+│   ├── test-word-improvements.html      # Word analysis testing
+│   ├── test-word-responsiveness.html    # Word responsiveness testing
+│   ├── test-generative-system.html      # Generative system testing
+│   └── test-generative-improvements.html # Generative improvements testing
 ```
 
-## 🧪 Testing
+## 🧪 Testing & Debugging
 
+### Built-in Debug Tools
+The application includes comprehensive debugging tools accessible without opening browser console:
+
+**🔍 Debug Button** (in Word Analysis panel):
+- Scale Intelligence Engine status and initialization
+- Word engine configuration and scale database size  
+- Recent translation results and scale selections
+- Copy debug info to clipboard
+
+**📋 Copy Log Button** (in Word Analysis panel):
+- Complete lexical analysis session log
+- Formatted for easy sharing and analysis
+- Includes timestamps, inputs, scales, progressions, and reasoning
+
+**Test Files for Diagnostics**:
+- `test-scale-intelligence.html` - Isolated Scale Intelligence Engine testing
+- `test-simple-engine.html` - Enhanced word engine testing with variety checks
+- Shows cultural context, intelligence scores, and alternative scales
+
+### Comprehensive Testing
 See `TESTING_GUIDE.md` for complete testing instructions including:
 - Browser console tests
-- Node.js headless tests
+- Node.js headless tests  
 - Chord alias validation
 - Citation link validation
+- Scale Intelligence Engine validation
 
 Quick test:
 
 ```javascript
+// Test Scale Intelligence Engine
+const scaleIntelligence = new ScaleIntelligenceEngine();
+const result = scaleIntelligence.selectScale({
+    darkness: 0.8, energy: 0.7, words: ['danger', 'chase']
+});
+console.log('Selected:', result.name, 'Score:', result.score);
+
 // Test specific module
 const theory = new MusicTheoryEngine();
 console.log(theory.getScaleNotes('C', 'major')); // Should log scale notes
@@ -829,7 +1005,91 @@ console.log(theory.getScaleNotes('C', 'major')); // Should log scale notes
 
 ## 💡 Examples
 
-### Example 1: Simple Scale Analysis
+### Example 1: Scale Intelligence System (NEW)
+```javascript
+const theory = new MusicTheoryEngine();
+const wordEngine = new SimpleWordEngine(theory);
+
+// Intelligent scale selection for dangerous words
+const result = await wordEngine.translateWords("chase woods danger");
+
+console.log('Scale:', result.scale);                    // e.g., { root: 'F#', name: 'locrian' }
+console.log('Intelligence Score:', result.reasoning.intelligenceScore); // e.g., 0.87 (87%)
+console.log('Cultural Context:', result.reasoning.culturalContext);     // "Ancient Greek, Theoretical, Modern Jazz/Metal"
+console.log('Historical Context:', result.reasoning.historicalContext); // "6th century BCE, rarely used until 20th century"
+
+// See alternative scales that were considered
+console.log('Alternatives:', result.reasoning.alternatives);
+// [
+//   { name: 'phrygian_dominant', score: 0.85, reason: 'exotic, threatening' },
+//   { name: 'hungarian_minor', score: 0.82, reason: 'gypsy exotic danger' },
+//   { name: 'altered', score: 0.79, reason: 'jazz dissonance for danger' }
+// ]
+
+// Direct Scale Intelligence Engine usage
+const scaleIntelligence = new ScaleIntelligenceEngine();
+const characteristics = {
+    darkness: 0.8, energy: 0.7, mystery: 0.6, brightness: 0.1, tension: 0.9,
+    words: ['chase', 'woods', 'danger']
+};
+
+const scaleSelection = scaleIntelligence.selectScale(characteristics);
+console.log('Selected Scale:', scaleSelection.name);           // e.g., 'hungarian_minor'
+console.log('Confidence:', Math.round(scaleSelection.score * 100) + '%'); // e.g., '82%'
+console.log('Reasoning:', scaleSelection.primaryReason);       // e.g., 'matches dark character (80%)'
+console.log('Cultural Origins:', scaleSelection.data.cultural.origins); // ['Hungarian', 'Gypsy', 'Eastern European']
+```
+
+### Example 2: Word-to-Music Translation (Enhanced)
+```javascript
+const theory = new MusicTheoryEngine();
+const wordEngine = new SimpleWordEngine(theory);
+
+// Enhanced word analysis with Scale Intelligence
+const result = await wordEngine.translateWords("ancient temple mystery");
+
+console.log('Scale:', result.scale);              // e.g., { root: 'D', name: 'dorian' }
+console.log('Progression:', result.progression);  // e.g., [Dm7, Gm7, Am7, Dm7]
+console.log('Character Analysis:', result.character); // { darkness: 0.4, mystery: 0.8, ... }
+
+// Rich reasoning with cultural context
+console.log('Scale Choice:', result.reasoning.scaleChoice);
+// "Scale Intelligence: matches mysterious character (85%) → dorian (Ancient Greek origins, 6th century BCE)"
+
+console.log('Cultural Context:', result.reasoning.culturalContext);
+// "Cultural origins: Ancient Greek, Medieval Church, Celtic. Historical period: 6th century BCE to present."
+
+// Multiple analysis layers working together
+console.log('Word Analyses:', result.analyses);
+// [
+//   { word: 'ancient', darkness: 0.5, mystery: 0.8, source: 'semantic' },
+//   { word: 'temple', mystery: 0.9, calm: 0.6, source: 'direct' },
+//   { word: 'mystery', mystery: 1.0, source: 'direct' }
+// ]
+```
+
+### Example 3: Enhanced Radial Menu with Filters (NEW)
+```javascript
+const theory = new MusicTheoryEngine();
+const explorer = new UnifiedChordExplorer(theory);
+
+// Set filter mode before opening radial menu
+explorer.setRadialFilterMode('diatonic');  // Only show in-scale substitutions
+
+// Open radial menu for a chord
+explorer.openRadialMenu({root: 'G', chordType: '7', degree: 5, fullName: 'G7'}, event);
+
+// Change filter on the fly
+explorer.setRadialFilterMode('color');     // Switch to colorful extensions
+explorer.setRadialFilterMode('chromatic'); // Switch to altered/borrowed chords
+explorer.setRadialFilterMode('surprise');  // Random exotic substitutions
+
+// Container chord grouping is automatic:
+// Instead of showing: Cmaj7, Cmaj9, Cmaj11, Cmaj13, C6, C6/9, Cadd9, ...
+// Shows: "C extensions (7 opts)" - click to expand
+```
+
+### Example 4: Simple Scale Analysis
 ```javascript
 const theory = new MusicTheoryEngine();
 const scales = new ScaleLibrary(theory);
@@ -839,7 +1099,7 @@ const notes = scales.getCurrentScaleNotes();
 console.log('Dorian scale:', notes); // C, D, Eb, F, G, A, Bb
 ```
 
-### Example 2: Chord Progression Building
+### Example 5: Chord Progression Building
 ```javascript
 const theory = new MusicTheoryEngine();
 const progression = new ProgressionBuilder(theory);
@@ -858,7 +1118,7 @@ numberGen.emit('numbersChanged', {numbers: [2, 5, 1]});
 console.log('Progression:', progression.state.currentProgression); // Array of chord objects
 ```
 
-### Example 3: Unified Chord Explorer
+### Example 6: Unified Chord Explorer
 ```javascript
 const theory = new MusicTheoryEngine();
 const explorer = new UnifiedChordExplorer(theory);
@@ -879,7 +1139,7 @@ numberGen.emit('numbersChanged', {numbers: [2, 5, 1]});
 explorer.openRadialMenu({root: 'G', chordType: '7', degree: 5});
 ```
 
-### Example 4: Interactive Piano
+### Example 7: Interactive Piano
 ```javascript
 const piano = new PianoVisualizer();
 const cMajor = theory.getScaleNotes('C', 'major');
@@ -895,7 +1155,7 @@ piano.renderScale({
 });
 ```
 
-### Example 5: Container Chord Analysis
+### Example 8: Container Chord Analysis
 ```javascript
 const containerTool = new ContainerChordTool(theory);
 containerTool.setInputNotes(['C', 'E']);
@@ -908,7 +1168,7 @@ containerTool.on('resultsUpdated', (data) => {
 });
 ```
 
-### Example 6: Circle of Fifths Visualization
+### Example 9: Circle of Fifths Visualization
 ```javascript
 const circle = new ScaleCircleExplorer(theory);
 circle.setMode('fifths');
@@ -920,7 +1180,7 @@ circle.on('keySelected', (data) => {
 });
 ```
 
-### Example 7: Sheet Music Rendering
+### Example 10: Sheet Music Rendering
 ```javascript
 const sheetMusic = new SheetMusicGenerator(theory);
 sheetMusic.setKeyAndScale('C', 'major');
@@ -929,7 +1189,7 @@ sheetMusic.setStaffType('grand');
 sheetMusic.renderStaff();
 ```
 
-### Example 8: Solar System Scale Visualization
+### Example 11: Solar System Scale Visualization
 ```javascript
 const solarSystem = new SolarSystemVisualizer(theory);
 solarSystem.setKeyAndScale('C', 'major');
@@ -942,7 +1202,7 @@ solarSystem.on('planetClicked', (data) => {
 });
 ```
 
-### Example 9: Audio Visualization
+### Example 12: Audio Visualization
 ```javascript
 const audioViz = new AudioVisualizer();
 await audioViz.open(); // Request mic permission

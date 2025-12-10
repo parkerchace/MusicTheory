@@ -751,6 +751,28 @@ class MusicTheoryEngine {
             }
         };
 
+        // Utility: transpose a note by semitones (supports sharps/flats)
+        // Example: transposeNote('C', 4) -> 'E'
+        // Example: transposeNote('F#', 2) -> 'G#'
+        // Keeps result as a single letter with # if needed (prefers sharps)
+        this.transposeNote = (root, semitones) => {
+            if (!root || typeof root !== 'string') return root;
+            // normalize root (prefer canonical names in noteValues)
+            const canonical = Object.prototype.hasOwnProperty.call(this.noteValues, root) ? root : root.replace('♯', '#').replace('♭', 'b');
+            const base = this.noteValues[canonical];
+            if (base === undefined) {
+                // try stripping octave number if present (e.g., C4)
+                const match = root.match(/^([A-G][#b]?)/);
+                if (match) {
+                    const r = match[1];
+                    if (this.noteValues[r] !== undefined) return this.chromaticNotes[(this.noteValues[r] + semitones + 120) % 12];
+                }
+                return root; // unknown root, return as-is
+            }
+            const idx = (base + semitones + 120) % 12;
+            return this.chromaticNotes[idx];
+        };
+
         this.diatonicChordTypes = ['maj7', 'm7', 'm7', 'maj7', '7', 'm7', 'm7b5'];
         this.barry8ChordTypes = ['6', 'dim7', 'm7', 'maj7', '7', 'm7', 'dim7', 'm7b5'];
 

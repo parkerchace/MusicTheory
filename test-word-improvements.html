@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Word Analysis Improvements</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
+        .test-result { margin: 20px 0; padding: 15px; border: 1px solid #333; border-radius: 5px; }
+        .test-word { color: #60a5fa; font-weight: bold; }
+        .test-scale { color: #34d399; }
+        .test-progression { color: #fbbf24; }
+        .test-reasoning { color: #e879f9; font-style: italic; }
+        .test-emotions { color: #fb923c; }
+    </style>
+</head>
+<body>
+    <h1>🎵 Word Analysis Improvements Test</h1>
+    <div id="results"></div>
+
+    <script src="music-theory-engine.js"></script>
+    <script src="word-database.js"></script>
+    <script src="phonetic-analyzer.js"></script>
+    <script src="chord-attribute-engine.js"></script>
+    <script src="semantic-api-engine.js"></script>
+    <script src="voice-leading-engine.js"></script>
+    <script src="generative-word-mapper.js"></script>
+    <script src="lexical-music-engine-v2.js"></script>
+
+    <script>
+        async function testWordAnalysis() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                // Initialize engines
+                const musicTheory = new MusicTheoryEngine();
+                const wordDB = new WordDatabase();
+                const lexicalEngine = new LexicalMusicEngineV2(musicTheory, wordDB);
+                
+                // Test words from the log
+                const testWords = [
+                    'insane melon',
+                    'insane watermelon',
+                    'insane watermelon tooth',
+                    'insane watermelon tooth scary',
+                    'ancient medieval',
+                    'ancient medieval city',
+                    'forever',
+                    'lonely evil',
+                    'cosmic divine',
+                    'dark haunting'
+                ];
+                
+                resultsDiv.innerHTML = '<h2>Testing improved word analysis...</h2>';
+                
+                for (const words of testWords) {
+                    try {
+                        const result = await lexicalEngine.translateWords(words);
+                        
+                        const div = document.createElement('div');
+                        div.className = 'test-result';
+                        
+                        // Get emotional analysis for first word to show improvements
+                        const firstWord = words.split(' ')[0];
+                        const emotion = wordDB.getEmotionalValence(firstWord);
+                        
+                        div.innerHTML = `
+                            <div class="test-word">"${words}"</div>
+                            <div class="test-emotions">Emotions (${firstWord}): valence=${emotion.valence.toFixed(2)}, arousal=${emotion.arousal.toFixed(2)}, dominance=${emotion.dominance.toFixed(2)}</div>
+                            <div class="test-scale">Scale: ${result.scale.root} ${result.scale.name}</div>
+                            <div class="test-progression">Progression: ${result.progression.map(c => `${c.fullName} (${c.degree})`).join(' → ')}</div>
+                            <div class="test-reasoning">Reasoning: ${result.reasoning?.summary || 'No reasoning available'}</div>
+                        `;
+                        
+                        resultsDiv.appendChild(div);
+                        
+                        // Add small delay to see results appear
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
+                    } catch (error) {
+                        const div = document.createElement('div');
+                        div.className = 'test-result';
+                        div.style.borderColor = '#ef4444';
+                        div.innerHTML = `
+                            <div class="test-word">"${words}" - ERROR</div>
+                            <div style="color: #ef4444;">${error.message}</div>
+                        `;
+                        resultsDiv.appendChild(div);
+                    }
+                }
+                
+                resultsDiv.innerHTML += '<h2>✅ Test completed!</h2>';
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div style="color: #ef4444;">Failed to initialize: ${error.message}</div>`;
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('DOMContentLoaded', testWordAnalysis);
+    </script>
+</body>
+</html>

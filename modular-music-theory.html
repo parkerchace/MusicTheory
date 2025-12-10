@@ -1148,6 +1148,208 @@
             box-shadow: 0 4px 12px rgba(52, 211, 153, 0.4);
             animation: badge-glow 2s infinite;
         }
+
+        /* Input Mode Toggle Buttons */
+        .input-mode-btn {
+            background: var(--bg-lighter);
+            border: 1px solid var(--border-main);
+            color: var(--text-dim);
+            padding: 6px 12px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: var(--font-ui);
+        }
+        
+        .input-mode-btn:hover {
+            background: var(--bg-panel);
+            border-color: var(--accent-primary);
+            color: var(--text-main);
+        }
+        
+        .input-mode-btn.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: #000;
+            font-weight: bold;
+        }
+
+        /* Word Analysis Panel */
+        .word-analysis-panel {
+            position: fixed;
+            top: 80px;
+            right: -350px;
+            width: 340px;
+            max-height: calc(100vh - 100px);
+            background: var(--bg-panel);
+            border: 1px solid var(--accent-primary);
+            box-shadow: -4px 0 16px rgba(0, 0, 0, 0.7);
+            z-index: 9000;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .word-analysis-panel.active {
+            right: 20px;
+        }
+
+        /* Word Settings Panel */
+        .word-settings-panel {
+            position: fixed;
+            top: 80px;
+            right: -350px;
+            width: 340px;
+            max-height: calc(100vh - 100px);
+            background: var(--bg-panel);
+            border: 1px solid var(--border-main);
+            box-shadow: -4px 0 16px rgba(0, 0, 0, 0.7);
+            z-index: 9000;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .word-settings-panel.active {
+            right: 20px;
+        }
+
+        .word-analysis-panel .panel-header,
+        .word-settings-panel .panel-header {
+            background: var(--bg-darker);
+            border-bottom: 1px solid var(--border-light);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-tech);
+            font-size: 0.85rem;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .word-analysis-panel .panel-content,
+        .word-settings-panel .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .analysis-empty {
+            color: var(--text-dim);
+            font-style: italic;
+            text-align: center;
+            padding: 24px;
+        }
+
+        .analysis-section {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--bg-lighter);
+            border: 1px solid var(--border-main);
+        }
+
+        .analysis-section-title {
+            font-family: var(--font-tech);
+            font-size: 0.75rem;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .analysis-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 0.85rem;
+        }
+
+        .analysis-item-label {
+            color: var(--text-dim);
+        }
+
+        .analysis-item-value {
+            color: var(--text-main);
+            font-weight: bold;
+        }
+
+        .archetype-match {
+            background: var(--bg-darker);
+            border: 1px solid var(--accent-secondary);
+            padding: 8px;
+            margin-top: 8px;
+        }
+
+        .archetype-match-title {
+            color: var(--accent-secondary);
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .archetype-match-confidence {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+        }
+
+        /* Settings Panel Specific */
+        .setting-group {
+            margin-bottom: 20px;
+        }
+
+        .setting-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            font-family: var(--font-tech);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.75rem;
+        }
+
+        .weight-slider {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-lighter);
+            border: 1px solid var(--border-main);
+            outline: none;
+            cursor: pointer;
+            -webkit-appearance: none;
+        }
+
+        .weight-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-primary);
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        .weight-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--accent-primary);
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+
+        .weight-value {
+            display: inline-block;
+            margin-left: 8px;
+            color: var(--accent-primary);
+            font-weight: bold;
+            min-width: 40px;
+        }
+
+        #reset-weights-btn {
+            width: 100%;
+            margin-top: 8px;
+        }
+
         
         @keyframes badge-glow {
             0%, 100% { box-shadow: 0 4px 12px rgba(52, 211, 153, 0.4); }
@@ -1221,12 +1423,53 @@
             <!-- Will be populated dynamically -->
         </div>
         
-        <!-- Manual Input -->
-        <div class="header-module" style="display:flex; align-items:center; gap:8px;">
+        <!-- Word/Number Input Toggle -->
+        <div class="header-module word-input-container" style="display:flex; align-items:center; gap:8px;">
+            <!-- Mode Toggle Buttons -->
+            <button id="input-mode-words" class="input-mode-btn active" title="Word Input Mode">
+                📝
+            </button>
+            <button id="input-mode-numbers" class="input-mode-btn" title="Number Input Mode">
+                🔢
+            </button>
+            
+            <!-- Word Input (visible by default) -->
+            <input type="text" id="global-word-input" 
+                   class="form-input word-mode-input" 
+                   placeholder="Enter words: chase, woods, dark..."
+                   style="width:250px; padding:4px 8px; font-size:0.75rem; font-family:var(--font-main);">
+            
+            <!-- Number Input (hidden by default) -->
             <input type="text" id="global-manual-numbers" 
-                   class="form-input" 
+                   class="form-input number-mode-input" 
                    placeholder="Enter degrees/chords..."
-                   style="width:180px; padding:4px 8px; font-size:0.75rem; text-align:center; font-family:var(--font-tech);">
+                   style="display:none; width:180px; padding:4px 8px; font-size:0.75rem; text-align:center; font-family:var(--font-tech);">
+            
+            <!-- Randomize Button -->
+            <button id="word-randomize-btn" class="btn-icon" title="Randomize Weights & Regenerate" style="font-size:1rem;">
+                🎲
+            </button>
+            <!-- Regenerate with current weights -->
+            <button id="word-regenerate-btn" class="btn-icon" title="Regenerate with current weights" style="font-size:1rem;">
+                🔄
+            </button>
+            <!-- Send latest result to sheet music -->
+            <button id="word-send-sheet-btn" class="btn-icon" title="Send latest analysis to Sheet Music" style="font-size:1rem;">
+                🎼
+            </button>
+            
+            <!-- Settings Button -->
+            <button id="word-settings-btn" class="btn-icon" title="Word Analysis Settings" style="font-size:1rem;">
+                ⚙️
+            </button>
+            
+            <!-- Undo/Redo Buttons -->
+            <button id="global-undo-btn" class="btn-icon" title="Undo last change (Ctrl+Z)" style="font-size:1rem;" disabled>
+                ↶ Undo
+            </button>
+            <button id="global-redo-btn" class="btn-icon" title="Redo (Ctrl+Y)" style="font-size:1rem;" disabled>
+                ↷ Redo
+            </button>
         </div>
         
         <div style="flex: 1;"></div> <!-- Spacer -->
@@ -1285,6 +1528,87 @@
     <div id="demo-tooltip" class="demo-tooltip">
         <div class="demo-tooltip-title" id="demo-tooltip-title"></div>
         <div id="demo-tooltip-content"></div>
+    </div>
+
+    <!-- Word Analysis Panel -->
+    <div id="word-analysis-panel" class="word-analysis-panel">
+        <div class="panel-header">
+            <span>📊 Word Analysis</span>
+            <button id="copy-lexical-log-btn" class="btn-icon" title="Copy lexical analysis log to clipboard" style="font-size: 0.7rem; padding: 2px 8px; margin-right: 8px;">📋 Copy Log</button>
+            <button id="debug-log-btn" class="btn-icon" title="Show debug information" style="font-size: 0.7rem; padding: 2px 8px; margin-right: 8px;">🔍 Debug</button>
+            <button class="btn-icon" onclick="document.getElementById('word-analysis-panel').classList.remove('active')">✕</button>
+        </div>
+        <div class="panel-content">
+            <div id="word-analysis-content">
+                <div class="analysis-empty">Enter words above to see analysis...</div>
+            </div>
+                <!-- Session Log: shows recent translations with quick actions -->
+                <div id="lexical-session-log" style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.03); padding-top:8px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+                        <div style="font-weight:700; color:var(--accent-primary);">🗂️ Session Log</div>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <button id="export-lexical-log-btn" class="btn" style="font-size:0.75rem; padding:4px 8px;">Export JSON</button>
+                            <button id="clear-lexical-log-btn" class="btn" style="font-size:0.75rem; padding:4px 8px;">Clear</button>
+                        </div>
+                    </div>
+                    <div id="lexical-log-list" style="max-height:220px; overflow:auto; padding-right:6px;"></div>
+                </div>
+        </div>
+    </div>
+
+    <!-- Word Settings Panel -->
+    <div id="word-settings-panel" class="word-settings-panel">
+        <div class="panel-header">
+            <span>⚙️ Lexical Engine Settings</span>
+            <button class="btn-icon" onclick="document.getElementById('word-settings-panel').classList.remove('active')">✕</button>
+        </div>
+        <div class="panel-content">
+            <div class="setting-group">
+                <label>Emotional Weight</label>
+                <input type="range" id="weight-emotional" min="0" max="100" value="30" class="weight-slider">
+                <span class="weight-value">30%</span>
+            </div>
+            <div class="setting-group">
+                <label>Syllabic/Rhythm Weight</label>
+                <input type="range" id="weight-syllabic" min="0" max="100" value="20" class="weight-slider">
+                <span class="weight-value">20%</span>
+            </div>
+            <div class="setting-group">
+                <label>Phonetic/Color Weight</label>
+                <input type="range" id="weight-phonetic" min="0" max="100" value="15" class="weight-slider">
+                <span class="weight-value">15%</span>
+            </div>
+            <div class="setting-group">
+                <label>Semantic Context Weight</label>
+                <input type="range" id="weight-semantic" min="0" max="100" value="25" class="weight-slider">
+                <span class="weight-value">25%</span>
+            </div>
+            <div class="setting-group">
+                <label>Archetype Matching Weight</label>
+                <input type="range" id="weight-archetype" min="0" max="100" value="10" class="weight-slider">
+                <span class="weight-value">10%</span>
+            </div>
+            <div class="setting-group">
+                <button class="btn-primary" id="reset-weights-btn">Reset to Defaults</button>
+            </div>
+                <div class="setting-group">
+                    <label><input type="checkbox" id="weight-aggressive"> Prefer dramatic / darker mappings</label>
+                </div>
+                <div class="setting-group">
+                    <label><input type="checkbox" id="weight-key-variety" checked> Enable dynamic key selection (more variety)</label>
+                </div>
+                <div class="setting-group">
+                    <label><input type="checkbox" id="weight-auto-send" checked> Auto-send to sheet music (immediate playback)</label>
+                </div>
+                <div class="setting-group" style="font-size: 0.7rem; opacity: 0.7; line-height: 1.3;">
+                    <strong>Weight Guide:</strong><br>
+                    • <strong>Emotional</strong>: Valence/arousal drive mode & key brightness<br>
+                    • <strong>Semantic</strong>: Word meaning influences scale/chord choices<br>
+                    • <strong>Phonetic</strong>: Sound color affects voicing & extensions<br>
+                    • <strong>Syllabic</strong>: Rhythm patterns from word structure<br>
+                    • <strong>Archetype</strong>: Pre-built phrase patterns boost
+                </div>
+        </div>
     </div>
 
     <!-- MAIN WORKSPACE -->
@@ -1396,6 +1720,19 @@
 
     <!-- Module Scripts -->
     <script src="music-theory-engine.js"></script>
+    <script src="word-database.js"></script>
+    
+    <!-- NEW: Comprehensive Scale Intelligence System -->
+    <script src="scale-intelligence-engine.js"></script>
+    
+    <!-- NEW: Generative Word-to-Music System -->
+    <script src="phonetic-analyzer.js"></script>
+    <script src="chord-attribute-engine.js"></script>
+    <script src="semantic-api-engine.js"></script>
+    <script src="voice-leading-engine.js"></script>
+    <script src="generative-word-mapper.js"></script>
+    
+    <script src="simple-word-engine.js?v=5"></script>
     <script src="sheet-music-generator.js"></script>
     <script src="number-generator.js"></script>
     <script src="scale-library.js"></script>
@@ -2891,6 +3228,24 @@
         // Initialize the modular app when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             window.modularApp = new ModularMusicTheoryApp();
+            // Expose key components globally for lexical integration
+            window.numberGenerator = window.modularApp.numberGenerator;
+            window.scaleLibrary = window.modularApp.scaleLibrary;
+            window.containerChordTool = window.modularApp.containerChordTool;
+            window.progressionBuilder = window.modularApp.progressionBuilder;
+            console.log('[App] Global references exposed:', {
+                numberGenerator: !!window.numberGenerator,
+                scaleLibrary: !!window.scaleLibrary
+            });
+            // Expose key components globally for lexical integration
+            window.numberGenerator = window.modularApp.numberGenerator;
+            window.scaleLibrary = window.modularApp.scaleLibrary;
+            window.containerChordTool = window.modularApp.containerChordTool;
+            window.progressionBuilder = window.modularApp.progressionBuilder;
+            console.log('[App] Global references exposed:', {
+                numberGenerator: !!window.numberGenerator,
+                scaleLibrary: !!window.scaleLibrary
+            });
             // debugLog('Application started');
             
             // Setup control deck elements
@@ -3020,6 +3375,7 @@
                 const isOpen = dropdownPanel.classList.toggle('open');
                 dropdownArrow.textContent = isOpen ? '▴' : '▾';
             });
+            // (no-op) setupModuleControls does not have a translation result context
             
             // Close dropdown when clicking outside
             document.addEventListener('click', (e) => {
@@ -3752,6 +4108,1135 @@
             localStorage.setItem('music-theory-visited', 'true');
         }, 1000);
     }
+
+    // ========================================
+    // LEXICAL MUSIC ENGINE INTEGRATION
+    // ========================================
+    
+    // Initialize simple word engine
+    let lexicalEngine = null;
+    let lexicalWeights = {
+        emotional: 0.30,
+        syllabic: 0.20,
+        phonetic: 0.15,
+        semantic: 0.25,
+        archetype: 0.10
+    };
+    let lexicalSettings = {
+        aggressiveMapping: false,
+        keyVariety: true,  // Enable dynamic key selection by default
+        autoSend: true     // Auto-send to sheet music by default
+    };
+    
+    // Global undo/redo history
+    let globalHistory = [];
+    let globalHistoryIndex = -1;
+    const MAX_HISTORY = 50;
+
+    // Wait for MusicTheoryEngine to be ready
+    function initLexicalSystem() {
+        if (typeof MusicTheoryEngine === 'undefined' || typeof SimpleWordEngine === 'undefined') {
+            console.warn('[LexicalIntegration] Waiting for engine classes...');
+            setTimeout(initLexicalSystem, 100);
+            return;
+        }
+        
+        try {
+            const musicTheory = new MusicTheoryEngine();
+            lexicalEngine = new SimpleWordEngine(musicTheory);
+            lexicalEngine.debug = true; // Enable debug logging
+            
+            console.log('[LexicalIntegration] ✅ SIMPLE WORD ENGINE INITIALIZED - direct word-to-music mapping');
+            console.log('[LexicalIntegration] Engine type:', typeof lexicalEngine);
+            console.log('[LexicalIntegration] Engine constructor:', lexicalEngine.constructor.name);
+        } catch (err) {
+            console.error('[LexicalIntegration] Initialization failed:', err);
+        }
+    }
+    
+    // Start initialization
+    setTimeout(initLexicalSystem, 500);
+
+    // Input mode toggle
+    const inputModeWords = document.getElementById('input-mode-words');
+    const inputModeNumbers = document.getElementById('input-mode-numbers');
+    const globalWordInput = document.getElementById('global-word-input');
+    const globalManualNumbers = document.getElementById('global-manual-numbers');
+
+    if (inputModeWords && inputModeNumbers && globalWordInput && globalManualNumbers) {
+        inputModeWords.addEventListener('click', () => {
+            inputModeWords.classList.add('active');
+            inputModeNumbers.classList.remove('active');
+            globalWordInput.style.display = '';
+            globalManualNumbers.style.display = 'none';
+        });
+
+        inputModeNumbers.addEventListener('click', () => {
+            inputModeNumbers.classList.add('active');
+            inputModeWords.classList.remove('active');
+            globalManualNumbers.style.display = '';
+            globalWordInput.style.display = 'none';
+        });
+    }
+
+    // Word settings panel toggle
+    const wordSettingsBtn = document.getElementById('word-settings-btn');
+    const wordSettingsPanel = document.getElementById('word-settings-panel');
+    
+    if (wordSettingsBtn && wordSettingsPanel) {
+        wordSettingsBtn.addEventListener('click', () => {
+            wordSettingsPanel.classList.toggle('active');
+            // Close analysis panel if open
+            const analysisPanel = document.getElementById('word-analysis-panel');
+            if (analysisPanel) analysisPanel.classList.remove('active');
+        });
+    }
+
+    // Weight sliders
+    const weightSliders = {
+        emotional: document.getElementById('weight-emotional'),
+        syllabic: document.getElementById('weight-syllabic'),
+        phonetic: document.getElementById('weight-phonetic'),
+        semantic: document.getElementById('weight-semantic'),
+        archetype: document.getElementById('weight-archetype')
+    };
+
+    // Initialize sliders with current lexicalWeights values and add event listeners
+    Object.keys(weightSliders).forEach(key => {
+        const slider = weightSliders[key];
+        if (slider) {
+            // Sync slider with current lexicalWeights value
+            const currentWeight = lexicalWeights[key] || 0;
+            const sliderValue = Math.round(currentWeight * 100);
+            slider.value = sliderValue;
+            
+            const valueDisplay = slider.nextElementSibling;
+            if (valueDisplay) valueDisplay.textContent = sliderValue + '%';
+            
+            // Add event listener for changes
+            slider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                if (valueDisplay) valueDisplay.textContent = value + '%';
+                lexicalWeights[key] = value / 100;
+            });
+        }
+    });
+
+    // Reset weights button
+    const resetWeightsBtn = document.getElementById('reset-weights-btn');
+    if (resetWeightsBtn) {
+        resetWeightsBtn.addEventListener('click', () => {
+            const defaults = { emotional: 30, syllabic: 20, phonetic: 15, semantic: 25, archetype: 10 };
+            Object.keys(defaults).forEach(key => {
+                const slider = weightSliders[key];
+                if (slider) {
+                    slider.value = defaults[key];
+                    const valueDisplay = slider.nextElementSibling;
+                    if (valueDisplay) valueDisplay.textContent = defaults[key] + '%';
+                    lexicalWeights[key] = defaults[key] / 100;
+                }
+            });
+        });
+    }
+    
+    // Copy Lexical Log button
+    const copyLexicalLogBtn = document.getElementById('copy-lexical-log-btn');
+    if (copyLexicalLogBtn) {
+        copyLexicalLogBtn.addEventListener('click', () => {
+            copyLexicalLogToClipboard();
+        });
+    }
+
+    // Debug Log button
+    const debugLogBtn = document.getElementById('debug-log-btn');
+    if (debugLogBtn) {
+        debugLogBtn.addEventListener('click', () => {
+            showDebugLog();
+        });
+    }
+    // Export / Clear session log buttons (session log UI)
+    const exportLexicalLogBtn = document.getElementById('export-lexical-log-btn');
+    if (exportLexicalLogBtn) {
+        exportLexicalLogBtn.addEventListener('click', () => exportLexicalLog());
+    }
+    const clearLexicalLogBtn = document.getElementById('clear-lexical-log-btn');
+    if (clearLexicalLogBtn) {
+        clearLexicalLogBtn.addEventListener('click', () => {
+            if (!confirm('Clear lexical session log?')) return;
+            window.__lexicalLog = [];
+            try { renderLexicalLog(); } catch(_) {}
+        });
+    }
+    
+    // Randomize button
+    const randomizeBtn = document.getElementById('word-randomize-btn');
+    if (randomizeBtn) {
+        randomizeBtn.addEventListener('click', () => {
+            console.log('[LexicalIntegration] Randomizing weights...');
+            
+            // Generate random weights that sum to 100
+            let remaining = 100;
+            const keys = Object.keys(lexicalWeights);
+            const randomWeights = {};
+            
+            keys.forEach((key, idx) => {
+                if (idx === keys.length - 1) {
+                    // Last one gets the remainder
+                    randomWeights[key] = remaining;
+                } else {
+                    // Random value between 5 and 40
+                    const value = Math.floor(Math.random() * 36) + 5;
+                    randomWeights[key] = Math.min(value, remaining - (keys.length - idx - 1) * 5);
+                    remaining -= randomWeights[key];
+                }
+            });
+            
+            // Apply random weights to sliders
+            Object.keys(randomWeights).forEach(key => {
+                const slider = weightSliders[key];
+                if (slider) {
+                    slider.value = randomWeights[key];
+                    const valueDisplay = slider.nextElementSibling;
+                    if (valueDisplay) valueDisplay.textContent = randomWeights[key] + '%';
+                    lexicalWeights[key] = randomWeights[key] / 100;
+                }
+            });
+            
+            // Reprocess current input with new weights
+            if (globalWordInput && globalWordInput.value.trim()) {
+                console.log('[LexicalIntegration] Reprocessing with new weights:', lexicalWeights);
+                processWordsInput(globalWordInput.value.trim());
+            }
+        });
+    }
+
+    // Aggressive mapping checkbox handling
+    const aggressiveCheckbox = document.getElementById('weight-aggressive');
+    if (aggressiveCheckbox) {
+        aggressiveCheckbox.addEventListener('change', (e) => {
+            lexicalSettings.aggressiveMapping = !!e.target.checked;
+            console.log('[LexicalIntegration] aggressiveMapping set to', lexicalSettings.aggressiveMapping);
+        });
+    }
+
+    // Key variety checkbox handling
+    const keyVarietyCheckbox = document.getElementById('weight-key-variety');
+    if (keyVarietyCheckbox) {
+        keyVarietyCheckbox.addEventListener('change', (e) => {
+            const enabled = !!e.target.checked;
+            console.log('[LexicalIntegration] Key variety set to', enabled);
+            lexicalSettings.keyVariety = enabled;
+        });
+    }
+    
+    // Auto-send checkbox handling
+    const autoSendCheckbox = document.getElementById('weight-auto-send');
+    if (autoSendCheckbox) {
+        autoSendCheckbox.addEventListener('change', (e) => {
+            lexicalSettings.autoSend = !!e.target.checked;
+            console.log('[LexicalIntegration] Auto-send set to', lexicalSettings.autoSend);
+        });
+    }
+
+    // Regenerate button (re-run translate with current weights)
+    const regenerateBtn = document.getElementById('word-regenerate-btn');
+    if (regenerateBtn) {
+        regenerateBtn.addEventListener('click', () => {
+            if (!globalWordInput || !globalWordInput.value.trim()) return;
+            console.log('[LexicalIntegration] Regenerate pressed - using weights:', lexicalWeights);
+            processWordsInput(globalWordInput.value.trim());
+        });
+    }
+
+    // Send to Sheet button - uses latest lexical result to update NumberGenerator / Sheet
+    const sendSheetBtn = document.getElementById('word-send-sheet-btn');
+    if (sendSheetBtn) {
+        sendSheetBtn.addEventListener('click', () => {
+            const last = window.__lastLexicalResult;
+            if (!last) {
+                alert('No translation result available to send. Please generate one first.');
+                return;
+            }
+            try {
+                console.log('[LexicalIntegration] Sending latest result to sheet music');
+                updateNumberGenerator(last);
+                // Optional visual feedback
+                const toast = document.createElement('div');
+                toast.textContent = 'Sent to Sheet Music';
+                toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#10b981;color:#fff;padding:8px 12px;border-radius:4px;font-size:13px;z-index:10000;';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 1500);
+            } catch (e) {
+                console.error('[LexicalIntegration] Send to sheet failed', e);
+                alert('Failed to send to sheet. See console.');
+            }
+        });
+    }
+
+    // Word input processing with debouncing
+    let wordInputTimeout = null;
+    
+    if (globalWordInput) {
+        // Input event - just clear empty state, don't process
+        globalWordInput.addEventListener('input', (e) => {
+            const words = e.target.value.trim();
+            
+            if (!words) {
+                // Clear analysis panel
+                const analysisContent = document.getElementById('word-analysis-content');
+                if (analysisContent) {
+                    analysisContent.innerHTML = '<div class="analysis-empty">Enter words above to see analysis...</div>';
+                }
+            }
+        });
+        
+        // Enter key - process immediately
+        globalWordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(wordInputTimeout);
+                const words = e.target.value.trim();
+                if (words) {
+                    console.log('[LexicalIntegration] Enter key pressed, processing immediately');
+                    processWordsInput(words);
+                }
+            }
+        });
+        
+        // Blur event - process when leaving field
+        globalWordInput.addEventListener('blur', (e) => {
+            clearTimeout(wordInputTimeout);
+            const words = e.target.value.trim();
+            if (words) {
+                console.log('[LexicalIntegration] Input blur, processing immediately');
+                processWordsInput(words);
+            }
+        });
+    }
+
+    /**
+     * Global Undo/Redo System
+     */
+    function captureGlobalState() {
+        try {
+            return {
+                timestamp: Date.now(),
+                lexicalResult: window.__lastLexicalResult ? JSON.parse(JSON.stringify(window.__lastLexicalResult)) : null,
+                wordInput: globalWordInput ? globalWordInput.value : '',
+                weights: { ...lexicalWeights },
+                settings: { ...lexicalSettings }
+            };
+        } catch (e) {
+            console.warn('[Undo/Redo] Failed to capture state:', e);
+            return null;
+        }
+    }
+    
+    function saveToHistory() {
+        const state = captureGlobalState();
+        if (!state) return;
+        
+        // Remove any future history if we're not at the end
+        if (globalHistoryIndex < globalHistory.length - 1) {
+            globalHistory = globalHistory.slice(0, globalHistoryIndex + 1);
+        }
+        
+        globalHistory.push(state);
+        if (globalHistory.length > MAX_HISTORY) {
+            globalHistory.shift();
+        } else {
+            globalHistoryIndex++;
+        }
+        
+        updateUndoRedoButtons();
+        console.log('[Undo/Redo] Saved state', globalHistoryIndex, '/', globalHistory.length);
+    }
+    
+    function restoreState(state) {
+        if (!state) return;
+        
+        try {
+            // Restore word input
+            if (globalWordInput && state.wordInput !== undefined) {
+                globalWordInput.value = state.wordInput;
+            }
+            
+            // Restore weights
+            if (state.weights) {
+                Object.assign(lexicalWeights, state.weights);
+                Object.keys(weightSliders).forEach(key => {
+                    const slider = weightSliders[key];
+                    if (slider && state.weights[key] !== undefined) {
+                        slider.value = Math.round(state.weights[key] * 100);
+                        const valueDisplay = slider.nextElementSibling;
+                        if (valueDisplay) valueDisplay.textContent = Math.round(state.weights[key] * 100) + '%';
+                    }
+                });
+            }
+            
+            // Restore settings
+            if (state.settings) {
+                Object.assign(lexicalSettings, state.settings);
+            }
+            
+            // Restore and display result
+            if (state.lexicalResult) {
+                window.__lastLexicalResult = state.lexicalResult;
+                updateAnalysisPanel(state.lexicalResult);
+                if (lexicalSettings.autoSend) {
+                    updateNumberGenerator(state.lexicalResult);
+                }
+            }
+            
+            console.log('[Undo/Redo] Restored state');
+        } catch (e) {
+            console.error('[Undo/Redo] Failed to restore state:', e);
+        }
+    }
+    
+    function globalUndo() {
+        if (globalHistoryIndex <= 0) {
+            console.log('[Undo/Redo] No more undo history');
+            return;
+        }
+        
+        globalHistoryIndex--;
+        const state = globalHistory[globalHistoryIndex];
+        restoreState(state);
+        updateUndoRedoButtons();
+        
+        // Visual feedback
+        showToast('↶ Undo', '#64C8FF');
+    }
+    
+    function globalRedo() {
+        if (globalHistoryIndex >= globalHistory.length - 1) {
+            console.log('[Undo/Redo] No more redo history');
+            return;
+        }
+        
+        globalHistoryIndex++;
+        const state = globalHistory[globalHistoryIndex];
+        restoreState(state);
+        updateUndoRedoButtons();
+        
+        // Visual feedback
+        showToast('↷ Redo', '#10b981');
+    }
+    
+    function updateUndoRedoButtons() {
+        const undoBtn = document.getElementById('global-undo-btn');
+        const redoBtn = document.getElementById('global-redo-btn');
+        
+        if (undoBtn) {
+            undoBtn.disabled = globalHistoryIndex <= 0;
+            undoBtn.style.opacity = globalHistoryIndex <= 0 ? '0.3' : '1';
+        }
+        
+        if (redoBtn) {
+            redoBtn.disabled = globalHistoryIndex >= globalHistory.length - 1;
+            redoBtn.style.opacity = globalHistoryIndex >= globalHistory.length - 1 ? '0.3' : '1';
+        }
+    }
+    
+    function showToast(message, color = '#64C8FF') {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = `position:fixed;bottom:20px;right:20px;background:${color};color:#fff;padding:12px 20px;border-radius:6px;font-size:14px;font-weight:700;z-index:10000;box-shadow:0 4px 16px rgba(0,0,0,0.4);`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 1500);
+    }
+    
+    // Wire up undo/redo buttons
+    const undoBtn = document.getElementById('global-undo-btn');
+    const redoBtn = document.getElementById('global-redo-btn');
+    if (undoBtn) undoBtn.addEventListener('click', globalUndo);
+    if (redoBtn) redoBtn.addEventListener('click', globalRedo);
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            globalUndo();
+        } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+            e.preventDefault();
+            globalRedo();
+        }
+    });
+
+    function copyLexicalLogToClipboard() {
+        try {
+            const logText = buildCompactLexicalLog();
+            navigator.clipboard.writeText(logText).then(() => {
+                console.log('[Lexical] Log copied to clipboard:\n' + logText);
+                // Toast notification if available
+                try {
+                    const toast = document.createElement('div');
+                    toast.textContent = 'Lexical log copied';
+                    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#64C8FF;color:#000;padding:12px 20px;border-radius:4px;font-size:14px;z-index:10000;animation:fadeInOut 2s;';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 2000);
+                } catch(_) {}
+            }).catch(err => {
+                alert('Failed to copy log. See console.');
+                console.warn('[Lexical] Copy failed', err);
+            });
+        } catch (e) {
+            alert('Failed to build log. See console.');
+            console.error('[Lexical] Build log error', e);
+        }
+    }
+    
+    function buildCompactLexicalLog() {
+        if (!window.__lexicalLog || window.__lexicalLog.length === 0) {
+            return '[Lexical] No translations logged yet.';
+        }
+        
+        const lines = [];
+        lines.push('[Lexical Analysis Log]');
+        lines.push('='.repeat(60));
+        lines.push('');
+        
+        window.__lexicalLog.forEach((entry, idx) => {
+            const time = new Date(entry.timestamp).toLocaleTimeString();
+            lines.push(`#${idx + 1} [${time}] "${entry.input}"`);
+            
+            if (entry.result.scale) {
+                const scaleStr = typeof entry.result.scale === 'object' 
+                    ? `${entry.result.scale.root || entry.result.scale.key} ${entry.result.scale.name || entry.result.scale.scale}`
+                    : entry.result.scale;
+                lines.push(`  Scale: ${scaleStr}`);
+            }
+            
+            if (entry.result.progression && entry.result.progression.length > 0) {
+                const progStr = entry.result.progression.map(c => {
+                    const name = c.fullName || c;
+                    const degree = c.degree ? ` (${c.degree})` : '';
+                    const func = c.function ? ` [${c.function}]` : '';
+                    const tier = c.tier ? ` T${c.tier}` : '';
+                    return name + degree + func + tier;
+                }).join(' → ');
+                lines.push(`  Progression: ${progStr}`);
+            }
+            
+            if (entry.result.complexity) {
+                const cplx = entry.result.complexity;
+                if (typeof cplx === 'object') {
+                    lines.push(`  Complexity: H=${Math.round(cplx.harmonic*100)}% R=${Math.round(cplx.rhythmic*100)}% E=${Math.round(cplx.emotional*100)}% (${cplx.overall})`);
+                } else {
+                    lines.push(`  Complexity: ${cplx}`);
+                }
+            }
+            
+            if (entry.result.reasoning) {
+                lines.push(`  Reasoning: ${entry.result.reasoning}`);
+            }
+            
+            if (entry.weights) {
+                const w = entry.weights;
+                lines.push(`  Weights: Emotional=${w.emotional}% Semantic=${w.semantic}% Phonetic=${w.phonetic}% Arch=${w.archetype}%`);
+            }
+            
+            lines.push('');
+        });
+        
+        lines.push('='.repeat(60));
+        lines.push(`Total translations: ${window.__lexicalLog.length}`);
+        
+        return lines.join('\n');
+    }
+
+    // Render in-page lexical session log with per-entry actions
+    function renderLexicalLog() {
+        const list = document.getElementById('lexical-log-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (!window.__lexicalLog || window.__lexicalLog.length === 0) {
+            list.innerHTML = '<div style="color:#999; font-size:12px; padding:6px;">No translations logged yet.</div>';
+            return;
+        }
+
+        window.__lexicalLog.slice().reverse().forEach((entry, revIdx) => {
+            const idx = window.__lexicalLog.length - 1 - revIdx;
+            const item = document.createElement('div');
+            item.style.padding = '8px';
+            item.style.borderBottom = '1px solid rgba(255,255,255,0.02)';
+            item.style.display = 'flex';
+            item.style.justifyContent = 'space-between';
+            item.style.alignItems = 'center';
+
+            const left = document.createElement('div');
+            left.style.flex = '1';
+            left.innerHTML = `<div style="font-size:12px; color:var(--text-highlight); font-weight:600;">${entry.input}</div>` +
+                `<div style="font-size:11px; color:#aaa; margin-top:4px;">${(entry.result.scale && (entry.result.scale.root || entry.result.scale.key) ? (entry.result.scale.root || entry.result.scale.key) + ' ' + (entry.result.scale.name || entry.result.scale.scale || '') : '')} ${entry.result.progression && entry.result.progression.length ? '· ' + entry.result.progression.map(c=>c.fullName||c).join(' → ') : ''}</div>`;
+
+            const actions = document.createElement('div');
+            actions.style.display = 'flex';
+            actions.style.gap = '6px';
+
+            const sendBtn = document.createElement('button');
+            sendBtn.className = 'btn';
+            sendBtn.style.fontSize = '0.75rem';
+            sendBtn.textContent = 'Send';
+            sendBtn.onclick = () => sendLogEntry(idx);
+
+            const exportBtn = document.createElement('button');
+            exportBtn.className = 'btn';
+            exportBtn.style.fontSize = '0.75rem';
+            exportBtn.textContent = 'Export';
+            exportBtn.onclick = () => exportLogEntry(idx);
+
+            actions.appendChild(sendBtn);
+            actions.appendChild(exportBtn);
+
+            item.appendChild(left);
+            item.appendChild(actions);
+            list.appendChild(item);
+        });
+    }
+
+    function sendLogEntry(index) {
+        if (!window.__lexicalLog || !window.__lexicalLog[index]) {
+            alert('Log entry not found');
+            return;
+        }
+        const entry = window.__lexicalLog[index];
+        // Reconstruct a compatible result object for updateNumberGenerator
+        const res = {
+            scale: entry.result.scale,
+            progression: entry.result.progression
+        };
+        try {
+            window.__lastLexicalResult = res;
+            updateNumberGenerator(res);
+            alert('Sent translation to sheet');
+        } catch (err) {
+            console.error('Failed to send log entry to sheet', err);
+            alert('Failed to send to sheet. See console.');
+        }
+    }
+
+    function exportLexicalLog() {
+        if (!window.__lexicalLog || window.__lexicalLog.length === 0) {
+            alert('No lexical log to export');
+            return;
+        }
+        const blob = new Blob([JSON.stringify(window.__lexicalLog, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lexical-log-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    function showDebugLog() {
+        let debugInfo = [];
+        
+        // Check ScaleIntelligenceEngine availability
+        debugInfo.push('=== SCALE INTELLIGENCE ENGINE DEBUG ===');
+        debugInfo.push(`ScaleIntelligenceEngine defined: ${typeof ScaleIntelligenceEngine !== 'undefined' ? '✅ YES' : '❌ NO'}`);
+        
+        if (typeof ScaleIntelligenceEngine !== 'undefined') {
+            try {
+                const testEngine = new ScaleIntelligenceEngine();
+                debugInfo.push(`ScaleIntelligenceEngine creation: ✅ SUCCESS`);
+                debugInfo.push(`Scale database size: ${Object.keys(testEngine.scaleDatabase || {}).length} scales`);
+                
+                // Test scale selection
+                const testResult = testEngine.selectScale({
+                    darkness: 0.6, energy: 0.57, mystery: 0.23, brightness: 0, tension: 0.5,
+                    words: ['chase', 'woods', 'danger']
+                });
+                debugInfo.push(`Test selection: ${testResult.name} (${Math.round(testResult.score * 100)}%)`);
+                debugInfo.push(`Test reason: ${testResult.primaryReason}`);
+                
+            } catch (error) {
+                debugInfo.push(`ScaleIntelligenceEngine creation: ❌ FAILED - ${error.message}`);
+            }
+        }
+        
+        // Check SimpleWordEngine status
+        debugInfo.push('');
+        debugInfo.push('=== SIMPLE WORD ENGINE DEBUG ===');
+        debugInfo.push(`lexicalEngine defined: ${lexicalEngine ? '✅ YES' : '❌ NO'}`);
+        
+        if (lexicalEngine) {
+            debugInfo.push(`Engine type: ${lexicalEngine.constructor.name}`);
+            debugInfo.push(`Scale Intelligence available: ${lexicalEngine.scaleIntelligence ? '✅ YES' : '❌ NO'}`);
+            debugInfo.push(`Debug mode: ${lexicalEngine.debug ? '✅ ON' : '❌ OFF'}`);
+            debugInfo.push(`Word mappings: ${Object.keys(lexicalEngine.wordMappings || {}).length} entries`);
+        }
+        
+        // Check recent translations
+        debugInfo.push('');
+        debugInfo.push('=== RECENT TRANSLATIONS ===');
+        if (window.__lexicalLog && window.__lexicalLog.length > 0) {
+            const recent = window.__lexicalLog.slice(-3);
+            recent.forEach((entry, i) => {
+                debugInfo.push(`${i + 1}. "${entry.input}" → ${entry.result?.scale?.root || 'unknown'} ${entry.result?.scale?.name || 'unknown'}`);
+            });
+        } else {
+            debugInfo.push('No translations logged yet');
+        }
+        
+        // Show in a modal
+        const debugText = debugInfo.join('\\n');
+        
+        // Create a simple modal-like display
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #1a1a1a; border: 2px solid var(--accent-primary);
+            padding: 20px; border-radius: 8px; z-index: 10000;
+            max-width: 600px; max-height: 80vh; overflow: auto;
+            font-family: monospace; font-size: 12px; color: #fff;
+        `;
+        
+        modal.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0; color: var(--accent-primary);">🔍 Debug Information</h3>
+                <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: #fff; font-size: 18px; cursor: pointer;">✕</button>
+            </div>
+            <pre style="margin: 0; white-space: pre-wrap; line-height: 1.4;">${debugInfo.join('\\n')}</pre>
+            <div style="margin-top: 15px; text-align: center;">
+                <button onclick="navigator.clipboard.writeText(\`${debugText}\`); alert('Debug info copied to clipboard!')" 
+                        style="padding: 8px 16px; background: var(--accent-primary); color: #000; border: none; border-radius: 4px; cursor: pointer;">
+                    📋 Copy to Clipboard
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Also log to console for backup
+        console.log('[DEBUG LOG]\\n' + debugText);
+    }
+
+    function exportLogEntry(index) {
+        if (!window.__lexicalLog || !window.__lexicalLog[index]) {
+            alert('Log entry not found');
+            return;
+        }
+        const entry = window.__lexicalLog[index];
+        const blob = new Blob([JSON.stringify(entry, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lexical-entry-${index + 1}-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    async function processWordsInput(words) {
+        if (!lexicalEngine) {
+            console.warn('[LexicalIntegration] Engine not initialized');
+            return;
+        }
+
+        try {
+            console.log('[LexicalIntegration] Processing words:', words);
+            console.log('[LexicalIntegration] Current weights:', lexicalWeights);
+            
+            // Translate words to music with current weights (now async)
+            const result = await lexicalEngine.translateWords(words, { 
+                weights: lexicalWeights, 
+                aggressive: lexicalSettings.aggressiveMapping,
+                dynamicKeys: lexicalSettings.keyVariety 
+            });
+            console.log('[LexicalIntegration] Translation result:', result);
+
+            // Expose latest result for Send-to-Sheet and other quick actions
+            try { window.__lastLexicalResult = result; } catch(_) {}
+            
+            // Log to global lexical log
+            if (!window.__lexicalLog) window.__lexicalLog = [];
+            window.__lexicalLog.push({
+                type: 'translateWords',
+                timestamp: new Date().toISOString(),
+                input: words,
+                weights: { ...lexicalWeights },
+                result: {
+                    scale: result.scale,
+                    progression: result.progression ? result.progression.map(c => ({
+                        fullName: c.fullName || c,
+                        degree: c.degree,
+                        function: c.function,
+                        tier: c.tier
+                    })) : [],
+                    complexity: result.complexity,
+                    reasoning: result.reasoning ? result.reasoning.summary : null
+                }
+            });
+            // Keep log manageable
+            if (window.__lexicalLog.length > 50) window.__lexicalLog.shift();
+            // Refresh in-page log (if present)
+            try { renderLexicalLog(); } catch(_) {}
+
+            // Update analysis panel
+            updateAnalysisPanel(result);
+
+            // Extract chord degrees and update NumberGenerator
+            if (result.progression && result.progression.length > 0) {
+                // Only auto-send if setting is enabled
+                if (lexicalSettings.autoSend) {
+                    updateNumberGenerator(result);
+                    console.log('[LexicalIntegration] Auto-sent to sheet music');
+                } else {
+                    console.log('[LexicalIntegration] Auto-send disabled, use 🎼 button');
+                }
+            } else {
+                console.warn('[LexicalIntegration] No progression generated');
+            }
+            
+            // Save to undo/redo history
+            saveToHistory();
+
+        } catch (err) {
+            console.error('[LexicalIntegration] Translation error:', err);
+            console.error('[LexicalIntegration] Error stack:', err.stack);
+        }
+    }
+
+    function updateAnalysisPanel(result) {
+        const analysisContent = document.getElementById('word-analysis-content');
+        const analysisPanel = document.getElementById('word-analysis-panel');
+        
+        console.log('[updateAnalysisPanel] Called with result:', result);
+        console.log('[updateAnalysisPanel] analysisContent:', analysisContent);
+        console.log('[updateAnalysisPanel] analysisPanel:', analysisPanel);
+        
+        if (!analysisContent || !result) {
+            console.warn('[updateAnalysisPanel] Missing content or result');
+            return;
+        }
+
+        let html = '';
+
+        // CURRENT WEIGHTS DISPLAY (NEW!)
+        html += `
+            <div class="analysis-section" style="background: rgba(147,51,234,0.15); border-left: 3px solid #9333ea;">
+                <div class="analysis-section-title">⚖️ CURRENT WEIGHTS</div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 11px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #aaa;">Emotional:</span>
+                        <span style="font-weight: bold; color: #64C8FF;">${Math.round((lexicalWeights.emotional || 0) * 100)}%</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #aaa;">Semantic:</span>
+                        <span style="font-weight: bold; color: #10b981;">${Math.round((lexicalWeights.semantic || 0) * 100)}%</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #aaa;">Phonetic:</span>
+                        <span style="font-weight: bold; color: #f59e0b;">${Math.round((lexicalWeights.phonetic || 0) * 100)}%</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #aaa;">Syllabic:</span>
+                        <span style="font-weight: bold; color: #8b5cf6;">${Math.round((lexicalWeights.syllabic || 0) * 100)}%</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #aaa;">Archetype:</span>
+                        <span style="font-weight: bold; color: #ec4899;">${Math.round((lexicalWeights.archetype || 0) * 100)}%</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #aaa;">Aggressive:</span>
+                        <span style="font-weight: bold; color: ${lexicalSettings.aggressiveMapping ? '#ef4444' : '#666'};">${lexicalSettings.aggressiveMapping ? 'ON' : 'OFF'}</span>
+                    </div>
+                </div>
+                <div style="font-size: 10px; color: #666; margin-top: 8px; font-style: italic;">
+                    💡 Tip: Click 🎲 to randomize weights or ⚙️ to adjust manually
+                </div>
+            </div>
+        `;
+
+        // REASONING SECTION (NEW!)
+        if (result.reasoning) {
+            html += `
+                <div class="analysis-section" style="background: rgba(100,200,255,0.1); border-left: 3px solid #64C8FF;">
+                    <div class="analysis-section-title">💡 REASONING</div>
+                    <div class="analysis-item" style="font-size: 13px; line-height: 1.6;">
+                        ${result.reasoning.summary}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Scale section with reasoning
+        if (result.scale) {
+            html += `
+                <div class="analysis-section">
+                    <div class="analysis-section-title">🎵 Scale Suggestion</div>
+                    <div class="analysis-item">
+                        <span class="analysis-item-label">Key:</span>
+                        <span class="analysis-item-value">${result.scale.root || result.scale.key || 'C'}</span>
+                    </div>
+                    <div class="analysis-item">
+                        <span class="analysis-item-label">Scale:</span>
+                        <span class="analysis-item-value">${result.scale.name || result.scale.scale || 'major'}</span>
+                    </div>
+                    ${result.reasoning && result.reasoning.scaleChoice ? `
+                    <div class="analysis-item" style="font-size: 11px; color: #aaa; font-style: italic; margin-top: 4px;">
+                        Why: ${result.reasoning.scaleChoice}
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Progression section WITH TIER INFO & FUNCTIONAL HARMONY
+        if (result.progression && result.progression.length > 0) {
+            html += `<div class="analysis-section">
+                    <div class="analysis-section-title">🎹 Chord Progression</div>`;
+            
+            result.progression.forEach((chord) => {
+                // Get tier info for color
+                const tierColor = chord.tierInfo ? chord.tierInfo.color : '#666';
+                const tierLabel = chord.tierInfo ? chord.tierInfo.label : '';
+                const tierStars = chord.tier ? '★'.repeat(chord.tier) : '';
+                
+                // Chord name
+                let chordName;
+                if (typeof chord === 'string') {
+                    chordName = chord;
+                } else if (chord.fullName) {
+                    chordName = chord.fullName;
+                } else if (chord.root && chord.chordType !== undefined) {
+                    chordName = chord.root + chord.chordType;
+                } else {
+                    chordName = String(chord);
+                }
+                
+                html += `
+                    <div class="analysis-item" style="border-left: 3px solid ${tierColor}; padding-left: 8px; margin-bottom: 8px;">
+                        <span class="analysis-item-value" style="font-weight: 500;">${chordName}</span>`;
+                
+                // Show function and tier
+                if (chord.function && chord.tier) {
+                    html += `<div style="font-size: 11px; color: #aaa; margin-top: 2px;">${chord.function}, Tier ${chord.tier} ${tierStars}</div>`;
+                }
+                
+                // Show reasoning for this chord
+                if (chord.reasoning) {
+                    html += `<div style="font-size: 11px; color: #888; margin-top: 4px; font-style: italic;">→ ${chord.reasoning}</div>`;
+                }
+                
+                html += `</div>`;
+            });
+            
+            // Show progression logic
+            if (result.reasoning && result.reasoning.progressionLogic) {
+                html += `<div class="analysis-item" style="font-size: 11px; color: #888; font-style: italic; margin-top: 8px;">
+                    Progression Logic: ${result.reasoning.progressionLogic}
+                </div>`;
+            }
+            
+            html += `</div>`;
+        }
+
+        // Complexity section
+        if (result.complexity) {
+            const isNumeric = typeof result.complexity === 'object' && 
+                             result.complexity.harmonic !== undefined;
+            if (isNumeric) {
+                html += `
+                    <div class="analysis-section">
+                        <div class="analysis-section-title">⚙️ Complexity</div>
+                        <div class="analysis-item">
+                            <span class="analysis-item-label">Harmonic:</span>
+                            <span class="analysis-item-value">${Math.round(result.complexity.harmonic * 100)}%</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="analysis-item-label">Rhythmic:</span>
+                            <span class="analysis-item-value">${Math.round(result.complexity.rhythmic * 100)}%</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="analysis-item-label">Emotional:</span>
+                            <span class="analysis-item-value">${Math.round(result.complexity.emotional * 100)}%</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="analysis-item-label">Overall:</span>
+                            <span class="analysis-item-value">${result.complexity.overall || 'moderate'}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="analysis-section">
+                        <div class="analysis-section-title">⚙️ Complexity</div>
+                        <div class="analysis-item">
+                            <span class="analysis-item-value">${result.complexity}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Archetype matches
+        if (result.archetypeMatch) {
+            html += `
+                <div class="analysis-section">
+                    <div class="analysis-section-title">🎭 Archetype Match</div>
+                    <div class="archetype-match">
+                        <div class="archetype-match-title">${result.archetypeMatch.name}</div>
+                        ${result.archetypeMatch.description ? `<div style="font-size: 11px; color: #aaa; font-style: italic; margin-top: 4px;">${result.archetypeMatch.description}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        } else if (result.analyses && result.analyses.archetypes) {
+            const archetypes = result.analyses.archetypes;
+            if (archetypes.matches && archetypes.matches.length > 0) {
+                const topMatch = archetypes.matches[0];
+                html += `
+                    <div class="analysis-section">
+                        <div class="analysis-section-title">🎬 Archetype Match</div>
+                        <div class="archetype-match">
+                            <div class="archetype-match-title">${topMatch.name}</div>
+                            <div class="archetype-match-confidence">Confidence: ${Math.round(topMatch.confidence * 100)}%</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // WORD-BY-WORD ANALYSIS (collapsible, NEW!)
+        if (result.reasoning && result.reasoning.wordAnalyses && result.reasoning.wordAnalyses.length > 0) {
+            html += `
+                <details class="analysis-section" style="cursor: pointer;" open>
+                    <summary style="font-weight: bold; cursor: pointer;">📝 WORD-BY-WORD ANALYSIS (Rich Attributes)</summary>
+                    <div style="padding-left: 12px; margin-top: 8px; border-left: 2px solid #444;">`;
+            
+            result.reasoning.wordAnalyses.forEach(wa => {
+                const ma = wa.musicalAttributes || {};
+                html += `
+                    <div style="margin-bottom: 16px; background: rgba(100,200,255,0.05); padding: 10px; border-radius: 4px;">
+                        <div style="font-weight: 600; color: #64C8FF; margin-bottom: 6px; font-size: 13px;">"${wa.word}"</div>
+                        <div style="font-size: 11px; color: #aaa; line-height: 1.6;">
+                            <strong>Emotional:</strong> valence: ${wa.emotional.valence.toFixed(2)}, arousal: ${wa.emotional.arousal.toFixed(2)}, dominance: ${wa.emotional.dominance.toFixed(2)}<br>`;
+                
+                // Show musical attributes if available
+                if (ma.tension !== undefined) {
+                    html += `<strong>Tension:</strong> ${Math.round(ma.tension*100)}% `;
+                    html += ma.tension > 0.6 ? '⚡ high' : ma.tension < 0.3 ? '🕊️ low' : '⚖️ moderate';
+                    html += '<br>';
+                }
+                
+                if (ma.color) {
+                    html += `<strong>Color:</strong> ${Math.round(ma.color.warmth*100)}% warm, ${Math.round(ma.color.brightness*100)}% bright<br>`;
+                }
+                
+                if (ma.texture) {
+                    html += `<strong>Texture:</strong> ${Math.round(ma.texture.density*100)}% density, ${Math.round(ma.texture.spread*100)}% spread<br>`;
+                }
+                
+                if (ma.motion) {
+                    const dir = ma.motion.direction > 0.3 ? '↗️ ascending' : ma.motion.direction < -0.3 ? '↘️ descending' : '⟷ static';
+                    html += `<strong>Motion:</strong> ${dir}, ${Math.round(ma.motion.smoothness*100)}% smooth<br>`;
+                }
+                
+                if (ma.register) {
+                    html += `<strong>Register:</strong> ${ma.register.preferred} (${ma.register.range.toFixed(1)} octaves), ${ma.register.emphasis} emphasis<br>`;
+                }
+                
+                if (ma.intervals && ma.intervals.preferred && ma.intervals.preferred.length > 0) {
+                    html += `<strong>Intervals:</strong> prefers ${ma.intervals.preferred.slice(0,3).join(', ')}<br>`;
+                }
+                
+                html += `</div>`;
+                
+                if (wa.implications && wa.implications.reasoning && wa.implications.reasoning.length > 0) {
+                    html += '<div style="margin-top: 6px; padding-left: 8px; border-left: 2px solid #444;"><ul style="margin: 4px 0; padding-left: 20px; font-size: 10px; color: #888;">';
+                    wa.implications.reasoning.slice(0,3).forEach(r => {
+                        html += `<li style="margin: 2px 0;">${r}</li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                html += `</div>`;
+            });
+            
+            html += `</div></details>`;
+        }
+
+        analysisContent.innerHTML = html || '<div class="analysis-empty">No analysis data available</div>';
+        
+        console.log('[updateAnalysisPanel] HTML length:', html.length);
+        console.log('[updateAnalysisPanel] Will show panel:', !!(html && analysisPanel));
+        
+        // Auto-show panel if it has content
+        if (html && analysisPanel) {
+            console.log('[updateAnalysisPanel] Adding active class to panel');
+            analysisPanel.classList.add('active');
+        } else {
+            console.warn('[updateAnalysisPanel] Not showing panel - html:', !!html, 'panel:', !!analysisPanel);
+        }
+    }
+
+    function updateNumberGenerator(result) {
+        // Extract chord degrees from progression and send to sheet music
+        if (!result.scale || !result.progression) {
+            console.warn('[LexicalIntegration] Missing scale or progression');
+            return;
+        }
+
+        try {
+            // Get NumberGenerator instance
+            const numGen = window.numberGenerator;
+            
+            if (!numGen) {
+                console.warn('[LexicalIntegration] NumberGenerator not available');
+                return;
+            }
+
+            // Set the scale first
+            const scaleKey = result.scale.root || result.scale.key || 'C';
+            const scaleName = result.scale.name || result.scale.scale || 'major';
+            console.log('[LexicalIntegration] Setting scale:', scaleKey, scaleName);
+            console.log('[LexicalIntegration] Full scale object:', result.scale);
+            
+            // Update scale library if available
+            if (window.scaleLibrary) {
+                // Set key first, then scale
+                window.scaleLibrary.setKeyAndScale(scaleKey, scaleName);
+            }
+            
+            // Build chord tokens (handle both strings and objects)
+            const chordTokens = result.progression.map(chord => {
+                if (typeof chord === 'string') return chord;
+                if (chord.fullName) return chord.fullName;
+                if (chord.root && chord.chordType !== undefined) return chord.root + chord.chordType;
+                return String(chord);
+            });
+            
+            console.log('[LexicalIntegration] Chord tokens:', chordTokens);
+            
+            // Update the manual numbers input field for visibility
+            if (window.globalManualNumbers) {
+                window.globalManualNumbers.value = chordTokens.join(' ');
+            }
+            
+            // Use setDisplayTokens method - this is the proper way to update NumberGenerator
+            if (typeof numGen.setDisplayTokens === 'function') {
+                console.log('[LexicalIntegration] Calling setDisplayTokens with:', chordTokens);
+                numGen.setDisplayTokens(chordTokens, { 
+                    rawTokens: chordTokens,
+                    render: true,
+                    emit: true
+                });
+                console.log('[LexicalIntegration] ✓ Successfully sent to sheet music');
+                showToast('🎼 Sent to sheet music', '#10b981');
+            } else {
+                console.warn('[LexicalIntegration] NumberGenerator.setDisplayTokens not available');
+            }
+
+        } catch (err) {
+            console.error('[LexicalIntegration] Error updating NumberGenerator:', err);
+            console.error('[LexicalIntegration] Stack:', err.stack);
+        }
+    }
+
 })();
     </script>
 </body>

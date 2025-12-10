@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generative Word-to-Music System Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #e0e0e0;
+        }
+        .container {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #4CAF50;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #333;
+            border-radius: 4px;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .section {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .section h3 {
+            color: #64B5F6;
+            margin-top: 0;
+        }
+        .attribute {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px;
+            background: #1a1a1a;
+            border-radius: 4px;
+        }
+        .attribute-name {
+            font-weight: bold;
+            color: #FFB74D;
+        }
+        .attribute-value {
+            color: #81C784;
+        }
+        .bar {
+            height: 20px;
+            background: linear-gradient(to right, #1a1a1a, #4CAF50);
+            border-radius: 4px;
+            margin: 5px 0;
+            position: relative;
+        }
+        .bar-fill {
+            height: 100%;
+            background: #4CAF50;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .chord {
+            display: inline-block;
+            background: #2196F3;
+            color: white;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .reasoning {
+            background: #1a1a1a;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            font-style: italic;
+            margin-top: 15px;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .syllables {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .syllable {
+            background: #333;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .suggestion {
+            background: #1a1a1a;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 3px solid #FFB74D;
+        }
+        .suggestion-weight {
+            float: right;
+            color: #81C784;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Generative Word-to-Music System</h1>
+        <p>This system algorithmically analyzes ANY word and generates musical attributes and chord progressions. No manual word lists needed!</p>
+        
+        <input type="text" id="wordInput" placeholder="Type any word... (e.g., 'twilight', 'storm', 'serenity', 'chaos')" value="twilight">
+        <button onclick="analyzeSingleWord()">Analyze Word</button>
+        <button onclick="analyzeMultipleWords()">Analyze Multiple Words</button>
+        <button onclick="runComparison()">Compare Words</button>
+    </div>
+
+    <div id="results" class="results"></div>
+
+    <script src="music-theory-engine.js"></script>
+    <script src="phonetic-analyzer.js"></script>
+    <script src="chord-attribute-engine.js"></script>
+    <script src="generative-word-mapper.js"></script>
+
+    <script>
+        // Initialize system
+        const musicTheory = new MusicTheoryEngine();
+        const phonetic = new PhoneticAnalyzer();
+        const chordAttrs = new ChordAttributeEngine();
+        const mapper = new GenerativeWordMapper(phonetic, chordAttrs, musicTheory);
+
+        async function analyzeSingleWord() {
+            const word = document.getElementById('wordInput').value.trim();
+            if (!word) return;
+
+            try {
+                const result = await mapper.mapWord(word);
+                displaySingleWordResults(result);
+            } catch (err) {
+                console.error('analyzeSingleWord error:', err);
+                document.getElementById('results').innerHTML = `<div class="container"><h2>Error analyzing word</h2><pre>${err.message}</pre></div>`;
+            }
+        }
+
+        async function analyzeMultipleWords() {
+            const input = document.getElementById('wordInput').value.trim();
+            if (!input) return;
+
+            try {
+                const result = await mapper.mapWords(input);
+                displayMultiWordResults(result);
+            } catch (err) {
+                console.error('analyzeMultipleWords error:', err);
+                document.getElementById('results').innerHTML = `<div class="container"><h2>Error analyzing words</h2><pre>${err.message}</pre></div>`;
+            }
+        }
+
+        async function runComparison() {
+            const testWords = ['twilight', 'storm', 'peace', 'chaos', 'dream', 'fire'];
+            try {
+                const results = await Promise.all(testWords.map(w => mapper.mapWord(w)));
+                displayComparison(results);
+            } catch (err) {
+                console.error('runComparison error:', err);
+                document.getElementById('results').innerHTML = `<div class="container"><h2>Error running comparison</h2><pre>${err.message}</pre></div>`;
+            }
+        }
+
+        function displaySingleWordResults(result) {
+            const html = `
+                <div class="container">
+                    <h2>Analysis: "${result.word}"</h2>
+
+                    <div class="section">
+                        <h3>📊 Phonetic Analysis</h3>
+                        <div class="syllables">
+                            ${result.phonetic.syllables.map(s => 
+                                `<div class="syllable">
+                                    <strong>${s.full}</strong><br>
+                                    <small>onset: ${s.onset || '-'} | nucleus: ${s.nucleus} | coda: ${s.coda || '-'}</small>
+                                </div>`
+                            ).join('')}
+                        </div>
+                        <p><strong>Syllables:</strong> ${result.phonetic.syllableCount}</p>
+                        <p><strong>Consonants:</strong> ${result.phonetic.consonants.total} (density: ${(result.phonetic.consonants.density * 100).toFixed(0)}%)</p>
+                        <p><strong>Vowels:</strong> ${result.phonetic.vowels.total} (density: ${(result.phonetic.vowels.density * 100).toFixed(0)}%)</p>
+                        <p><strong>Consonant Clusters:</strong> ${result.phonetic.clusters.clusters.join(', ') || 'none'}</p>
+                    </div>
+
+                    <div class="section">
+                        <h3>🎨 Musical Attributes</h3>
+                        ${createAttributeBar('Harmonic Tension', result.phonetic.musicalAttributes.harmonicTension)}
+                        ${createAttributeBar('Brightness', result.phonetic.musicalAttributes.brightness)}
+                        ${createAttributeBar('Articulation', result.phonetic.musicalAttributes.articulation)}
+                        ${createAttributeBar('Rhythmic Complexity', result.phonetic.musicalAttributes.rhythmicComplexity)}
+                        <div class="attribute">
+                            <span class="attribute-name">Voicing Density:</span>
+                            <span class="attribute-value">${result.phonetic.musicalAttributes.voicingDensity}</span>
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-name">Dissonance:</span>
+                            <span class="attribute-value">${result.phonetic.musicalAttributes.dissonance}</span>
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-name">Register:</span>
+                            <span class="attribute-value">${result.phonetic.musicalAttributes.register}</span>
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-name">Texture:</span>
+                            <span class="attribute-value">${result.phonetic.musicalAttributes.texture}</span>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>🎵 Suggested Chord Types</h3>
+                        ${result.phonetic.musicalAttributes.chordTypes.slice(0, 5).map(ct => 
+                            `<div class="suggestion">
+                                <span class="suggestion-weight">${(ct.weight * 100).toFixed(0)}%</span>
+                                <strong>${ct.type}</strong> - ${ct.reason}
+                            </div>`
+                        ).join('')}
+                    </div>
+
+                    <div class="section">
+                        <h3>🎼 Suggested Scales</h3>
+                        ${result.phonetic.musicalAttributes.scales.slice(0, 5).map(sc => 
+                            `<div class="suggestion">
+                                <span class="suggestion-weight">${(sc.weight * 100).toFixed(0)}%</span>
+                                <strong>${sc.scale}</strong> - ${sc.reason}
+                            </div>`
+                        ).join('')}
+                    </div>
+
+                    <div class="section">
+                        <h3>💭 Semantic Inference</h3>
+                        ${createAttributeBar('Valence', (result.semantic.emotional.valence + 1) / 2, true)}
+                        ${createAttributeBar('Arousal', (result.semantic.emotional.arousal + 1) / 2, true)}
+                        ${createAttributeBar('Intensity', result.semantic.intensity)}
+                        ${createAttributeBar('Movement', result.semantic.movement)}
+                        <div class="attribute">
+                            <span class="attribute-name">Context:</span>
+                            <span class="attribute-value">${result.semantic.contextual.join(', ') || 'neutral'}</span>
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-name">Time:</span>
+                            <span class="attribute-value">${result.semantic.time}</span>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>🎹 Unified Attributes</h3>
+                        ${createAttributeBar('Brightness', result.unified.brightness)}
+                        ${createAttributeBar('Tension', result.unified.tension)}
+                        ${createAttributeBar('Density', result.unified.density)}
+                        ${createAttributeBar('Movement', result.unified.movement)}
+                    </div>
+
+                    <div class="section">
+                        <h3>🎶 Generated Progression</h3>
+                        <p><strong>Scale:</strong> ${result.scale.root} ${result.scale.name}</p>
+                        <div>
+                            ${result.progression.map(chord => 
+                                `<span class="chord">${chord.symbol}</span>`
+                            ).join(' → ')}
+                        </div>
+                    </div>
+
+                    <div class="reasoning">
+                        <strong>Reasoning:</strong> ${result.reasoning.summary}
+                    </div>
+                </div>
+            `;
+            document.getElementById('results').innerHTML = html;
+        }
+
+        function displayMultiWordResults(result) {
+            const html = `
+                <div class="container">
+                    <h2>Multi-Word Analysis: "${result.words.join(' ')}"</h2>
+
+                    <div class="section">
+                        <h3>🔍 Individual Word Analyses</h3>
+                        ${result.wordMappings.map(w => `
+                            <div style="background: #1a1a1a; padding: 15px; margin: 10px 0; border-radius: 4px;">
+                                <h4 style="color: #FFB74D; margin-top: 0;">"${w.word}"</h4>
+                                <p><strong>Phonetic:</strong> Tension ${(w.phonetic.musicalAttributes.harmonicTension * 100).toFixed(0)}%, Brightness ${(w.phonetic.musicalAttributes.brightness * 100).toFixed(0)}%</p>
+                                <p><strong>Semantic:</strong> Valence ${w.semantic.emotional.valence.toFixed(2)}, Arousal ${w.semantic.emotional.arousal.toFixed(2)}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="section">
+                        <h3>🎨 Blended Attributes</h3>
+                        ${createAttributeBar('Brightness', result.blended.brightness)}
+                        ${createAttributeBar('Tension', result.blended.tension)}
+                        ${createAttributeBar('Density', result.blended.density)}
+                        ${createAttributeBar('Movement', result.blended.movement)}
+                        ${createAttributeBar('Intensity', result.blended.intensity)}
+                    </div>
+
+                    <div class="section">
+                        <h3>🎶 Generated Progression</h3>
+                        <p><strong>Scale:</strong> ${result.scale.root} ${result.scale.name}</p>
+                        <div>
+                            ${result.progression.map(chord => 
+                                `<span class="chord">${chord.symbol || chord.fullName}</span>`
+                            ).join(' → ')}
+                        </div>
+                    </div>
+
+                    <div class="reasoning">
+                        <strong>Reasoning:</strong> ${result.reasoning.summary}
+                    </div>
+                </div>
+            `;
+            document.getElementById('results').innerHTML = html;
+        }
+
+        function displayComparison(results) {
+            const html = `
+                <div class="container">
+                    <h2>Word Comparison</h2>
+                    <div class="comparison">
+                        ${results.map(r => `
+                            <div class="section">
+                                <h3>"${r.word}"</h3>
+                                <p><strong>Scale:</strong> ${r.scale.name}</p>
+                                ${createAttributeBar('Brightness', r.unified.brightness)}
+                                ${createAttributeBar('Tension', r.unified.tension)}
+                                ${createAttributeBar('Density', r.unified.density)}
+                                <p><strong>Progression:</strong></p>
+                                <div style="font-size: 14px;">
+                                    ${r.progression.map(c => c.symbol).join(' → ')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            document.getElementById('results').innerHTML = html;
+        }
+
+        function createAttributeBar(name, value, isBipolar = false) {
+            const percent = (value * 100).toFixed(0);
+            const displayValue = isBipolar ? ((value - 0.5) * 2).toFixed(2) : value.toFixed(2);
+            return `
+                <div style="margin: 15px 0;">
+                    <div class="attribute">
+                        <span class="attribute-name">${name}:</span>
+                        <span class="attribute-value">${displayValue} (${percent}%)</span>
+                    </div>
+                    <div class="bar">
+                        <div class="bar-fill" style="width: ${percent}%;"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Auto-run on load
+        window.addEventListener('load', async () => {
+            await analyzeSingleWord();
+        });
+    </script>
+</body>
+</html>

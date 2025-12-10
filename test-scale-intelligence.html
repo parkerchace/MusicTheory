@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scale Intelligence Engine Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
+        .result { margin: 15px 0; padding: 12px; border: 1px solid #333; border-radius: 5px; }
+        .error { border-color: #f87171; background: rgba(248, 113, 113, 0.1); }
+        .success { border-color: #4ade80; background: rgba(74, 222, 128, 0.1); }
+    </style>
+</head>
+<body>
+    <h1>🧠 Scale Intelligence Engine Diagnostic</h1>
+    <div id="results"></div>
+
+    <script src="scale-intelligence-engine.js"></script>
+
+    <script>
+        function runDiagnostic() {
+            const resultsDiv = document.getElementById('results');
+            let html = '';
+
+            try {
+                // Test 1: Check if ScaleIntelligenceEngine is defined
+                html += `<div class="result ${typeof ScaleIntelligenceEngine !== 'undefined' ? 'success' : 'error'}">
+                    <h3>Test 1: ScaleIntelligenceEngine Definition</h3>
+                    <p>Status: ${typeof ScaleIntelligenceEngine !== 'undefined' ? '✅ DEFINED' : '❌ UNDEFINED'}</p>
+                    <p>Type: ${typeof ScaleIntelligenceEngine}</p>
+                </div>`;
+
+                if (typeof ScaleIntelligenceEngine !== 'undefined') {
+                    // Test 2: Try to create instance
+                    try {
+                        const engine = new ScaleIntelligenceEngine();
+                        html += `<div class="result success">
+                            <h3>Test 2: Engine Creation</h3>
+                            <p>Status: ✅ SUCCESS</p>
+                            <p>Instance: ${engine.constructor.name}</p>
+                        </div>`;
+
+                        // Test 3: Try scale selection
+                        try {
+                            const characteristics = {
+                                darkness: 0.6,
+                                energy: 0.57,
+                                mystery: 0.23,
+                                brightness: 0,
+                                tension: 0.5,
+                                words: ['chase', 'woods', 'danger']
+                            };
+
+                            const result = engine.selectScale(characteristics);
+                            html += `<div class="result success">
+                                <h3>Test 3: Scale Selection</h3>
+                                <p>Status: ✅ SUCCESS</p>
+                                <p>Selected Scale: <strong>${result.name}</strong></p>
+                                <p>Score: ${Math.round(result.score * 100)}%</p>
+                                <p>Reason: ${result.primaryReason}</p>
+                                <p>Alternatives: ${result.alternatives?.length || 0} scales</p>
+                                <details>
+                                    <summary>Full Result</summary>
+                                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                                </details>
+                            </div>`;
+
+                            // Test 4: Multiple selections for variety
+                            const selections = [];
+                            for (let i = 0; i < 5; i++) {
+                                const sel = engine.selectScale(characteristics);
+                                selections.push(sel.name);
+                            }
+                            
+                            const uniqueScales = [...new Set(selections)];
+                            html += `<div class="result ${uniqueScales.length > 1 ? 'success' : 'error'}">
+                                <h3>Test 4: Variety Check</h3>
+                                <p>Status: ${uniqueScales.length > 1 ? '✅ VARIETY' : '❌ NO VARIETY'}</p>
+                                <p>5 Selections: ${selections.join(', ')}</p>
+                                <p>Unique Scales: ${uniqueScales.length} (${uniqueScales.join(', ')})</p>
+                            </div>`;
+
+                        } catch (error) {
+                            html += `<div class="result error">
+                                <h3>Test 3: Scale Selection</h3>
+                                <p>Status: ❌ FAILED</p>
+                                <p>Error: ${error.message}</p>
+                                <pre>${error.stack}</pre>
+                            </div>`;
+                        }
+
+                    } catch (error) {
+                        html += `<div class="result error">
+                            <h3>Test 2: Engine Creation</h3>
+                            <p>Status: ❌ FAILED</p>
+                            <p>Error: ${error.message}</p>
+                            <pre>${error.stack}</pre>
+                        </div>`;
+                    }
+                }
+
+            } catch (error) {
+                html += `<div class="result error">
+                    <h3>Diagnostic Failed</h3>
+                    <p>Error: ${error.message}</p>
+                    <pre>${error.stack}</pre>
+                </div>`;
+            }
+
+            resultsDiv.innerHTML = html;
+        }
+
+        window.addEventListener('DOMContentLoaded', runDiagnostic);
+    </script>
+</body>
+</html>

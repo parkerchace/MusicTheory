@@ -30,7 +30,9 @@ class UnifiedChordExplorer {
             radialMenuPosition: { x: 0, y: 0 },
             substitutions: [],
             complexity: 50,           // 0-100: triads to 13ths
-            showExtended: true
+            showExtended: true,
+            // NEW: Radial menu filter mode
+            radialFilterMode: 'all'   // 'all' | 'diatonic' | 'color' | 'chromatic' | 'surprise' | 'containers'
         };
         // Tracks non-diatonic substitutions applied to progression slots
         this.state.progressionOverlays = [];
@@ -982,10 +984,67 @@ class UnifiedChordExplorer {
         const gradeOrder = { perfect: 3, excellent: 2, good: 1 };
         containers.sort((a, b) => (gradeOrder[b.grade] || 0) - (gradeOrder[a.grade] || 0));
         
-        // Return all if exhaustive, else top 3
-        const result = exhaustive ? containers : containers.slice(0, 3);
-        this._log('containers', `[findContainerChords] returning=${result.length} exhaustive=${exhaustive}`);
-        return result;
+        // NEW: Group containers by root for better organization
+        const grouped = this._groupContainersByRoot(containers);
+        
+        // Return all if exhaustive, else return grouped representatives
+        if (exhaustive) {
+            return containers;
+        } else {
+            // Show 1 representative per root group (top 3-5 roots)
+            return this._getContainerRepresentatives(grouped, 5);
+        }
+    }
+
+    /**
+     * Group container chords by root note
+     * @returns {Map} - Map of root -> array of chords
+     */
+    _groupContainersByRoot(containers) {
+        const grouped = new Map();
+        containers.forEach(c => {
+            if (!grouped.has(c.root)) {
+                grouped.set(c.root, []);
+            }
+            grouped.get(c.root).push(c);
+        });
+        return grouped;
+    }
+
+    /**
+     * Get representative containers (1 per root group)
+     * @param {Map} grouped - Map of root -> chords
+     * @param {number} maxRoots - Max number of root groups to show
+     * @returns {array} - Array of representative container objects
+     */
+    _getContainerRepresentatives(grouped, maxRoots = 5) {
+        const representatives = [];
+        let count = 0;
+        
+        for (const [root, chords] of grouped.entries()) {
+            if (count >= maxRoots) break;
+            
+            // Use the highest-graded chord as representative
+            const best = chords[0];
+            
+            // Mark as expandable group if multiple variants
+            if (chords.length > 1) {
+                representatives.push({
+                    ...best,
+                    _isGroupRep: true,
+                    _groupSize: chords.length,
+                    _groupMembers: chords,
+                    label: `${root} (${chords.length} opts)`,
+                    fullName: `${root} extensions`
+                });
+            } else {
+                representatives.push(best);
+            }
+            
+            count++;
+        }
+        
+        return representatives;
     }
 
     /**
@@ -1048,11 +1107,105 @@ class UnifiedChordExplorer {
         }
 
         // Generate substitutions
-        this.state.substitutions = this.generateSubstitutions(chord);
-        this._log('radial', '[openRadialMenu] substitutions', this.state.substitutions.length);
+        const allSubs = this.generateSubstitutions(chord);
+        
+        // Apply filter based on current filter mode
+        this.state.substitutions = this._applyRadialFilter(allSubs);
+        this._log('radial', '[openRadialMenu] substitutions', this.state.substitutions.length, 'filter=', this.state.radialFilterMode);
         
         this.renderRadialMenu();
         this.emit('radialMenuOpened', { chord, substitutions: this.state.substitutions });
+    }
+
+    /**
+     * Apply filter to substitutions based on current filter mode
+     * @param {array} subs - All substitutions
+     * @returns {array} - Filtered substitutions
+     */
+    _applyRadialFilter(subs) {
+        const mode = this.state.radialFilterMode;
+        
+        if (mode === 'all') {
+            return subs;
+        }
+        
+        const scaleNotes = this.musicTheory.getScaleNotes(this.state.currentKey, this.state.currentScale);
+        
+        if (mode === 'diatonic') {
+            // Only show in-scale substitutions
+            return subs.filter(sub => {
+                const notes = sub.notes || [];
+                return notes.every(n => scaleNotes.includes(n));
+            });
+        }
+        
+        if (mode === 'color') {
+            // Prioritize extensions and colorful voicings
+            return subs.filter(sub => {
+                return sub.type === 'container' || 
+                       sub.chordType.includes('9') || 
+                       sub.chordType.includes('11') || 
+                       sub.chordType.includes('13') ||
+                       sub.chordType.includes('add');
+            });
+        }
+        
+        if (mode === 'chromatic') {
+            // Show altered and borrowed chords
+            return subs.filter(sub => {
+                return sub.type === 'tritone_sub' ||
+                       sub.type === 'modal_interchange' ||
+                       sub.type === 'chromatic_mediant' ||
+                       sub.type === 'neapolitan' ||
+                       (sub.notes && sub.notes.some(n => !scaleNotes.includes(n)));
+            });
+        }
+        
+        if (mode === 'containers') {
+            // Only container chords
+            return subs.filter(sub => sub.type === 'container' || sub.type === 'container_root_cluster');
+        }
+        
+        if (mode === 'surprise') {
+            // Random exotic substitutions (tier 4-5)
+            const exotic = subs.filter(sub => {
+                const tier = this._calculateTier(sub);
+                return tier >= 4;
+            });
+            // Return random 5-8 from exotic pool
+            const count = Math.min(8, Math.max(5, exotic.length));
+            return this._shuffleArray(exotic).slice(0, count);
+        }
+        
+        return subs;
+    }
+
+    /**
+     * Set radial filter mode
+     * @param {string} mode - 'all' | 'diatonic' | 'color' | 'chromatic' | 'surprise' | 'containers'
+     */
+    setRadialFilterMode(mode) {
+        const validModes = ['all', 'diatonic', 'color', 'chromatic', 'surprise', 'containers'];
+        if (validModes.includes(mode)) {
+            this.state.radialFilterMode = mode;
+            
+            // If menu is open, regenerate filtered substitutions
+            if (this.state.radialMenuOpen && this.state.selectedChord) {
+                const allSubs = this.generateSubstitutions(this.state.selectedChord);
+                this.state.substitutions = this._applyRadialFilter(allSubs);
+                this.renderRadialMenu();
+            }
+        }
+    }
+
+    /** Shuffle array (Fisher-Yates) */
+    _shuffleArray(arr) {
+        const shuffled = [...arr];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
     }
 
     /**
@@ -1742,10 +1895,108 @@ class UnifiedChordExplorer {
      * Render the radial substitution menu with family grouping and collision detection
      * Research: Fitts's Law spacing, gestalt grouping principles
      */
+    /**
+     * Create grading controls for the radial menu overlay
+     */
+    createGradingControls() {
+        const container = document.createElement('div');
+        container.className = 'radial-grading-controls';
+        
+        // Header
+        const header = document.createElement('div');
+        header.className = 'grading-header';
+        header.textContent = 'GRADING SYSTEM';
+        container.appendChild(header);
+
+        // Selector
+        const selector = document.createElement('select');
+        selector.className = 'radial-grading-select';
+        ['functional', 'emotional', 'color'].forEach(mode => {
+            const opt = document.createElement('option');
+            opt.value = mode;
+            opt.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+            if (mode === this.musicTheory.gradingMode) opt.selected = true;
+            selector.appendChild(opt);
+        });
+        selector.addEventListener('change', (e) => {
+            this.musicTheory.setGradingMode(e.target.value);
+        });
+        selector.addEventListener('click', (e) => e.stopPropagation());
+        container.appendChild(selector);
+        
+        // Legend
+        const legend = document.createElement('div');
+        legend.className = 'radial-grading-legend';
+        legend.innerHTML = this.getGradingLegendHTML();
+        container.appendChild(legend);
+        
+        // NEW: Filter Badges
+        const filterSection = document.createElement('div');
+        filterSection.className = 'radial-filter-badges';
+        filterSection.innerHTML = '<div class="filter-header">INTENT FILTER</div>';
+        
+        const badges = [
+            { mode: 'all', icon: '🎯', label: 'All' },
+            { mode: 'diatonic', icon: '📊', label: 'Stay Diatonic' },
+            { mode: 'color', icon: '🌈', label: 'Add Color' },
+            { mode: 'chromatic', icon: '🔥', label: 'Go Chromatic' },
+            { mode: 'containers', icon: '📦', label: 'Containers' },
+            { mode: 'surprise', icon: '🎲', label: 'Surprise Me' }
+        ];
+        
+        badges.forEach(badge => {
+            const btn = document.createElement('button');
+            btn.className = 'filter-badge';
+            if (badge.mode === this.state.radialFilterMode) {
+                btn.classList.add('active');
+            }
+            btn.innerHTML = `<span class="badge-icon">${badge.icon}</span><span class="badge-label">${badge.label}</span>`;
+            btn.title = badge.label;
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.setRadialFilterMode(badge.mode);
+                // Update active state
+                filterSection.querySelectorAll('.filter-badge').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+            filterSection.appendChild(btn);
+        });
+        
+        container.appendChild(filterSection);
+        
+        // Stop propagation so clicking controls doesn't close menu
+        container.addEventListener('click', (e) => e.stopPropagation());
+        
+        return container;
+    }
+
+    /**
+     * Generate HTML for the grading legend based on current mode
+     */
+    getGradingLegendHTML() {
+        let html = '<div class="legend-grid">';
+        // Iterate tiers 4 down to 0
+        for (let i = 4; i >= 0; i--) {
+            const info = this.musicTheory.getGradingTierInfo(i);
+            html += `
+                <div class="legend-item">
+                    <span class="legend-icon" style="color:${info.color}">${info.short}</span>
+                    <span class="legend-label">${info.name}</span>
+                </div>
+            `;
+        }
+        html += '</div>';
+        return html;
+    }
+
     renderRadialMenu() {
         // Remove existing menu
         if (this.radialMenu) {
             this.radialMenu.remove();
+        }
+        // Remove existing overlay to prevent stacking
+        if (this.radialOverlay) {
+            this.radialOverlay.remove();
         }
 
     // Create overlay and keep a reference so it can be removed later
@@ -1754,6 +2005,10 @@ class UnifiedChordExplorer {
     overlay.addEventListener('click', () => this.closeRadialMenu());
     // store overlay reference to ensure it's removed when menu closes
     this.radialOverlay = overlay;
+
+        // Add Grading Controls
+        const gradingControls = this.createGradingControls();
+        overlay.appendChild(gradingControls);
 
         // Create menu container
         this.radialMenu = document.createElement('div');
@@ -2323,7 +2578,15 @@ class UnifiedChordExplorer {
         // Click handler
         node.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.selectSubstitution(sub);
+            
+            // Check if this is a container group representative
+            if (sub._isGroupRep && sub._groupMembers) {
+                // Open submenu showing all group members
+                this.openGroupedSubmenu(sub._groupMembers, `${sub.root} extensions`);
+            } else {
+                // Normal substitution selection
+                this.selectSubstitution(sub);
+            }
         });
 
         // Hover preview (future: could play audio or highlight piano)
@@ -2391,6 +2654,10 @@ class UnifiedChordExplorer {
         overlay.className = 'radial-menu-overlay cluster-mode';
         overlay.addEventListener('click', () => this.closeRadialMenu());
         this.radialOverlay = overlay;
+
+        // Add Grading Controls
+        const gradingControls = this.createGradingControls();
+        overlay.appendChild(gradingControls);
 
         const menu = document.createElement('div');
         menu.className = 'radial-menu cluster-mode';
@@ -2512,6 +2779,10 @@ class UnifiedChordExplorer {
         overlay.className = 'radial-menu-overlay grouped-mode';
         overlay.addEventListener('click', () => this.closeRadialMenu());
         this.radialOverlay = overlay;
+
+        // Add Grading Controls
+        const gradingControls = this.createGradingControls();
+        overlay.appendChild(gradingControls);
 
         const menu = document.createElement('div');
         menu.className = 'radial-menu grouped-mode';

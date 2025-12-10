@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Word Responsiveness</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
+        .test-result { margin: 15px 0; padding: 12px; border: 1px solid #333; border-radius: 5px; }
+        .test-word { color: #60a5fa; font-weight: bold; font-size: 1.1em; }
+        .test-scale { color: #34d399; }
+        .test-progression { color: #fbbf24; }
+        .test-reasoning { color: #e879f9; font-style: italic; }
+        .test-attributes { color: #fb923c; font-size: 0.9em; }
+        .expected { color: #10b981; font-weight: bold; }
+        .actual { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <h1>🎵 Word Responsiveness Test</h1>
+    <p>Testing if words produce musically appropriate results...</p>
+    <div id="results"></div>
+
+    <script src="music-theory-engine.js"></script>
+    <script src="word-database.js"></script>
+    <script src="phonetic-analyzer.js"></script>
+    <script src="chord-attribute-engine.js"></script>
+    <script src="semantic-api-engine.js"></script>
+    <script src="voice-leading-engine.js"></script>
+    <script src="generative-word-mapper.js"></script>
+    <script src="lexical-music-engine-v2.js"></script>
+
+    <script>
+        async function testWordResponsiveness() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                // Initialize engines
+                const musicTheory = new MusicTheoryEngine();
+                const wordDB = new WordDatabase();
+                const lexicalEngine = new LexicalMusicEngineV2(musicTheory, wordDB);
+                
+                // Test cases with expected characteristics
+                const testCases = [
+                    {
+                        words: 'chase woods night',
+                        expected: {
+                            scale: 'Should be DARK (aeolian, phrygian, dorian) - NOT lydian',
+                            progression: 'Should be mostly DIATONIC chords, not chromatic',
+                            reasoning: 'Should reflect darkness and mystery'
+                        }
+                    },
+                    {
+                        words: 'bright sunny day',
+                        expected: {
+                            scale: 'Should be BRIGHT (major, lydian)',
+                            progression: 'Should be mostly diatonic and uplifting',
+                            reasoning: 'Should reflect brightness and positivity'
+                        }
+                    },
+                    {
+                        words: 'ancient temple',
+                        expected: {
+                            scale: 'Should be MODAL (dorian, aeolian)',
+                            progression: 'Should be diatonic and mysterious',
+                            reasoning: 'Should reflect age and reverence'
+                        }
+                    }
+                ];
+                
+                resultsDiv.innerHTML = '<h2>Testing word responsiveness...</h2>';
+                
+                for (const testCase of testCases) {
+                    try {
+                        const result = await lexicalEngine.translateWords(testCase.words);
+                        
+                        const div = document.createElement('div');
+                        div.className = 'test-result';
+                        
+                        // Check if results match expectations
+                        const scaleCheck = testCase.words === 'chase woods night' ? 
+                            (result.scale.name !== 'lydian' ? '✅' : '❌') : '?';
+                        
+                        const chromaticCount = result.progression.filter(c => 
+                            c.function === 'Chromatic' || c.degree.includes('V/') || c.degree.includes('#')
+                        ).length;
+                        const diatonicCount = result.progression.length - chromaticCount;
+                        const progressionCheck = diatonicCount >= chromaticCount ? '✅' : '❌';
+                        
+                        div.innerHTML = `
+                            <div class="test-word">"${testCase.words}"</div>
+                            <div class="expected">Expected: ${testCase.expected.scale}</div>
+                            <div class="actual">Actual: ${result.scale.root} ${result.scale.name} ${scaleCheck}</div>
+                            <div class="expected">Expected: ${testCase.expected.progression}</div>
+                            <div class="actual">Actual: ${diatonicCount} diatonic, ${chromaticCount} chromatic ${progressionCheck}</div>
+                            <div class="test-progression">Progression: ${result.progression.map(c => `${c.fullName} (${c.function})`).join(' → ')}</div>
+                            <div class="test-reasoning">Reasoning: ${result.reasoning?.summary || 'No reasoning available'}</div>
+                        `;
+                        
+                        resultsDiv.appendChild(div);
+                        
+                    } catch (error) {
+                        const div = document.createElement('div');
+                        div.className = 'test-result';
+                        div.style.borderColor = '#ef4444';
+                        div.innerHTML = `
+                            <div class="test-word">"${testCase.words}" - ERROR</div>
+                            <div style="color: #ef4444;">${error.message}</div>
+                        `;
+                        resultsDiv.appendChild(div);
+                    }
+                }
+                
+                resultsDiv.innerHTML += '<h2>✅ Responsiveness test completed!</h2>';
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div style="color: #ef4444;">Failed to initialize: ${error.message}</div>`;
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('DOMContentLoaded', testWordResponsiveness);
+    </script>
+</body>
+</html>
