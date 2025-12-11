@@ -5,12 +5,17 @@
  */
 
 class ScaleIntelligenceEngine {
-    constructor() {
+    constructor(musicTheoryEngine = null) {
         this.scaleDatabase = this._buildScaleDatabase();
         this.culturalContexts = this._buildCulturalContexts();
         this.emotionalProfiles = this._buildEmotionalProfiles();
         this.semanticAssociations = this._buildSemanticAssociations();
         this.intervalCharacteristics = this._buildIntervalCharacteristics();
+        
+        // Enhanced grading integration
+        this.musicTheoryEngine = musicTheoryEngine;
+        this.gradingInfluenceWeight = 0.3; // Default weight for grading influence (0-1)
+        this.gradingExplanations = new Map(); // Store explanations for grading influence
     }
 
     /**
@@ -45,6 +50,102 @@ class ScaleIntelligenceEngine {
         }
         
         return candidates[0];
+    }
+
+    /**
+     * Get scale suggestions with grading-aware prioritization
+     * Enhanced method that considers current grading perspective
+     */
+    getGradingInfluencedSuggestions(wordCharacteristics, context = {}) {
+        const { 
+            gradingWeight = this.gradingInfluenceWeight, 
+            maxSuggestions = 5,
+            key = 'C',
+            includeExplanations = true 
+        } = context;
+        
+        // Get all scale candidates with base scoring
+        const candidates = this._scoreAllScales(wordCharacteristics, context);
+        
+        // Apply grading influence if music theory engine is available
+        if (this.musicTheoryEngine && gradingWeight > 0) {
+            candidates.forEach(candidate => {
+                // Get grading tier for this scale
+                const gradingTier = this.musicTheoryEngine.calculateScaleGrade(
+                    candidate.name, 
+                    { key, referenceScale: 'major' }
+                );
+                
+                // Calculate grading bonus (0-1 based on tier)
+                const gradingBonus = (gradingTier / 4) * gradingWeight;
+                
+                // Store original score and apply grading influence
+                candidate.baseScore = candidate.score;
+                candidate.gradingTier = gradingTier;
+                candidate.gradingBonus = gradingBonus;
+                candidate.score += gradingBonus;
+                
+                // Generate explanation for grading influence
+                if (includeExplanations) {
+                    candidate.gradingExplanation = this._generateGradingExplanation(
+                        candidate.name, 
+                        gradingTier, 
+                        gradingBonus,
+                        context
+                    );
+                }
+            });
+        }
+        
+        // Sort by final score (highest first)
+        candidates.sort((a, b) => b.score - a.score);
+        
+        // Return top suggestions with enhanced information
+        return candidates.slice(0, maxSuggestions).map(candidate => ({
+            name: candidate.name,
+            score: candidate.score,
+            baseScore: candidate.baseScore || candidate.score,
+            gradingTier: candidate.gradingTier || null,
+            gradingBonus: candidate.gradingBonus || 0,
+            gradingExplanation: candidate.gradingExplanation || null,
+            data: candidate.data,
+            reasons: candidate.reasons,
+            primaryReason: candidate.primaryReason,
+            // Enhanced metadata
+            gradingInfluenced: candidate.gradingBonus > 0,
+            tierInfo: candidate.gradingTier !== null ? 
+                this.musicTheoryEngine?.getGradingTierInfo(candidate.gradingTier) : null
+        }));
+    }
+
+    /**
+     * Set the weight for grading influence on scale suggestions
+     */
+    setGradingInfluenceWeight(weight) {
+        this.gradingInfluenceWeight = Math.max(0, Math.min(1, weight));
+    }
+
+    /**
+     * Get explanation for how grading affected scale suggestions
+     */
+    explainGradingInfluence(scaleName, context = {}) {
+        if (!this.musicTheoryEngine) {
+            return 'Grading influence not available - no music theory engine connected.';
+        }
+        
+        const { key = 'C' } = context;
+        const gradingTier = this.musicTheoryEngine.calculateScaleGrade(
+            scaleName, 
+            { key, referenceScale: 'major' }
+        );
+        
+        const tierInfo = this.musicTheoryEngine.getGradingTierInfo(gradingTier);
+        const gradingMode = this.musicTheoryEngine.gradingMode;
+        
+        return this._generateGradingExplanation(scaleName, gradingTier, 0, { 
+            ...context, 
+            detailed: true 
+        });
     }
 
     /**
@@ -1125,5 +1226,127 @@ class ScaleIntelligenceEngine {
             major_seventh: { tension: 0.8, character: 'jazzy, sophisticated' },
             octave: { tension: 0.0, character: 'perfect unity' }
         };
+    }
+
+    /**
+     * Generate explanation for how grading influenced a scale suggestion
+     */
+    _generateGradingExplanation(scaleName, gradingTier, gradingBonus, context = {}) {
+        if (!this.musicTheoryEngine) return null;
+        
+        const gradingMode = this.musicTheoryEngine.gradingMode;
+        const tierInfo = this.musicTheoryEngine.getGradingTierInfo(gradingTier);
+        const { detailed = false } = context;
+        
+        let explanation = '';
+        
+        if (detailed) {
+            explanation += `In ${gradingMode} grading mode, ${scaleName} scale receives a ${tierInfo.name} rating (tier ${gradingTier}). `;
+        }
+        
+        // Mode-specific explanations
+        if (gradingMode === 'functional') {
+            const functionalExplanations = {
+                4: `${scaleName} is highly functional with strong harmonic utility`,
+                3: `${scaleName} provides good harmonic function with some complexity`,
+                2: `${scaleName} offers moderate harmonic utility`,
+                1: `${scaleName} has limited but interesting harmonic function`,
+                0: `${scaleName} is experimental with unconventional harmonic function`
+            };
+            explanation += functionalExplanations[gradingTier] || 'Standard harmonic function';
+            
+        } else if (gradingMode === 'emotional') {
+            const emotionalExplanations = {
+                4: `${scaleName} creates bright, uplifting emotional character`,
+                3: `${scaleName} provides warm, positive emotional qualities`,
+                2: `${scaleName} offers balanced emotional expression`,
+                1: `${scaleName} evokes melancholy or contemplative moods`,
+                0: `${scaleName} creates deep, somber emotional atmosphere`
+            };
+            explanation += emotionalExplanations[gradingTier] || 'Neutral emotional character';
+            
+        } else if (gradingMode === 'color') {
+            const colorExplanations = {
+                4: `${scaleName} adds brilliant, complex harmonic colors`,
+                3: `${scaleName} provides rich, sophisticated harmonic palette`,
+                2: `${scaleName} offers natural, grounded harmonic colors`,
+                1: `${scaleName} adds subtle harmonic complexity`,
+                0: `${scaleName} creates deep, mysterious harmonic atmosphere`
+            };
+            explanation += colorExplanations[gradingTier] || 'Standard harmonic coloring';
+        }
+        
+        if (gradingBonus > 0) {
+            const bonusPercent = Math.round(gradingBonus * 100);
+            explanation += ` This ${tierInfo.name} rating boosted its suggestion priority by ${bonusPercent}%.`;
+        }
+        
+        return explanation;
+    }
+
+    /**
+     * Get scales prioritized by current grading mode
+     */
+    getScalesByGradingTier(tier, context = {}) {
+        if (!this.musicTheoryEngine) {
+            return Object.keys(this.scaleDatabase);
+        }
+        
+        const { key = 'C', maxResults = 10 } = context;
+        const scaleNames = Object.keys(this.scaleDatabase);
+        
+        return scaleNames
+            .filter(scaleName => {
+                const scaleTier = this.musicTheoryEngine.calculateScaleGrade(
+                    scaleName, 
+                    { key, referenceScale: 'major' }
+                );
+                return scaleTier === tier;
+            })
+            .slice(0, maxResults);
+    }
+
+    /**
+     * Compare scale suggestions across different grading modes
+     */
+    compareGradingPerspectives(wordCharacteristics, context = {}) {
+        if (!this.musicTheoryEngine) {
+            return { error: 'Grading comparison not available - no music theory engine connected.' };
+        }
+        
+        const currentMode = this.musicTheoryEngine.gradingMode;
+        const perspectives = {};
+        
+        ['functional', 'emotional', 'color'].forEach(mode => {
+            this.musicTheoryEngine.setGradingMode(mode);
+            
+            const suggestions = this.getGradingInfluencedSuggestions(
+                wordCharacteristics, 
+                { ...context, maxSuggestions: 3 }
+            );
+            
+            perspectives[mode] = {
+                topSuggestion: suggestions[0],
+                allSuggestions: suggestions,
+                modeDescription: this._getGradingModeDescription(mode)
+            };
+        });
+        
+        // Restore original mode
+        this.musicTheoryEngine.setGradingMode(currentMode);
+        
+        return perspectives;
+    }
+
+    /**
+     * Get description of what each grading mode emphasizes
+     */
+    _getGradingModeDescription(mode) {
+        const descriptions = {
+            functional: 'Prioritizes scales based on harmonic utility and traditional function',
+            emotional: 'Emphasizes scales that match emotional character and mood',
+            color: 'Focuses on harmonic richness and tonal complexity'
+        };
+        return descriptions[mode] || 'Standard scale evaluation';
     }
 }

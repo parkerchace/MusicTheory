@@ -189,6 +189,28 @@
     font-weight: 700;
     font-family: var(--font-ui);
     text-shadow: 0 0 5px rgba(255,255,255,0.2);
+    position: relative;
+}
+
+/* Voicing indicator */
+.voicing-indicator {
+    position: absolute;
+    top: -8px;
+    right: -4px;
+    font-size: 0.6em;
+    color: var(--accent-primary);
+    background: rgba(0, 243, 255, 0.2);
+    border: 1px solid var(--accent-primary);
+    border-radius: 2px;
+    padding: 1px 4px;
+    font-family: var(--font-tech);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 10;
 }
 
 /* Function tags */
@@ -292,6 +314,16 @@
     box-shadow: 0 0 20px var(--accent-glow), inset 0 0 20px var(--accent-glow);
 }
 
+.center-grading {
+    font-size: 0.7em;
+    font-weight: 600;
+    margin: 2px 0;
+    text-align: center;
+    font-family: var(--font-tech);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
 .center-chord {
     font-size: 1.2em;
     font-weight: 700;
@@ -386,6 +418,33 @@
 .radial-node.family-extension { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
 .radial-node.family-mediant { border-color: #ec4899; background: rgba(236, 72, 153, 0.1); }
 
+/* Tier-specific enhancements */
+.radial-node.tier-4 {
+    border-width: 3px;
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+}
+
+.radial-node.tier-3 {
+    border-width: 2px;
+    box-shadow: 0 0 12px rgba(0, 243, 255, 0.3);
+}
+
+.radial-node.tier-2 {
+    border-width: 2px;
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.2);
+}
+
+.radial-node.tier-1 {
+    border-width: 1px;
+    opacity: 0.9;
+}
+
+.radial-node.tier-0 {
+    border-width: 1px;
+    opacity: 0.7;
+    border-style: dashed;
+}
+
 @keyframes nodeAppear { to { opacity: 1; } }
 
 .radial-node:hover {
@@ -420,6 +479,18 @@
     color: var(--accent-secondary);
     margin-top: 4px;
     text-align: center;
+    font-weight: 700;
+    font-family: var(--font-tech);
+}
+
+.node-tier-indicator {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    opacity: 0.8;
 }
 
 .node-voice-leading {
@@ -489,6 +560,29 @@
     font-size: 0.8em;
     color: var(--text-main);
     line-height: 1.5;
+}
+
+.tooltip-grading {
+    font-size: 0.85em;
+    color: var(--accent-primary);
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    background: rgba(0, 243, 255, 0.1);
+    border-left: 2px solid var(--accent-primary);
+    line-height: 1.4;
+    font-style: italic;
+}
+
+.tooltip-tier {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border-light);
+    text-align: center;
+    font-family: var(--font-tech);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* Family arc backgrounds */

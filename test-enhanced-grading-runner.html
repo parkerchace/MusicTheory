@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Grading System Property Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-header {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .test-passed {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-failed {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .run-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .run-button:hover {
+            background-color: #0056b3;
+        }
+        .failure-details {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        #console-output {
+            background-color: #000;
+            color: #0f0;
+            font-family: monospace;
+            padding: 15px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enhanced Grading System Property Tests</h1>
+    
+    <div class="test-container">
+        <div class="test-header">
+            <h2>Property Test Suite</h2>
+            <p>Testing the enhanced grading system implementation against the specified correctness properties.</p>
+        </div>
+        
+        <button class="run-button" onclick="runAllTests()">Run All Tests</button>
+        <button class="run-button" onclick="runTest1()">Test 1: Cross-Module Visual Consistency</button>
+        <button class="run-button" onclick="runTest4()">Test 4: Educational Context Completeness</button>
+        <button class="run-button" onclick="runTest5()">Test 5: Accessibility Information Inclusion</button>
+        <button class="run-button" onclick="runTest6()">Test 6: Interactive Grading Feedback</button>
+        <button class="run-button" onclick="runTest7()">Test 7: Grading Explanation Availability</button>
+        <button class="run-button" onclick="runTest10()">Test 10: High Contrast Accessibility</button>
+        
+        <div id="test-results"></div>
+        
+        <h3>Console Output</h3>
+        <div id="console-output"></div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="music-theory-engine.js"></script>
+    <script src="piano-visualizer.js"></script>
+    <script src="test-enhanced-grading-property-1.js"></script>
+    <script src="test-enhanced-grading-property-4.js"></script>
+    <script src="test-enhanced-grading-property-5.js"></script>
+    <script src="test-enhanced-grading-property-6.js"></script>
+    <script src="test-enhanced-grading-property-7.js"></script>
+    <script src="test-enhanced-grading-property-10.js"></script>
+
+    <script>
+        // Capture console output
+        const originalConsoleLog = console.log;
+        const consoleOutput = document.getElementById('console-output');
+        
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            consoleOutput.innerHTML += message + '\n';
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+            consoleOutput.innerHTML = '';
+        }
+
+        function displayTestResult(testName, result) {
+            const resultsDiv = document.getElementById('test-results');
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-result ' + (result.passed ? 'test-passed' : 'test-failed');
+            
+            let html = `
+                <h3>${testName}</h3>
+                <p><strong>Status:</strong> ${result.passed ? 'PASSED' : 'FAILED'}</p>
+                <p><strong>Duration:</strong> ${result.duration}ms</p>
+                <p><strong>Iterations:</strong> ${result.iterations}</p>
+                <p><strong>Failures:</strong> ${result.failures.length}</p>
+            `;
+            
+            if (!result.passed && result.failures.length > 0) {
+                html += '<div class="failure-details">';
+                html += '<strong>Failure Details:</strong><br>';
+                result.failures.slice(0, 10).forEach((failure, index) => {
+                    html += `${index + 1}. ${failure.reason}<br>`;
+                    if (failure.iteration !== undefined) {
+                        html += `   Iteration: ${failure.iteration}<br>`;
+                    }
+                    if (failure.error) {
+                        html += `   Error: ${failure.error}<br>`;
+                    }
+                });
+                if (result.failures.length > 10) {
+                    html += `... and ${result.failures.length - 10} more failures<br>`;
+                }
+                html += '</div>';
+            }
+            
+            testDiv.innerHTML = html;
+            resultsDiv.appendChild(testDiv);
+        }
+
+        function runTest1() {
+            clearResults();
+            console.log('=== Running Property Test 1: Cross-Module Visual Consistency ===');
+            try {
+                const result = runGradingConsistencyTest();
+                displayTestResult('Property 1: Cross-Module Visual Consistency', result);
+            } catch (error) {
+                console.log('Error running test 1:', error);
+                displayTestResult('Property 1: Cross-Module Visual Consistency', {
+                    passed: false,
+                    failures: [{ reason: error.message }],
+                    duration: 0,
+                    iterations: 0
+                });
+            }
+        }
+
+        function runTest4() {
+            clearResults();
+            console.log('=== Running Property Test 4: Educational Context Completeness ===');
+            try {
+                const result = runEducationalContextTest();
+                displayTestResult('Property 4: Educational Context Completeness', result);
+            } catch (error) {
+                console.log('Error running test 4:', error);
+                displayTestResult('Property 4: Educational Context Completeness', {
+                    passed: false,
+                    failures: [{ reason: error.message }],
+                    duration: 0,
+                    iterations: 0
+                });
+            }
+        }
+
+        function runTest5() {
+            clearResults();
+            console.log('=== Running Property Test 5: Accessibility Information Inclusion ===');
+            try {
+                const result = runAccessibilityInformationTest();
+                displayTestResult('Property 5: Accessibility Information Inclusion', result);
+            } catch (error) {
+                console.log('Error running test 5:', error);
+                displayTestResult('Property 5: Accessibility Information Inclusion', {
+                    passed: false,
+                    failures: [{ reason: error.message }],
+                    duration: 0,
+                    iterations: 0
+                });
+            }
+        }
+
+        function runTest6() {
+            clearResults();
+            console.log('=== Running Property Test 6: Interactive Grading Feedback ===');
+            try {
+                const result = runInteractiveGradingFeedbackTest();
+                displayTestResult('Property 6: Interactive Grading Feedback', result);
+            } catch (error) {
+                console.log('Error running test 6:', error);
+                displayTestResult('Property 6: Interactive Grading Feedback', {
+                    passed: false,
+                    failures: [{ reason: error.message }],
+                    duration: 0,
+                    iterations: 0
+                });
+            }
+        }
+
+        function runTest7() {
+            clearResults();
+            console.log('=== Running Property Test 7: Grading Explanation Availability ===');
+            try {
+                const result = runGradingExplanationTest();
+                displayTestResult('Property 7: Grading Explanation Availability', result);
+            } catch (error) {
+                console.log('Error running test 7:', error);
+                displayTestResult('Property 7: Grading Explanation Availability', {
+                    passed: false,
+                    failures: [{ reason: error.message }],
+                    duration: 0,
+                    iterations: 0
+                });
+            }
+        }
+
+        function runTest10() {
+            clearResults();
+            console.log('=== Running Property Test 10: High Contrast Accessibility ===');
+            try {
+                const result = runHighContrastAccessibilityTest();
+                displayTestResult('Property 10: High Contrast Accessibility', result);
+            } catch (error) {
+                console.log('Error running test 10:', error);
+                displayTestResult('Property 10: High Contrast Accessibility', {
+                    passed: false,
+                    failures: [{ reason: error.message }],
+                    duration: 0,
+                    iterations: 0
+                });
+            }
+        }
+
+        function runAllTests() {
+            clearResults();
+            console.log('=== Running All Property Tests ===');
+            
+            setTimeout(() => runTest1(), 100);
+            setTimeout(() => runTest4(), 2000);
+            setTimeout(() => runTest5(), 4000);
+            setTimeout(() => runTest6(), 6000);
+            setTimeout(() => runTest7(), 8000);
+            setTimeout(() => runTest10(), 10000);
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            console.log('Enhanced Grading System Property Test Runner loaded');
+            console.log('Click "Run All Tests" to execute the property-based tests');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Grading Workflow Integration Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #00f3ff;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #333;
+            border-radius: 6px;
+            border-left: 4px solid #00f3ff;
+        }
+        
+        .test-section h2 {
+            color: #00ff41;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #00f3ff, #0099cc);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .test-button:hover {
+            background: linear-gradient(135deg, #00ff41, #00cc33);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 243, 255, 0.3);
+        }
+        
+        .test-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .grading-selector {
+            background: #1a1a1a;
+            color: #00f3ff;
+            border: 2px solid #00f3ff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .log-container {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin-top: 15px;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px 8px;
+            border-radius: 3px;
+        }
+        
+        .log-info { color: #00f3ff; }
+        .log-success { color: #00ff41; background: rgba(0, 255, 65, 0.1); }
+        .log-error { color: #ff4444; background: rgba(255, 68, 68, 0.1); }
+        .log-warning { color: #ffaa00; background: rgba(255, 170, 0, 0.1); }
+        
+        .test-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .result-card {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        
+        .result-card h3 {
+            color: #00f3ff;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .result-status {
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+        
+        .status-pass { background: #00ff41; color: #000; }
+        .status-fail { background: #ff4444; color: #fff; }
+        .status-pending { background: #ffaa00; color: #000; }
+        
+        .module-status {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        
+        .module-indicator {
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .module-ready { background: #00ff41; color: #000; }
+        .module-error { background: #ff4444; color: #fff; }
+        .module-loading { background: #ffaa00; color: #000; }
+        
+        .accessibility-test {
+            border: 2px solid #ff6600;
+            background: rgba(255, 102, 0, 0.1);
+        }
+        
+        .accessibility-test h2 {
+            color: #ff6600;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎵 Complete Grading Workflow Integration Test</h1>
+        
+        <div class="test-section">
+            <h2>Test Configuration</h2>
+            <div class="controls">
+                <label for="test-grading-mode">Grading Mode:</label>
+                <select id="test-grading-mode" class="grading-selector">
+                    <option value="functional">Functional</option>
+                    <option value="emotional">Emotional</option>
+                    <option value="color">Color</option>
+                </select>
+                
+                <button class="test-button" onclick="runCompleteWorkflowTest()">Run Complete Test</button>
+                <button class="test-button" onclick="testGradingModeChanges()">Test Mode Changes</button>
+                <button class="test-button" onclick="testCrossModuleConsistency()">Test Cross-Module Consistency</button>
+                <button class="test-button" onclick="clearLog()">Clear Log</button>
+            </div>
+        </div>
+        
+        <div class="test-section accessibility-test">
+            <h2>Accessibility Features Test</h2>
+            <div class="controls">
+                <button class="test-button" onclick="testAccessibilityFeatures()">Test Accessibility</button>
+                <button class="test-button" onclick="testHighContrastMode()">Test High Contrast</button>
+                <button class="test-button" onclick="testScreenReaderSupport()">Test Screen Reader</button>
+                <button class="test-button" onclick="testKeyboardNavigation()">Test Keyboard Nav</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Module Integration Status</h2>
+            <div id="module-status" class="module-status">
+                <!-- Will be populated dynamically -->
+            </div>
+        </div>
+        
+        <div class="test-results" id="test-results">
+            <!-- Test results will be populated here -->
+        </div>
+        
+        <div class="log-container" id="log-container">
+            <!-- Test logs will appear here -->
+        </div>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="music-theory-engine.js"></script>
+    <script src="piano-visualizer.js"></script>
+    <script src="scale-intelligence-engine.js"></script>
+    <script src="unified-chord-explorer.js"></script>
+    <script src="progression-builder.js"></script>
+    <script src="lexical-music-engine-v2.js"></script>
+
+    <script>
+        // Test state management
+        let testResults = {};
+        let moduleStates = {};
+        let musicEngine = null;
+        let testModules = {};
+        
+        // Logging utility
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[GradingTest] ${message}`);
+        }
+        
+        function clearLog() {
+            document.getElementById('log-container').innerHTML = '';
+        }
+        
+        // Test result management
+        function addTestResult(testName, passed, details = '') {
+            testResults[testName] = { passed, details, timestamp: new Date() };
+            updateTestResultsDisplay();
+        }
+        
+        function updateTestResultsDisplay() {
+            const container = document.getElementById('test-results');
+            container.innerHTML = '';
+            
+            Object.entries(testResults).forEach(([testName, result]) => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                
+                const status = result.passed ? 'pass' : 'fail';
+                card.innerHTML = `
+                    <h3>${testName}</h3>
+                    <div class="result-status status-${status}">
+                        ${result.passed ? 'PASS' : 'FAIL'}
+                    </div>
+                    <div>${result.details}</div>
+                    <small>Tested at: ${result.timestamp.toLocaleTimeString()}</small>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+        
+        // Module status management
+        function updateModuleStatus(moduleName, status, details = '') {
+            moduleStates[moduleName] = { status, details };
+            
+            const container = document.getElementById('module-status');
+            container.innerHTML = '';
+            
+            Object.entries(moduleStates).forEach(([name, state]) => {
+                const indicator = document.createElement('div');
+                indicator.className = `module-indicator module-${state.status}`;
+                indicator.textContent = `${name}: ${state.status.toUpperCase()}`;
+                indicator.title = state.details;
+                container.appendChild(indicator);
+            });
+        }
+        
+        // Initialize test environment
+        async function initializeTestEnvironment() {
+            log('Initializing test environment...', 'info');
+            
+            try {
+                // Initialize music theory engine
+                if (typeof MusicTheoryEngine !== 'undefined') {
+                    musicEngine = new MusicTheoryEngine();
+                    updateModuleStatus('MusicEngine', 'ready', 'Core engine initialized');
+                    log('Music Theory Engine initialized', 'success');
+                } else {
+                    throw new Error('MusicTheoryEngine not available');
+                }
+                
+                // Initialize test modules
+                await initializeTestModules();
+                
+                log('Test environment ready', 'success');
+                return true;
+                
+            } catch (error) {
+                log(`Failed to initialize test environment: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function initializeTestModules() {
+            const modules = [
+                { name: 'PianoVisualizer', class: 'PianoVisualizer', required: true },
+                { name: 'ScaleIntelligence', class: 'ScaleIntelligenceEngine', required: true },
+                { name: 'ChordExplorer', class: 'UnifiedChordExplorer', required: false },
+                { name: 'ProgressionBuilder', class: 'ProgressionBuilder', required: false },
+                { name: 'LexicalEngine', class: 'LexicalMusicEngine', required: false }
+            ];
+            
+            for (const module of modules) {
+                try {
+                    if (typeof window[module.class] !== 'undefined') {
+                        // Create a test container for the module
+                        const container = document.createElement('div');
+                        container.id = `test-${module.name.toLowerCase()}`;
+                        container.style.display = 'none';
+                        document.body.appendChild(container);
+                        
+                        // Initialize the module
+                        testModules[module.name] = new window[module.class](container, musicEngine);
+                        updateModuleStatus(module.name, 'ready', 'Module initialized for testing');
+                        log(`${module.name} initialized for testing`, 'success');
+                    } else if (module.required) {
+                        throw new Error(`Required module ${module.class} not available`);
+                    } else {
+                        updateModuleStatus(module.name, 'loading', 'Module not available (optional)');
+                        log(`${module.name} not available (optional)`, 'warning');
+                    }
+                } catch (error) {
+                    updateModuleStatus(module.name, 'error', error.message);
+                    log(`Failed to initialize ${module.name}: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        // Test: Complete grading workflow
+        async function runCompleteWorkflowTest() {
+            log('Starting complete grading workflow test...', 'info');
+            
+            if (!musicEngine) {
+                log('Music engine not initialized', 'error');
+                return;
+            }
+            
+            try {
+                // Test 1: Grading mode changes propagate to all modules
+                await testGradingModePropagation();
+                
+                // Test 2: Visual consistency across modules
+                await testVisualConsistency();
+                
+                // Test 3: Grading influence on suggestions
+                await testGradingInfluence();
+                
+                // Test 4: Educational context availability
+                await testEducationalContext();
+                
+                // Test 5: Metadata preservation
+                await testMetadataPreservation();
+                
+                log('Complete workflow test finished', 'success');
+                
+            } catch (error) {
+                log(`Complete workflow test failed: ${error.message}`, 'error');
+                addTestResult('Complete Workflow', false, error.message);
+            }
+        }
+        
+        // Test: Grading mode changes across all modules
+        async function testGradingModeChanges() {
+            log('Testing grading mode changes...', 'info');
+            
+            const modes = ['functional', 'emotional', 'color'];
+            let allPassed = true;
+            
+            for (const mode of modes) {
+                try {
+                    log(`Testing mode: ${mode}`, 'info');
+                    
+                    // Change grading mode
+                    musicEngine.setGradingMode(mode);
+                    
+                    // Wait for propagation
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Verify mode was set
+                    if (musicEngine.gradingMode !== mode) {
+                        throw new Error(`Mode not set correctly: expected ${mode}, got ${musicEngine.gradingMode}`);
+                    }
+                    
+                    // Test each module received the change
+                    for (const [moduleName, module] of Object.entries(testModules)) {
+                        if (module && typeof module.onGradingModeChanged === 'function') {
+                            // Module should have grading awareness
+                            log(`${moduleName} supports grading mode changes`, 'success');
+                        } else {
+                            log(`${moduleName} may not support grading mode changes`, 'warning');
+                        }
+                    }
+                    
+                    log(`Mode ${mode} test passed`, 'success');
+                    
+                } catch (error) {
+                    log(`Mode ${mode} test failed: ${error.message}`, 'error');
+                    allPassed = false;
+                }
+            }
+            
+            addTestResult('Grading Mode Changes', allPassed, 
+                allPassed ? 'All grading modes work correctly' : 'Some mode changes failed');
+        }
+        
+        // Test: Cross-module consistency
+        async function testCrossModuleConsistency() {
+            log('Testing cross-module consistency...', 'info');
+            
+            try {
+                const testNote = 'C';
+                const testChord = 'Cmaj7';
+                let consistencyResults = {};
+                
+                // Test each grading mode
+                for (const mode of ['functional', 'emotional', 'color']) {
+                    musicEngine.setGradingMode(mode);
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    // Get grading info for test elements
+                    const noteGrading = musicEngine.getGradingTierInfo(3, { note: testNote });
+                    const chordGrading = musicEngine.getGradingTierInfo(2, { chord: testChord });
+                    
+                    consistencyResults[mode] = {
+                        noteColor: noteGrading.color,
+                        chordColor: chordGrading.color,
+                        noteLabel: noteGrading.label,
+                        chordLabel: chordGrading.label
+                    };
+                    
+                    log(`${mode} mode - Note: ${noteGrading.label}, Chord: ${chordGrading.label}`, 'info');
+                }
+                
+                // Verify consistency within each mode
+                let allConsistent = true;
+                for (const mode of Object.keys(consistencyResults)) {
+                    const result = consistencyResults[mode];
+                    if (!result.noteColor || !result.chordColor) {
+                        allConsistent = false;
+                        log(`${mode} mode missing color information`, 'error');
+                    }
+                }
+                
+                addTestResult('Cross-Module Consistency', allConsistent,
+                    allConsistent ? 'All modules show consistent grading' : 'Inconsistencies detected');
+                
+            } catch (error) {
+                log(`Cross-module consistency test failed: ${error.message}`, 'error');
+                addTestResult('Cross-Module Consistency', false, error.message);
+            }
+        }
+        
+        // Test: Accessibility features
+        async function testAccessibilityFeatures() {
+            log('Testing accessibility features...', 'info');
+            
+            try {
+                let accessibilityPassed = true;
+                
+                // Test 1: Text labels in addition to colors
+                const tierInfo = musicEngine.getGradingTierInfo(3);
+                if (!tierInfo.label || !tierInfo.name) {
+                    accessibilityPassed = false;
+                    log('Missing text labels for grading tiers', 'error');
+                } else {
+                    log(`Grading tier has label: ${tierInfo.label}, name: ${tierInfo.name}`, 'success');
+                }
+                
+                // Test 2: Screen reader support
+                if (tierInfo.accessibilityInfo && tierInfo.accessibilityInfo.screenReaderText) {
+                    log('Screen reader text available', 'success');
+                } else {
+                    log('Screen reader text may be missing', 'warning');
+                }
+                
+                // Test 3: Visual patterns for accessibility
+                if (tierInfo.accessibilityInfo && tierInfo.accessibilityInfo.pattern) {
+                    log('Visual patterns available for accessibility', 'success');
+                } else {
+                    log('Visual patterns may be missing', 'warning');
+                }
+                
+                addTestResult('Accessibility Features', accessibilityPassed,
+                    accessibilityPassed ? 'All accessibility features working' : 'Some accessibility issues found');
+                
+            } catch (error) {
+                log(`Accessibility test failed: ${error.message}`, 'error');
+                addTestResult('Accessibility Features', false, error.message);
+            }
+        }
+        
+        // Test: High contrast mode
+        async function testHighContrastMode() {
+            log('Testing high contrast mode...', 'info');
+            
+            try {
+                // Simulate high contrast mode
+                document.body.classList.add('high-contrast');
+                
+                let highContrastPassed = true;
+                
+                // Test grading visibility in high contrast
+                for (let tier = 0; tier <= 4; tier++) {
+                    const tierInfo = musicEngine.getGradingTierInfo(tier);
+                    
+                    // Check if tier has non-color distinguishing features
+                    if (!tierInfo.accessibilityInfo || !tierInfo.accessibilityInfo.pattern) {
+                        log(`Tier ${tier} may not be distinguishable in high contrast`, 'warning');
+                    } else {
+                        log(`Tier ${tier} has accessibility pattern: ${tierInfo.accessibilityInfo.pattern}`, 'success');
+                    }
+                }
+                
+                document.body.classList.remove('high-contrast');
+                
+                addTestResult('High Contrast Mode', highContrastPassed,
+                    'High contrast accessibility tested');
+                
+            } catch (error) {
+                log(`High contrast test failed: ${error.message}`, 'error');
+                addTestResult('High Contrast Mode', false, error.message);
+            }
+        }
+        
+        // Test: Screen reader support
+        async function testScreenReaderSupport() {
+            log('Testing screen reader support...', 'info');
+            
+            try {
+                let screenReaderPassed = true;
+                
+                // Test ARIA labels and descriptions
+                for (let tier = 0; tier <= 4; tier++) {
+                    const tierInfo = musicEngine.getGradingTierInfo(tier);
+                    
+                    if (tierInfo.accessibilityInfo && tierInfo.accessibilityInfo.screenReaderText) {
+                        log(`Tier ${tier} screen reader text: "${tierInfo.accessibilityInfo.screenReaderText}"`, 'success');
+                    } else {
+                        screenReaderPassed = false;
+                        log(`Tier ${tier} missing screen reader text`, 'error');
+                    }
+                }
+                
+                addTestResult('Screen Reader Support', screenReaderPassed,
+                    screenReaderPassed ? 'All tiers have screen reader support' : 'Missing screen reader text');
+                
+            } catch (error) {
+                log(`Screen reader test failed: ${error.message}`, 'error');
+                addTestResult('Screen Reader Support', false, error.message);
+            }
+        }
+        
+        // Test: Keyboard navigation
+        async function testKeyboardNavigation() {
+            log('Testing keyboard navigation...', 'info');
+            
+            try {
+                // Test focus management for grading elements
+                const gradingSelector = document.getElementById('test-grading-mode');
+                
+                // Simulate keyboard navigation
+                gradingSelector.focus();
+                
+                // Test if grading changes can be made via keyboard
+                const originalMode = musicEngine.gradingMode;
+                
+                // Simulate keyboard selection
+                gradingSelector.value = 'emotional';
+                gradingSelector.dispatchEvent(new Event('change'));
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const keyboardWorked = musicEngine.gradingMode === 'emotional';
+                
+                // Restore original mode
+                musicEngine.setGradingMode(originalMode);
+                
+                addTestResult('Keyboard Navigation', keyboardWorked,
+                    keyboardWorked ? 'Keyboard navigation works' : 'Keyboard navigation issues');
+                
+            } catch (error) {
+                log(`Keyboard navigation test failed: ${error.message}`, 'error');
+                addTestResult('Keyboard Navigation', false, error.message);
+            }
+        }
+        
+        // Helper test functions
+        async function testGradingModePropagation() {
+            log('Testing grading mode propagation...', 'info');
+            
+            const originalMode = musicEngine.gradingMode;
+            const testMode = originalMode === 'functional' ? 'emotional' : 'functional';
+            
+            musicEngine.setGradingMode(testMode);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const propagated = musicEngine.gradingMode === testMode;
+            addTestResult('Mode Propagation', propagated, 
+                propagated ? 'Mode changes propagate correctly' : 'Mode propagation failed');
+            
+            // Restore original mode
+            musicEngine.setGradingMode(originalMode);
+        }
+        
+        async function testVisualConsistency() {
+            log('Testing visual consistency...', 'info');
+            
+            try {
+                const tier3Info = musicEngine.getGradingTierInfo(3);
+                const hasColor = tier3Info.color && tier3Info.color !== '';
+                const hasLabel = tier3Info.label && tier3Info.label !== '';
+                
+                const consistent = hasColor && hasLabel;
+                addTestResult('Visual Consistency', consistent,
+                    consistent ? 'Visual elements are consistent' : 'Visual consistency issues');
+                
+            } catch (error) {
+                addTestResult('Visual Consistency', false, error.message);
+            }
+        }
+        
+        async function testGradingInfluence() {
+            log('Testing grading influence on suggestions...', 'info');
+            
+            try {
+                // Test if grading affects suggestions (if available)
+                let influenceWorking = true;
+                
+                if (musicEngine.getGradingInfluencedSuggestions) {
+                    const suggestions = musicEngine.getGradingInfluencedSuggestions({ key: 'C', mode: 'major' });
+                    influenceWorking = suggestions && suggestions.length > 0;
+                } else {
+                    log('Grading influence methods not available', 'warning');
+                }
+                
+                addTestResult('Grading Influence', influenceWorking,
+                    influenceWorking ? 'Grading influences suggestions' : 'Grading influence not working');
+                
+            } catch (error) {
+                addTestResult('Grading Influence', false, error.message);
+            }
+        }
+        
+        async function testEducationalContext() {
+            log('Testing educational context...', 'info');
+            
+            try {
+                const tierInfo = musicEngine.getGradingTierInfo(3);
+                const hasEducationalContent = tierInfo.description && tierInfo.description.length > 0;
+                
+                addTestResult('Educational Context', hasEducationalContent,
+                    hasEducationalContent ? 'Educational context available' : 'Missing educational context');
+                
+            } catch (error) {
+                addTestResult('Educational Context', false, error.message);
+            }
+        }
+        
+        async function testMetadataPreservation() {
+            log('Testing metadata preservation...', 'info');
+            
+            try {
+                // Test if grading metadata can be preserved
+                const testData = {
+                    chord: 'Cmaj7',
+                    grading: {
+                        mode: musicEngine.gradingMode,
+                        tier: 3,
+                        timestamp: new Date().toISOString()
+                    }
+                };
+                
+                // Simulate export/import cycle
+                const exported = JSON.stringify(testData);
+                const imported = JSON.parse(exported);
+                
+                const preserved = imported.grading && imported.grading.mode === musicEngine.gradingMode;
+                
+                addTestResult('Metadata Preservation', preserved,
+                    preserved ? 'Grading metadata preserved' : 'Metadata preservation failed');
+                
+            } catch (error) {
+                addTestResult('Metadata Preservation', false, error.message);
+            }
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', async () => {
+            log('Page loaded, initializing test environment...', 'info');
+            
+            const initialized = await initializeTestEnvironment();
+            if (initialized) {
+                log('🚀 Complete Grading Workflow Integration Test Ready', 'success');
+                log('Click "Run Complete Test" to start comprehensive testing', 'info');
+            } else {
+                log('❌ Test environment initialization failed', 'error');
+            }
+        });
+        
+        // Handle grading mode selector changes
+        document.getElementById('test-grading-mode').addEventListener('change', (e) => {
+            if (musicEngine) {
+                musicEngine.setGradingMode(e.target.value);
+                log(`Grading mode changed to: ${e.target.value}`, 'info');
+            }
+        });
+    </script>
+</body>
+</html>

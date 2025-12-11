@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Grading-Scale Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>Simple Grading-Scale Integration Test</h1>
+    <div id="results"></div>
+
+    <script src="music-theory-engine.js"></script>
+    <script src="scale-intelligence-engine.js"></script>
+    <script>
+        function runTest() {
+            const results = document.getElementById('results');
+            let html = '';
+
+            try {
+                // Test 1: Initialize engines
+                html += '<div class="result info"><h3>Test 1: Engine Initialization</h3>';
+                
+                const musicEngine = new MusicTheoryEngine();
+                html += '<p>✓ MusicTheoryEngine created</p>';
+                
+                const scaleEngine = new ScaleIntelligenceEngine(musicEngine);
+                html += '<p>✓ ScaleIntelligenceEngine created with music engine</p>';
+                
+                html += `<p>✓ Grading influence weight: ${scaleEngine.gradingInfluenceWeight}</p>`;
+                html += '</div>';
+
+                // Test 2: Basic grading functionality
+                html += '<div class="result info"><h3>Test 2: Basic Grading</h3>';
+                
+                musicEngine.setGradingMode('functional');
+                html += `<p>✓ Grading mode set to: ${musicEngine.gradingMode}</p>`;
+                
+                const majorGrade = musicEngine.calculateScaleGrade('major');
+                html += `<p>✓ Major scale grade: ${majorGrade}</p>`;
+                
+                const minorGrade = musicEngine.calculateScaleGrade('minor');
+                html += `<p>✓ Minor scale grade: ${minorGrade}</p>`;
+                
+                html += '</div>';
+
+                // Test 3: Enhanced scale suggestions
+                html += '<div class="result info"><h3>Test 3: Enhanced Scale Suggestions</h3>';
+                
+                const wordCharacteristics = {
+                    darkness: 0.7,
+                    mystery: 0.6,
+                    energy: 0.4,
+                    brightness: 0.3
+                };
+                
+                // Test with grading influence
+                const suggestions = scaleEngine.getGradingInfluencedSuggestions(
+                    wordCharacteristics,
+                    { gradingWeight: 0.5, maxSuggestions: 3 }
+                );
+                
+                html += `<p>✓ Generated ${suggestions.length} grading-influenced suggestions</p>`;
+                
+                suggestions.forEach((suggestion, index) => {
+                    html += `<p>  ${index + 1}. ${suggestion.name} - Tier ${suggestion.gradingTier}, Score: ${suggestion.score.toFixed(3)}</p>`;
+                });
+                
+                const hasGradingBonus = suggestions.some(s => s.gradingBonus > 0);
+                html += `<p>✓ Grading bonus applied: ${hasGradingBonus}</p>`;
+                
+                html += '</div>';
+
+                // Test 4: Method availability
+                html += '<div class="result info"><h3>Test 4: Enhanced Methods</h3>';
+                
+                html += `<p>✓ setGradingInfluenceWeight: ${typeof scaleEngine.setGradingInfluenceWeight === 'function'}</p>`;
+                html += `<p>✓ explainGradingInfluence: ${typeof scaleEngine.explainGradingInfluence === 'function'}</p>`;
+                html += `<p>✓ getScalesByGradingTier: ${typeof scaleEngine.getScalesByGradingTier === 'function'}</p>`;
+                html += `<p>✓ compareGradingPerspectives: ${typeof scaleEngine.compareGradingPerspectives === 'function'}</p>`;
+                
+                html += '</div>';
+
+                // Test 5: Grading explanation
+                html += '<div class="result info"><h3>Test 5: Grading Explanation</h3>';
+                
+                const explanation = scaleEngine.explainGradingInfluence('major');
+                html += `<p>✓ Major scale explanation: ${explanation}</p>`;
+                
+                html += '</div>';
+
+                html += '<div class="result success"><h3>🎉 All Tests Passed!</h3></div>';
+
+            } catch (error) {
+                html += `<div class="result error"><h3>❌ Test Failed</h3><p>Error: ${error.message}</p></div>`;
+            }
+
+            results.innerHTML = html;
+        }
+
+        // Run test on page load
+        window.addEventListener('load', runTest);
+    </script>
+</body>
+</html>

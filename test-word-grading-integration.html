@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Tool Grading Integration Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .test-input {
+            margin: 15px 0;
+        }
+        .test-input input {
+            width: 300px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .test-input button {
+            padding: 10px 20px;
+            margin-left: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .test-input button:hover {
+            background-color: #2980b9;
+        }
+        .grading-mode-selector {
+            margin: 20px 0;
+        }
+        .grading-mode-selector select {
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            background-color: white;
+        }
+        .result h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .progression {
+            margin: 10px 0;
+        }
+        .chord {
+            display: inline-block;
+            margin: 5px;
+            padding: 8px 12px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            border: 1px solid #bdc3c7;
+        }
+        .grading-info {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #e8f6f3;
+            border-radius: 4px;
+        }
+        .error {
+            color: #e74c3c;
+            background-color: #fdf2f2;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #e74c3c;
+        }
+        .success {
+            color: #27ae60;
+            background-color: #f2fdf5;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Word Tool Grading Integration Test</h1>
+        
+        <div class="test-section">
+            <h2>Grading Mode Selection</h2>
+            <div class="grading-mode-selector">
+                <label for="gradingMode">Current Grading Mode:</label>
+                <select id="gradingMode" onchange="changeGradingMode()">
+                    <option value="functional">Functional</option>
+                    <option value="emotional">Emotional</option>
+                    <option value="color">Color</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Word Translation Test</h2>
+            <div class="test-input">
+                <input type="text" id="wordInput" placeholder="Enter words (e.g., 'dark mysterious forest')" value="dark mysterious forest">
+                <button onclick="translateWords()">Translate</button>
+            </div>
+            
+            <div id="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Grading Mode Comparison</h2>
+            <div class="test-input">
+                <input type="text" id="compareInput" placeholder="Enter words to compare across modes" value="bright energetic chase">
+                <button onclick="compareGradingModes()">Compare All Modes</button>
+            </div>
+            
+            <div id="comparisonResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Status</h2>
+            <div id="testStatus">Ready to test...</div>
+        </div>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="music-theory-engine.js"></script>
+    <script src="scale-intelligence-engine.js"></script>
+    <script src="simple-word-engine.js"></script>
+
+    <script>
+        // Initialize engines
+        let musicTheory, wordEngine;
+        
+        try {
+            musicTheory = new MusicTheoryEngine();
+            wordEngine = new SimpleWordEngine(musicTheory);
+            
+            document.getElementById('testStatus').innerHTML = 
+                '<div class="success">✅ Engines initialized successfully with grading integration!</div>';
+        } catch (error) {
+            document.getElementById('testStatus').innerHTML = 
+                `<div class="error">❌ Error initializing engines: ${error.message}</div>`;
+        }
+
+        function changeGradingMode() {
+            const mode = document.getElementById('gradingMode').value;
+            try {
+                musicTheory.setGradingMode(mode);
+                document.getElementById('testStatus').innerHTML = 
+                    `<div class="success">✅ Grading mode changed to: ${mode}</div>`;
+            } catch (error) {
+                document.getElementById('testStatus').innerHTML = 
+                    `<div class="error">❌ Error changing grading mode: ${error.message}</div>`;
+            }
+        }
+
+        async function translateWords() {
+            const words = document.getElementById('wordInput').value;
+            if (!words.trim()) {
+                alert('Please enter some words to translate');
+                return;
+            }
+
+            try {
+                const result = await wordEngine.translateWords(words);
+                displayResult(result, 'results');
+                
+                document.getElementById('testStatus').innerHTML = 
+                    `<div class="success">✅ Translation completed for: "${words}"</div>`;
+            } catch (error) {
+                document.getElementById('results').innerHTML = 
+                    `<div class="error">❌ Error translating words: ${error.message}</div>`;
+            }
+        }
+
+        async function compareGradingModes() {
+            const words = document.getElementById('compareInput').value;
+            if (!words.trim()) {
+                alert('Please enter some words to compare');
+                return;
+            }
+
+            const modes = ['functional', 'emotional', 'color'];
+            let comparisonHTML = '<h3>Grading Mode Comparison</h3>';
+            
+            for (const mode of modes) {
+                try {
+                    musicTheory.setGradingMode(mode);
+                    const result = await wordEngine.translateWords(words);
+                    
+                    comparisonHTML += `
+                        <div class="result">
+                            <h4>${mode.charAt(0).toUpperCase() + mode.slice(1)} Mode</h4>
+                            <p><strong>Scale:</strong> ${result.scale.root} ${result.scale.name}</p>
+                            <p><strong>Progression:</strong> ${result.progression.map(c => c.fullName).join(' → ')}</p>
+                            ${result.gradingInfluence ? `<p><strong>Grading Impact:</strong> ${result.gradingInfluence.impact}</p>` : ''}
+                            ${result.character.gradingInfluence ? `<p><strong>Character Adjustment:</strong> ${result.character.gradingInfluence}</p>` : ''}
+                        </div>
+                    `;
+                } catch (error) {
+                    comparisonHTML += `
+                        <div class="error">
+                            <h4>${mode.charAt(0).toUpperCase() + mode.slice(1)} Mode</h4>
+                            <p>Error: ${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            document.getElementById('comparisonResults').innerHTML = comparisonHTML;
+            
+            // Reset to original mode
+            const originalMode = document.getElementById('gradingMode').value;
+            musicTheory.setGradingMode(originalMode);
+            
+            document.getElementById('testStatus').innerHTML = 
+                `<div class="success">✅ Comparison completed for: "${words}"</div>`;
+        }
+
+        function displayResult(result, containerId) {
+            let html = `
+                <div class="result">
+                    <h3>Translation Result</h3>
+                    <p><strong>Scale:</strong> ${result.scale.root} ${result.scale.name}</p>
+                    <p><strong>Grading Mode:</strong> ${result.gradingMode}</p>
+                    
+                    <div class="progression">
+                        <strong>Progression:</strong><br>
+                        ${result.progression.map((chord, i) => 
+                            `<span class="chord">${chord.fullName} (${chord.tier || 'N/A'})</span>`
+                        ).join('')}
+                    </div>
+            `;
+
+            if (result.gradingInfluence) {
+                html += `
+                    <div class="grading-info">
+                        <strong>Grading Influence:</strong><br>
+                        <p><strong>Summary:</strong> ${result.gradingInfluence.summary}</p>
+                        <p><strong>Impact:</strong> ${result.gradingInfluence.impact}</p>
+                    </div>
+                `;
+            }
+
+            if (result.character.gradingInfluence) {
+                html += `
+                    <div class="grading-info">
+                        <strong>Character Adjustment:</strong> ${result.character.gradingInfluence}
+                    </div>
+                `;
+            }
+
+            if (result.reasoning && result.reasoning.summary) {
+                html += `
+                    <p><strong>Reasoning:</strong> ${result.reasoning.summary}</p>
+                `;
+            }
+
+            html += '</div>';
+            
+            document.getElementById(containerId).innerHTML = html;
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (wordEngine && musicTheory) {
+                    translateWords();
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

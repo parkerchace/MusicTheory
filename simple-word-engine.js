@@ -34,12 +34,46 @@ class SimpleWordEngine {
         // Session log
         this.sessionLog = [];
         
-        console.log('[SimpleWordEngine] Initialized with Scale Intelligence Engine');
+        // Enhanced grading integration
+        this.gradingEngine = musicTheoryEngine; // Use music theory engine for grading
+        this.currentGradingMode = musicTheoryEngine?.gradingMode || 'functional';
+        
+        // Subscribe to grading mode changes
+        if (musicTheoryEngine && typeof musicTheoryEngine.subscribe === 'function') {
+            musicTheoryEngine.subscribe((event, data) => {
+                if (event === 'gradingModeChanged') {
+                    this.onGradingModeChanged(data.newMode);
+                }
+            });
+        }
+        
+        console.log('[SimpleWordEngine] Initialized with Scale Intelligence Engine and Grading Integration');
         console.log('[SimpleWordEngine] Fallback word mappings:', Object.keys(this.wordMappings).length);
+        console.log('[SimpleWordEngine] Current grading mode:', this.currentGradingMode);
     }
 
     _log(...args) {
         if (this.debug) console.log('[SimpleWord]', ...args);
+    }
+
+    /**
+     * Handle grading mode changes
+     */
+    onGradingModeChanged(newMode) {
+        const oldMode = this.currentGradingMode;
+        this.currentGradingMode = newMode;
+        this._log(`Grading mode changed from ${oldMode} to ${newMode}`);
+        
+        // Clear any cached grading-dependent data
+        this._clearGradingCache();
+    }
+
+    /**
+     * Clear grading-dependent cached data
+     */
+    _clearGradingCache() {
+        // Clear any cached scale selections or character mappings that depend on grading mode
+        this._log('Cleared grading-dependent cache');
     }
 
     /**
@@ -85,7 +119,11 @@ class SimpleWordEngine {
             complexity,
             reasoning,
             analyses: wordAnalyses,
-            character
+            character,
+            // Enhanced grading information
+            gradingMode: this.currentGradingMode,
+            gradingInfluence: reasoning.gradingInfluence,
+            gradingExplanations: this._getGradingExplanations(progression, scale)
         };
         
         console.log('[SimpleWord] Final result scale object - root:', result.scale.root, 'name:', result.scale.name);
@@ -280,7 +318,7 @@ class SimpleWordEngine {
     }
 
     /**
-     * Determine overall musical character from word analyses
+     * Determine overall musical character from word analyses - ENHANCED WITH GRADING PERSPECTIVE
      */
     _determineCharacter(analyses, words) {
         let totalDarkness = 0;
@@ -299,20 +337,98 @@ class SimpleWordEngine {
 
         const count = analyses.length;
         
-        return {
+        const baseCharacter = {
             darkness: totalDarkness / count,
             energy: totalEnergy / count,
             mystery: totalMystery / count,
             brightness: totalBrightness / count,
-            calm: totalCalm / count,
-            dominantTrait: this._findDominantTrait({
-                darkness: totalDarkness / count,
-                energy: totalEnergy / count,
-                mystery: totalMystery / count,
-                brightness: totalBrightness / count,
-                calm: totalCalm / count
-            })
+            calm: totalCalm / count
         };
+
+        // Apply grading perspective weighting
+        const gradingAdjustedCharacter = this._applyGradingPerspective(baseCharacter, words);
+        
+        return {
+            ...gradingAdjustedCharacter,
+            dominantTrait: this._findDominantTrait(gradingAdjustedCharacter),
+            gradingInfluence: this._getGradingInfluenceExplanation(baseCharacter, gradingAdjustedCharacter)
+        };
+    }
+
+    /**
+     * Apply grading perspective to character analysis
+     */
+    _applyGradingPerspective(baseCharacter, words) {
+        const mode = this.currentGradingMode;
+        let adjustedCharacter = { ...baseCharacter };
+        
+        this._log(`Applying ${mode} grading perspective to character analysis`);
+        
+        if (mode === 'functional') {
+            // Functional grading emphasizes harmonic stability and traditional relationships
+            // Boost calm and reduce extreme characteristics for more stable harmonic choices
+            adjustedCharacter.calm = Math.min(1, adjustedCharacter.calm * 1.2);
+            adjustedCharacter.darkness = adjustedCharacter.darkness * 0.9;
+            adjustedCharacter.energy = adjustedCharacter.energy * 0.9;
+            
+        } else if (mode === 'emotional') {
+            // Emotional grading amplifies expressive characteristics
+            // Enhance contrast between emotional extremes
+            if (adjustedCharacter.darkness > 0.5) {
+                adjustedCharacter.darkness = Math.min(1, adjustedCharacter.darkness * 1.3);
+            }
+            if (adjustedCharacter.brightness > 0.5) {
+                adjustedCharacter.brightness = Math.min(1, adjustedCharacter.brightness * 1.3);
+            }
+            if (adjustedCharacter.energy > 0.5) {
+                adjustedCharacter.energy = Math.min(1, adjustedCharacter.energy * 1.2);
+            }
+            
+        } else if (mode === 'color') {
+            // Color grading emphasizes harmonic richness and complexity
+            // Boost mystery and reduce calm for more colorful harmonic choices
+            adjustedCharacter.mystery = Math.min(1, adjustedCharacter.mystery * 1.4);
+            adjustedCharacter.calm = adjustedCharacter.calm * 0.8;
+            
+            // Enhance characteristics that lead to more colorful scales
+            if (adjustedCharacter.darkness > 0.3) {
+                adjustedCharacter.darkness = Math.min(1, adjustedCharacter.darkness * 1.1);
+            }
+        }
+        
+        this._log(`Character adjustment: ${mode} mode applied`, {
+            before: baseCharacter,
+            after: adjustedCharacter
+        });
+        
+        return adjustedCharacter;
+    }
+
+    /**
+     * Generate explanation of how grading influenced character analysis
+     */
+    _getGradingInfluenceExplanation(baseCharacter, adjustedCharacter) {
+        const mode = this.currentGradingMode;
+        const changes = [];
+        
+        // Detect significant changes
+        Object.keys(baseCharacter).forEach(trait => {
+            const before = baseCharacter[trait];
+            const after = adjustedCharacter[trait];
+            const change = after - before;
+            
+            if (Math.abs(change) > 0.05) { // Threshold for significant change
+                const direction = change > 0 ? 'increased' : 'decreased';
+                const magnitude = Math.abs(change);
+                changes.push(`${trait} ${direction} by ${Math.round(magnitude * 100)}%`);
+            }
+        });
+        
+        if (changes.length === 0) {
+            return `${mode} grading mode applied with minimal character adjustment`;
+        }
+        
+        return `${mode} grading mode: ${changes.join(', ')}`;
     }
 
     _findDominantTrait(character) {
@@ -322,7 +438,7 @@ class SimpleWordEngine {
     }
 
     /**
-     * Select scale based on character - USING SCALE INTELLIGENCE ENGINE
+     * Select scale based on character - ENHANCED WITH GRADING-AWARE SELECTION
      */
     _selectScale(character, words) {
         // Prepare characteristics for Scale Intelligence Engine
@@ -341,8 +457,9 @@ class SimpleWordEngine {
         let scaleSelection;
         if (this.scaleIntelligence) {
             // Use Scale Intelligence Engine for robust scale selection
-            console.log('[SimpleWord] 🧠 USING SCALE INTELLIGENCE ENGINE');
+            console.log('[SimpleWord] 🧠 USING SCALE INTELLIGENCE ENGINE WITH GRADING AWARENESS');
             console.log('[SimpleWord] Input characteristics:', characteristics);
+            console.log('[SimpleWord] Current grading mode:', this.currentGradingMode);
             scaleSelection = this.scaleIntelligence.selectScale(characteristics);
             console.log('[SimpleWord] 🎯 Scale Intelligence Result:', scaleSelection);
             console.log('[SimpleWord] Selected scale name:', scaleSelection.name);
@@ -356,47 +473,151 @@ class SimpleWordEngine {
             this._log('Fallback scale selection result:', scaleSelection);
         }
 
-        // Extract root and mode from the intelligent selection
-        let root = 'C';
-        let mode = scaleSelection.name || 'major';
+        // Apply grading-aware scale filtering and weighting
+        const gradingFilteredScale = this._applyGradingScaleWeighting(scaleSelection, characteristics, words);
 
-        // Select appropriate root based on character and scale choice
-        if (characteristics.darkness > 0.7 && characteristics.energy > 0.6) {
-            // Very dangerous → use keys that sound unstable/threatening
-            root = ['F#', 'Bb', 'Eb', 'Ab'][Math.floor(Math.random() * 4)]; 
-        } else if (characteristics.darkness > 0.5) {
-            // Generally dark → flat keys (darker sound)
-            root = ['F', 'Bb', 'Eb', 'Ab'][Math.floor(Math.random() * 4)];
-        } else if (characteristics.brightness > 0.6) {
-            // Bright → sharp keys (brighter sound)
-            root = ['D', 'A', 'E', 'B'][Math.floor(Math.random() * 4)];
-        } else if (characteristics.mystery > 0.5) {
-            // Mysterious → modal-friendly keys
-            root = ['D', 'G', 'A', 'E'][Math.floor(Math.random() * 4)];
-        } else {
-            // Neutral → natural keys
-            root = ['C', 'G', 'F'][Math.floor(Math.random() * 3)];
-        }
+        // Extract root and mode from the grading-filtered selection
+        let root = 'C';
+        let mode = gradingFilteredScale.name || 'major';
+
+        // Select appropriate root based on character, scale choice, and grading mode
+        root = this._selectGradingAwareRoot(characteristics, mode);
 
         const scaleResult = { 
             root, 
             mode, 
-            reasoning: `Scale Intelligence: ${scaleSelection.primaryReason} → ${mode} in ${root}`,
+            reasoning: `${gradingFilteredScale.gradingReasoning} → ${mode} in ${root}`,
             intelligenceData: {
-                score: scaleSelection.score,
-                reasons: scaleSelection.reasons,
-                alternatives: scaleSelection.alternatives,
-                culturalContext: scaleSelection.data?.cultural,
-                emotionalProfile: scaleSelection.data?.emotional
+                score: gradingFilteredScale.score,
+                reasons: gradingFilteredScale.reasons,
+                alternatives: gradingFilteredScale.alternatives,
+                culturalContext: gradingFilteredScale.data?.cultural,
+                emotionalProfile: gradingFilteredScale.data?.emotional,
+                gradingInfluence: gradingFilteredScale.gradingInfluence
             }
         };
         
-        console.log('[SimpleWord] 🎼 FINAL SCALE RESULT:');
+        console.log('[SimpleWord] 🎼 GRADING-AWARE SCALE RESULT:');
         console.log('[SimpleWord] Root:', root, 'Mode:', mode);
-        console.log('[SimpleWord] Intelligence Score:', Math.round(scaleSelection.score * 100) + '%');
+        console.log('[SimpleWord] Grading Mode:', this.currentGradingMode);
+        console.log('[SimpleWord] Intelligence Score:', Math.round(gradingFilteredScale.score * 100) + '%');
+        console.log('[SimpleWord] Grading Influence:', gradingFilteredScale.gradingInfluence);
         console.log('[SimpleWord] Full scale result:', scaleResult);
-        this._log('Final scale selection result:', scaleResult);
+        this._log('Final grading-aware scale selection result:', scaleResult);
         return scaleResult;
+    }
+
+    /**
+     * Apply grading perspective to scale selection weighting
+     */
+    _applyGradingScaleWeighting(scaleSelection, characteristics, words) {
+        const mode = this.currentGradingMode;
+        let adjustedSelection = { ...scaleSelection };
+        let gradingInfluence = '';
+        
+        this._log(`Applying ${mode} grading weighting to scale selection`);
+        
+        if (mode === 'functional') {
+            // Functional grading favors traditional, stable scales
+            const functionalScales = ['major', 'minor', 'dorian', 'mixolydian', 'aeolian'];
+            
+            if (functionalScales.includes(scaleSelection.name)) {
+                adjustedSelection.score = Math.min(1, scaleSelection.score * 1.2);
+                gradingInfluence = `Functional grading boosted ${scaleSelection.name} for harmonic stability`;
+            } else {
+                adjustedSelection.score = scaleSelection.score * 0.8;
+                gradingInfluence = `Functional grading reduced exotic scale preference`;
+            }
+            
+        } else if (mode === 'emotional') {
+            // Emotional grading favors scales that enhance expressive characteristics
+            const emotionalScales = {
+                dark: ['phrygian', 'locrian', 'harmonic', 'phrygian_dominant'],
+                bright: ['lydian', 'major', 'mixolydian'],
+                mysterious: ['dorian', 'altered', 'whole_tone']
+            };
+            
+            let emotionalBoost = false;
+            if (characteristics.darkness > 0.5 && emotionalScales.dark.includes(scaleSelection.name)) {
+                adjustedSelection.score = Math.min(1, scaleSelection.score * 1.3);
+                gradingInfluence = `Emotional grading enhanced dark scale for expressive darkness`;
+                emotionalBoost = true;
+            } else if (characteristics.brightness > 0.5 && emotionalScales.bright.includes(scaleSelection.name)) {
+                adjustedSelection.score = Math.min(1, scaleSelection.score * 1.3);
+                gradingInfluence = `Emotional grading enhanced bright scale for expressive brightness`;
+                emotionalBoost = true;
+            } else if (characteristics.mystery > 0.5 && emotionalScales.mysterious.includes(scaleSelection.name)) {
+                adjustedSelection.score = Math.min(1, scaleSelection.score * 1.2);
+                gradingInfluence = `Emotional grading enhanced mysterious scale for expressive depth`;
+                emotionalBoost = true;
+            }
+            
+            if (!emotionalBoost) {
+                gradingInfluence = `Emotional grading applied standard weighting`;
+            }
+            
+        } else if (mode === 'color') {
+            // Color grading favors harmonically rich and complex scales
+            const colorfulScales = ['altered', 'whole_tone', 'octatonic_dim', 'harmonic', 'lydian_augmented', 'phrygian_dominant'];
+            
+            if (colorfulScales.includes(scaleSelection.name)) {
+                adjustedSelection.score = Math.min(1, scaleSelection.score * 1.4);
+                gradingInfluence = `Color grading boosted ${scaleSelection.name} for harmonic richness`;
+            } else {
+                // Still allow simple scales but with less preference
+                adjustedSelection.score = scaleSelection.score * 0.9;
+                gradingInfluence = `Color grading slightly reduced simple scale preference`;
+            }
+        }
+        
+        adjustedSelection.gradingInfluence = gradingInfluence;
+        adjustedSelection.gradingReasoning = `${mode.charAt(0).toUpperCase() + mode.slice(1)} grading: ${scaleSelection.primaryReason}`;
+        
+        this._log(`Grading weighting applied: ${gradingInfluence}`);
+        return adjustedSelection;
+    }
+
+    /**
+     * Select root note based on grading mode preferences
+     */
+    _selectGradingAwareRoot(characteristics, mode) {
+        const gradingMode = this.currentGradingMode;
+        
+        if (gradingMode === 'functional') {
+            // Functional grading prefers stable, traditional keys
+            if (characteristics.darkness > 0.5) {
+                return ['F', 'Bb', 'Eb', 'D', 'G'][Math.floor(Math.random() * 5)]; // Mix of flat and natural keys
+            } else if (characteristics.brightness > 0.6) {
+                return ['C', 'G', 'D', 'A'][Math.floor(Math.random() * 4)]; // Natural and sharp keys
+            } else {
+                return ['C', 'G', 'F', 'D'][Math.floor(Math.random() * 4)]; // Most stable keys
+            }
+            
+        } else if (gradingMode === 'emotional') {
+            // Emotional grading uses keys that enhance emotional expression
+            if (characteristics.darkness > 0.7 && characteristics.energy > 0.6) {
+                return ['F#', 'C#', 'Bb', 'Eb'][Math.floor(Math.random() * 4)]; // Emotionally intense keys
+            } else if (characteristics.darkness > 0.5) {
+                return ['F', 'Bb', 'Eb', 'Ab', 'D'][Math.floor(Math.random() * 5)]; // Emotionally dark keys
+            } else if (characteristics.brightness > 0.6) {
+                return ['D', 'A', 'E', 'B', 'G'][Math.floor(Math.random() * 5)]; // Emotionally bright keys
+            } else {
+                return ['C', 'G', 'F', 'A'][Math.floor(Math.random() * 4)]; // Emotionally neutral keys
+            }
+            
+        } else if (gradingMode === 'color') {
+            // Color grading uses keys that provide harmonic color and complexity
+            if (characteristics.mystery > 0.5) {
+                return ['F#', 'C#', 'Ab', 'Db', 'Eb'][Math.floor(Math.random() * 5)]; // Colorful, complex keys
+            } else if (characteristics.darkness > 0.5) {
+                return ['Bb', 'Eb', 'Ab', 'F#'][Math.floor(Math.random() * 4)]; // Rich, dark keys
+            } else {
+                return ['D', 'A', 'E', 'F#', 'Bb'][Math.floor(Math.random() * 5)]; // Harmonically interesting keys
+            }
+        }
+        
+        // Default fallback
+        return ['C', 'G', 'F'][Math.floor(Math.random() * 3)];
     }
 
     /**
@@ -427,49 +648,210 @@ class SimpleWordEngine {
     }
 
     /**
-     * Build diatonic progression that reflects the words
+     * Build diatonic progression that reflects the words - ENHANCED WITH GRADING TIER WEIGHTING
      */
     _buildProgression(character, scale, words) {
         const progression = [];
         const length = Math.min(6, Math.max(3, words.length + 1));
 
-        // Choose progression pattern based on character
-        let pattern;
-        if (character.darkness > 0.4) {
-            pattern = [1, 6, 2, 1]; // Dark, descending
-        } else if (character.energy > 0.6) {
-            pattern = [1, 4, 5, 1]; // Energetic, classic
-        } else if (character.mystery > 0.4) {
-            pattern = [1, 2, 1, 7]; // Modal, mysterious
-        } else {
-            pattern = [1, 5, 6, 4]; // Bright, pop progression
-        }
+        // Choose progression pattern based on character and grading mode
+        let pattern = this._selectGradingAwarePattern(character, scale, length);
 
-        // Extend pattern to desired length
-        while (pattern.length < length) {
-            pattern.push(pattern[pattern.length % 4]);
-        }
-
-        // Build chords
+        // Build chords with grading tier information
         for (let i = 0; i < length; i++) {
             const degree = pattern[i];
             const chord = this._getDiatonicChord(scale, degree);
             
             if (chord) {
                 const chordType = chord.type || chord.chordType || '';
+                const gradingInfo = this._getChordGradingInfo(chord, degree, scale);
+                
                 progression.push({
                     root: chord.root,
                     chordType: chordType,
                     fullName: chord.root + chordType,
                     degree: degree,
                     function: this._getFunction(degree),
-                    tier: 'Excellent', // Keep it simple
-                    reasoning: `Diatonic ${degree} in ${scale.root} ${scale.mode}`
+                    tier: gradingInfo.tierName,
+                    tierNumber: gradingInfo.tier,
+                    gradingExplanation: gradingInfo.explanation,
+                    reasoning: `Diatonic ${degree} in ${scale.root} ${scale.mode} (${gradingInfo.tierName} in ${this.currentGradingMode} mode)`
                 });
             }
         }
 
         return progression;
+    }
+
+    /**
+     * Select progression pattern based on character and grading mode - ENHANCED FOR CREATIVITY
+     */
+    _selectGradingAwarePattern(character, scale, targetLength) {
+        const mode = this.currentGradingMode;
+        
+        // Create varied, creative progressions that avoid repetition
+        let basePattern = [];
+        let extensions = [];
+        
+        if (mode === 'functional') {
+            // Functional grading prefers traditional harmonic progressions
+            if (character.darkness > 0.4) {
+                basePattern = [1, 6, 4, 5]; // Traditional minor with resolution
+                extensions = [2, 5, 1]; // Add subdominant movement
+            } else if (character.energy > 0.6) {
+                basePattern = [1, 4, 5, 6]; // Energetic with deceptive resolution
+                extensions = [2, 5, 1]; // Circle of fifths movement
+            } else {
+                basePattern = [1, 5, 6, 4]; // Popular progression
+                extensions = [1, 5, 1]; // Strong resolution
+            }
+            
+        } else if (mode === 'emotional') {
+            // Emotional grading uses progressions that enhance emotional expression
+            if (character.darkness > 0.6) {
+                basePattern = [1, 6, 2, 5]; // Dark emotional journey
+                extensions = [1, 4, 1]; // Subdominant resolution
+            } else if (character.brightness > 0.6) {
+                basePattern = [1, 3, 6, 4]; // Bright emotional lift
+                extensions = [5, 1]; // Classic resolution
+            } else if (character.energy > 0.6) {
+                basePattern = [1, 7, 4, 5]; // Driving energy with leading tone
+                extensions = [6, 2, 1]; // Descending resolution
+            } else {
+                basePattern = [1, 2, 5, 6]; // Mysterious emotional flow
+                extensions = [4, 1]; // Plagal resolution
+            }
+            
+        } else if (mode === 'color') {
+            // Color grading uses progressions that showcase harmonic color
+            if (character.mystery > 0.5) {
+                basePattern = [1, 2, 3, 7]; // Modal mystery
+                extensions = [6, 4, 1]; // Colorful resolution
+            } else if (character.darkness > 0.4) {
+                basePattern = [1, 6, 2, 3]; // Rich dark colors
+                extensions = [7, 1]; // Leading tone resolution
+            } else {
+                basePattern = [1, 3, 2, 6]; // Interesting harmonic movement
+                extensions = [4, 5, 1]; // Traditional ending
+            }
+        } else {
+            // Default fallback with variety
+            basePattern = [1, 4, 5, 6];
+            extensions = [2, 5, 1];
+        }
+        
+        // Build the final pattern with creative extensions
+        return this._buildCreativePattern(basePattern, extensions, targetLength, character);
+    }
+
+    /**
+     * Build a creative, non-repetitive pattern
+     */
+    _buildCreativePattern(basePattern, extensions, targetLength, character) {
+        let pattern = [...basePattern];
+        
+        // If we need more chords, add creative extensions
+        while (pattern.length < targetLength) {
+            const remaining = targetLength - pattern.length;
+            
+            if (remaining >= extensions.length) {
+                // Add the full extension
+                pattern = pattern.concat(extensions);
+            } else {
+                // Add partial extension with variation
+                const partialExtension = extensions.slice(0, remaining);
+                
+                // Add some variation to avoid exact repetition
+                const lastChord = pattern[pattern.length - 1];
+                const variation = this._getChordVariation(lastChord, character);
+                
+                if (remaining > 1 && variation !== lastChord) {
+                    partialExtension[0] = variation;
+                }
+                
+                pattern = pattern.concat(partialExtension);
+            }
+        }
+        
+        // Ensure we end on a strong resolution if possible
+        if (pattern.length > 2 && pattern[pattern.length - 1] !== 1) {
+            // Try to end on tonic for resolution
+            if (this.currentGradingMode === 'functional') {
+                pattern[pattern.length - 1] = 1;
+            }
+        }
+        
+        // Trim to exact length
+        return pattern.slice(0, targetLength);
+    }
+
+    /**
+     * Get a harmonic variation of a chord degree
+     */
+    _getChordVariation(degree, character) {
+        const variations = {
+            1: [6, 3], // Tonic variations
+            2: [4, 7], // Supertonic variations  
+            3: [1, 6], // Mediant variations
+            4: [2, 6], // Subdominant variations
+            5: [7, 3], // Dominant variations
+            6: [4, 1], // Submediant variations
+            7: [5, 2]  // Leading tone variations
+        };
+        
+        const options = variations[degree] || [1];
+        
+        // Choose variation based on character
+        if (character.energy > 0.6) {
+            // High energy prefers more active variations
+            return options[0];
+        } else if (character.calm > 0.6) {
+            // Calm prefers stable variations
+            return options[options.length - 1];
+        } else {
+            // Random selection for variety
+            return options[Math.floor(Math.random() * options.length)];
+        }
+    }
+
+    /**
+     * Get grading information for a chord in the current context
+     */
+    _getChordGradingInfo(chord, degree, scale) {
+        if (!this.gradingEngine || !this.gradingEngine.calculateElementGrade) {
+            // Fallback grading
+            return {
+                tier: degree === 1 ? 4 : (degree === 5 ? 3 : 2),
+                tierName: degree === 1 ? 'Perfect' : (degree === 5 ? 'Excellent' : 'Good'),
+                explanation: `Fallback grading for degree ${degree}`
+            };
+        }
+
+        try {
+            const context = {
+                elementType: 'chord',
+                key: scale.root,
+                scaleType: scale.mode,
+                degree: degree
+            };
+            
+            const tier = this.gradingEngine.calculateElementGrade(chord, context);
+            const tierInfo = this.gradingEngine.getGradingTierInfo(tier);
+            const explanation = this.gradingEngine.getGradingExplanation(chord, tier, context);
+            
+            return {
+                tier: tier,
+                tierName: tierInfo.name,
+                explanation: explanation
+            };
+        } catch (error) {
+            this._log('Error getting chord grading info:', error);
+            return {
+                tier: 2,
+                tierName: 'Good',
+                explanation: `Error calculating grading for degree ${degree}`
+            };
+        }
     }
 
     _getDiatonicChord(scale, degree) {
@@ -583,17 +965,129 @@ class SimpleWordEngine {
                 }
             }
         }
+
+        // Enhanced grading influence explanations
+        const gradingInfluence = this._compileGradingInfluence(character, scale, progression);
         
         return {
-            summary: `${words.join(' + ')} → ${traitDescription} → ${scale.root} ${scale.mode}`,
+            summary: `${words.join(' + ')} → ${traitDescription} → ${scale.root} ${scale.mode} (${this.currentGradingMode} grading)`,
             character,
             scaleChoice: scaleExplanation,
             culturalContext,
             historicalContext,
             progressionLogic: `${progression.length} chords in ${scale.root} ${scale.mode}`,
             intelligenceScore: scale.intelligenceData?.score || 0,
-            alternatives: scale.intelligenceData?.alternatives || []
+            alternatives: scale.intelligenceData?.alternatives || [],
+            gradingMode: this.currentGradingMode,
+            gradingInfluence: gradingInfluence,
+            characterAdjustment: character.gradingInfluence || 'No character adjustment applied'
         };
+    }
+
+    /**
+     * Compile detailed explanation of how grading influenced the word-to-music translation
+     */
+    _compileGradingInfluence(character, scale, progression) {
+        const mode = this.currentGradingMode;
+        const influences = [];
+        
+        // Character influence
+        if (character.gradingInfluence) {
+            influences.push(`Character: ${character.gradingInfluence}`);
+        }
+        
+        // Scale selection influence
+        if (scale.intelligenceData?.gradingInfluence) {
+            influences.push(`Scale: ${scale.intelligenceData.gradingInfluence}`);
+        }
+        
+        // Progression influence
+        const tierCounts = {};
+        progression.forEach(chord => {
+            const tier = chord.tierNumber || 2;
+            tierCounts[tier] = (tierCounts[tier] || 0) + 1;
+        });
+        
+        const tierSummary = Object.entries(tierCounts)
+            .map(([tier, count]) => {
+                const tierInfo = this._getTierName(parseInt(tier));
+                return `${count} ${tierInfo}`;
+            })
+            .join(', ');
+        
+        influences.push(`Progression: ${tierSummary} chords in ${mode} grading`);
+        
+        // Overall grading impact
+        const overallImpact = this._assessOverallGradingImpact(mode, character, scale, progression);
+        influences.push(`Overall: ${overallImpact}`);
+        
+        return {
+            mode: mode,
+            details: influences,
+            summary: `${mode.charAt(0).toUpperCase() + mode.slice(1)} grading influenced character analysis, scale selection, and chord progression choices`,
+            impact: overallImpact
+        };
+    }
+
+    /**
+     * Assess the overall impact of grading on the translation
+     */
+    _assessOverallGradingImpact(mode, character, scale, progression) {
+        if (mode === 'functional') {
+            return 'Emphasized harmonic stability and traditional chord functions';
+        } else if (mode === 'emotional') {
+            return 'Enhanced expressive characteristics and emotional contrast';
+        } else if (mode === 'color') {
+            return 'Prioritized harmonic richness and complex scale colors';
+        }
+        return 'Applied standard grading criteria';
+    }
+
+    /**
+     * Get tier name from tier number
+     */
+    _getTierName(tier) {
+        const tierNames = {
+            0: 'Experimental',
+            1: 'Fair', 
+            2: 'Good',
+            3: 'Excellent',
+            4: 'Perfect'
+        };
+        return tierNames[tier] || 'Unknown';
+    }
+
+    /**
+     * Get detailed grading explanations for the result
+     */
+    _getGradingExplanations(progression, scale) {
+        const explanations = {
+            scaleGrading: scale.intelligenceData?.gradingInfluence || 'Standard scale selection applied',
+            chordGradings: progression.map(chord => ({
+                chord: chord.fullName,
+                tier: chord.tierNumber,
+                tierName: chord.tier,
+                explanation: chord.gradingExplanation || `${chord.tier} rating in ${this.currentGradingMode} mode`
+            })),
+            modeImpact: this._getModeImpactExplanation()
+        };
+        
+        return explanations;
+    }
+
+    /**
+     * Get explanation of how the current grading mode impacts analysis
+     */
+    _getModeImpactExplanation() {
+        const mode = this.currentGradingMode;
+        
+        const explanations = {
+            functional: 'Functional grading emphasizes harmonic stability, traditional chord functions, and diatonic relationships. This mode favors conventional progressions and well-established harmonic patterns.',
+            emotional: 'Emotional grading amplifies expressive characteristics and enhances contrast between emotional extremes. This mode prioritizes scales and progressions that maximize emotional impact.',
+            color: 'Color grading prioritizes harmonic richness, complexity, and unique tonal colors. This mode favors exotic scales and harmonically interesting chord progressions.'
+        };
+        
+        return explanations[mode] || 'Standard grading criteria applied';
     }
 
     _formatLogEntry(input, result, weights) {

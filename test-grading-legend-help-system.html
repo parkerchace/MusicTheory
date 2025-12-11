@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grading Legend and Help System Test</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --bg-hover: #3a3a3a;
+            --bg-accent: #2a3a4a;
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --border-light: #444444;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #2563eb;
+            --font-main: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-tech: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .test-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+        }
+
+        .test-section h3 {
+            margin-top: 0;
+            color: var(--accent-primary);
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 10px;
+        }
+
+        .test-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .test-button {
+            padding: 8px 16px;
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .test-button:hover {
+            background: var(--accent-secondary);
+        }
+
+        .test-button.active {
+            background: var(--accent-secondary);
+        }
+
+        .legend-demo {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .legend-container {
+            flex: 1;
+            min-width: 200px;
+            padding: 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        #grading-key-legend {
+            display: flex;
+            gap: 12px;
+            font-size: 0.7rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        #grading-key-sidebar {
+            /* Will be styled by the help system */
+        }
+
+        .form-select {
+            padding: 8px 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .test-results {
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            border: 1px solid var(--border-light);
+        }
+
+        .result-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .result-item.success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .result-item.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-icon {
+            font-size: 1.2rem;
+        }
+
+        .demo-element {
+            display: inline-block;
+            padding: 8px 12px;
+            margin: 4px;
+            border-radius: 4px;
+            cursor: help;
+            border: 1px solid var(--border-light);
+        }
+
+        .comparison-demo {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .comparison-card {
+            padding: 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+        }
+
+        .comparison-card h4 {
+            margin: 0 0 12px 0;
+            color: var(--accent-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>Grading Legend and Help System Test</h1>
+            <p>Testing comprehensive grading legend with dynamic updates, contextual help, comparison views, and educational tooltips</p>
+        </div>
+
+        <!-- Test Section 1: Basic Legend Display -->
+        <div class="test-section">
+            <h3>1. Dynamic Grading Legend</h3>
+            <div class="test-controls">
+                <label>Grading Mode:</label>
+                <select id="grading-mode" class="form-select">
+                    <option value="functional">Functional</option>
+                    <option value="emotional">Emotional</option>
+                    <option value="color">Color</option>
+                </select>
+            </div>
+
+            <div class="legend-demo">
+                <div class="legend-container">
+                    <div class="legend-title">Header Legend</div>
+                    <div id="grading-key-legend">
+                        <!-- Will be populated by help system -->
+                    </div>
+                </div>
+
+                <div class="legend-container">
+                    <div class="legend-title">Sidebar Legend</div>
+                    <div id="grading-key-sidebar">
+                        <!-- Will be populated by help system -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="test-results" id="legend-results">
+                <!-- Test results will appear here -->
+            </div>
+        </div>
+
+        <!-- Test Section 2: Educational Tooltips -->
+        <div class="test-section">
+            <h3>2. Educational Tooltips</h3>
+            <p>Hover over the graded elements below to see educational tooltips:</p>
+            
+            <div style="margin: 20px 0;">
+                <div class="demo-element" data-grading-tooltip="<strong>Perfect (Tier 4)</strong><br>Primary harmonic function<br><br><em>Educational Context:</em><br>Perfect notes are primary harmonic pillars (tonic, dominant, subdominant).<br><br><em>Theoretical Basis:</em><br>Tonal hierarchy: Primary structural function" style="background: #10b981; color: white;">
+                    ★★★ Perfect Note
+                </div>
+                <div class="demo-element" data-grading-tooltip="<strong>Excellent (Tier 3)</strong><br>Important supporting function<br><br><em>Educational Context:</em><br>Excellent notes serve important harmonic functions like predominant or secondary dominant.<br><br><em>Theoretical Basis:</em><br>Functional harmony: Serves clear harmonic role" style="background: #38bdf8; color: white;">
+                    ★★ Excellent Chord
+                </div>
+                <div class="demo-element" data-grading-tooltip="<strong>Good (Tier 2)</strong><br>Stable scale member<br><br><em>Educational Context:</em><br>Good notes are scale members that support the key center.<br><br><em>Theoretical Basis:</em><br>Diatonic theory: Supports tonal center" style="background: #fbbf24; color: black;">
+                    ★ Good Scale
+                </div>
+            </div>
+
+            <div class="test-results" id="tooltip-results">
+                <!-- Test results will appear here -->
+            </div>
+        </div>
+
+        <!-- Test Section 3: Help Panel -->
+        <div class="test-section">
+            <h3>3. Contextual Help System</h3>
+            <div class="test-controls">
+                <button class="test-button" onclick="gradingHelpSystem.toggleHelpPanel()">
+                    📚 Open Help Panel
+                </button>
+                <button class="test-button" onclick="gradingHelpSystem.showComparison()">
+                    ⚖️ Open Comparison Tool
+                </button>
+            </div>
+
+            <div class="test-results" id="help-results">
+                <!-- Test results will appear here -->
+            </div>
+        </div>
+
+        <!-- Test Section 4: Mode Comparison -->
+        <div class="test-section">
+            <h3>4. Grading Mode Comparison</h3>
+            <p>Compare how the same element is graded across different modes:</p>
+            
+            <div class="test-controls">
+                <input type="text" id="comparison-test-element" placeholder="Enter element (e.g., C, Cmaj7)" style="padding: 8px; background: var(--bg-primary); border: 1px solid var(--border-light); color: var(--text-primary); border-radius: 4px;">
+                <button class="test-button" onclick="testComparison()">Compare Element</button>
+            </div>
+
+            <div class="comparison-demo" id="comparison-demo">
+                <!-- Comparison results will appear here -->
+            </div>
+
+            <div class="test-results" id="comparison-results">
+                <!-- Test results will appear here -->
+            </div>
+        </div>
+
+        <!-- Test Section 5: Accessibility Features -->
+        <div class="test-section">
+            <h3>5. Accessibility Features</h3>
+            <div class="test-controls">
+                <button class="test-button" onclick="testAccessibility()">Test Accessibility</button>
+                <button class="test-button" onclick="testHighContrast()">Test High Contrast</button>
+                <button class="test-button" onclick="testScreenReader()">Test Screen Reader</button>
+            </div>
+
+            <div class="test-results" id="accessibility-results">
+                <!-- Test results will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Include required dependencies -->
+    <script src="music-theory-engine.js"></script>
+    <script src="grading-legend-help-system.js"></script>
+
+    <script>
+        // Global variables
+        let musicTheory;
+        let gradingHelpSystem;
+
+        // Initialize the test
+        function initializeTest() {
+            try {
+                // Initialize music theory engine
+                musicTheory = new MusicTheoryEngine();
+                musicTheory.setGradingMode('functional');
+                
+                // Initialize grading help system
+                gradingHelpSystem = new GradingLegendHelpSystem(musicTheory);
+                
+                // Set up grading mode selector
+                const gradingSelector = document.getElementById('grading-mode');
+                gradingSelector.addEventListener('change', (e) => {
+                    musicTheory.setGradingMode(e.target.value);
+                    testLegendUpdates();
+                });
+
+                // Run initial tests
+                testLegendUpdates();
+                testTooltipSystem();
+                
+                addTestResult('legend-results', true, 'Grading legend and help system initialized successfully');
+                
+            } catch (error) {
+                addTestResult('legend-results', false, `Initialization failed: ${error.message}`);
+            }
+        }
+
+        // Test legend updates
+        function testLegendUpdates() {
+            try {
+                const headerLegend = document.getElementById('grading-key-legend');
+                const sidebarLegend = document.getElementById('grading-key-sidebar');
+                
+                if (headerLegend.children.length > 0 && sidebarLegend.children.length > 0) {
+                    addTestResult('legend-results', true, `Legend updated for ${musicTheory.gradingMode} mode`);
+                } else {
+                    addTestResult('legend-results', false, 'Legend elements not populated');
+                }
+                
+                // Test that legends show current mode
+                const modeIndicators = document.querySelectorAll('.legend-mode-indicator');
+                if (modeIndicators.length > 0) {
+                    addTestResult('legend-results', true, 'Mode indicators present in legends');
+                } else {
+                    addTestResult('legend-results', false, 'Mode indicators missing');
+                }
+                
+            } catch (error) {
+                addTestResult('legend-results', false, `Legend update test failed: ${error.message}`);
+            }
+        }
+
+        // Test tooltip system
+        function testTooltipSystem() {
+            try {
+                const tooltipElements = document.querySelectorAll('[data-grading-tooltip]');
+                if (tooltipElements.length > 0) {
+                    addTestResult('tooltip-results', true, `Found ${tooltipElements.length} elements with tooltips`);
+                } else {
+                    addTestResult('tooltip-results', false, 'No tooltip elements found');
+                }
+                
+                // Test tooltip element exists
+                const tooltipElement = document.getElementById('grading-tooltip');
+                if (tooltipElement) {
+                    addTestResult('tooltip-results', true, 'Tooltip element created successfully');
+                } else {
+                    addTestResult('tooltip-results', false, 'Tooltip element not found');
+                }
+                
+            } catch (error) {
+                addTestResult('tooltip-results', false, `Tooltip test failed: ${error.message}`);
+            }
+        }
+
+        // Test comparison functionality
+        function testComparison() {
+            const element = document.getElementById('comparison-test-element').value.trim();
+            if (!element) {
+                addTestResult('comparison-results', false, 'Please enter an element to compare');
+                return;
+            }
+
+            try {
+                const context = { elementType: 'note', key: 'C', scaleType: 'major' };
+                const perspectives = musicTheory.compareGradingPerspectives(element, context);
+                
+                // Display comparison results
+                const demoDiv = document.getElementById('comparison-demo');
+                let html = '';
+                
+                Object.entries(perspectives).forEach(([mode, data]) => {
+                    html += `
+                        <div class="comparison-card">
+                            <h4>${mode.charAt(0).toUpperCase() + mode.slice(1)}</h4>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                <div style="width: 16px; height: 16px; background: ${data.info.color}; border-radius: 3px;"></div>
+                                <span>${data.info.name} (Tier ${data.tier})</span>
+                            </div>
+                            <div style="font-size: 0.85rem; opacity: 0.8;">${data.explanation}</div>
+                        </div>
+                    `;
+                });
+                
+                demoDiv.innerHTML = html;
+                addTestResult('comparison-results', true, `Comparison completed for "${element}"`);
+                
+            } catch (error) {
+                addTestResult('comparison-results', false, `Comparison failed: ${error.message}`);
+            }
+        }
+
+        // Test accessibility features
+        function testAccessibility() {
+            try {
+                let passedTests = 0;
+                let totalTests = 0;
+                
+                // Test high contrast colors
+                totalTests++;
+                for (let tier = 0; tier <= 4; tier++) {
+                    const color = musicTheory.getHighContrastColor(tier);
+                    if (color && color.startsWith('#')) {
+                        passedTests++;
+                        break;
+                    }
+                }
+                
+                // Test accessibility info
+                totalTests++;
+                const accessInfo = musicTheory.getAccessibleGradingInfo(2);
+                if (accessInfo && accessInfo.screenReaderText && accessInfo.pattern) {
+                    passedTests++;
+                }
+                
+                // Test audio cues
+                totalTests++;
+                const audioCue = musicTheory.getAudioGradingCues(3);
+                if (audioCue && typeof audioCue === 'string') {
+                    passedTests++;
+                }
+                
+                addTestResult('accessibility-results', passedTests === totalTests, 
+                    `Accessibility tests: ${passedTests}/${totalTests} passed`);
+                
+            } catch (error) {
+                addTestResult('accessibility-results', false, `Accessibility test failed: ${error.message}`);
+            }
+        }
+
+        // Test high contrast mode
+        function testHighContrast() {
+            try {
+                const colors = [];
+                for (let tier = 0; tier <= 4; tier++) {
+                    colors.push(musicTheory.getHighContrastColor(tier));
+                }
+                
+                // Check that all colors are different
+                const uniqueColors = new Set(colors);
+                if (uniqueColors.size === colors.length) {
+                    addTestResult('accessibility-results', true, 'High contrast colors are unique');
+                } else {
+                    addTestResult('accessibility-results', false, 'High contrast colors have duplicates');
+                }
+                
+            } catch (error) {
+                addTestResult('accessibility-results', false, `High contrast test failed: ${error.message}`);
+            }
+        }
+
+        // Test screen reader support
+        function testScreenReader() {
+            try {
+                let ariaElements = 0;
+                
+                // Check for ARIA labels
+                const legendElements = document.querySelectorAll('[aria-label]');
+                ariaElements += legendElements.length;
+                
+                // Check for role attributes
+                const roleElements = document.querySelectorAll('[role]');
+                ariaElements += roleElements.length;
+                
+                if (ariaElements > 0) {
+                    addTestResult('accessibility-results', true, `Found ${ariaElements} accessibility attributes`);
+                } else {
+                    addTestResult('accessibility-results', false, 'No accessibility attributes found');
+                }
+                
+            } catch (error) {
+                addTestResult('accessibility-results', false, `Screen reader test failed: ${error.message}`);
+            }
+        }
+
+        // Helper function to add test results
+        function addTestResult(containerId, success, message) {
+            const container = document.getElementById(containerId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result-item ${success ? 'success' : 'error'}`;
+            resultDiv.innerHTML = `
+                <span class="status-icon">${success ? '✅' : '❌'}</span>
+                <span>${message}</span>
+            `;
+            container.appendChild(resultDiv);
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializeTest);
+    </script>
+</body>
+</html>

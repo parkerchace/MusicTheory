@@ -545,6 +545,201 @@ class UnifiedChordExplorer {
     }
 
     /**
+     * Generate different voicings/inversions for duplicate chords in progression
+     */
+    generateProgressionChords() {
+        const seq = this.ensureProgressionSequence();
+        const progressionChords = [];
+        const degreeOccurrences = new Map(); // Track how many times each degree appears
+        
+        seq.forEach((entry, seqIndex) => {
+            if (entry.type === 'degree') {
+                const degree = entry.degree;
+                const baseChord = this.state.scaleChords.find(sc => sc.degree === degree);
+                
+                if (baseChord) {
+                    // Track occurrence count for this degree
+                    const occurrenceCount = degreeOccurrences.get(degree) || 0;
+                    degreeOccurrences.set(degree, occurrenceCount + 1);
+                    
+                    // Generate different voicing based on occurrence
+                    const voicedChord = this.generateChordVoicing(baseChord, occurrenceCount, seqIndex);
+                    progressionChords.push(voicedChord);
+                } else {
+                    // Fallback for missing chord
+                    progressionChords.push(null);
+                }
+            } else if (entry.type === 'inserted' && entry.substitution) {
+                // Handle inserted substitutions
+                const sub = entry.substitution;
+                const synthChord = {
+                    degree: null,
+                    root: sub.root,
+                    chordType: sub.chordType || '',
+                    fullName: sub.fullName || (sub.root + (sub.chordType || '')),
+                    notes: sub.notes || (this.musicTheory.getChordNotes ? this.musicTheory.getChordNotes(sub.root, sub.chordType) : []),
+                    inProgression: true,
+                    functions: [],
+                    seqIndex: seqIndex,
+                    isInserted: true
+                };
+                progressionChords.push(synthChord);
+            }
+        });
+        
+        return progressionChords;
+    }
+
+    /**
+     * Generate different voicing/inversion for a chord based on its occurrence in the progression
+     */
+    generateChordVoicing(baseChord, occurrenceIndex, seqIndex) {
+        const voicings = this.getAvailableVoicings(baseChord);
+        const selectedVoicing = voicings[occurrenceIndex % voicings.length];
+        
+        return {
+            ...baseChord,
+            ...selectedVoicing,
+            seqIndex: seqIndex,
+            occurrenceIndex: occurrenceIndex,
+            voicingType: selectedVoicing.voicingType,
+            voicingLabel: selectedVoicing.voicingLabel
+        };
+    }
+
+    /**
+     * Get available voicings/inversions for a chord
+     */
+    getAvailableVoicings(chord) {
+        const voicings = [];
+        const root = chord.root;
+        const chordType = chord.chordType;
+        const baseNotes = chord.notes || [];
+        
+        // Root position (original)
+        voicings.push({
+            fullName: chord.fullName,
+            notes: baseNotes,
+            voicingType: 'root',
+            voicingLabel: 'Root Position',
+            bassNote: root
+        });
+        
+        if (baseNotes.length >= 3) {
+            // First inversion (3rd in bass)
+            const firstInvNotes = this.invertChord(baseNotes, 1);
+            voicings.push({
+                fullName: `${chord.fullName}/3`,
+                notes: firstInvNotes,
+                voicingType: 'first',
+                voicingLabel: '1st Inversion',
+                bassNote: firstInvNotes[0]
+            });
+            
+            // Second inversion (5th in bass)
+            const secondInvNotes = this.invertChord(baseNotes, 2);
+            voicings.push({
+                fullName: `${chord.fullName}/5`,
+                notes: secondInvNotes,
+                voicingType: 'second',
+                voicingLabel: '2nd Inversion',
+                bassNote: secondInvNotes[0]
+            });
+        }
+        
+        if (baseNotes.length >= 4) {
+            // Third inversion (7th in bass) for 7th chords
+            const thirdInvNotes = this.invertChord(baseNotes, 3);
+            voicings.push({
+                fullName: `${chord.fullName}/7`,
+                notes: thirdInvNotes,
+                voicingType: 'third',
+                voicingLabel: '3rd Inversion',
+                bassNote: thirdInvNotes[0]
+            });
+        }
+        
+        // Add extended voicings if chord supports them
+        if (chordType.includes('7') || chordType.includes('9') || chordType.includes('11') || chordType.includes('13')) {
+            // Drop 2 voicing (drop the 2nd highest note an octave)
+            if (baseNotes.length >= 4) {
+                const drop2Notes = this.createDrop2Voicing(baseNotes);
+                voicings.push({
+                    fullName: `${chord.fullName} (Drop 2)`,
+                    notes: drop2Notes,
+                    voicingType: 'drop2',
+                    voicingLabel: 'Drop 2',
+                    bassNote: drop2Notes[0]
+                });
+            }
+            
+            // Drop 3 voicing (drop the 3rd highest note an octave)
+            if (baseNotes.length >= 4) {
+                const drop3Notes = this.createDrop3Voicing(baseNotes);
+                voicings.push({
+                    fullName: `${chord.fullName} (Drop 3)`,
+                    notes: drop3Notes,
+                    voicingType: 'drop3',
+                    voicingLabel: 'Drop 3',
+                    bassNote: drop3Notes[0]
+                });
+            }
+        }
+        
+        // Add rootless voicings for jazz chords
+        if (chordType.includes('7') && !chordType.includes('maj7')) {
+            const rootlessNotes = baseNotes.slice(1); // Remove root
+            if (rootlessNotes.length >= 3) {
+                voicings.push({
+                    fullName: `${chord.fullName} (Rootless)`,
+                    notes: rootlessNotes,
+                    voicingType: 'rootless',
+                    voicingLabel: 'Rootless',
+                    bassNote: rootlessNotes[0]
+                });
+            }
+        }
+        
+        return voicings;
+    }
+
+    /**
+     * Invert a chord by moving notes to different octaves
+     */
+    invertChord(notes, inversion) {
+        if (!notes || notes.length < 2 || inversion <= 0) return notes;
+        
+        const inverted = [...notes];
+        for (let i = 0; i < inversion && i < notes.length; i++) {
+            const note = inverted.shift();
+            inverted.push(note); // Move to end (conceptually higher octave)
+        }
+        return inverted;
+    }
+
+    /**
+     * Create Drop 2 voicing (drop 2nd highest note an octave)
+     */
+    createDrop2Voicing(notes) {
+        if (notes.length < 4) return notes;
+        const voicing = [...notes];
+        const secondHighest = voicing.splice(-2, 1)[0]; // Remove 2nd from top
+        voicing.unshift(secondHighest); // Add to bottom (lower octave)
+        return voicing;
+    }
+
+    /**
+     * Create Drop 3 voicing (drop 3rd highest note an octave)
+     */
+    createDrop3Voicing(notes) {
+        if (notes.length < 4) return notes;
+        const voicing = [...notes];
+        const thirdHighest = voicing.splice(-3, 1)[0]; // Remove 3rd from top
+        voicing.unshift(thirdHighest); // Add to bottom (lower octave)
+        return voicing;
+    }
+
+    /**
      * Get functional harmony tags for a degree
      */
     getFunctionalHarmonyTags(degree, scale) {
@@ -788,12 +983,136 @@ class UnifiedChordExplorer {
         else tier = 0; // experimental/default
         
         const tierInfo = this.musicTheory.getGradingTierInfo(tier);
+        
+        // Enhanced grading information for substitutions
         return {
             ...sub,
             tier,
             color: tierInfo.color,
-            grade: tierInfo.label // Replace string grade with tier label
+            grade: tierInfo.label, // Replace string grade with tier label
+            gradingExplanation: this.generateGradingExplanation(sub, tier),
+            gradingShort: tierInfo.short,
+            gradingName: tierInfo.name
         };
+    }
+
+    /**
+     * Get grading information for the original chord being substituted
+     */
+    getOriginalChordGrading(chord) {
+        if (!chord || !chord.degree) return null;
+        
+        try {
+            // Use the music theory engine to get grading for this chord in current context
+            const context = {
+                key: this.state.currentKey,
+                scale: this.state.currentScale,
+                degree: chord.degree,
+                chordType: chord.chordType
+            };
+            
+            // Calculate grading tier based on functional context
+            let tier = 2; // default
+            const mode = this.musicTheory.gradingMode || 'functional';
+            
+            if (mode === 'functional') {
+                // Grade based on functional importance
+                if (chord.functions.includes('tonic')) tier = 4;
+                else if (chord.functions.includes('dominant')) tier = 4;
+                else if (chord.functions.includes('predominant')) tier = 3;
+                else tier = 2;
+            } else if (mode === 'emotional') {
+                // Grade based on emotional stability
+                if ([1, 3, 6].includes(chord.degree)) tier = 4; // stable
+                else if ([4, 5].includes(chord.degree)) tier = 3; // moderately stable
+                else tier = 2; // less stable
+            } else if (mode === 'color') {
+                // Grade based on harmonic color
+                if (chord.chordType.includes('7') || chord.chordType.includes('9')) tier = 4;
+                else if (chord.chordType.includes('m') || chord.chordType.includes('dim')) tier = 3;
+                else tier = 2;
+            }
+            
+            const tierInfo = this.musicTheory.getGradingTierInfo(tier);
+            return {
+                tier,
+                color: tierInfo.color,
+                short: tierInfo.short,
+                name: tierInfo.name,
+                label: tierInfo.label
+            };
+        } catch (e) {
+            console.warn('Failed to get original chord grading:', e);
+            return null;
+        }
+    }
+
+    /**
+     * Generate grading explanation for a substitution based on current grading mode
+     */
+    generateGradingExplanation(sub, tier) {
+        const mode = this.musicTheory.gradingMode || 'functional';
+        const tierInfo = this.musicTheory.getGradingTierInfo(tier);
+        
+        let explanation = `${tierInfo.name} (${tierInfo.short}) - `;
+        
+        if (mode === 'functional') {
+            switch (sub.type) {
+                case 'secondary_dominant':
+                    explanation += 'Strong functional relationship - creates temporary tonicization';
+                    break;
+                case 'tritone_sub':
+                    explanation += 'Shares guide tones with original - smooth voice leading';
+                    break;
+                case 'modal_interchange':
+                    explanation += 'Borrowed from parallel mode - adds harmonic color';
+                    break;
+                case 'container':
+                    explanation += 'Contains all original notes - harmonic extension';
+                    break;
+                case 'relative':
+                    explanation += 'Shares common tones - maintains harmonic function';
+                    break;
+                default:
+                    explanation += `${sub.family} substitution with ${sub.voiceLeading || 'smooth'} voice leading`;
+            }
+        } else if (mode === 'emotional') {
+            switch (tier) {
+                case 4:
+                    explanation += 'Maintains emotional character while adding sophistication';
+                    break;
+                case 3:
+                    explanation += 'Enhances emotional expression with harmonic color';
+                    break;
+                case 2:
+                    explanation += 'Provides moderate emotional contrast';
+                    break;
+                case 1:
+                    explanation += 'Creates subtle emotional variation';
+                    break;
+                default:
+                    explanation += 'Experimental emotional effect';
+            }
+        } else if (mode === 'color') {
+            switch (tier) {
+                case 4:
+                    explanation += 'Perfect harmonic color match - maintains tonal center';
+                    break;
+                case 3:
+                    explanation += 'Excellent color enhancement - adds harmonic richness';
+                    break;
+                case 2:
+                    explanation += 'Good color variation - moderate harmonic departure';
+                    break;
+                case 1:
+                    explanation += 'Subtle color change - mild harmonic alteration';
+                    break;
+                default:
+                    explanation += 'Experimental color effect - significant harmonic departure';
+            }
+        }
+        
+        return explanation;
     }
 
     /**
@@ -906,7 +1225,7 @@ class UnifiedChordExplorer {
 
     /**
      * Sort substitutions by harmonic distance for optimal radial positioning
-     * Uses voice-leading distance + functional similarity
+     * Uses voice-leading distance + functional similarity + grading tier
      */
     sortSubstitutionsByHarmonicDistance(subs, originalChord) {
         // Family priority (closer = more related)
@@ -926,14 +1245,37 @@ class UnifiedChordExplorer {
             // Factor 1: Family similarity
             distance += (familyPriority[sub.family] || 7) * 10;
             
-            // Factor 2: Grade quality (better = closer)
+            // Factor 2: Grading tier (higher tier = closer, more prominent)
+            const tier = sub.tier !== undefined ? sub.tier : 2; // default to middle tier
+            distance -= (tier * 8); // Higher tier gets lower distance (closer)
+            
+            // Factor 3: Grade quality (better = closer) - legacy support
             if (sub.grade === 'perfect') distance -= 15;
             else if (sub.grade === 'excellent') distance -= 10;
             else if (sub.grade === 'good') distance -= 5;
             
-            // Factor 3: Common tones with original
+            // Factor 4: Common tones with original
             const commonTones = this.countCommonTones(originalChord.notes, sub.notes || []);
             distance -= commonTones * 5;
+            
+            // Factor 5: Grading mode specific adjustments
+            const mode = this.musicTheory.gradingMode || 'functional';
+            if (mode === 'functional') {
+                // Prioritize functional relationships
+                if (['secondary_dominant', 'tritone_sub', 'ii_v_setup'].includes(sub.type)) {
+                    distance -= 12;
+                }
+            } else if (mode === 'emotional') {
+                // Prioritize emotional consistency
+                if (['relative', 'parallel', 'modal_interchange'].includes(sub.type)) {
+                    distance -= 10;
+                }
+            } else if (mode === 'color') {
+                // Prioritize harmonic color
+                if (['container', 'chromatic_mediant', 'modal_interchange'].includes(sub.type)) {
+                    distance -= 8;
+                }
+            }
             
             sub.harmonicDistance = distance;
         });
@@ -1425,31 +1767,23 @@ class UnifiedChordExplorer {
             hint.textContent = 'Generate a number sequence to show its chords here.';
             this.containerElement.appendChild(hint);
         } else if (seq && seq.length > 0) {
-            seq.forEach((entry, idx) => {
-                if (entry.type === 'degree') {
-                    const chord = this.state.scaleChords.find(sc => sc.degree === entry.degree);
-                    if (chord) {
+            // Generate progression chords with different voicings for duplicates
+            const progressionChords = this.generateProgressionChords();
+            
+            progressionChords.forEach((chord, idx) => {
+                if (chord) {
+                    if (chord.isInserted) {
+                        // Handle inserted substitutions
+                        const diatMatch = this.state.scaleChords.find(sc => sc.root === chord.root) || null;
+                        const displayRN = diatMatch ? this.toRomanNumeral(diatMatch.degree, chord.chordType)
+                                                    : this.computeAccidentalRoman(chord.root, chord.chordType);
+                        const card = this.createChordCard(chord, { seqIndex: idx, displayRN, isInserted: true });
+                        grid.appendChild(card);
+                    } else {
+                        // Handle regular diatonic chords with voicing information
                         const card = this.createChordCard(chord, { seqIndex: idx });
                         grid.appendChild(card);
                     }
-                } else if (entry.type === 'inserted' && entry.substitution) {
-                    const sub = entry.substitution;
-                    const diatMatch = this.state.scaleChords.find(sc => sc.root === sub.root) || null;
-                    const degree = diatMatch ? diatMatch.degree : null;
-                    const chordType = sub.chordType || '';
-                    const displayRN = diatMatch ? this.toRomanNumeral(diatMatch.degree, chordType)
-                                                : this.computeAccidentalRoman(sub.root, chordType);
-                    const synthChord = {
-                        degree,
-                        root: sub.root,
-                        chordType: chordType,
-                        fullName: sub.fullName || (sub.root + (chordType || '')),
-                        notes: entry.notes || sub.notes || this.musicTheory.getChordNotes(sub.root, chordType),
-                        inProgression: true,
-                        functions: []
-                    };
-                    const card = this.createChordCard(synthChord, { seqIndex: idx, displayRN, isInserted: true });
-                    grid.appendChild(card);
                 }
             });
         } else {
@@ -1503,6 +1837,15 @@ class UnifiedChordExplorer {
     nameLabel.className = 'chord-name';
     // Use the safe full name computed above
     nameLabel.textContent = safeFullName;
+    
+    // Add voicing indicator if this chord has voicing information
+    if (chord.voicingLabel && chord.occurrenceIndex > 0) {
+        const voicingIndicator = document.createElement('div');
+        voicingIndicator.className = 'voicing-indicator';
+        voicingIndicator.textContent = chord.voicingLabel;
+        voicingIndicator.title = `${chord.voicingLabel} - Occurrence ${chord.occurrenceIndex + 1}`;
+        nameLabel.appendChild(voicingIndicator);
+    }
 
     // If we detected an unexpected missing name, log for debugging
     try {
@@ -2546,34 +2889,38 @@ class UnifiedChordExplorer {
      */
     createRadialNode(sub) {
         const node = document.createElement('div');
-        node.className = `radial-node family-${sub.family}`;
+        node.className = `radial-node family-${sub.family} tier-${sub.tier || 0}`;
         node.style.transform = `translate(${sub.x}px, ${sub.y}px)`;
         
-        // Apply grading color dynamically
+        // Apply grading color dynamically with enhanced visual feedback
         if (sub.color) {
             node.style.borderColor = sub.color;
-            node.style.boxShadow = `0 0 8px ${sub.color}40`;
+            node.style.boxShadow = `0 0 8px ${sub.color}40, inset 0 0 4px ${sub.color}20`;
+            // Add grading tier indicator as a subtle background gradient
+            node.style.background = `linear-gradient(135deg, ${sub.color}15, rgba(0,0,0,0.9))`;
         }
         
+        // Enhanced node content with grading tier indicator
         node.innerHTML = `
             <div class="node-chord">${sub.fullName}</div>
             <div class="node-label">${sub.label}</div>
-            ${sub.grade ? `<div class="node-grade">${this.formatGrade(sub.grade)}</div>` : ''}
+            ${sub.grade ? `<div class="node-grade" style="color: ${sub.color}">${sub.gradingShort || this.formatGrade(sub.grade)}</div>` : ''}
+            ${sub.tier !== undefined ? `<div class="node-tier-indicator" style="background: ${sub.color}"></div>` : ''}
             ${sub.voiceLeading ? `<div class="node-voice-leading">${sub.voiceLeading}</div>` : ''}
         `;
         
-        // Detailed tooltip on hover
-        if (sub.description || sub.voiceLeading) {
-            const tooltip = document.createElement('div');
-            tooltip.className = 'node-tooltip';
-            tooltip.innerHTML = `
-                <strong>${sub.fullName}</strong>
-                <div class="tooltip-type">${sub.type.replace(/_/g, ' ')}</div>
-                ${sub.voiceLeading ? `<div class="tooltip-voice">Voice Leading: ${sub.voiceLeading}</div>` : ''}
-                ${sub.description ? `<div class="tooltip-desc">${sub.description}</div>` : ''}
-            `;
-            node.appendChild(tooltip);
-        }
+        // Enhanced tooltip with grading explanation
+        const tooltip = document.createElement('div');
+        tooltip.className = 'node-tooltip';
+        tooltip.innerHTML = `
+            <strong>${sub.fullName}</strong>
+            <div class="tooltip-type">${sub.type.replace(/_/g, ' ')}</div>
+            ${sub.gradingExplanation ? `<div class="tooltip-grading">${sub.gradingExplanation}</div>` : ''}
+            ${sub.voiceLeading ? `<div class="tooltip-voice">Voice Leading: ${sub.voiceLeading}</div>` : ''}
+            ${sub.description ? `<div class="tooltip-desc">${sub.description}</div>` : ''}
+            ${sub.tier !== undefined ? `<div class="tooltip-tier">Grading Tier: ${sub.tier + 1}/5</div>` : ''}
+        `;
+        node.appendChild(tooltip);
         
         // Click handler
         node.addEventListener('click', (e) => {
@@ -2589,9 +2936,17 @@ class UnifiedChordExplorer {
             }
         });
 
-        // Hover preview (future: could play audio or highlight piano)
+        // Enhanced hover preview with grading information
         node.addEventListener('mouseenter', () => {
-            this.emit('substitutionHover', { substitution: sub, original: this.state.selectedChord });
+            this.emit('substitutionHover', { 
+                substitution: sub, 
+                original: this.state.selectedChord,
+                grading: {
+                    tier: sub.tier,
+                    color: sub.color,
+                    explanation: sub.gradingExplanation
+                }
+            });
         });
 
         return node;
@@ -3192,13 +3547,33 @@ class UnifiedChordExplorer {
             const clusteredRoots = (effectiveSubs || []).filter(s => s.type === 'container_root_cluster').map(s => s.root);
             const clusterInfo = clusteredRoots.length ? `<div class=\"center-summary-line\">Clusters: ${clusteredRoots.join(', ')} </div>` : '';
             const modeLine = this.state.exhaustiveMode ? 'Exhaustive' : 'Curated';
+            
+            // Get grading information for the original chord
+            const originalGrading = this.getOriginalChordGrading(this.state.selectedChord);
+            const gradingInfo = originalGrading ? `<div class=\"center-grading\" style=\"color: ${originalGrading.color}\">${originalGrading.short} ${originalGrading.name}</div>` : '';
+            
+            // Count substitutions by tier for summary
+            const tierCounts = {};
+            effectiveSubs.forEach(sub => {
+                const tier = sub.tier !== undefined ? sub.tier : 0;
+                tierCounts[tier] = (tierCounts[tier] || 0) + 1;
+            });
+            const tierSummary = Object.entries(tierCounts)
+                .sort(([a], [b]) => b - a) // Sort by tier descending
+                .map(([tier, count]) => {
+                    const tierInfo = this.musicTheory.getGradingTierInfo(parseInt(tier));
+                    return `<span style="color: ${tierInfo.color}">${tierInfo.short}:${count}</span>`;
+                })
+                .join(' ');
+            
             center.innerHTML = `
                 <div class=\"center-chord\">${this.state.selectedChord.fullName}</div>
                 <div class=\"center-label\">original • ${modeLine}</div>
+                ${gradingInfo}
                 <div class=\"center-hint\">select substitution</div>
                 <div class=\"center-summary\">
                     <div class=\"center-summary-line\">Total: ${totalCount}</div>
-                    <div class=\"center-summary-line\">Container: ${containerCount}</div>
+                    <div class=\"center-summary-line\">Tiers: ${tierSummary}</div>
                     ${clusterInfo}
                 </div>
             `;

@@ -454,6 +454,10 @@ class ScaleLibrary {
             scaleOptionsHTML += `</optgroup>`;
         });
         
+        // Get citation for current scale
+        const currentCitation = this.musicTheory.getScaleCitation ? 
+            this.musicTheory.getScaleCitation(currentScale, 'html') : '';
+        
         this.container.innerHTML = `
             <div class="scale-library-ui">
                 <h3>Scale Library</h3>
@@ -470,20 +474,61 @@ class ScaleLibrary {
                         ${scaleOptionsHTML}
                     </select>
                 </div>
+                ${currentCitation ? `
+                    <div class="scale-citation-compact">
+                        <span class="citation-summary">📚 Academic Info</span>
+                        <button class="citation-toggle" onclick="
+                            const fullDiv = this.parentElement.nextElementSibling;
+                            const isHidden = fullDiv.style.display === 'none' || fullDiv.style.display === '';
+                            fullDiv.style.display = isHidden ? 'block' : 'none';
+                            this.textContent = isHidden ? '−' : '+';
+                        ">+</button>
+                    </div>
+                    <div class="scale-citation-full" style="display: none;">${currentCitation}</div>
+                ` : ''}
             </div>
             <style>
-                .scale-citation {
-                    margin-top: 12px;
-                    padding: 12px 16px;
+                .scale-citation-compact {
+                    margin-top: 8px;
+                    padding: 4px 8px;
+                    background: rgba(0, 243, 255, 0.05);
+                    border: 1px solid rgba(0, 243, 255, 0.2);
+                    font-size: 0.7rem;
+                    color: var(--text-muted);
+                    font-family: var(--font-tech);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .citation-summary {
+                    flex: 1;
+                }
+                .citation-toggle {
+                    width: 16px;
+                    height: 16px;
+                    font-size: 0.6rem;
+                    padding: 0;
+                    background: rgba(0, 243, 255, 0.2);
+                    border: 1px solid rgba(0, 243, 255, 0.4);
+                    color: var(--accent-primary);
+                    cursor: pointer;
+                    border-radius: 0;
+                    line-height: 1;
+                }
+                .scale-citation-full {
+                    margin-top: 4px;
+                    padding: 8px 12px;
                     background: linear-gradient(135deg, rgba(0, 243, 255, 0.1) 0%, rgba(5, 10, 15, 0.9) 100%);
                     border-left: 3px solid var(--accent-primary);
                     border-radius: 0;
-                    font-size: 0.85rem;
+                    font-size: 0.75rem;
                     color: var(--text-main);
-                    line-height: 1.6;
+                    line-height: 1.4;
                     font-family: var(--font-tech);
                     border: 1px solid var(--border-light);
                     border-left-width: 3px;
+                    max-height: 200px;
+                    overflow-y: auto;
                 }
                 .scale-citation-content {
                     display: flex;

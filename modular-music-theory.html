@@ -795,6 +795,79 @@
             /* Generated chords display area */
             min-height: 40px;
         }
+
+        .pb-empty {
+            color: var(--text-muted);
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .pb-progression-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .pb-chord-item {
+            background: var(--bg-input);
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            padding: 8px;
+            min-width: 120px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pb-chord-item:hover {
+            background: var(--surface-color);
+            border-color: var(--primary-color);
+        }
+
+        .pb-chord-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+            padding-left: 8px;
+        }
+
+        .pb-chord-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .pb-chord-grade {
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .pb-chord-explanation {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-bottom: 2px;
+            line-height: 1.2;
+        }
+
+        .pb-chord-degree {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .pb-progression-controls {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 8px;
+        }
+
+        .pb-suggest-alternatives,
+        .pb-show-analysis {
+            font-size: 0.8rem;
+            padding: 6px 12px;
+        }
         
         .pb-sub-panel {
             margin-top: 12px;
@@ -965,15 +1038,33 @@
             outline: none;
         }
         
-        /* ==================== MODULE TOGGLE DROPDOWN ==================== */
-        .tools-dropdown-panel {
+        /* ==================== SIMPLIFIED CONTROL DECK ==================== */
+        .primary-input-section {
+            border-left: 1px solid var(--border-light);
+            padding-left: 16px;
+        }
+        
+        .grading-section {
+            border-left: 1px solid var(--border-light);
+            padding-left: 12px;
+        }
+        
+        .secondary-controls {
+            border-left: 1px solid var(--border-light);
+            padding-left: 12px;
+        }
+        
+        /* ==================== DROPDOWN PANELS ==================== */
+        .tools-dropdown-panel,
+        #settings-dropdown-panel,
+        #help-dropdown-panel {
             position: absolute;
             top: calc(100% + 4px);
             right: 0;
             background: var(--bg-panel);
             border: 1px solid var(--border-light);
             padding: 8px;
-            min-width: 220px;
+            min-width: 200px;
             max-height: 0;
             overflow: hidden;
             opacity: 0;
@@ -982,8 +1073,10 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
         
-        .tools-dropdown-panel.open {
-            max-height: 300px;
+        .tools-dropdown-panel.open,
+        #settings-dropdown-panel.open,
+        #help-dropdown-panel.open {
+            max-height: 400px;
             opacity: 1;
         }
         
@@ -1396,122 +1489,158 @@
     </style>
 </head>
 <body data-theme="clean-daw">
-    <!-- TOP CONTROL DECK -->
+    <!-- TOP CONTROL DECK - SIMPLIFIED -->
     <div class="control-deck">
+        <!-- App Brand -->
         <div class="app-brand">
-            <span>SYSTEM::THEORY_STUDIO_V12</span>
+            <span>THEORY_STUDIO</span>
         </div>
         
-        <!-- Injected Controls (Compact) -->
+        <!-- Primary Input Section -->
+        <div class="primary-input-section" style="display:flex; align-items:center; gap:12px;">
+            <!-- Input Mode Toggle -->
+            <div class="input-mode-toggle" style="display:flex; gap:4px;">
+                <button id="input-mode-words" class="input-mode-btn active" title="Word Input Mode">📝</button>
+                <button id="input-mode-numbers" class="input-mode-btn" title="Number Input Mode">🔢</button>
+            </div>
+            
+            <!-- Main Input Field -->
+            <input type="text" id="global-word-input" 
+                   class="form-input word-mode-input" 
+                   placeholder="Enter words: chase, woods, dark..."
+                   style="width:300px; padding:6px 12px; font-size:0.8rem;">
+            
+            <input type="text" id="global-manual-numbers" 
+                   class="form-input number-mode-input" 
+                   placeholder="Enter degrees/chords..."
+                   style="display:none; width:200px; padding:6px 12px; font-size:0.8rem; text-align:center;">
+            
+            <!-- Quick Actions -->
+            <div class="quick-actions" style="display:flex; gap:6px;">
+                <button id="word-randomize-btn" class="btn-icon" title="Randomize">🎲</button>
+                <button id="word-regenerate-btn" class="btn-icon" title="Regenerate">🔄</button>
+                <button id="word-send-sheet-btn" class="btn-icon" title="To Sheet Music">🎼</button>
+            </div>
+        </div>
+        
+        <!-- Scale Controls (Compact) -->
         <div class="header-module" id="header-scale-controls">
-            <!-- Scale Library will mount here -->
             <div id="scale-library-container"></div>
         </div>
         
-        <!-- Grading View Selector -->
-        <div class="header-module" style="display:flex; align-items:center; gap:8px;">
-            <label for="global-grading-type" style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap;">Grading View:</label>
-            <select id="global-grading-type" class="form-input" style="font-size:0.75rem; padding:4px 8px;">
+        <!-- Grading Mode (Simplified) -->
+        <div class="grading-section" style="display:flex; align-items:center; gap:8px;">
+            <select id="global-grading-type" class="form-input" style="font-size:0.75rem; padding:4px 8px; min-width:120px;">
                 <option value="functional">Functional</option>
                 <option value="emotional">Emotional</option>
                 <option value="color">Color</option>
             </select>
         </div>
         
-        <!-- Grading Key Legend -->
-        <div class="header-module" id="grading-key-legend" style="display:flex; gap:12px; font-size:0.7rem; align-items:center;">
-            <!-- Will be populated dynamically -->
-        </div>
-        
-        <!-- Word/Number Input Toggle -->
-        <div class="header-module word-input-container" style="display:flex; align-items:center; gap:8px;">
-            <!-- Mode Toggle Buttons -->
-            <button id="input-mode-words" class="input-mode-btn active" title="Word Input Mode">
-                📝
-            </button>
-            <button id="input-mode-numbers" class="input-mode-btn" title="Number Input Mode">
-                🔢
-            </button>
-            
-            <!-- Word Input (visible by default) -->
-            <input type="text" id="global-word-input" 
-                   class="form-input word-mode-input" 
-                   placeholder="Enter words: chase, woods, dark..."
-                   style="width:250px; padding:4px 8px; font-size:0.75rem; font-family:var(--font-main);">
-            
-            <!-- Number Input (hidden by default) -->
-            <input type="text" id="global-manual-numbers" 
-                   class="form-input number-mode-input" 
-                   placeholder="Enter degrees/chords..."
-                   style="display:none; width:180px; padding:4px 8px; font-size:0.75rem; text-align:center; font-family:var(--font-tech);">
-            
-            <!-- Randomize Button -->
-            <button id="word-randomize-btn" class="btn-icon" title="Randomize Weights & Regenerate" style="font-size:1rem;">
-                🎲
-            </button>
-            <!-- Regenerate with current weights -->
-            <button id="word-regenerate-btn" class="btn-icon" title="Regenerate with current weights" style="font-size:1rem;">
-                🔄
-            </button>
-            <!-- Send latest result to sheet music -->
-            <button id="word-send-sheet-btn" class="btn-icon" title="Send latest analysis to Sheet Music" style="font-size:1rem;">
-                🎼
-            </button>
-            
-            <!-- Settings Button -->
-            <button id="word-settings-btn" class="btn-icon" title="Word Analysis Settings" style="font-size:1rem;">
-                ⚙️
-            </button>
-            
-            <!-- Undo/Redo Buttons -->
-            <button id="global-undo-btn" class="btn-icon" title="Undo last change (Ctrl+Z)" style="font-size:1rem;" disabled>
-                ↶ Undo
-            </button>
-            <button id="global-redo-btn" class="btn-icon" title="Redo (Ctrl+Y)" style="font-size:1rem;" disabled>
-                ↷ Redo
-            </button>
-        </div>
-        
         <div style="flex: 1;"></div> <!-- Spacer -->
         
-        <!-- Tools Dropdown -->
-        <div class="tools-dropdown" style="position: relative; margin-right: 8px;">
-            <button id="tools-dropdown-btn" class="btn-icon" style="display: flex; align-items: center; gap: 4px;">
-                [MODULES] <span id="tools-dropdown-arrow">▾</span>
-            </button>
-            <div id="tools-dropdown-panel" class="tools-dropdown-panel">
-                <div class="module-toggle-item">
-                    <input type="checkbox" id="toggle-mod-input" data-module="input" checked>
-                    <label for="toggle-mod-input">Input: Number Gen</label>
+        <!-- Secondary Controls -->
+        <div class="secondary-controls" style="display:flex; align-items:center; gap:8px;">
+            <!-- Settings Menu -->
+            <div class="settings-dropdown" style="position: relative;">
+                <button id="settings-dropdown-btn" class="btn-icon" title="Settings & Options">⚙️</button>
+                <div id="settings-dropdown-panel" class="tools-dropdown-panel">
+                    <!-- Grading Settings -->
+                    <div style="padding:8px; border-bottom:1px solid var(--border-light); margin-bottom:8px;">
+                        <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">GRADING INFLUENCE</div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                            <span style="font-size:0.65rem; width:40px;">Visual</span>
+                            <input type="range" id="visual-influence" min="0" max="100" value="80" style="width:60px; height:8px;">
+                            <span id="visual-influence-value" style="font-size:0.65rem; width:30px;">80%</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span style="font-size:0.65rem; width:40px;">Logic</span>
+                            <input type="range" id="behavior-influence" min="0" max="100" value="60" style="width:60px; height:8px;">
+                            <span id="behavior-influence-value" style="font-size:0.65rem; width:30px;">60%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Word Analysis Settings -->
+                    <div class="module-toggle-item">
+                        <button id="word-settings-btn" style="width:100%; text-align:left; background:transparent; border:none; color:var(--text-muted); padding:6px; cursor:pointer;">
+                            📊 Word Analysis Settings
+                        </button>
+                    </div>
+                    
+                    <!-- Module Toggles -->
+                    <div style="border-top:1px solid var(--border-light); margin-top:8px; padding-top:8px;">
+                        <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">MODULES</div>
+                        <div class="module-toggle-item">
+                            <input type="checkbox" id="toggle-mod-input" data-module="input" checked>
+                            <label for="toggle-mod-input">Number Generator</label>
+                        </div>
+                        <div class="module-toggle-item">
+                            <input type="checkbox" id="toggle-mod-ref" data-module="ref" checked>
+                            <label for="toggle-mod-ref">Circle of Fifths</label>
+                        </div>
+                        <div class="module-toggle-item">
+                            <input type="checkbox" id="toggle-mod-tool" data-module="tool" checked>
+                            <label for="toggle-mod-tool">Container Chord</label>
+                        </div>
+                        <div class="module-toggle-item">
+                            <input type="checkbox" id="toggle-mod-score" data-module="score" checked>
+                            <label for="toggle-mod-score">Sheet Music</label>
+                        </div>
+                        <div class="module-toggle-item">
+                            <input type="checkbox" id="toggle-mod-chord" data-module="chord" checked>
+                            <label for="toggle-mod-chord">Chord Explorer</label>
+                        </div>
+                        <div class="module-toggle-item">
+                            <input type="checkbox" id="toggle-mod-solar" data-module="solar">
+                            <label for="toggle-mod-solar">Solar System</label>
+                        </div>
+                    </div>
                 </div>
-                <div class="module-toggle-item">
-                    <input type="checkbox" id="toggle-mod-ref" data-module="ref" checked>
-                    <label for="toggle-mod-ref">Ref: Circle of Fifths</label>
-                </div>
-                <div class="module-toggle-item">
-                    <input type="checkbox" id="toggle-mod-tool" data-module="tool" checked>
-                    <label for="toggle-mod-tool">Tool: Container Chord</label>
-                </div>
-                <div class="module-toggle-item">
-                    <input type="checkbox" id="toggle-mod-score" data-module="score" checked>
-                    <label for="toggle-mod-score">Score: Sheet Music</label>
-                </div>
-                <div class="module-toggle-item">
-                    <input type="checkbox" id="toggle-mod-chord" data-module="chord" checked>
-                    <label for="toggle-mod-chord">Explorer: Chord Map</label>
-                </div>
-                <div class="module-toggle-item">
-                    <input type="checkbox" id="toggle-mod-solar" data-module="solar">
-                    <label for="toggle-mod-solar">Vis: Solar System</label>
+            </div>
+            
+            <!-- View Controls -->
+            <button class="btn-icon" id="theme-switcher" title="Theme">🎨</button>
+            <button class="btn-icon" id="toggle-layout" title="Layout">⊞</button>
+            
+            <!-- Help & Tutorial -->
+            <div class="help-dropdown" style="position: relative;">
+                <button id="help-dropdown-btn" class="btn-icon" title="Help & Tutorials">?</button>
+                <div id="help-dropdown-panel" class="tools-dropdown-panel">
+                    <div class="module-toggle-item">
+                        <button id="easy-mode-btn" style="width:100%; text-align:left; background:transparent; border:none; color:var(--text-muted); padding:6px; cursor:pointer;">
+                            🎓 Easy Mode
+                        </button>
+                    </div>
+                    <div class="module-toggle-item">
+                        <button id="demo-mode-btn" style="width:100%; text-align:left; background:transparent; border:none; color:var(--text-muted); padding:6px; cursor:pointer;">
+                            💡 Demo Mode
+                        </button>
+                    </div>
+                    <div class="module-toggle-item">
+                        <button id="grading-tutorial-btn" style="width:100%; text-align:left; background:transparent; border:none; color:var(--text-muted); padding:6px; cursor:pointer;">
+                            📚 Grading Tutorial
+                        </button>
+                    </div>
+                    <div class="module-toggle-item">
+                        <button id="grading-preview-btn" style="width:100%; text-align:left; background:transparent; border:none; color:var(--text-muted); padding:6px; cursor:pointer;">
+                            👁️ Grading Preview
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <button class="btn-icon" id="theme-switcher" title="Switch Theme">[THEME]</button>
-        <button class="btn-icon" id="toggle-layout" title="Toggle Layout">[LAYOUT_GRID]</button>
-        <button class="btn-icon" id="easy-mode-btn" title="Easy Mode: Guided Learning">[EASY_MODE]</button>
-        <button class="btn-icon" id="demo-mode-btn" title="Demo Mode: Hover Tooltips">[DEMO_MODE]</button>
+        
+        <!-- Hidden elements for compatibility -->
+        <div style="display:none;">
+            <div id="grading-key-legend"></div>
+            <div id="global-undo-btn"></div>
+            <div id="global-redo-btn"></div>
+            <div id="tools-dropdown-btn"></div>
+            <div id="tools-dropdown-panel"></div>
+        </div>
     </div>
+    
+
     
     <!-- Tutorial System Elements -->
     <div id="tutorial-overlay" class="tutorial-overlay"></div>
@@ -1536,7 +1665,7 @@
             <span>📊 Word Analysis</span>
             <button id="copy-lexical-log-btn" class="btn-icon" title="Copy lexical analysis log to clipboard" style="font-size: 0.7rem; padding: 2px 8px; margin-right: 8px;">📋 Copy Log</button>
             <button id="debug-log-btn" class="btn-icon" title="Show debug information" style="font-size: 0.7rem; padding: 2px 8px; margin-right: 8px;">🔍 Debug</button>
-            <button class="btn-icon" onclick="document.getElementById('word-analysis-panel').classList.remove('active')">✕</button>
+            <button class="btn-icon" onclick="isUserDismissingPanel = true; document.getElementById('word-analysis-panel').classList.remove('active')">✕</button>
         </div>
         <div class="panel-content">
             <div id="word-analysis-content">
@@ -1719,7 +1848,7 @@
     <div id="solar-docked-module" class="hidden"></div> <!-- Logic placeholder -->
 
     <!-- Module Scripts -->
-    <script src="music-theory-engine.js"></script>
+    <script src="music-theory-engine.js?v=2"></script>
     <script src="word-database.js"></script>
     
     <!-- NEW: Comprehensive Scale Intelligence System -->
@@ -1736,13 +1865,15 @@
     <script src="sheet-music-generator.js"></script>
     <script src="number-generator.js"></script>
     <script src="scale-library.js"></script>
-    <script src="piano-visualizer.js"></script>
+    <script src="piano-visualizer.js?v=2"></script>
     <script src="container-chord-tool.js"></script>
     <script src="progression-builder.js"></script>
     <script src="scale-circle-explorer.js"></script>
     <script src="solar-system-visualizer.v2.js"></script>
     <script src="audio-visualizer.js"></script>
     <script src="unified-chord-explorer.js"></script>
+    <script src="grading-legend-help-system.js"></script>
+    <script src="word-grading-visualization.js"></script>
     <script src="bitwig-midi.js"></script>
 
     <script>
@@ -2317,6 +2448,26 @@
                 }
                 this.sheetMusicGenerator = new SheetMusicGenerator(this.musicTheory);
 
+                // Initialize grading legend and help system
+                try {
+                    this.gradingHelpSystem = new GradingLegendHelpSystem(this.musicTheory);
+                } catch (e) {
+                    console.warn('GradingLegendHelpSystem not available:', e);
+                }
+
+                // Initialize word grading visualization system
+                try {
+                    // Wait for word engine to be available
+                    setTimeout(() => {
+                        if (typeof window.wordEngine !== 'undefined' && window.wordEngine) {
+                            this.wordGradingViz = new WordGradingVisualization(this.musicTheory, window.wordEngine);
+                            window.wordGradingViz = this.wordGradingViz; // Make globally available
+                        }
+                    }, 1000);
+                } catch (e) {
+                    console.warn('WordGradingVisualization not available:', e);
+                }
+
                 this.initialize();
             }
 
@@ -2501,20 +2652,15 @@
                     if (miniPianoContainer) {
                         miniPianoContainer.innerHTML = this.numberGenerator.renderMiniPiano();
                     }
-                    const pianoInfoContainer = document.getElementById('piano-scale-info');
-                    if (pianoInfoContainer) {
-                        const tip = this.numberGenerator.getScaleTip(data.scale);
-                        const citation = this.musicTheory.getScaleCitation(data.scale, 'html');
-                        
-                        let html = '';
-                        if (tip || citation) {
-                            // Compact horizontal layout
-                            const parts = [];
-                            if (tip) parts.push(`<span style="color: var(--accent-secondary);">💡 ${tip}</span>`);
-                            if (citation) parts.push(`<span style="color: var(--text-muted); font-size: 0.7rem;">📚 ${citation}</span>`);
-                            html = parts.join(' <span style="color: var(--border-light); margin: 0 6px;">|</span> ');
-                        }
-                        pianoInfoContainer.innerHTML = html;
+                    // Temporarily disable citation display to test
+                    const compactInfoContainer = document.getElementById('piano-scale-info-compact');
+                    const expandedInfoContainer = document.getElementById('piano-scale-info');
+                    
+                    if (compactInfoContainer) {
+                        compactInfoContainer.textContent = '';
+                    }
+                    if (expandedInfoContainer) {
+                        expandedInfoContainer.innerHTML = '';
                     }
                     // Update mini chord strip to reflect new key/scale
                     try { this.renderMiniChordStrip(data.key, data.scale); } catch(_){}
@@ -3199,21 +3345,15 @@
                 if (miniPianoContainer) {
                     miniPianoContainer.innerHTML = this.numberGenerator.renderMiniPiano();
                 }
-                const pianoInfoContainer = document.getElementById('piano-scale-info');
-                if (pianoInfoContainer) {
-                    const currentScale = this.scaleLibrary.getCurrentScale();
-                    const tip = this.numberGenerator.getScaleTip(currentScale);
-                    const citation = this.musicTheory.getScaleCitation(currentScale, 'html');
-                    
-                    let html = '';
-                    if (tip || citation) {
-                        // Compact horizontal layout
-                        const parts = [];
-                        if (tip) parts.push(`<span style="color: var(--accent-secondary);">💡 ${tip}</span>`);
-                        if (citation) parts.push(`<span style="color: var(--text-muted); font-size: 0.7rem;">📚 ${citation}</span>`);
-                        html = parts.join(' <span style="color: var(--border-light); margin: 0 6px;">|</span> ');
-                    }
-                    pianoInfoContainer.innerHTML = html;
+                // Temporarily disable citation display to test
+                const compactInfoContainer = document.getElementById('piano-scale-info-compact');
+                const expandedInfoContainer = document.getElementById('piano-scale-info');
+                
+                if (compactInfoContainer) {
+                    compactInfoContainer.textContent = '';
+                }
+                if (expandedInfoContainer) {
+                    expandedInfoContainer.innerHTML = '';
                 }
             }
         }
@@ -3260,7 +3400,7 @@
             const app = window.modularApp;
             if (!app) return;
             
-            // Grading View Selector
+            // Enhanced Grading View Selector
             const gradingSelector = document.getElementById('global-grading-type');
             if (gradingSelector && app.musicTheory) {
                 // Set initial value from music theory engine
@@ -3268,18 +3408,27 @@
                 
                 gradingSelector.addEventListener('change', (e) => {
                     app.musicTheory.setGradingMode(e.target.value);
+                    updateGradingDescription(e.target.value);
                 });
                 
                 // Update grading key legend when grading mode changes
                 app.musicTheory.subscribe((event, data) => {
                     if (event === 'gradingModeChanged') {
                         updateGradingKeyLegend();
+                        updateGradingDescription(data.mode);
                     }
                 });
                 
-                // Initial render of grading key
+                // Initial render of grading key and description
                 updateGradingKeyLegend();
+                updateGradingDescription(gradingSelector.value);
             }
+            
+            // Grading Influence Controls
+            setupGradingInfluenceControls(app);
+            
+            // Grading Preview and Tutorial
+            setupGradingPreviewAndTutorial(app);
             
             // Global Manual Input
             const globalInput = document.getElementById('global-manual-numbers');
@@ -3361,31 +3510,132 @@
                     `;
                 }
             }
+            
+            function updateGradingDescription(mode) {
+                // Update any grading description displays
+                const descriptions = {
+                    functional: 'Analyzes harmonic function and voice leading',
+                    emotional: 'Evaluates emotional impact and mood',
+                    color: 'Color-based visual organization'
+                };
+                
+                // Update tooltip or description if elements exist
+                const gradingSelector = document.getElementById('global-grading-type');
+                if (gradingSelector) {
+                    gradingSelector.title = descriptions[mode] || 'Grading analysis mode';
+                }
+                
+                // Update any description display elements
+                const descriptionElement = document.getElementById('grading-description');
+                if (descriptionElement) {
+                    descriptionElement.textContent = descriptions[mode] || '';
+                }
+            }
+            
+            function setupGradingInfluenceControls(app) {
+                // Setup visual influence slider
+                const visualSlider = document.getElementById('visual-influence');
+                const visualValue = document.getElementById('visual-influence-value');
+                
+                if (visualSlider && visualValue) {
+                    visualSlider.addEventListener('input', (e) => {
+                        const value = e.target.value;
+                        visualValue.textContent = value + '%';
+                        // Update app grading influence if method exists
+                        if (app.musicTheory && app.musicTheory.setVisualInfluence) {
+                            app.musicTheory.setVisualInfluence(value / 100);
+                        }
+                    });
+                }
+                
+                // Setup behavior influence slider
+                const behaviorSlider = document.getElementById('behavior-influence');
+                const behaviorValue = document.getElementById('behavior-influence-value');
+                
+                if (behaviorSlider && behaviorValue) {
+                    behaviorSlider.addEventListener('input', (e) => {
+                        const value = e.target.value;
+                        behaviorValue.textContent = value + '%';
+                        // Update app grading influence if method exists
+                        if (app.musicTheory && app.musicTheory.setBehaviorInfluence) {
+                            app.musicTheory.setBehaviorInfluence(value / 100);
+                        }
+                    });
+                }
+            }
+            
+            function setupGradingPreviewAndTutorial(app) {
+                // Setup grading preview button
+                const previewBtn = document.getElementById('grading-preview-btn');
+                if (previewBtn) {
+                    previewBtn.addEventListener('click', () => {
+                        // Show grading preview if method exists
+                        if (app.musicTheory && app.musicTheory.showGradingPreview) {
+                            app.musicTheory.showGradingPreview();
+                        } else {
+                            console.log('Grading preview functionality not yet implemented');
+                        }
+                    });
+                }
+                
+                // Setup grading tutorial button
+                const tutorialBtn = document.getElementById('grading-tutorial-btn');
+                if (tutorialBtn) {
+                    tutorialBtn.addEventListener('click', () => {
+                        // Show grading tutorial if method exists
+                        if (app.tutorialSystem && app.tutorialSystem.startGradingTutorial) {
+                            app.tutorialSystem.startGradingTutorial();
+                        } else {
+                            console.log('Grading tutorial functionality not yet implemented');
+                        }
+                    });
+                }
+            }
         }
         
-        // Module toggle and collapse controls
+        // Module toggle and dropdown controls
         function setupModuleControls() {
-            // Handle dropdown button
-            const dropdownBtn = document.getElementById('tools-dropdown-btn');
-            const dropdownPanel = document.getElementById('tools-dropdown-panel');
-            const dropdownArrow = document.getElementById('tools-dropdown-arrow');
+            // Setup Settings Dropdown
+            const settingsBtn = document.getElementById('settings-dropdown-btn');
+            const settingsPanel = document.getElementById('settings-dropdown-panel');
             
-            dropdownBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const isOpen = dropdownPanel.classList.toggle('open');
-                dropdownArrow.textContent = isOpen ? '▴' : '▾';
-            });
-            // (no-op) setupModuleControls does not have a translation result context
+            if (settingsBtn && settingsPanel) {
+                settingsBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Close other dropdowns
+                    document.getElementById('help-dropdown-panel')?.classList.remove('open');
+                    // Toggle settings dropdown
+                    settingsPanel.classList.toggle('open');
+                });
+            }
             
-            // Close dropdown when clicking outside
+            // Setup Help Dropdown
+            const helpBtn = document.getElementById('help-dropdown-btn');
+            const helpPanel = document.getElementById('help-dropdown-panel');
+            
+            if (helpBtn && helpPanel) {
+                helpBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Close other dropdowns
+                    document.getElementById('settings-dropdown-panel')?.classList.remove('open');
+                    // Toggle help dropdown
+                    helpPanel.classList.toggle('open');
+                });
+            }
+            
+            // Close dropdowns when clicking outside
             document.addEventListener('click', (e) => {
-                if (!dropdownPanel.contains(e.target) && e.target !== dropdownBtn) {
-                    dropdownPanel.classList.remove('open');
-                    dropdownArrow.textContent = '▾';
-                }
+                const dropdowns = [settingsPanel, helpPanel];
+                dropdowns.forEach(dropdown => {
+                    if (dropdown && !dropdown.contains(e.target) && 
+                        !e.target.closest('#settings-dropdown-btn') && 
+                        !e.target.closest('#help-dropdown-btn')) {
+                        dropdown.classList.remove('open');
+                    }
+                });
             });
             
-            // Handle checkbox toggles
+            // Handle checkbox toggles for module visibility
             const toggleCheckboxes = document.querySelectorAll('.module-toggle-item input[type="checkbox"]');
             toggleCheckboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', () => {
@@ -3405,7 +3655,7 @@
             const collapseButtons = document.querySelectorAll('.module-collapse-btn');
             collapseButtons.forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent drag from triggering
+                    e.stopPropagation();
                     const module = btn.closest('.planet-module');
                     const isCollapsed = module.classList.contains('collapsed');
                     
@@ -3414,9 +3664,6 @@
                 });
             });
             
-            // Optional: Make modules draggable (basic implementation)
-            // setupModuleDrag(); // Disabled for fixed Bento Box layout
-
             // Sync initial checkbox state with module visibility
             toggleCheckboxes.forEach(checkbox => {
                 const moduleName = checkbox.getAttribute('data-module');
@@ -3531,6 +3778,20 @@
         window.__interactionLog.push(entry);
         console.log('[InteractionLog]', entry);
     }
+    // Handle clicks outside word input to dismiss panel
+    document.addEventListener('click', function(e) {
+        const wordInput = document.getElementById('global-word-input');
+        const analysisPanel = document.getElementById('word-analysis-panel');
+        
+        // If clicking outside word input and analysis panel, mark as dismissing
+        if (wordInput && analysisPanel && 
+            !wordInput.contains(e.target) && 
+            !analysisPanel.contains(e.target) &&
+            analysisPanel.classList.contains('active')) {
+            isUserDismissingPanel = true;
+        }
+    });
+    
     // Click logger
     document.addEventListener('click', function(e) {
         let target = e.target;
@@ -4375,10 +4636,23 @@
 
     // Word input processing with debouncing
     let wordInputTimeout = null;
+    let isUserDismissingPanel = false;
+    let lastEnterTime = 0;
     
     if (globalWordInput) {
+        // Remove any existing listeners to prevent duplicates
+        if (globalWordInput._inputHandler) {
+            globalWordInput.removeEventListener('input', globalWordInput._inputHandler);
+        }
+        if (globalWordInput._keydownHandler) {
+            globalWordInput.removeEventListener('keydown', globalWordInput._keydownHandler);
+        }
+        if (globalWordInput._blurHandler) {
+            globalWordInput.removeEventListener('blur', globalWordInput._blurHandler);
+        }
+        
         // Input event - just clear empty state, don't process
-        globalWordInput.addEventListener('input', (e) => {
+        globalWordInput._inputHandler = (e) => {
             const words = e.target.value.trim();
             
             if (!words) {
@@ -4388,30 +4662,33 @@
                     analysisContent.innerHTML = '<div class="analysis-empty">Enter words above to see analysis...</div>';
                 }
             }
-        });
+        };
+        globalWordInput.addEventListener('input', globalWordInput._inputHandler);
         
         // Enter key - process immediately
-        globalWordInput.addEventListener('keydown', (e) => {
+        globalWordInput._keydownHandler = (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 clearTimeout(wordInputTimeout);
                 const words = e.target.value.trim();
                 if (words) {
                     console.log('[LexicalIntegration] Enter key pressed, processing immediately');
+                    lastEnterTime = Date.now(); // Track when Enter was pressed
+                    isUserDismissingPanel = false; // Enter key should show panel
                     processWordsInput(words);
                 }
             }
-        });
+        };
+        globalWordInput.addEventListener('keydown', globalWordInput._keydownHandler);
         
-        // Blur event - process when leaving field
-        globalWordInput.addEventListener('blur', (e) => {
-            clearTimeout(wordInputTimeout);
-            const words = e.target.value.trim();
-            if (words) {
-                console.log('[LexicalIntegration] Input blur, processing immediately');
-                processWordsInput(words);
-            }
-        });
+        // Blur event - DISABLED to prevent double processing
+        // Only process on Enter key, not on blur
+        globalWordInput._blurHandler = (e) => {
+            console.log('[LexicalIntegration] Blur event fired but processing DISABLED to prevent double processing');
+            // Just set the dismissing flag, don't process
+            isUserDismissingPanel = true;
+        };
+        globalWordInput.addEventListener('blur', globalWordInput._blurHandler);
     }
 
     /**
@@ -4721,11 +4998,381 @@
             alert('No lexical log to export');
             return;
         }
-        const blob = new Blob([JSON.stringify(window.__lexicalLog, null, 2)], { type: 'application/json' });
+        
+        // Enhanced JSON export with grading metadata preservation
+        const exportData = {
+            format: 'JSON',
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            gradingMetadata: {
+                mode: window.musicEngine ? window.musicEngine.gradingMode : 'functional',
+                preservationLevel: 'full',
+                exportType: 'lexical-log'
+            },
+            data: {
+                lexicalLog: window.__lexicalLog.map(entry => {
+                    // Enhance each log entry with grading information if available
+                    const enhancedEntry = { ...entry };
+                    
+                    // Add grading context if musical elements are present
+                    if (entry.scale && window.musicEngine) {
+                        try {
+                            const context = {
+                                key: entry.key || 'C',
+                                scaleType: entry.scale,
+                                elementType: 'scale'
+                            };
+                            const tier = window.musicEngine.calculateElementGrade(entry.scale, context);
+                            const tierInfo = window.musicEngine.getGradingTierInfo(tier);
+                            
+                            enhancedEntry.grading = {
+                                tier,
+                                mode: window.musicEngine.gradingMode,
+                                label: tierInfo.label,
+                                color: tierInfo.color,
+                                name: tierInfo.name,
+                                explanation: window.musicEngine.getGradingExplanation ? 
+                                    window.musicEngine.getGradingExplanation(entry.scale, tier, context) : 
+                                    `${entry.scale} receives ${tierInfo.name} grade in ${window.musicEngine.gradingMode} mode`
+                            };
+                        } catch (e) {
+                            // Grading failed, continue without it
+                        }
+                    }
+                    
+                    // Add grading for chord progressions if present
+                    if (entry.chords && Array.isArray(entry.chords) && window.musicEngine) {
+                        enhancedEntry.chordGrading = entry.chords.map(chord => {
+                            try {
+                                const context = {
+                                    key: entry.key || 'C',
+                                    scaleType: entry.scale || 'major',
+                                    elementType: 'chord'
+                                };
+                                const tier = window.musicEngine.calculateElementGrade(chord, context);
+                                const tierInfo = window.musicEngine.getGradingTierInfo(tier);
+                                
+                                return {
+                                    chord,
+                                    tier,
+                                    label: tierInfo.label,
+                                    color: tierInfo.color,
+                                    name: tierInfo.name
+                                };
+                            } catch (e) {
+                                return { chord, tier: 2, label: 'Good', color: '#fbbf24', name: 'Good' };
+                            }
+                        });
+                    }
+                    
+                    return enhancedEntry;
+                })
+            },
+            metadata: {
+                totalEntries: window.__lexicalLog.length,
+                exportedAt: new Date().toISOString(),
+                gradingMode: window.musicEngine ? window.musicEngine.gradingMode : 'functional',
+                gradingVersion: '1.0'
+            }
+        };
+        
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `lexical-log-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+        a.download = `lexical-log-enhanced-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    // Enhanced JSON export for musical data with grading metadata preservation
+    function exportMusicalDataToJSON(musicalData, options = {}) {
+        if (!musicalData) {
+            console.warn('No musical data provided for export');
+            return null;
+        }
+        
+        const exportData = {
+            format: 'JSON',
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            gradingMetadata: {
+                mode: window.musicEngine ? window.musicEngine.gradingMode : 'functional',
+                preservationLevel: options.preservationLevel || 'full',
+                exportType: options.exportType || 'musical-data'
+            },
+            data: {}
+        };
+
+        // Process different types of musical data
+        if (musicalData.progression && Array.isArray(musicalData.progression)) {
+            exportData.data.progression = musicalData.progression.map((chord, index) => {
+                const enhancedChord = { ...chord };
+                
+                // Add grading information if music engine is available
+                if (window.musicEngine && typeof window.musicEngine.calculateElementGrade === 'function') {
+                    try {
+                        const context = {
+                            key: musicalData.key || chord.key || 'C',
+                            scaleType: musicalData.scale || chord.scale || 'major',
+                            elementType: 'chord',
+                            progressionIndex: index
+                        };
+                        
+                        const chordName = chord.name || chord.root + (chord.chordType || '');
+                        const tier = window.musicEngine.calculateElementGrade(chordName, context);
+                        const tierInfo = window.musicEngine.getGradingTierInfo(tier);
+                        
+                        enhancedChord.grading = {
+                            tier,
+                            mode: window.musicEngine.gradingMode,
+                            label: tierInfo.label,
+                            color: tierInfo.color,
+                            name: tierInfo.name,
+                            short: tierInfo.short,
+                            explanation: window.musicEngine.getGradingExplanation ? 
+                                window.musicEngine.getGradingExplanation(chordName, tier, context) : 
+                                `${chordName} receives ${tierInfo.name} grade in ${window.musicEngine.gradingMode} mode`
+                        };
+                    } catch (e) {
+                        console.warn('Failed to add grading for chord:', chord, e);
+                    }
+                }
+                
+                return enhancedChord;
+            });
+        }
+
+        // Process scale information
+        if (musicalData.scale) {
+            exportData.data.scale = {
+                name: musicalData.scale,
+                key: musicalData.key || 'C'
+            };
+            
+            if (window.musicEngine) {
+                try {
+                    const context = {
+                        key: musicalData.key || 'C',
+                        scaleType: musicalData.scale,
+                        elementType: 'scale'
+                    };
+                    const tier = window.musicEngine.calculateElementGrade(musicalData.scale, context);
+                    const tierInfo = window.musicEngine.getGradingTierInfo(tier);
+                    
+                    exportData.data.scale.grading = {
+                        tier,
+                        mode: window.musicEngine.gradingMode,
+                        label: tierInfo.label,
+                        color: tierInfo.color,
+                        name: tierInfo.name,
+                        explanation: window.musicEngine.getGradingExplanation ? 
+                            window.musicEngine.getGradingExplanation(musicalData.scale, tier, context) : 
+                            `${musicalData.scale} receives ${tierInfo.name} grade in ${window.musicEngine.gradingMode} mode`
+                    };
+                } catch (e) {
+                    console.warn('Failed to add grading for scale:', musicalData.scale, e);
+                }
+            }
+        }
+
+        // Add any additional musical data
+        if (musicalData.notes && Array.isArray(musicalData.notes)) {
+            exportData.data.notes = musicalData.notes.map(note => {
+                const enhancedNote = typeof note === 'string' ? { name: note } : { ...note };
+                
+                if (window.musicEngine) {
+                    try {
+                        const context = {
+                            key: musicalData.key || 'C',
+                            scaleType: musicalData.scale || 'major',
+                            elementType: 'note'
+                        };
+                        const noteName = enhancedNote.name || note;
+                        const tier = window.musicEngine.calculateElementGrade(noteName, context);
+                        const tierInfo = window.musicEngine.getGradingTierInfo(tier);
+                        
+                        enhancedNote.grading = {
+                            tier,
+                            mode: window.musicEngine.gradingMode,
+                            label: tierInfo.label,
+                            color: tierInfo.color,
+                            name: tierInfo.name
+                        };
+                    } catch (e) {
+                        console.warn('Failed to add grading for note:', note, e);
+                    }
+                }
+                
+                return enhancedNote;
+            });
+        }
+
+        // Add metadata about the export
+        exportData.metadata = {
+            exportedAt: new Date().toISOString(),
+            gradingMode: window.musicEngine ? window.musicEngine.gradingMode : 'functional',
+            gradingVersion: '1.0',
+            dataIntegrity: validateGradingMetadata(exportData),
+            originalDataKeys: Object.keys(musicalData)
+        };
+
+        return exportData;
+    }
+
+    // Grading metadata validation for export integrity
+    function validateGradingMetadata(exportData) {
+        const validation = {
+            hasGradingMode: false,
+            hasGradingData: false,
+            gradingConsistency: true,
+            validTiers: true,
+            errors: []
+        };
+
+        try {
+            // Check if grading mode is present
+            if (exportData.gradingMetadata && exportData.gradingMetadata.mode) {
+                validation.hasGradingMode = true;
+            } else {
+                validation.errors.push('Missing grading mode in metadata');
+            }
+
+            // Check if any grading data exists
+            const checkForGrading = (obj) => {
+                if (obj && typeof obj === 'object') {
+                    if (obj.grading) {
+                        validation.hasGradingData = true;
+                        
+                        // Validate tier range
+                        if (obj.grading.tier < 0 || obj.grading.tier > 4) {
+                            validation.validTiers = false;
+                            validation.errors.push(`Invalid tier: ${obj.grading.tier}`);
+                        }
+                        
+                        // Check required grading fields
+                        const requiredFields = ['tier', 'label', 'color', 'name'];
+                        requiredFields.forEach(field => {
+                            if (!obj.grading[field]) {
+                                validation.gradingConsistency = false;
+                                validation.errors.push(`Missing grading field: ${field}`);
+                            }
+                        });
+                    }
+                    
+                    // Recursively check nested objects
+                    Object.values(obj).forEach(value => {
+                        if (Array.isArray(value)) {
+                            value.forEach(item => checkForGrading(item));
+                        } else {
+                            checkForGrading(value);
+                        }
+                    });
+                }
+            };
+
+            checkForGrading(exportData.data);
+
+        } catch (e) {
+            validation.errors.push(`Validation error: ${e.message}`);
+        }
+
+        validation.isValid = validation.hasGradingMode && validation.hasGradingData && 
+                           validation.gradingConsistency && validation.validTiers && 
+                           validation.errors.length === 0;
+
+        return validation;
+    }
+
+    // Enhanced sharing functionality with grading metadata preservation
+    function shareMusicalDataWithGrading(musicalData, shareFormat = 'JSON', options = {}) {
+        if (!musicalData) {
+            console.warn('No musical data provided for sharing');
+            return null;
+        }
+
+        let sharedData;
+        const timestamp = new Date().toISOString();
+
+        try {
+            switch (shareFormat.toUpperCase()) {
+                case 'JSON':
+                    sharedData = exportMusicalDataToJSON(musicalData, {
+                        ...options,
+                        exportType: 'shared-data'
+                    });
+                    break;
+                    
+                case 'MIDI':
+                    // For MIDI sharing, we need to work with the sheet music generator
+                    if (window.sheetMusicGenerator && typeof window.sheetMusicGenerator.buildMidiFile === 'function') {
+                        try {
+                            const midiData = window.sheetMusicGenerator.buildMidiFile(options);
+                            sharedData = {
+                                format: 'MIDI',
+                                data: midiData,
+                                gradingMetadata: {
+                                    mode: window.musicEngine ? window.musicEngine.gradingMode : 'functional',
+                                    preservedInMidi: true,
+                                    version: '1.0'
+                                }
+                            };
+                        } catch (e) {
+                            console.warn('MIDI generation failed, falling back to JSON:', e);
+                            sharedData = exportMusicalDataToJSON(musicalData, options);
+                        }
+                    } else {
+                        console.warn('MIDI export not available, using JSON format');
+                        sharedData = exportMusicalDataToJSON(musicalData, options);
+                    }
+                    break;
+                    
+                default:
+                    console.warn(`Unsupported share format: ${shareFormat}, using JSON`);
+                    sharedData = exportMusicalDataToJSON(musicalData, options);
+            }
+
+            // Add sharing metadata
+            if (sharedData) {
+                sharedData.sharingInfo = {
+                    sharedAt: timestamp,
+                    format: shareFormat,
+                    gradingPreserved: true,
+                    gradingMode: window.musicEngine ? window.musicEngine.gradingMode : 'functional',
+                    shareId: generateShareId(),
+                    integrity: validateGradingMetadata(sharedData)
+                };
+            }
+
+        } catch (e) {
+            console.error('Sharing failed:', e);
+            return null;
+        }
+
+        return sharedData;
+    }
+
+    // Generate a unique share ID for tracking
+    function generateShareId() {
+        const timestamp = Date.now().toString(36);
+        const random = Math.random().toString(36).substr(2, 5);
+        return `share_${timestamp}_${random}`;
+    }
+
+    // Export shared data as downloadable file
+    function downloadSharedData(sharedData, filename) {
+        if (!sharedData) {
+            console.warn('No shared data to download');
+            return;
+        }
+
+        const blob = new Blob([JSON.stringify(sharedData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || `shared-musical-data-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -4832,11 +5479,63 @@
         URL.revokeObjectURL(url);
     }
 
+    // Prevent rapid successive calls and processing locks
+    let lastProcessTime = 0;
+    let lastProcessWords = '';
+    let isProcessing = false;
+    let globalProcessingBlock = false;
+    
     async function processWordsInput(words) {
+        const now = Date.now();
+        
+        // Debug: Track function calls with detailed stack trace
+        console.log('[DEBUG] ========================================');
+        console.log('[DEBUG] processWordsInput called with:', words);
+        console.log('[DEBUG] Timestamp:', now);
+        console.log('[DEBUG] Last process time:', lastProcessTime);
+        console.log('[DEBUG] Time since last:', now - lastProcessTime, 'ms');
+        console.log('[DEBUG] Last words:', lastProcessWords);
+        console.log('[DEBUG] Is processing:', isProcessing);
+        console.log('[DEBUG] Full stack trace:');
+        console.log(new Error().stack);
+        console.log('[DEBUG] ========================================');
+        
+        // Prevent duplicate calls within 500ms with same words (increased from 200ms)
+        if (words === lastProcessWords && (now - lastProcessTime) < 500) {
+            console.log('[DEBUG] ❌ BLOCKED: Duplicate call within 500ms');
+            return;
+        }
+        
+        // Prevent overlapping processing
+        if (isProcessing) {
+            console.log('[DEBUG] ❌ BLOCKED: Already processing');
+            return;
+        }
+        
+        // Global processing block check
+        if (globalProcessingBlock) {
+            console.log('[DEBUG] ❌ BLOCKED: Global processing block active');
+            return;
+        }
+        
+        console.log('[DEBUG] ✅ PROCEEDING with processing');
+        isProcessing = true;
+        globalProcessingBlock = true;
+        lastProcessTime = now;
+        lastProcessWords = words;
+        
+        // Set a timer to release the global block
+        setTimeout(() => {
+            globalProcessingBlock = false;
+            console.log('[DEBUG] 🔓 Global processing block released');
+        }, 1000); // 1 second block
+        
         if (!lexicalEngine) {
             console.warn('[LexicalIntegration] Engine not initialized');
             return;
         }
+
+
 
         try {
             console.log('[LexicalIntegration] Processing words:', words);
@@ -4899,6 +5598,10 @@
         } catch (err) {
             console.error('[LexicalIntegration] Translation error:', err);
             console.error('[LexicalIntegration] Error stack:', err.stack);
+        } finally {
+            // Always reset processing flag
+            isProcessing = false;
+            console.log('[DEBUG] Processing flag reset');
         }
     }
 
@@ -5168,7 +5871,16 @@
         // Auto-show panel if it has content
         if (html && analysisPanel) {
             console.log('[updateAnalysisPanel] Adding active class to panel');
-            analysisPanel.classList.add('active');
+            // Only show panel if user isn't trying to dismiss it
+            if (!isUserDismissingPanel) {
+                analysisPanel.classList.add('active');
+            } else {
+                console.log('[updateAnalysisPanel] User is dismissing panel, not auto-showing');
+                // Reset flag after a short delay to allow normal operation later
+                setTimeout(() => {
+                    isUserDismissingPanel = false;
+                }, 500);
+            }
         } else {
             console.warn('[updateAnalysisPanel] Not showing panel - html:', !!html, 'panel:', !!analysisPanel);
         }

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Chord Explorer - Grading Integration Test</title>
+    <link rel="stylesheet" href="aperture-theme.css">
+    <link rel="stylesheet" href="unified-chord-explorer.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-main);
+            color: var(--text-main);
+            font-family: var(--font-main);
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+        }
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .test-button {
+            padding: 8px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-light);
+            color: var(--text-main);
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: var(--font-tech);
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+        .test-button:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+        .grading-mode-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .grading-mode-selector select {
+            padding: 6px 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-light);
+            color: var(--text-main);
+            border-radius: 4px;
+        }
+        #chord-explorer-container {
+            min-height: 300px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 243, 255, 0.1);
+            border-left: 3px solid var(--accent-primary);
+            font-family: var(--font-tech);
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Unified Chord Explorer - Grading Integration Test</h1>
+        
+        <div class="test-section">
+            <h2>Grading System Controls</h2>
+            <div class="test-controls">
+                <div class="grading-mode-selector">
+                    <label>Grading Mode:</label>
+                    <select id="grading-mode-select">
+                        <option value="functional">Functional</option>
+                        <option value="emotional">Emotional</option>
+                        <option value="color">Color</option>
+                    </select>
+                </div>
+                <button class="test-button" onclick="testGradingModeChange()">Apply Mode</button>
+                <button class="test-button" onclick="testRadialMenu()">Open Radial Menu</button>
+                <button class="test-button" onclick="testGradingTooltips()">Test Tooltips</button>
+            </div>
+            <div id="status" class="status">Ready to test grading integration...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>Chord Explorer</h2>
+            <div id="chord-explorer-container"></div>
+        </div>
+    </div>
+
+    <script src="music-theory-engine.js"></script>
+    <script src="unified-chord-explorer.js"></script>
+    <script>
+        let musicTheory, chordExplorer;
+
+        // Initialize the test
+        function initTest() {
+            try {
+                // Initialize music theory engine
+                musicTheory = new MusicTheoryEngine();
+                musicTheory.setGradingMode('functional');
+
+                // Initialize chord explorer
+                const container = document.getElementById('chord-explorer-container');
+                chordExplorer = new UnifiedChordExplorer(musicTheory);
+                chordExplorer.mount(container);
+
+                // Set up a test progression
+                chordExplorer.setKeyAndScale('C', 'major');
+                chordExplorer.state.progressionDegrees = [1, 6, 4, 5]; // I-vi-IV-V
+
+                // Render initial state
+                chordExplorer.render();
+
+                updateStatus('Chord Explorer initialized with grading integration');
+            } catch (error) {
+                updateStatus('Error initializing: ' + error.message);
+                console.error('Initialization error:', error);
+            }
+        }
+
+        function testGradingModeChange() {
+            try {
+                const mode = document.getElementById('grading-mode-select').value;
+                musicTheory.setGradingMode(mode);
+                updateStatus(`Grading mode changed to: ${mode}`);
+            } catch (error) {
+                updateStatus('Error changing grading mode: ' + error.message);
+            }
+        }
+
+        function testRadialMenu() {
+            try {
+                // Find a chord card and simulate click to open radial menu
+                const chordCard = document.querySelector('.chord-card.in-progression');
+                if (chordCard) {
+                    const event = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: 100,
+                        clientY: 100
+                    });
+                    chordCard.dispatchEvent(event);
+                    updateStatus('Radial menu opened - check for grading indicators and tooltips');
+                } else {
+                    updateStatus('No chord cards found to test radial menu');
+                }
+            } catch (error) {
+                updateStatus('Error opening radial menu: ' + error.message);
+            }
+        }
+
+        function testGradingTooltips() {
+            try {
+                // Test tooltip functionality
+                const radialNodes = document.querySelectorAll('.radial-node');
+                if (radialNodes.length > 0) {
+                    updateStatus(`Found ${radialNodes.length} radial nodes with grading tooltips`);
+                } else {
+                    updateStatus('No radial nodes found - open radial menu first');
+                }
+            } catch (error) {
+                updateStatus('Error testing tooltips: ' + error.message);
+            }
+        }
+
+        function updateStatus(message) {
+            const status = document.getElementById('status');
+            status.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', initTest);
+
+        // Listen for grading events
+        document.addEventListener('gradingModeChanged', (event) => {
+            updateStatus(`Grading mode changed event received: ${event.detail.mode}`);
+        });
+    </script>
+</body>
+</html>

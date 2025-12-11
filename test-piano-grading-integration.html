@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piano Visualizer Enhanced Grading Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .control-group label {
+            font-weight: bold;
+            font-size: 12px;
+        }
+        select, button {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        #piano-container {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            background: #fafafa;
+        }
+        #test-results {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .info {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <h1>Piano Visualizer Enhanced Grading Integration Test</h1>
+    
+    <div class="test-container">
+        <h2>Interactive Test</h2>
+        <p>Test the enhanced grading integration features of the Piano Visualizer.</p>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Key:</label>
+                <select id="key-select">
+                    <option value="C">C Major</option>
+                    <option value="G">G Major</option>
+                    <option value="D">D Major</option>
+                    <option value="A">A Major</option>
+                    <option value="E">E Major</option>
+                    <option value="F">F Major</option>
+                    <option value="Bb">Bb Major</option>
+                    <option value="Eb">Eb Major</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Scale:</label>
+                <select id="scale-select">
+                    <option value="major">Major</option>
+                    <option value="minor">Natural Minor</option>
+                    <option value="dorian">Dorian</option>
+                    <option value="phrygian">Phrygian</option>
+                    <option value="lydian">Lydian</option>
+                    <option value="mixolydian">Mixolydian</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Grading Mode:</label>
+                <select id="grading-mode-select">
+                    <option value="functional">Functional</option>
+                    <option value="emotional">Emotional</option>
+                    <option value="color">Color</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Actions:</label>
+                <button onclick="updateScale()">Update Scale</button>
+                <button onclick="toggleGradingIntegration()">Toggle Grading</button>
+                <button onclick="toggleTooltips()">Toggle Tooltips</button>
+                <button onclick="runTests()">Run Tests</button>
+            </div>
+        </div>
+        
+        <div id="piano-container"></div>
+        
+        <div id="test-results"></div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="music-theory-engine.js"></script>
+    <script src="piano-visualizer.js"></script>
+
+    <script>
+        let engine, piano;
+        let gradingEnabled = true;
+        let tooltipsEnabled = true;
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('test-results');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            results.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function initializeTest() {
+            try {
+                // Create music theory engine
+                engine = new MusicTheoryEngine();
+                log('Music theory engine created successfully', 'success');
+                
+                // Create piano visualizer with grading integration
+                piano = new PianoVisualizer({
+                    startMidi: 60,
+                    endMidi: 72,
+                    enableGradingIntegration: true,
+                    showGradingTooltips: true,
+                    gradingEngine: engine
+                });
+                
+                log('Piano visualizer created with grading integration', 'success');
+                
+                // Mount piano to container
+                const container = document.getElementById('piano-container');
+                piano.mount(container);
+                log('Piano mounted to container', 'success');
+                
+                // Set up event listeners
+                piano.on('noteClicked', (data) => {
+                    log(`Note clicked: ${data.note} (MIDI: ${data.midi})`, 'info');
+                    if (data.gradingInfo) {
+                        log(`Grading: Tier ${data.gradingInfo.tier} - ${data.gradingInfo.info.label}`, 'info');
+                    }
+                });
+                
+                piano.on('gradingModeChanged', (data) => {
+                    log(`Grading mode changed: ${data.oldMode} → ${data.newMode}`, 'info');
+                });
+                
+                // Initialize with C major scale
+                updateScale();
+                
+            } catch (error) {
+                log(`Initialization error: ${error.message}`, 'error');
+                console.error('Initialization error:', error);
+            }
+        }
+
+        function updateScale() {
+            try {
+                const key = document.getElementById('key-select').value;
+                const scale = document.getElementById('scale-select').value;
+                const gradingMode = document.getElementById('grading-mode-select').value;
+                
+                // Set grading mode
+                engine.setGradingMode(gradingMode);
+                
+                // Get scale notes
+                const scaleNotes = engine.getScaleNotes(key, scale);
+                
+                // Render scale on piano
+                piano.renderScale({
+                    key: key,
+                    scale: scale,
+                    notes: scaleNotes
+                });
+                
+                log(`Scale updated: ${key} ${scale} (${scaleNotes.join(', ')})`, 'success');
+                log(`Grading mode: ${gradingMode}`, 'info');
+                
+            } catch (error) {
+                log(`Scale update error: ${error.message}`, 'error');
+                console.error('Scale update error:', error);
+            }
+        }
+
+        function toggleGradingIntegration() {
+            try {
+                gradingEnabled = !gradingEnabled;
+                piano.setGradingIntegration(gradingEnabled);
+                log(`Grading integration ${gradingEnabled ? 'enabled' : 'disabled'}`, 'info');
+                
+            } catch (error) {
+                log(`Toggle grading error: ${error.message}`, 'error');
+            }
+        }
+
+        function toggleTooltips() {
+            try {
+                tooltipsEnabled = !tooltipsEnabled;
+                piano.setGradingTooltips(tooltipsEnabled);
+                log(`Grading tooltips ${tooltipsEnabled ? 'enabled' : 'disabled'}`, 'info');
+                
+            } catch (error) {
+                log(`Toggle tooltips error: ${error.message}`, 'error');
+            }
+        }
+
+        function runTests() {
+            log('Running enhanced grading integration tests...', 'info');
+            
+            try {
+                // Test 1: Grading calculation
+                const testNote = 'C';
+                const gradingInfo = piano.getGradingInfoForNote(testNote);
+                if (gradingInfo && typeof gradingInfo.tier === 'number') {
+                    log(`✓ Test 1 passed: Grading calculation works (${testNote} = Tier ${gradingInfo.tier})`, 'success');
+                } else {
+                    log(`✗ Test 1 failed: Grading calculation failed`, 'error');
+                }
+                
+                // Test 2: Interactive feedback
+                piano.applyInteractiveGradingFeedback('G');
+                if (piano.state.lastClickedNote === 'G') {
+                    log(`✓ Test 2 passed: Interactive feedback works`, 'success');
+                } else {
+                    log(`✗ Test 2 failed: Interactive feedback failed`, 'error');
+                }
+                
+                // Test 3: Grading mode change
+                const oldMode = engine.gradingMode;
+                engine.setGradingMode('emotional');
+                if (piano.state.gradingMode === 'emotional') {
+                    log(`✓ Test 3 passed: Grading mode change works`, 'success');
+                } else {
+                    log(`✗ Test 3 failed: Grading mode change failed`, 'error');
+                }
+                engine.setGradingMode(oldMode);
+                
+                // Test 4: Color utilities
+                const lightColor = piano.lightenColor('#ff0000', 0.2);
+                const darkColor = piano.darkenColor('#ff0000', 0.2);
+                if (lightColor && darkColor && lightColor !== '#ff0000' && darkColor !== '#ff0000') {
+                    log(`✓ Test 4 passed: Color utilities work`, 'success');
+                } else {
+                    log(`✗ Test 4 failed: Color utilities failed`, 'error');
+                }
+                
+                log('All tests completed', 'info');
+                
+            } catch (error) {
+                log(`Test error: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            log('Page loaded, initializing test...', 'info');
+            initializeTest();
+        });
+    </script>
+</body>
+</html>

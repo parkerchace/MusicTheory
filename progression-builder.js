@@ -433,6 +433,7 @@ class ProgressionBuilder {
 
     /**
      * Generate chord for a specific degree using complexity and grade tier
+     * Enhanced with grading-weighted suggestions
      */
     generateChordForDegree(degree, position) {
     const mode = this.state.harmonizationMode || 'root';
@@ -737,13 +738,19 @@ class ProgressionBuilder {
                 // Score candidates by grade relative to baseChord
                 candidates = candidates.map(c => ({ ...c, __grade: this.getChordGradeScore(c, baseChord, scaleNotes) }));
                 const targetGrade = this.state.gradeTier;
+                
+                // Enhanced grading-weighted selection: favor higher-tier elements
                 let filtered = candidates.filter(c => c.__grade === targetGrade);
                 if (filtered.length === 0) {
-                    for (let offset of [1, -1, 2, -2]) {
-                        const fallbackGrade = targetGrade + offset;
+                    // Apply grading-weighted fallback: prefer higher grades over lower ones
+                    const gradePriority = [targetGrade + 1, targetGrade - 1, targetGrade + 2, targetGrade - 2];
+                    for (let fallbackGrade of gradePriority) {
                         if (fallbackGrade >= 0 && fallbackGrade <= 4) {
                             const fallback = candidates.filter(c => c.__grade === fallbackGrade);
-                            if (fallback.length > 0) { filtered = fallback; break; }
+                            if (fallback.length > 0) { 
+                                filtered = fallback; 
+                                break; 
+                            }
                         }
                     }
                 }
@@ -762,12 +769,17 @@ class ProgressionBuilder {
                 if (byCx.length === 0 && targetCx === 'seventh') byCx = filtered.filter(c => c.complexity === 'triad');
                 if (byCx.length === 0) byCx = filtered;
 
-                // Weighted random pick by scaleMatchPercent
+                // Enhanced grading-weighted random pick: combine scaleMatchPercent with grading tier
                 const pool = byCx.length ? byCx : filtered;
                 let choice;
                 if (pool.length <= 3) choice = pool[Math.floor(Math.random() * pool.length)];
                 else {
-                    const weights = pool.map(c => Math.max(1, Math.floor(c.scaleMatchPercent || 50)));
+                    // Weight by both scale match and grading tier (higher tiers get exponential boost)
+                    const weights = pool.map(c => {
+                        const scaleWeight = Math.max(1, Math.floor(c.scaleMatchPercent || 50));
+                        const gradeWeight = Math.pow(2, c.__grade || 0); // Exponential weighting for higher grades
+                        return scaleWeight * gradeWeight;
+                    });
                     const sum = weights.reduce((a,b)=>a+b,0);
                     let r = Math.random() * sum;
                     for (let i=0;i<pool.length;i++) { r -= weights[i]; if (r <= 0) { choice = pool[i]; break; } }
@@ -1286,6 +1298,61 @@ class ProgressionBuilder {
     }
 
     /**
+     * Render progression display with grading indicators
+     */
+    renderProgressionDisplay() {
+        if (!this.state.currentProgression || this.state.currentProgression.length === 0) {
+            return '<div class="pb-empty">Generate numbers in Input Orbit to create progression</div>';
+        }
+
+        return `
+            <div class="pb-progression-display">
+                ${this.state.currentProgression.map((chord, index) => {
+                    const meta = this.state.progressionMeta[index] || {};
+                    const tierInfo = this.getGradeTierInfo(meta.chosenGrade || 2);
+                    const isSubstitution = meta.isSubstitution || false;
+                    
+                    // Get grading explanation for this chord
+                    let explanation = '';
+                    try {
+                        const context = { 
+                            elementType: 'chord', 
+                            key: this.state.currentKey, 
+                            scaleType: this.state.currentScale 
+                        };
+                        explanation = this.musicTheory.getGradingExplanation(chord, meta.chosenGrade || 2, context);
+                    } catch (e) {
+                        explanation = `Grade ${meta.chosenGrade || 2} chord in ${this.state.gradingType || 'functional'} perspective`;
+                    }
+                    
+                    return `
+                        <div class="pb-chord-item" data-index="${index}">
+                            <div class="pb-chord-main" style="border-left: 3px solid ${tierInfo.color};">
+                                <div class="pb-chord-name">${chord}</div>
+                                <div class="pb-chord-grade" style="color: ${tierInfo.color};">
+                                    ${tierInfo.short} ${isSubstitution ? '(Sub)' : ''}
+                                </div>
+                            </div>
+                            <div class="pb-chord-explanation" title="${explanation}">
+                                ${explanation.length > 50 ? explanation.substring(0, 50) + '...' : explanation}
+                            </div>
+                            ${meta.degree ? `<div class="pb-chord-degree">Degree ${meta.degree}</div>` : ''}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+            <div class="pb-progression-controls">
+                <button class="btn btn-secondary pb-suggest-alternatives" title="Suggest alternatives for low-tier chords">
+                    ✨ Suggest Alternatives
+                </button>
+                <button class="btn btn-secondary pb-show-analysis" title="Show grading analysis">
+                    📊 Show Analysis
+                </button>
+            </div>
+        `;
+    }
+
+    /**
      * Mount to DOM container
      */
     mount(container) {
@@ -1399,7 +1466,7 @@ class ProgressionBuilder {
                 </div>
 
                 <div class="pb-generated">
-                    <!-- pb-gen-scroll removed as requested -->
+                    ${this.renderProgressionDisplay()}
                 </div>
                 <!-- Advanced harmony controls removed (pb-advanced-controls). Underlying logic & defaults retained. -->
                 <div id="pb-sub-panel" class="pb-sub-panel" style="display: none; margin-top: 12px; padding: 12px; background: var(--bg-input); border: 1px solid var(--border-light); border-radius: 0;">
@@ -1595,6 +1662,22 @@ class ProgressionBuilder {
                 if (panel) panel.style.display = 'none';
             });
         }
+
+        // Suggest alternatives button
+        const suggestBtn = this.container.querySelector('.pb-suggest-alternatives');
+        if (suggestBtn) {
+            suggestBtn.addEventListener('click', () => {
+                this.suggestProgressionAlternatives();
+            });
+        }
+
+        // Show analysis button
+        const analysisBtn = this.container.querySelector('.pb-show-analysis');
+        if (analysisBtn) {
+            analysisBtn.addEventListener('click', () => {
+                this.showProgressionAnalysis();
+            });
+        }
     }
 
     /**
@@ -1758,6 +1841,209 @@ class ProgressionBuilder {
         }
 
         return subs;
+    }
+
+    /**
+     * Suggest alternatives for low-tier chords in the progression
+     */
+    suggestProgressionAlternatives() {
+        const lowTierChords = [];
+        
+        // Find chords with low grading tiers (0-1)
+        this.state.currentProgression.forEach((chord, index) => {
+            const meta = this.state.progressionMeta[index] || {};
+            const tier = meta.chosenGrade || 2;
+            
+            if (tier <= 1) {
+                const context = { 
+                    elementType: 'chord', 
+                    key: this.state.currentKey, 
+                    scaleType: this.state.currentScale 
+                };
+                
+                try {
+                    const alternatives = this.musicTheory.suggestAlternatives(chord, 3, context);
+                    if (alternatives && alternatives.length > 0) {
+                        lowTierChords.push({
+                            index: index,
+                            chord: chord,
+                            tier: tier,
+                            alternatives: alternatives.slice(0, 3) // Limit to top 3
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Failed to get alternatives for', chord, e);
+                }
+            }
+        });
+        
+        if (lowTierChords.length === 0) {
+            alert('No low-tier chords found that need alternatives. All chords are already well-graded!');
+            return;
+        }
+        
+        // Show alternatives in a modal or panel
+        this.showAlternativesPanel(lowTierChords);
+    }
+
+    /**
+     * Show progression grading analysis
+     */
+    showProgressionAnalysis() {
+        const analysis = {
+            totalChords: this.state.currentProgression.length,
+            gradingBreakdown: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 },
+            averageGrade: 0,
+            recommendations: []
+        };
+        
+        let gradeSum = 0;
+        
+        this.state.progressionMeta.forEach((meta, index) => {
+            const tier = meta.chosenGrade || 2;
+            analysis.gradingBreakdown[tier]++;
+            gradeSum += tier;
+        });
+        
+        analysis.averageGrade = gradeSum / analysis.totalChords;
+        
+        // Generate recommendations
+        if (analysis.averageGrade < 2.5) {
+            analysis.recommendations.push('Consider using higher-tier chords for better harmonic quality');
+        }
+        if (analysis.gradingBreakdown[0] + analysis.gradingBreakdown[1] > analysis.totalChords * 0.3) {
+            analysis.recommendations.push('Many low-tier chords detected - use "Suggest Alternatives" for improvements');
+        }
+        if (analysis.gradingBreakdown[4] === analysis.totalChords) {
+            analysis.recommendations.push('Excellent! All chords are perfectly graded');
+        }
+        
+        this.showAnalysisPanel(analysis);
+    }
+
+    /**
+     * Show alternatives panel for low-tier chords
+     */
+    showAlternativesPanel(lowTierChords) {
+        const panel = this.container.querySelector('#pb-sub-panel');
+        const content = this.container.querySelector('#pb-sub-content');
+        if (!panel || !content) return;
+
+        content.innerHTML = `
+            <div style="margin-bottom: 12px;">
+                <strong>Alternative Suggestions</strong>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
+                    Found ${lowTierChords.length} low-tier chord(s) that could be improved:
+                </div>
+            </div>
+            ${lowTierChords.map(item => `
+                <div style="margin-bottom: 16px; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px;">
+                    <div style="font-weight: 600; margin-bottom: 8px;">
+                        Position ${item.index + 1}: ${item.chord} 
+                        <span style="color: ${this.getGradeTierInfo(item.tier).color};">
+                            (${this.getGradeTierInfo(item.tier).short})
+                        </span>
+                    </div>
+                    <div style="display: grid; gap: 6px;">
+                        ${item.alternatives.map(alt => `
+                            <button class="pb-alt-option" 
+                                    data-index="${item.index}" 
+                                    data-chord="${alt.element}"
+                                    style="padding: 6px 8px; border: 1px solid var(--border-color); 
+                                           border-left: 3px solid ${this.getGradeTierInfo(alt.tier).color}; 
+                                           border-radius: 4px; background: var(--background-color); 
+                                           cursor: pointer; text-align: left;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="font-weight: 600;">${alt.element}</span>
+                                    <span style="color: ${this.getGradeTierInfo(alt.tier).color}; font-size: 0.8rem;">
+                                        ${this.getGradeTierInfo(alt.tier).short}
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+                                    ${alt.explanation.length > 60 ? alt.explanation.substring(0, 60) + '...' : alt.explanation}
+                                </div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('')}
+        `;
+
+        // Wire up alternative selection
+        content.querySelectorAll('.pb-alt-option').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const index = parseInt(btn.getAttribute('data-index'), 10);
+                const chordName = btn.getAttribute('data-chord');
+                
+                // Parse chord to get root and type
+                const match = chordName.match(/^([A-G][#b]?)(.*)$/);
+                if (match) {
+                    const root = match[1];
+                    const type = match[2] || 'maj';
+                    this.substituteChord(index, root, type);
+                    panel.style.display = 'none';
+                }
+            });
+        });
+
+        panel.style.display = 'block';
+    }
+
+    /**
+     * Show analysis panel with grading breakdown
+     */
+    showAnalysisPanel(analysis) {
+        const panel = this.container.querySelector('#pb-sub-panel');
+        const content = this.container.querySelector('#pb-sub-content');
+        if (!panel || !content) return;
+
+        const tierLabels = ['Experimental', 'Fair', 'Good', 'Excellent', 'Perfect'];
+        
+        content.innerHTML = `
+            <div style="margin-bottom: 12px;">
+                <strong>Progression Grading Analysis</strong>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
+                    Current grading mode: ${this.state.gradingType || 'functional'}
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: 600; margin-bottom: 8px;">Overall Statistics</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem;">
+                    <div>Total Chords: ${analysis.totalChords}</div>
+                    <div>Average Grade: ${analysis.averageGrade.toFixed(1)}</div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: 600; margin-bottom: 8px;">Grade Distribution</div>
+                ${Object.entries(analysis.gradingBreakdown).map(([tier, count]) => {
+                    const tierInfo = this.getGradeTierInfo(parseInt(tier));
+                    const percentage = ((count / analysis.totalChords) * 100).toFixed(0);
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span style="color: ${tierInfo.color};">
+                                ${tierInfo.short} (${tierLabels[tier]})
+                            </span>
+                            <span>${count} chords (${percentage}%)</span>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+            
+            ${analysis.recommendations.length > 0 ? `
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 8px;">Recommendations</div>
+                    ${analysis.recommendations.map(rec => `
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">
+                            • ${rec}
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+        `;
+
+        panel.style.display = 'block';
     }
 
     /**

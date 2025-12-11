@@ -956,6 +956,30 @@ class LexicalMusicEngineV2 {
                     voiceLeadingInfo = ` | Voice: ${interval} motion, ${smoothness}`;
                 }
 
+                // Get actual grading from the grading system
+                let actualTier = step.tier; // fallback to pattern tier
+                let actualTierInfo = null;
+                
+                try {
+                    // Use the actual grading system to evaluate this chord
+                    const chordName = chosen.root + chosen.chordType;
+                    const context = {
+                        key: scale.root,
+                        scaleType: scale.mode,
+                        degree: step.degree,
+                        function: step.function
+                    };
+                    
+                    // Get actual grading from the enhanced grading system
+                    actualTier = this.musicTheory.calculateChordGrade(chordName, scale.root, scale.mode, context);
+                    actualTierInfo = this.musicTheory.getGradingTierInfo(actualTier);
+                    
+                    this._log(`Enhanced grading: ${chordName} in ${scale.root} ${scale.mode} = Tier ${actualTier}`);
+                } catch (err) {
+                    this._log('Grading system error, using pattern tier:', err);
+                    actualTierInfo = this.musicTheory.getGradingTierInfo(step.tier);
+                }
+
                 progression.push({
                     root: chosen.root,
                     chordType: chosen.chordType,
@@ -963,8 +987,8 @@ class LexicalMusicEngineV2 {
                     chordNotes: chosen.chordNotes || [],
                     degree: step.degree,
                     function: step.function,
-                    tier: step.tier,
-                    tierInfo: this.musicTheory.getGradingTierInfo(step.tier),
+                    tier: actualTier,
+                    tierInfo: actualTierInfo || this.musicTheory.getGradingTierInfo(actualTier),
                     reasoning: `${step.function} (${step.degree}) in ${scale.root} ${scale.mode}${voiceLeadingInfo}`
                 });
 
@@ -1319,7 +1343,15 @@ class LexicalMusicEngineV2 {
         
         const keyWords = strongWords.length > 0 ? strongWords.join(' + ') : analyses.map(a => a.word).join(' + ');
         
-        reasoning.summary = `${keyWords} → ${valenceDesc} valence, ${arousalDesc}${dominanceDesc} → ${scale.root} ${scale.mode}`;
+        // Get current grading mode, ensuring it's not undefined
+        const currentGradingMode = this.musicTheory.gradingMode || 'functional';
+        
+        // Debug: Log grading mode for troubleshooting
+        if (this.debug) {
+            this._log(`Grading mode check: engine.gradingMode = ${this.musicTheory.gradingMode}, using: ${currentGradingMode}`);
+        }
+        
+        reasoning.summary = `${keyWords} → ${valenceDesc} → ${scale.root} ${scale.mode} (${currentGradingMode} grading)`;
 
         // Word analyses - return structured objects so UI can read numeric fields
         reasoning.wordAnalyses = analyses.map(a => ({

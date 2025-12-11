@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chord Voicing Variety Test</title>
+    <link rel="stylesheet" href="aperture-theme.css">
+    <link rel="stylesheet" href="unified-chord-explorer.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-main);
+            color: var(--text-main);
+            font-family: var(--font-main);
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+        }
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .test-button {
+            padding: 8px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-light);
+            color: var(--text-main);
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: var(--font-tech);
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+        .test-button:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+        #chord-explorer-container {
+            min-height: 300px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 243, 255, 0.1);
+            border-left: 3px solid var(--accent-primary);
+            font-family: var(--font-tech);
+            font-size: 0.9em;
+        }
+        .voicing-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+        }
+        .voicing-info h3 {
+            margin-top: 0;
+            color: var(--accent-primary);
+        }
+        .voicing-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .voicing-item {
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-light);
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .voicing-item .name {
+            font-weight: bold;
+            color: var(--accent-primary);
+        }
+        .voicing-item .notes {
+            color: var(--text-muted);
+            font-size: 0.8em;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Chord Voicing Variety Test</h1>
+        
+        <div class="test-section">
+            <h2>Test Different Voicings for Duplicate Chords</h2>
+            <div class="test-controls">
+                <button class="test-button" onclick="testSimpleProgression()">Test I-V-vi-IV</button>
+                <button class="test-button" onclick="testDuplicateProgression()">Test I-vi-IV-V-I (with duplicate I)</button>
+                <button class="test-button" onclick="testComplexProgression()">Test I-V-I-vi-IV-I-V-I</button>
+                <button class="test-button" onclick="testVoicingGeneration()">Test Voicing Generation</button>
+                <button class="test-button" onclick="clearProgression()">Clear</button>
+            </div>
+            <div id="status" class="status">Ready to test chord voicing variety...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>Chord Explorer</h2>
+            <div id="chord-explorer-container"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Voicing Information</h2>
+            <div id="voicing-info" class="voicing-info">
+                <h3>Available Voicings</h3>
+                <p>Click "Test Voicing Generation" to see available voicings for a C major chord.</p>
+                <div id="voicing-list" class="voicing-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="music-theory-engine.js"></script>
+    <script src="unified-chord-explorer.js"></script>
+    <script>
+        let musicTheory, chordExplorer;
+
+        // Initialize the test
+        function initTest() {
+            try {
+                // Initialize music theory engine
+                musicTheory = new MusicTheoryEngine();
+                musicTheory.setGradingMode('functional');
+
+                // Initialize chord explorer
+                const container = document.getElementById('chord-explorer-container');
+                chordExplorer = new UnifiedChordExplorer(musicTheory);
+                chordExplorer.mount(container);
+
+                // Set up initial state
+                chordExplorer.setKeyAndScale('C', 'major');
+
+                updateStatus('Chord Explorer initialized for voicing variety testing');
+            } catch (error) {
+                updateStatus('Error initializing: ' + error.message);
+                console.error('Initialization error:', error);
+            }
+        }
+
+        function testSimpleProgression() {
+            try {
+                chordExplorer.state.progressionDegrees = [1, 5, 6, 4]; // I-V-vi-IV
+                chordExplorer.render();
+                updateStatus('Simple progression loaded: I-V-vi-IV (no duplicates)');
+            } catch (error) {
+                updateStatus('Error testing simple progression: ' + error.message);
+            }
+        }
+
+        function testDuplicateProgression() {
+            try {
+                chordExplorer.state.progressionDegrees = [1, 6, 4, 5, 1]; // I-vi-IV-V-I
+                chordExplorer.render();
+                updateStatus('Duplicate progression loaded: I-vi-IV-V-I (I appears twice with different voicings)');
+            } catch (error) {
+                updateStatus('Error testing duplicate progression: ' + error.message);
+            }
+        }
+
+        function testComplexProgression() {
+            try {
+                chordExplorer.state.progressionDegrees = [1, 5, 1, 6, 4, 1, 5, 1]; // I-V-I-vi-IV-I-V-I
+                chordExplorer.render();
+                updateStatus('Complex progression loaded: I-V-I-vi-IV-I-V-I (multiple duplicates with different voicings)');
+            } catch (error) {
+                updateStatus('Error testing complex progression: ' + error.message);
+            }
+        }
+
+        function testVoicingGeneration() {
+            try {
+                // Test voicing generation for C major chord
+                const testChord = {
+                    degree: 1,
+                    root: 'C',
+                    chordType: 'maj7',
+                    fullName: 'Cmaj7',
+                    notes: ['C', 'E', 'G', 'B'],
+                    functions: ['tonic']
+                };
+
+                const voicings = chordExplorer.getAvailableVoicings(testChord);
+                displayVoicings(voicings);
+                updateStatus(`Generated ${voicings.length} different voicings for Cmaj7`);
+            } catch (error) {
+                updateStatus('Error testing voicing generation: ' + error.message);
+                console.error('Voicing generation error:', error);
+            }
+        }
+
+        function clearProgression() {
+            try {
+                chordExplorer.state.progressionDegrees = [];
+                chordExplorer.render();
+                updateStatus('Progression cleared');
+            } catch (error) {
+                updateStatus('Error clearing progression: ' + error.message);
+            }
+        }
+
+        function displayVoicings(voicings) {
+            const container = document.getElementById('voicing-list');
+            container.innerHTML = '';
+
+            voicings.forEach((voicing, index) => {
+                const item = document.createElement('div');
+                item.className = 'voicing-item';
+                item.innerHTML = `
+                    <div class="name">${voicing.voicingLabel}</div>
+                    <div class="notes">Notes: ${voicing.notes.join(', ')}</div>
+                    <div class="notes">Bass: ${voicing.bassNote}</div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function updateStatus(message) {
+            const status = document.getElementById('status');
+            status.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initTest);
+    </script>
+</body>
+</html>

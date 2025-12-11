@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Analysis Double Processing Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #333;
+            border-radius: 6px;
+        }
+        
+        .test-title {
+            color: #4CAF50;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+        
+        .word-input {
+            width: 300px;
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #555;
+            background: #444;
+            color: #fff;
+            border-radius: 4px;
+        }
+        
+        .analysis-panel {
+            position: fixed;
+            top: 100px;
+            right: -400px;
+            width: 350px;
+            height: 400px;
+            background: #2a2a2a;
+            border: 1px solid #555;
+            border-radius: 8px;
+            transition: right 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .analysis-panel.active {
+            right: 20px;
+        }
+        
+        .panel-header {
+            background: #333;
+            padding: 10px;
+            border-bottom: 1px solid #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .close-btn {
+            background: #666;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .panel-content {
+            padding: 15px;
+        }
+        
+        .log {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Word Analysis Double Processing Fix Test</h1>
+        
+        <div class="test-section">
+            <div class="test-title">Test Scenario</div>
+            <p>This simulates the word analysis behavior to test the fix for double processing:</p>
+            <ol>
+                <li>Type words in the input field</li>
+                <li>Analysis panel should appear</li>
+                <li>Click elsewhere to dismiss the panel</li>
+                <li>Panel should close and NOT reappear automatically</li>
+            </ol>
+            
+            <input type="text" id="word-input" class="word-input" placeholder="Type words here..." />
+            <button onclick="clearLog()">Clear Log</button>
+            
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <!-- Analysis Panel -->
+    <div id="analysis-panel" class="analysis-panel">
+        <div class="panel-header">
+            <span>📊 Word Analysis</span>
+            <button class="close-btn" onclick="closePanel()">✕</button>
+        </div>
+        <div class="panel-content">
+            <div id="analysis-content">Analysis results will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        let processCount = 0;
+        let isUserDismissingPanel = false;
+        
+        function log(message) {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logEl.innerHTML += `[${timestamp}] ${message}<br>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            processCount = 0;
+        }
+        
+        function processWords(words, trigger) {
+            processCount++;
+            log(`🔄 Processing words "${words}" (trigger: ${trigger}) - Count: ${processCount}`);
+            
+            // Simulate analysis
+            setTimeout(() => {
+                updateAnalysisPanel(words);
+            }, 100);
+        }
+        
+        function updateAnalysisPanel(words) {
+            const panel = document.getElementById('analysis-panel');
+            const content = document.getElementById('analysis-content');
+            
+            content.innerHTML = `
+                <strong>Analysis for: "${words}"</strong><br>
+                Process count: ${processCount}<br>
+                User dismissing: ${isUserDismissingPanel}
+            `;
+            
+            // Only show panel if user isn't trying to dismiss it
+            if (!isUserDismissingPanel) {
+                log('📊 Showing analysis panel');
+                panel.classList.add('active');
+            } else {
+                log('🚫 User is dismissing panel, not auto-showing');
+                // Reset flag after a short delay
+                setTimeout(() => {
+                    isUserDismissingPanel = false;
+                    log('🔄 Reset dismissing flag');
+                }, 500);
+            }
+        }
+        
+        function closePanel() {
+            log('❌ User clicked close button');
+            isUserDismissingPanel = true;
+            document.getElementById('analysis-panel').classList.remove('active');
+        }
+        
+        // Set up word input handlers
+        const wordInput = document.getElementById('word-input');
+        let lastEnterTime = 0;
+        
+        wordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const words = e.target.value.trim();
+                if (words) {
+                    log('⌨️ Enter key pressed');
+                    lastEnterTime = Date.now(); // Track when Enter was pressed
+                    isUserDismissingPanel = false; // Enter should show panel
+                    processWords(words, 'Enter key');
+                }
+            }
+        });
+        
+        wordInput.addEventListener('blur', (e) => {
+            log('👆 Input blur event fired but processing DISABLED to prevent double processing');
+            // Just set the dismissing flag, don't process
+            isUserDismissingPanel = true;
+        });
+        
+        // Handle clicks outside to dismiss panel
+        document.addEventListener('click', (e) => {
+            const panel = document.getElementById('analysis-panel');
+            
+            if (!wordInput.contains(e.target) && 
+                !panel.contains(e.target) &&
+                panel.classList.contains('active')) {
+                log('🖱️ Clicked outside - dismissing panel');
+                isUserDismissingPanel = true;
+            }
+        });
+        
+        // Add debouncing and processing lock similar to main app fix
+        let lastProcessTime = 0;
+        let lastProcessWords = '';
+        let isProcessing = false;
+        
+        const originalProcessWords = processWords;
+        processWords = function(words, trigger) {
+            const now = Date.now();
+            
+            log(`🔄 processWords called with: "${words}" (trigger: ${trigger})`);
+            
+            // Prevent duplicate calls within 200ms with same words
+            if (words === lastProcessWords && (now - lastProcessTime) < 200) {
+                log('🚫 Ignoring duplicate call within 200ms');
+                return;
+            }
+            
+            // Prevent overlapping processing
+            if (isProcessing) {
+                log('🚫 Already processing, ignoring call');
+                return;
+            }
+            
+            isProcessing = true;
+            lastProcessTime = now;
+            lastProcessWords = words;
+            
+            try {
+                return originalProcessWords(words, trigger);
+            } finally {
+                // Reset processing flag after a short delay to simulate async processing
+                setTimeout(() => {
+                    isProcessing = false;
+                    log('🔄 Processing flag reset');
+                }, 50);
+            }
+        };
+        
+        log('✅ Test initialized with debouncing fix - try typing words and clicking elsewhere');
+    </script>
+</body>
+</html>

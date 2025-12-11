@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Scale Intelligence Engine Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .pass { background-color: #d4edda; color: #155724; }
+        .fail { background-color: #f8d7da; color: #721c24; }
+        .suggestion {
+            background: #f8f9fa;
+            margin: 5px 0;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .grading-info {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+        .tier-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .tier-0 { background: #9ca3af; color: white; }
+        .tier-1 { background: #c4b5fd; color: white; }
+        .tier-2 { background: #fbbf24; color: white; }
+        .tier-3 { background: #38bdf8; color: white; }
+        .tier-4 { background: #10b981; color: white; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .mode-comparison {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enhanced Scale Intelligence Engine Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Setup</h2>
+        <div id="setup-results"></div>
+        <button onclick="runSetupTests()">Run Setup Tests</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Grading-Influenced Suggestions</h2>
+        <div>
+            <label>Grading Mode: 
+                <select id="gradingMode">
+                    <option value="functional">Functional</option>
+                    <option value="emotional">Emotional</option>
+                    <option value="color">Color</option>
+                </select>
+            </label>
+            <label>Grading Weight: 
+                <input type="range" id="gradingWeight" min="0" max="1" step="0.1" value="0.3">
+                <span id="weightValue">0.3</span>
+            </label>
+        </div>
+        <button onclick="testGradingInfluence()">Test Grading Influence</button>
+        <div id="grading-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Grading Mode Comparison</h2>
+        <button onclick="compareGradingModes()">Compare All Grading Modes</button>
+        <div id="comparison-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Scale Tier Analysis</h2>
+        <button onclick="analyzeScaleTiers()">Analyze Scale Tiers</button>
+        <div id="tier-results"></div>
+    </div>
+
+    <script src="music-theory-engine.js"></script>
+    <script src="scale-intelligence-engine.js"></script>
+    <script>
+        let musicEngine, scaleEngine;
+
+        // Update weight display
+        document.getElementById('gradingWeight').addEventListener('input', function() {
+            document.getElementById('weightValue').textContent = this.value;
+        });
+
+        function runSetupTests() {
+            const results = document.getElementById('setup-results');
+            results.innerHTML = '';
+
+            try {
+                // Initialize engines
+                musicEngine = new MusicTheoryEngine();
+                scaleEngine = new ScaleIntelligenceEngine(musicEngine);
+
+                addResult(results, 'Music Theory Engine initialized', true);
+                addResult(results, 'Scale Intelligence Engine initialized', true);
+                addResult(results, `Scale database contains ${Object.keys(scaleEngine.scaleDatabase).length} scales`, true);
+                addResult(results, `Grading influence weight: ${scaleEngine.gradingInfluenceWeight}`, true);
+
+                // Test grading mode setting
+                musicEngine.setGradingMode('emotional');
+                addResult(results, `Grading mode set to: ${musicEngine.gradingMode}`, musicEngine.gradingMode === 'emotional');
+
+                // Test scale grading
+                const majorGrade = musicEngine.calculateScaleGrade('major');
+                addResult(results, `Major scale grade in emotional mode: ${majorGrade}`, majorGrade !== undefined);
+
+            } catch (error) {
+                addResult(results, `Setup error: ${error.message}`, false);
+            }
+        }
+
+        function testGradingInfluence() {
+            const results = document.getElementById('grading-results');
+            results.innerHTML = '';
+
+            if (!musicEngine || !scaleEngine) {
+                addResult(results, 'Please run setup tests first', false);
+                return;
+            }
+
+            try {
+                const mode = document.getElementById('gradingMode').value;
+                const weight = parseFloat(document.getElementById('gradingWeight').value);
+
+                musicEngine.setGradingMode(mode);
+                scaleEngine.setGradingInfluenceWeight(weight);
+
+                // Test word characteristics for dark, mysterious words
+                const wordCharacteristics = {
+                    darkness: 0.8,
+                    mystery: 0.7,
+                    energy: 0.3,
+                    brightness: 0.2,
+                    words: ['dark', 'mysterious', 'woods']
+                };
+
+                // Get suggestions with grading influence
+                const suggestions = scaleEngine.getGradingInfluencedSuggestions(
+                    wordCharacteristics,
+                    { gradingWeight: weight, maxSuggestions: 5, key: 'C' }
+                );
+
+                addResult(results, `Generated ${suggestions.length} grading-influenced suggestions`, suggestions.length > 0);
+
+                suggestions.forEach((suggestion, index) => {
+                    const suggestionDiv = document.createElement('div');
+                    suggestionDiv.className = 'suggestion';
+                    
+                    const tierBadge = suggestion.gradingTier !== null ? 
+                        `<span class="tier-badge tier-${suggestion.gradingTier}">Tier ${suggestion.gradingTier}</span>` : '';
+                    
+                    suggestionDiv.innerHTML = `
+                        <strong>${index + 1}. ${suggestion.name}</strong> ${tierBadge}
+                        <br>Score: ${suggestion.score.toFixed(3)} (Base: ${suggestion.baseScore.toFixed(3)}, Bonus: +${suggestion.gradingBonus.toFixed(3)})
+                        <br>Reason: ${suggestion.primaryReason}
+                        ${suggestion.gradingExplanation ? `<div class="grading-info">Grading: ${suggestion.gradingExplanation}</div>` : ''}
+                    `;
+                    results.appendChild(suggestionDiv);
+                });
+
+                // Verify grading influence
+                const hasGradingInfluence = suggestions.some(s => s.gradingBonus > 0);
+                addResult(results, `Grading influence detected: ${hasGradingInfluence}`, hasGradingInfluence || weight === 0);
+
+            } catch (error) {
+                addResult(results, `Test error: ${error.message}`, false);
+            }
+        }
+
+        function compareGradingModes() {
+            const results = document.getElementById('comparison-results');
+            results.innerHTML = '';
+
+            if (!musicEngine || !scaleEngine) {
+                addResult(results, 'Please run setup tests first', false);
+                return;
+            }
+
+            try {
+                const wordCharacteristics = {
+                    darkness: 0.6,
+                    brightness: 0.4,
+                    energy: 0.5,
+                    mystery: 0.7,
+                    words: ['mysterious', 'ancient']
+                };
+
+                const comparison = scaleEngine.compareGradingPerspectives(
+                    wordCharacteristics,
+                    { gradingWeight: 0.5, maxSuggestions: 3 }
+                );
+
+                if (comparison.error) {
+                    addResult(results, comparison.error, false);
+                    return;
+                }
+
+                const gridDiv = document.createElement('div');
+                gridDiv.className = 'comparison-grid';
+
+                ['functional', 'emotional', 'color'].forEach(mode => {
+                    const modeDiv = document.createElement('div');
+                    modeDiv.className = 'mode-comparison';
+                    
+                    const modeData = comparison[mode];
+                    const topSuggestion = modeData.topSuggestion;
+                    
+                    modeDiv.innerHTML = `
+                        <h3>${mode.charAt(0).toUpperCase() + mode.slice(1)} Mode</h3>
+                        <p><em>${modeData.modeDescription}</em></p>
+                        <div class="suggestion">
+                            <strong>Top: ${topSuggestion.name}</strong>
+                            ${topSuggestion.gradingTier !== null ? 
+                                `<span class="tier-badge tier-${topSuggestion.gradingTier}">Tier ${topSuggestion.gradingTier}</span>` : ''}
+                            <br>Score: ${topSuggestion.score.toFixed(3)}
+                            <br>Reason: ${topSuggestion.primaryReason}
+                        </div>
+                        <div class="grading-info">
+                            Other suggestions: ${modeData.allSuggestions.slice(1).map(s => s.name).join(', ')}
+                        </div>
+                    `;
+                    
+                    gridDiv.appendChild(modeDiv);
+                });
+
+                results.appendChild(gridDiv);
+                addResult(results, 'Grading mode comparison completed', true);
+
+            } catch (error) {
+                addResult(results, `Comparison error: ${error.message}`, false);
+            }
+        }
+
+        function analyzeScaleTiers() {
+            const results = document.getElementById('tier-results');
+            results.innerHTML = '';
+
+            if (!musicEngine || !scaleEngine) {
+                addResult(results, 'Please run setup tests first', false);
+                return;
+            }
+
+            try {
+                musicEngine.setGradingMode('functional');
+
+                const tierAnalysis = {};
+                for (let tier = 0; tier <= 4; tier++) {
+                    const scalesInTier = scaleEngine.getScalesByGradingTier(tier, { maxResults: 5 });
+                    tierAnalysis[tier] = scalesInTier;
+                }
+
+                Object.keys(tierAnalysis).forEach(tier => {
+                    const scales = tierAnalysis[tier];
+                    const tierInfo = musicEngine.getGradingTierInfo(parseInt(tier));
+                    
+                    const tierDiv = document.createElement('div');
+                    tierDiv.className = 'suggestion';
+                    tierDiv.innerHTML = `
+                        <span class="tier-badge tier-${tier}">Tier ${tier}</span>
+                        <strong>${tierInfo.name}</strong> - ${tierInfo.desc}
+                        <br>Scales: ${scales.length > 0 ? scales.join(', ') : 'None'}
+                    `;
+                    results.appendChild(tierDiv);
+                });
+
+                addResult(results, 'Scale tier analysis completed', true);
+
+            } catch (error) {
+                addResult(results, `Analysis error: ${error.message}`, false);
+            }
+        }
+
+        function addResult(container, message, success) {
+            const div = document.createElement('div');
+            div.className = `test-result ${success ? 'pass' : 'fail'}`;
+            div.textContent = `${success ? '✓' : '✗'} ${message}`;
+            container.appendChild(div);
+        }
+
+        // Auto-run setup on page load
+        window.addEventListener('load', () => {
+            setTimeout(runSetupTests, 500);
+        });
+    </script>
+</body>
+</html>

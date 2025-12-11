@@ -27,6 +27,10 @@ class PianoVisualizer {
             showRightHandFingering: options.showRightHandFingering !== false, // Show right hand fingering by default
             showRomanNumerals: options.showRomanNumerals !== false, // Show roman numerals by default
             container: options.container || null,
+            // Enhanced grading options
+            enableGradingIntegration: options.enableGradingIntegration !== false, // Enable grading integration by default
+            showGradingTooltips: options.showGradingTooltips !== false, // Show grading tooltips by default
+            gradingEngine: options.gradingEngine || null, // Music theory engine for grading
             ...options
         };
 
@@ -39,7 +43,12 @@ class PianoVisualizer {
             mode: 'scale', // scale, chord, degrees
             currentKey: 'C',
             currentScale: 'major',
-            scaleNotes: [] // Array of scale notes in order
+            scaleNotes: [], // Array of scale notes in order
+            // Enhanced grading state
+            noteGradings: new Map(), // note -> grading tier mapping
+            gradingMode: 'functional', // current grading mode
+            lastClickedNote: null, // track last clicked note for related highlighting
+            gradingTooltips: new Map() // note -> tooltip element mapping
         };
 
         this.listeners = new Map();
@@ -126,6 +135,37 @@ class PianoVisualizer {
 
     initialize() {
         this.createPianoElement();
+        this.initializeGradingIntegration();
+    }
+
+    /**
+     * Initialize grading integration
+     */
+    initializeGradingIntegration() {
+        if (!this.options.enableGradingIntegration) return;
+        
+        // Use provided grading engine or try to get global one
+        if (this.options.gradingEngine) {
+            this.gradingEngine = this.options.gradingEngine;
+        } else if (typeof window !== 'undefined' && window.MusicTheoryEngine) {
+            this.gradingEngine = new window.MusicTheoryEngine();
+        } else if (typeof MusicTheoryEngine !== 'undefined') {
+            this.gradingEngine = new MusicTheoryEngine();
+        }
+        
+        if (this.gradingEngine) {
+            // Subscribe to grading mode changes
+            if (typeof this.gradingEngine.subscribe === 'function') {
+                this.gradingEngine.subscribe((event, data) => {
+                    if (event === 'gradingModeChanged') {
+                        this.onGradingModeChanged(data);
+                    }
+                });
+            }
+            
+            // Set initial grading mode
+            this.state.gradingMode = this.gradingEngine.gradingMode || 'functional';
+        }
     }
 
     /**
@@ -429,11 +469,79 @@ class PianoVisualizer {
      * Handle note click
      */
     handleNoteClick(noteName, midiNote) {
+        // Enhanced grading integration: update last clicked note and apply grading feedback
+        if (this.options.enableGradingIntegration && this.gradingEngine) {
+            this.state.lastClickedNote = noteName;
+            this.applyInteractiveGradingFeedback(noteName);
+        }
+        
         this.emit('noteClicked', {
             note: noteName,
             midi: midiNote,
-            enharmonic: this.getEnharmonicEquivalent(noteName)
+            enharmonic: this.getEnharmonicEquivalent(noteName),
+            gradingInfo: this.getGradingInfoForNote(noteName)
         });
+    }
+
+    /**
+     * Handle grading mode changes
+     */
+    onGradingModeChanged(newMode) {
+        const oldMode = this.state.gradingMode;
+        this.state.gradingMode = newMode;
+        
+        // Recalculate all note gradings
+        this.updateNoteGradings();
+        
+        // Re-apply visual state
+        this.applyState();
+        
+        // Emit grading mode change event
+        this.emit('gradingModeChanged', {
+            oldMode: oldMode,
+            newMode: newMode
+        });
+    }
+
+    /**
+     * Apply interactive grading feedback for a clicked note
+     */
+    applyInteractiveGradingFeedback(clickedNote) {
+        if (!this.gradingEngine) return;
+        
+        // Set the last clicked note
+        this.state.lastClickedNote = clickedNote;
+        
+        // Get grading information for clicked note
+        const clickedGrading = this.getGradingInfoForNote(clickedNote);
+        
+        // Clear previous highlighting
+        this.state.highlightedNotes = [];
+        
+        // Find related notes with same or similar grading tiers
+        const relatedNotes = [];
+        this.state.scaleNotes.forEach(note => {
+            const noteGrading = this.getGradingInfoForNote(note);
+            
+            // Highlight notes with same tier
+            if (noteGrading && noteGrading.tier === clickedGrading.tier) {
+                relatedNotes.push(note);
+            }
+            // Also highlight notes with adjacent tiers (±1)
+            else if (noteGrading && Math.abs(noteGrading.tier - clickedGrading.tier) === 1) {
+                relatedNotes.push(note);
+            }
+        });
+        
+        this.state.highlightedNotes = relatedNotes;
+        
+        // Update visual state
+        this.applyState();
+        
+        // Show grading tooltip if enabled
+        if (this.options.showGradingTooltips) {
+            this.showGradingTooltip(clickedNote, clickedGrading);
+        }
     }
 
     /**
@@ -737,6 +845,170 @@ class PianoVisualizer {
         }
 
     /**
+     * Update note gradings based on current context
+     */
+    updateNoteGradings() {
+        if (!this.gradingEngine || !this.state.scaleNotes.length) return;
+        
+        this.state.noteGradings.clear();
+        
+        // Calculate grading for each note in the current scale
+        this.state.scaleNotes.forEach(note => {
+            const tier = this.gradingEngine.calculateElementGrade(note, {
+                elementType: 'note',
+                key: this.state.currentKey,
+                scaleType: this.state.currentScale
+            });
+            
+            const gradingInfo = this.gradingEngine.getGradingTierInfo(tier);
+            this.state.noteGradings.set(note, {
+                tier: tier,
+                info: gradingInfo,
+                explanation: this.gradingEngine.getGradingExplanation(note, tier, {
+                    elementType: 'note',
+                    key: this.state.currentKey,
+                    scaleType: this.state.currentScale
+                })
+            });
+        });
+    }
+
+    /**
+     * Get grading information for a specific note
+     */
+    getGradingInfoForNote(note) {
+        if (!this.gradingEngine) return null;
+        
+        // Check if we have cached grading info
+        if (this.state.noteGradings.has(note)) {
+            return this.state.noteGradings.get(note);
+        }
+        
+        // Calculate grading on demand
+        const tier = this.gradingEngine.calculateElementGrade(note, {
+            elementType: 'note',
+            key: this.state.currentKey,
+            scaleType: this.state.currentScale
+        });
+        
+        const gradingInfo = this.gradingEngine.getGradingTierInfo(tier);
+        const explanation = this.gradingEngine.getGradingExplanation(note, tier, {
+            elementType: 'note',
+            key: this.state.currentKey,
+            scaleType: this.state.currentScale
+        });
+        
+        const result = {
+            tier: tier,
+            info: gradingInfo,
+            explanation: explanation
+        };
+        
+        this.state.noteGradings.set(note, result);
+        return result;
+    }
+
+    /**
+     * Show grading tooltip for a note
+     */
+    showGradingTooltip(note, gradingInfo) {
+        if (!gradingInfo || !this.pianoElement) return;
+        
+        // Remove existing tooltips
+        this.hideAllGradingTooltips();
+        
+        // Find the key element for this note
+        const keyElement = this.findKeyElementForNote(note);
+        if (!keyElement) return;
+        
+        // Create tooltip element
+        const tooltip = document.createElement('div');
+        tooltip.className = 'piano-grading-tooltip';
+        tooltip.style.position = 'absolute';
+        tooltip.style.background = 'rgba(0, 0, 0, 0.9)';
+        tooltip.style.color = 'white';
+        tooltip.style.padding = '8px 12px';
+        tooltip.style.borderRadius = '6px';
+        tooltip.style.fontSize = '12px';
+        tooltip.style.lineHeight = '1.4';
+        tooltip.style.maxWidth = '250px';
+        tooltip.style.zIndex = '1000';
+        tooltip.style.pointerEvents = 'none';
+        tooltip.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+        tooltip.style.border = `2px solid ${gradingInfo.info.color}`;
+        
+        // Position tooltip above the key
+        const keyRect = keyElement.getBoundingClientRect();
+        const containerRect = this.pianoElement.getBoundingClientRect();
+        tooltip.style.left = `${keyRect.left - containerRect.left + (keyRect.width / 2)}px`;
+        tooltip.style.top = `${keyRect.top - containerRect.top - 10}px`;
+        tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+        
+        // Create tooltip content
+        const content = `
+            <div style="font-weight: bold; margin-bottom: 4px; color: ${gradingInfo.info.color};">
+                ${gradingInfo.info.label} (Tier ${gradingInfo.tier})
+            </div>
+            <div style="margin-bottom: 4px;">
+                ${gradingInfo.info.educationalContext || 'No educational context available'}
+            </div>
+            <div style="font-size: 11px; opacity: 0.8;">
+                ${gradingInfo.explanation || 'No explanation available'}
+            </div>
+        `;
+        
+        tooltip.innerHTML = content;
+        
+        // Add tooltip to piano element
+        this.pianoElement.appendChild(tooltip);
+        this.state.gradingTooltips.set(note, tooltip);
+        
+        // Auto-hide tooltip after 5 seconds
+        setTimeout(() => {
+            this.hideGradingTooltip(note);
+        }, 5000);
+    }
+
+    /**
+     * Hide grading tooltip for a specific note
+     */
+    hideGradingTooltip(note) {
+        const tooltip = this.state.gradingTooltips.get(note);
+        if (tooltip && tooltip.parentNode) {
+            tooltip.parentNode.removeChild(tooltip);
+        }
+        this.state.gradingTooltips.delete(note);
+    }
+
+    /**
+     * Hide all grading tooltips
+     */
+    hideAllGradingTooltips() {
+        this.state.gradingTooltips.forEach((tooltip, note) => {
+            if (tooltip && tooltip.parentNode) {
+                tooltip.parentNode.removeChild(tooltip);
+            }
+        });
+        this.state.gradingTooltips.clear();
+    }
+
+    /**
+     * Find the DOM element for a specific note
+     */
+    findKeyElementForNote(note) {
+        if (!this.pianoElement) return null;
+        
+        const keys = this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key');
+        for (let key of keys) {
+            const keyNote = key.dataset.correctNote || key.dataset.note;
+            if (keyNote === note || this.getEnharmonicEquivalent(keyNote) === note) {
+                return key;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Render scale visualization
      */
     renderScale(config) {
@@ -761,6 +1033,11 @@ class PianoVisualizer {
             Object.entries(config.roles).forEach(([note, role]) => {
                 this.state.noteRoles.set(note, role);
             });
+        }
+
+        // Enhanced grading integration: update note gradings
+        if (this.options.enableGradingIntegration) {
+            this.updateNoteGradings();
         }
 
         this.applyState();
@@ -1057,26 +1334,54 @@ class PianoVisualizer {
             return m >= lowMidi && m < highMidi;
         };
 
-        // Apply active state (with higher-contrast styling) but only for scale notes within center octave
+        // Apply active state (with grading-aware styling) but only for scale notes within center octave
         this.state.activeNotes.forEach(note => {
             if (this.state.mode !== 'chord' && !isNoteInScale(note)) return;
             this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key').forEach(key => {
                 if (isInCenter(key) && keyMatchesNote(key, note)) {
                     key.classList.add('active');
-                    if (key.classList.contains('piano-white-key')) {
-                        key.style.background = 'linear-gradient(180deg, #fde047 0%, #f59e0b 100%)';
-                        key.style.borderColor = '#b45309';
-                        key.style.boxShadow = '0 0 0 3px rgba(245, 158, 11, 0.5), 0 6px 10px rgba(0, 0, 0, 0.35)';
-                    } else if (key.classList.contains('piano-black-key')) {
-                        key.style.background = 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)';
-                        key.style.borderColor = '#15803d';
-                        key.style.boxShadow = '0 0 0 3px rgba(34, 197, 94, 0.5), 0 6px 10px rgba(0, 0, 0, 0.35)';
+                    
+                    // Enhanced grading integration: use grading colors if available
+                    let backgroundColor, borderColor, boxShadow;
+                    if (this.options.enableGradingIntegration) {
+                        const gradingInfo = this.getGradingInfoForNote(note);
+                        if (gradingInfo && gradingInfo.info) {
+                            const gradingColor = gradingInfo.info.color;
+                            const isBlackKey = key.classList.contains('piano-black-key');
+                            
+                            if (isBlackKey) {
+                                backgroundColor = `linear-gradient(180deg, ${gradingColor} 0%, ${this.darkenColor(gradingColor, 0.2)} 100%)`;
+                                borderColor = this.darkenColor(gradingColor, 0.4);
+                                boxShadow = `0 0 0 3px ${gradingColor}80, 0 6px 10px rgba(0, 0, 0, 0.35)`;
+                            } else {
+                                backgroundColor = `linear-gradient(180deg, ${this.lightenColor(gradingColor, 0.3)} 0%, ${gradingColor} 100%)`;
+                                borderColor = this.darkenColor(gradingColor, 0.2);
+                                boxShadow = `0 0 0 3px ${gradingColor}80, 0 6px 10px rgba(0, 0, 0, 0.35)`;
+                            }
+                        }
                     }
+                    
+                    // Fallback to default colors if grading not available
+                    if (!backgroundColor) {
+                        if (key.classList.contains('piano-white-key')) {
+                            backgroundColor = 'linear-gradient(180deg, #fde047 0%, #f59e0b 100%)';
+                            borderColor = '#b45309';
+                            boxShadow = '0 0 0 3px rgba(245, 158, 11, 0.5), 0 6px 10px rgba(0, 0, 0, 0.35)';
+                        } else if (key.classList.contains('piano-black-key')) {
+                            backgroundColor = 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)';
+                            borderColor = '#15803d';
+                            boxShadow = '0 0 0 3px rgba(34, 197, 94, 0.5), 0 6px 10px rgba(0, 0, 0, 0.35)';
+                        }
+                    }
+                    
+                    key.style.background = backgroundColor;
+                    key.style.borderColor = borderColor;
+                    key.style.boxShadow = boxShadow;
                 }
             });
         });
 
-        // Apply highlighted state (subtle but clear) only for scale notes within center octave
+        // Apply highlighted state (grading-aware styling) only for scale notes within center octave
         this.state.highlightedNotes.forEach(note => {
             const inScale = isNoteInScale(note);
             if (this.state.mode !== 'chord' && !inScale) return;
@@ -1085,29 +1390,56 @@ class PianoVisualizer {
                 if (isInCenter(key) && keyMatchesNote(key, note)) {
                     key.classList.add('highlighted');
                     
-                    if (inScale) {
-                        // Scale notes: enhance the golden color with a brighter glow
-                        if (key.classList.contains('piano-white-key')) {
-                            key.style.background = 'linear-gradient(180deg, #fef3c7 0%, #fde047 100%)';
-                            key.style.borderColor = '#f59e0b';
-                            key.style.boxShadow = '0 0 0 2px rgba(245, 158, 11, 0.6), 0 4px 8px rgba(245, 158, 11, 0.3)';
-                        } else if (key.classList.contains('piano-black-key')) {
-                            key.style.background = 'linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%)';
-                            key.style.borderColor = '#d97706';
-                            key.style.boxShadow = '0 0 0 2px rgba(245, 158, 11, 0.6), 0 4px 8px rgba(245, 158, 11, 0.3)';
-                        }
-                    } else {
-                        // Non-scale notes: use a subtle purple/magenta accent (complementary to golden)
-                        if (key.classList.contains('piano-white-key')) {
-                            key.style.background = 'linear-gradient(180deg, #e9d5ff 0%, #d8b4fe 100%)';
-                            key.style.borderColor = '#a855f7';
-                            key.style.boxShadow = '0 0 0 2px rgba(168, 85, 247, 0.5), 0 4px 8px rgba(168, 85, 247, 0.25)';
-                        } else if (key.classList.contains('piano-black-key')) {
-                            key.style.background = 'linear-gradient(180deg, #c084fc 0%, #a855f7 100%)';
-                            key.style.borderColor = '#7e22ce';
-                            key.style.boxShadow = '0 0 0 2px rgba(168, 85, 247, 0.5), 0 4px 8px rgba(168, 85, 247, 0.25)';
+                    // Enhanced grading integration: use grading colors for highlighting
+                    let backgroundColor, borderColor, boxShadow;
+                    if (this.options.enableGradingIntegration && inScale) {
+                        const gradingInfo = this.getGradingInfoForNote(note);
+                        if (gradingInfo && gradingInfo.info) {
+                            const gradingColor = gradingInfo.info.color;
+                            const isBlackKey = key.classList.contains('piano-black-key');
+                            
+                            if (isBlackKey) {
+                                backgroundColor = `linear-gradient(180deg, ${this.lightenColor(gradingColor, 0.2)} 0%, ${gradingColor} 100%)`;
+                                borderColor = this.darkenColor(gradingColor, 0.2);
+                                boxShadow = `0 0 0 2px ${gradingColor}99, 0 4px 8px ${gradingColor}4D`;
+                            } else {
+                                backgroundColor = `linear-gradient(180deg, ${this.lightenColor(gradingColor, 0.4)} 0%, ${this.lightenColor(gradingColor, 0.1)} 100%)`;
+                                borderColor = gradingColor;
+                                boxShadow = `0 0 0 2px ${gradingColor}99, 0 4px 8px ${gradingColor}4D`;
+                            }
                         }
                     }
+                    
+                    // Fallback to default highlighting colors
+                    if (!backgroundColor) {
+                        if (inScale) {
+                            // Scale notes: enhance the golden color with a brighter glow
+                            if (key.classList.contains('piano-white-key')) {
+                                backgroundColor = 'linear-gradient(180deg, #fef3c7 0%, #fde047 100%)';
+                                borderColor = '#f59e0b';
+                                boxShadow = '0 0 0 2px rgba(245, 158, 11, 0.6), 0 4px 8px rgba(245, 158, 11, 0.3)';
+                            } else if (key.classList.contains('piano-black-key')) {
+                                backgroundColor = 'linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%)';
+                                borderColor = '#d97706';
+                                boxShadow = '0 0 0 2px rgba(245, 158, 11, 0.6), 0 4px 8px rgba(245, 158, 11, 0.3)';
+                            }
+                        } else {
+                            // Non-scale notes: use a subtle purple/magenta accent (complementary to golden)
+                            if (key.classList.contains('piano-white-key')) {
+                                backgroundColor = 'linear-gradient(180deg, #e9d5ff 0%, #d8b4fe 100%)';
+                                borderColor = '#a855f7';
+                                boxShadow = '0 0 0 2px rgba(168, 85, 247, 0.5), 0 4px 8px rgba(168, 85, 247, 0.25)';
+                            } else if (key.classList.contains('piano-black-key')) {
+                                backgroundColor = 'linear-gradient(180deg, #c084fc 0%, #a855f7 100%)';
+                                borderColor = '#7e22ce';
+                                boxShadow = '0 0 0 2px rgba(168, 85, 247, 0.5), 0 4px 8px rgba(168, 85, 247, 0.25)';
+                            }
+                        }
+                    }
+                    
+                    key.style.background = backgroundColor;
+                    key.style.borderColor = borderColor;
+                    key.style.boxShadow = boxShadow;
                 }
             });
         });
@@ -1254,22 +1586,83 @@ class PianoVisualizer {
         buttonSection.appendChild(leftBtn);
         buttonSection.appendChild(noneBtn);
         
-        // Scale info display (centered above keyboard)
-        const scaleInfoDisplay = document.createElement('div');
-        scaleInfoDisplay.id = 'piano-scale-info';
-        scaleInfoDisplay.style.fontFamily = 'var(--font-tech)';
-        scaleInfoDisplay.style.fontSize = '0.65rem';
-        scaleInfoDisplay.style.color = 'var(--text-muted)';
-        scaleInfoDisplay.style.maxWidth = '100%';
-        scaleInfoDisplay.style.lineHeight = '1.3';
-        scaleInfoDisplay.style.padding = '2px 6px';
-        scaleInfoDisplay.style.background = 'rgba(0, 243, 255, 0.05)';
-        scaleInfoDisplay.style.border = '1px solid rgba(0, 243, 255, 0.15)';
-        scaleInfoDisplay.style.borderRadius = '0';
-        scaleInfoDisplay.style.textAlign = 'center';
+        // Ultra-compact scale info display - minimal footprint
+        const scaleInfoContainer = document.createElement('div');
+        scaleInfoContainer.style.display = 'flex';
+        scaleInfoContainer.style.alignItems = 'center';
+        scaleInfoContainer.style.gap = '2px';
+        scaleInfoContainer.style.fontSize = '0.55rem';
+        scaleInfoContainer.style.padding = '1px 3px';
+        scaleInfoContainer.style.background = 'rgba(0, 243, 255, 0.03)';
+        scaleInfoContainer.style.border = '1px solid rgba(0, 243, 255, 0.1)';
+        scaleInfoContainer.style.fontFamily = 'var(--font-tech)';
+        scaleInfoContainer.style.color = 'var(--text-muted)';
+        scaleInfoContainer.style.height = '18px';
+        
+        // Compact info display (always visible) - just icon and short text
+        const compactInfo = document.createElement('span');
+        compactInfo.id = 'piano-scale-info-compact';
+        compactInfo.style.fontSize = '0.55rem';
+        compactInfo.style.whiteSpace = 'nowrap';
+        compactInfo.style.maxWidth = '60px';
+        compactInfo.style.overflow = 'hidden';
+        compactInfo.style.textOverflow = 'ellipsis';
+        
+        // Tiny expand button
+        const expandBtn = document.createElement('button');
+        expandBtn.innerHTML = '+';
+        expandBtn.style.width = '14px';
+        expandBtn.style.height = '14px';
+        expandBtn.style.fontSize = '0.45rem';
+        expandBtn.style.padding = '0';
+        expandBtn.style.background = 'rgba(0, 243, 255, 0.15)';
+        expandBtn.style.border = '1px solid rgba(0, 243, 255, 0.3)';
+        expandBtn.style.color = 'var(--accent-primary)';
+        expandBtn.style.cursor = 'pointer';
+        expandBtn.style.borderRadius = '0';
+        expandBtn.style.flexShrink = '0';
+        expandBtn.style.lineHeight = '1';
+        
+        // Expanded info (hidden by default)
+        const expandedInfo = document.createElement('div');
+        expandedInfo.id = 'piano-scale-info';
+        expandedInfo.style.position = 'absolute';
+        expandedInfo.style.top = '100%';
+        expandedInfo.style.left = '0';
+        expandedInfo.style.right = '0';
+        expandedInfo.style.background = 'rgba(0, 0, 0, 0.95)';
+        expandedInfo.style.border = '1px solid rgba(0, 243, 255, 0.3)';
+        expandedInfo.style.padding = '6px';
+        expandedInfo.style.fontSize = '0.65rem';
+        expandedInfo.style.lineHeight = '1.3';
+        expandedInfo.style.maxHeight = '120px';
+        expandedInfo.style.overflowY = 'auto';
+        expandedInfo.style.display = 'none';
+        expandedInfo.style.zIndex = '1000';
+        expandedInfo.style.fontFamily = 'var(--font-tech)';
+        
+        // Toggle functionality
+        let isExpanded = false;
+        expandBtn.addEventListener('click', () => {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                expandedInfo.style.display = 'block';
+                expandBtn.innerHTML = '−';
+                expandBtn.style.background = 'rgba(0, 243, 255, 0.3)';
+            } else {
+                expandedInfo.style.display = 'none';
+                expandBtn.innerHTML = '+';
+                expandBtn.style.background = 'rgba(0, 243, 255, 0.2)';
+            }
+        });
+        
+        scaleInfoContainer.style.position = 'relative';
+        scaleInfoContainer.appendChild(compactInfo);
+        scaleInfoContainer.appendChild(expandBtn);
+        scaleInfoContainer.appendChild(expandedInfo);
         
         // Add sections to fingering row (scale info on top, buttons below)
-        fingeringRow.appendChild(scaleInfoDisplay);
+        fingeringRow.appendChild(scaleInfoContainer);
 
         // Move scale library container here if it exists
         const scaleLibraryContainer = document.getElementById('scale-library-container');
@@ -1340,6 +1733,95 @@ class PianoVisualizer {
         this.options.showRightHandFingering = show;
         this.options.showFingering = this.options.showLeftHandFingering || this.options.showRightHandFingering;
         this.renderAnnotations();
+    }
+
+    /**
+     * Lighten a hex color by a percentage
+     */
+    lightenColor(color, percent) {
+        if (!color || !color.startsWith('#')) return color;
+        
+        const num = parseInt(color.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent * 100);
+        const R = (num >> 16) + amt;
+        const G = (num >> 8 & 0x00FF) + amt;
+        const B = (num & 0x0000FF) + amt;
+        
+        return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+            (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+    }
+
+    /**
+     * Darken a hex color by a percentage
+     */
+    darkenColor(color, percent) {
+        if (!color || !color.startsWith('#')) return color;
+        
+        const num = parseInt(color.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent * 100);
+        const R = (num >> 16) - amt;
+        const G = (num >> 8 & 0x00FF) - amt;
+        const B = (num & 0x0000FF) - amt;
+        
+        return '#' + (0x1000000 + (R > 255 ? 255 : R < 0 ? 0 : R) * 0x10000 +
+            (G > 255 ? 255 : G < 0 ? 0 : G) * 0x100 +
+            (B > 255 ? 255 : B < 0 ? 0 : B)).toString(16).slice(1);
+    }
+
+    /**
+     * Set the grading engine for enhanced grading integration
+     */
+    setGradingEngine(engine) {
+        this.gradingEngine = engine;
+        
+        if (engine) {
+            // Subscribe to grading mode changes
+            if (typeof engine.subscribe === 'function') {
+                engine.subscribe((event, data) => {
+                    if (event === 'gradingModeChanged') {
+                        this.onGradingModeChanged(data);
+                    }
+                });
+            }
+            
+            // Update current grading mode
+            this.state.gradingMode = engine.gradingMode || 'functional';
+            
+            // Update note gradings if we have scale context
+            if (this.state.scaleNotes.length > 0) {
+                this.updateNoteGradings();
+                this.applyState();
+            }
+        }
+    }
+
+    /**
+     * Enable or disable grading integration
+     */
+    setGradingIntegration(enabled) {
+        this.options.enableGradingIntegration = enabled;
+        
+        if (enabled && this.gradingEngine && this.state.scaleNotes.length > 0) {
+            this.updateNoteGradings();
+        } else if (!enabled) {
+            // Clear grading state
+            this.state.noteGradings.clear();
+            this.hideAllGradingTooltips();
+        }
+        
+        this.applyState();
+    }
+
+    /**
+     * Enable or disable grading tooltips
+     */
+    setGradingTooltips(enabled) {
+        this.options.showGradingTooltips = enabled;
+        
+        if (!enabled) {
+            this.hideAllGradingTooltips();
+        }
     }
 
     /**

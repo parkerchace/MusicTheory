@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Double Processing Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        
+        .word-input {
+            width: 300px;
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #555;
+            background: #444;
+            color: #fff;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .log {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Double Processing Fix Test</h1>
+        
+        <div class="status">
+            <strong>Test Instructions:</strong>
+            <ol>
+                <li>Type "test words" in the input field</li>
+                <li>Click elsewhere (outside the input)</li>
+                <li>Check the log - there should be only ONE processing call</li>
+            </ol>
+        </div>
+        
+        <input type="text" id="word-input" class="word-input" placeholder="Type words here..." />
+        <button onclick="clearLog()">Clear Log</button>
+        <button onclick="testBlur()">Test Blur Event</button>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        let processCount = 0;
+        let lastProcessTime = 0;
+        let lastProcessWords = '';
+        
+        function log(message) {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logEl.innerHTML += `[${timestamp}] ${message}<br>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            processCount = 0;
+        }
+        
+        function processWordsInput(words, trigger) {
+            const now = Date.now();
+            
+            log(`🔄 processWordsInput called with: "${words}" (trigger: ${trigger})`);
+            log(`📊 Stack trace: ${new Error().stack.split('\n')[2].trim()}`);
+            
+            // Prevent duplicate calls within 100ms with same words
+            if (words === lastProcessWords && (now - lastProcessTime) < 100) {
+                log('🚫 Ignoring duplicate call within 100ms');
+                return;
+            }
+            
+            lastProcessTime = now;
+            lastProcessWords = words;
+            processCount++;
+            
+            log(`✅ Processing words "${words}" - Count: ${processCount}`);
+        }
+        
+        function testBlur() {
+            const input = document.getElementById('word-input');
+            input.value = 'test blur';
+            input.blur();
+        }
+        
+        // Set up word input handlers (similar to main app)
+        const wordInput = document.getElementById('word-input');
+        
+        // Remove any existing listeners to prevent duplicates
+        if (wordInput._blurHandler) {
+            wordInput.removeEventListener('blur', wordInput._blurHandler);
+        }
+        
+        wordInput._blurHandler = (e) => {
+            const words = e.target.value.trim();
+            if (words) {
+                log('👆 Input blur event fired');
+                processWordsInput(words, 'blur');
+            }
+        };
+        wordInput.addEventListener('blur', wordInput._blurHandler);
+        
+        // Document click handler (similar to main app)
+        document.addEventListener('click', function(e) {
+            if (!wordInput.contains(e.target)) {
+                log('🖱️ Document click outside input');
+            }
+        });
+        
+        log('✅ Test initialized');
+    </script>
+</body>
+</html>

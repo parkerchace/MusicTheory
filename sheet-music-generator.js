@@ -2648,7 +2648,40 @@ class SheetMusicGenerator {
 			if (chord.diatonicNotes && chord.diatonicNotes.length > 0) {
 				rawNotes = chord.diatonicNotes;
 			}
-			const maxInv = Math.max(0, Math.min((rawNotes.length || 1) - 1, this.state.inversion || 0));
+			
+			// Enhanced inversion logic: vary inversions for repeated chords (same as single staff)
+			let dynamicInversion = this.state.inversion || 0;
+			
+			// Check for repeated chords and apply inversion variety
+			if (this.state.barMode === 'per-bar' && chordsToShow.length > 1) {
+				const currentChordName = chord.fullName || `${chord.root}${chord.chordType}`;
+				
+				// Find previous occurrences of the same chord
+				const previousOccurrences = [];
+				for (let i = 0; i < barIndex; i++) {
+					const prevChord = chordsToShow[i];
+					if (prevChord) {
+						const prevChordName = prevChord.fullName || `${prevChord.root}${prevChord.chordType}`;
+						if (prevChordName === currentChordName) {
+							previousOccurrences.push(i);
+						}
+					}
+				}
+				
+				// Apply inversion variety for repeated chords (deterministic)
+				if (previousOccurrences.length > 0) {
+					const maxPossibleInv = Math.min(3, (rawNotes.length || 1) - 1);
+					
+					// Use a deterministic pattern that creates good voice leading
+					const inversionPattern = [0, 1, 2, 1]; // Root, 1st, 2nd, 1st, repeat...
+					const patternIndex = previousOccurrences.length % inversionPattern.length;
+					dynamicInversion = Math.min(maxPossibleInv, inversionPattern[patternIndex]);
+					
+					console.log(`[SheetMusic] Chord ${currentChordName} repeated (occurrence ${previousOccurrences.length + 1}), using inversion ${dynamicInversion}`);
+				}
+			}
+			
+			const maxInv = Math.max(0, Math.min((rawNotes.length || 1) - 1, dynamicInversion));
 			const invNotes = rawNotes.length ? rawNotes.slice(maxInv).concat(rawNotes.slice(0, maxInv)) : rawNotes;
 			const spelled = invNotes.map(n => convertToKeySignatureSpelling(n));
 			// Voice relative to treble baseline so split around middle C feels natural
@@ -2983,8 +3016,40 @@ class SheetMusicGenerator {
                 rawNotes = chord.diatonicNotes;
             }
             
+			// Enhanced inversion logic: vary inversions for repeated chords
+			let dynamicInversion = this.state.inversion || 0;
+			
+			// Check for repeated chords and apply inversion variety
+			if (this.state.barMode === 'per-bar' && chordsToShow.length > 1) {
+				const currentChordName = chord.fullName || `${chord.root}${chord.chordType}`;
+				
+				// Find previous occurrences of the same chord
+				const previousOccurrences = [];
+				for (let i = 0; i < barIndex; i++) {
+					const prevChord = chordsToShow[i];
+					if (prevChord) {
+						const prevChordName = prevChord.fullName || `${prevChord.root}${prevChord.chordType}`;
+						if (prevChordName === currentChordName) {
+							previousOccurrences.push(i);
+						}
+					}
+				}
+				
+				// Apply inversion variety for repeated chords (deterministic)
+				if (previousOccurrences.length > 0) {
+					const maxPossibleInv = Math.min(3, (rawNotes.length || 1) - 1);
+					
+					// Use a deterministic pattern that creates good voice leading
+					const inversionPattern = [0, 1, 2, 1]; // Root, 1st, 2nd, 1st, repeat...
+					const patternIndex = previousOccurrences.length % inversionPattern.length;
+					dynamicInversion = Math.min(maxPossibleInv, inversionPattern[patternIndex]);
+					
+					console.log(`[SheetMusic] Chord ${currentChordName} repeated (occurrence ${previousOccurrences.length + 1}), using inversion ${dynamicInversion}`);
+				}
+			}
+			
 			// Apply inversion by rotating the stack (keep musical order)
-			const maxInv = Math.max(0, Math.min((rawNotes.length || 1) - 1, this.state.inversion || 0));
+			const maxInv = Math.max(0, Math.min((rawNotes.length || 1) - 1, dynamicInversion));
 			const invNotes = rawNotes.length ? rawNotes.slice(maxInv).concat(rawNotes.slice(0, maxInv)) : rawNotes;
             
             // Apply key signature spelling to each note (without reordering)
@@ -3768,6 +3833,21 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 			const vsBytes = Array.from(this.state.voicingStyle).map(c=>c.charCodeAt(0)&0x7F);
 			events.push({ delta: 0, data: [0xFF,0x06, vsBytes.length, ...vsBytes] });
 		}
+		
+		// Enhanced grading metadata preservation
+		try {
+			if (this.musicTheory && typeof this.musicTheory.gradingMode === 'string') {
+				// Add grading mode as metadata
+				const gradingModeText = `Grading:${this.musicTheory.gradingMode}`;
+				const gradingBytes = Array.from(gradingModeText).map(c=>c.charCodeAt(0)&0x7F);
+				events.push({ delta: 0, data: [0xFF,0x06, gradingBytes.length, ...gradingBytes] });
+				
+				// Add grading version for future compatibility
+				const versionText = 'GradingVersion:1.0';
+				const versionBytes = Array.from(versionText).map(c=>c.charCodeAt(0)&0x7F);
+				events.push({ delta: 0, data: [0xFF,0x06, versionBytes.length, ...versionBytes] });
+			}
+		} catch(_) {}
 		// Chords
 		chords.forEach((voices, barIdx) => {
 			const startTick = barIdx * measureTicks;
@@ -3784,6 +3864,38 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 					consumedStartDelta = true;
 				}
 			}
+			
+			// Add grading information for this chord/measure
+			try {
+				if (this.musicTheory && typeof this.musicTheory.calculateElementGrade === 'function' && 
+					typeof this.musicTheory.getGradingTierInfo === 'function' && barIdx < chordNames.length) {
+					
+					const chordName = chordNames[barIdx];
+					if (chordName) {
+						// Calculate grading for this chord
+						const context = {
+							key: this.state.key || 'C',
+							scaleType: this.state.scale || 'major',
+							elementType: 'chord',
+							barIndex: barIdx
+						};
+						
+						const tier = this.musicTheory.calculateElementGrade(chordName, context);
+						const tierInfo = this.musicTheory.getGradingTierInfo(tier);
+						
+						// Add grading metadata as MIDI marker
+						const gradingText = `Grade:${tier}:${tierInfo.name}:${tierInfo.color}`;
+						const gradingBytes = Array.from(gradingText).map(c=>c.charCodeAt(0)&0x7F);
+						const gradingDelta = consumedStartDelta ? 0 : deltaToStart;
+						events.push({ delta: gradingDelta, data: [0xFF,0x06, gradingBytes.length, ...gradingBytes] });
+						
+						if (!consumedStartDelta) {
+							currentTick = startTick;
+							consumedStartDelta = true;
+						}
+					}
+				}
+			} catch(_) {}
 			let first = true;
 			voices.forEach(n => {
 				const m = String(n).match(/^([A-G][#b]?)(\d+)$/);
