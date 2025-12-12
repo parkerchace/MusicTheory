@@ -1,0 +1,53 @@
+{
+  "session_id": "A natural pentatonic_20251212_013153_286880",
+  "scale_name": "A natural pentatonic",
+  "cultural_context": null,
+  "start_time": "2025-12-12T01:31:53.286932",
+  "end_time": "2025-12-12T01:31:53.287021",
+  "statistics": {
+    "total_queries": 3,
+    "successful_queries": 3,
+    "failed_queries": 0,
+    "total_results": 3,
+    "unique_results": 3,
+    "average_relevance": 0.28737367712780115
+  },
+  "queries": [
+    {
+      "query_id": "A natural pentatonic_20251212_013153_286880_q1",
+      "scale_name": "A natural pentatonic",
+      "search_term": "A natural pentatonic query 1",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:53.286957",
+      "execution_time_ms": 100.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    },
+    {
+      "query_id": "A natural pentatonic_20251212_013153_286880_q2",
+      "scale_name": "A natural pentatonic",
+      "search_term": "A natural pentatonic query 2",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:53.286993",
+      "execution_time_ms": 110.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    },
+    {
+      "query_id": "A natural pentatonic_20251212_013153_286880_q3",
+      "scale_name": "A natural pentatonic",
+      "search_term": "A natural pentatonic query 3",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:53.287011",
+      "execution_time_ms": 120.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    }
+  ]
+}

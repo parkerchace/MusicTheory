@@ -1,0 +1,4 @@
+# file: C:\Users\parkerc\OneDrive - american.edu\music theory app\music theory v12\scale-existence-cleanup\src\search_logging.py
+# hypothesis_version: 6.148.7
+
+[0.0, 1.0, 'average_relevance', 'average_time_ms', 'cultural_context', 'duration_seconds', 'end', 'end_time', 'engine_usage', 'failed_queries', 'generated_at', 'none', 'peak_search_hours', 'performance_metrics', 'queries', 'queries_per_session', 'report_metadata', 'report_period', 'results_per_query', 'results_per_session', 'scale_name', 'search_logs', 'search_patterns', 'search_statistics', 'session_id', 'session_summaries', 'sessions', 'start', 'start_time', 'statistics', 'success_rate', 'successful_queries', 'total_queries', 'total_results', 'total_sessions', 'total_time_ms', 'unique_results', 'utf-8', 'w']

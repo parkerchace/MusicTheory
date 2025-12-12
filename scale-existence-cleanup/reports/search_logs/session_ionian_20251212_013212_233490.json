@@ -1,0 +1,29 @@
+{
+  "session_id": "ionian_20251212_013212_233490",
+  "scale_name": "ionian",
+  "cultural_context": null,
+  "start_time": "2025-12-12T01:32:12.233527",
+  "end_time": "2025-12-12T01:32:12.233650",
+  "statistics": {
+    "total_queries": 1,
+    "successful_queries": 1,
+    "failed_queries": 0,
+    "total_results": 1,
+    "unique_results": 1,
+    "average_relevance": 0.8
+  },
+  "queries": [
+    {
+      "query_id": "ionian_20251212_013212_233490_q1",
+      "scale_name": "ionian",
+      "search_term": "ionian",
+      "cultural_context": null,
+      "search_engine": "duckduckgo",
+      "timestamp": "2025-12-12 01:32:12.233619",
+      "execution_time_ms": 0.07271766662597656,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    }
+  ]
+}

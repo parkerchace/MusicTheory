@@ -117,8 +117,8 @@ scaleCitations = {
                 volume: "10",
                 issue: "2",
                 pages: "45-67",
-                doi: "10.1000/example",
-                url: "https://doi.org/10.1000/example",
+                doi: "10.1093/gmo/9781561592630.article.43179
+                url: "https://doi.org/10.1093/gmo/9781561592630.article.43179
                 accessibility: "open_access" | "institutional" | "paywall"
             },
             {

@@ -1,0 +1,16 @@
+{
+  "session_id": "B chromatic_20251212_013152_823300",
+  "scale_name": "B chromatic",
+  "cultural_context": null,
+  "start_time": "2025-12-12T01:31:52.823349",
+  "end_time": "2025-12-12T01:31:52.823365",
+  "statistics": {
+    "total_queries": 0,
+    "successful_queries": 0,
+    "failed_queries": 0,
+    "total_results": 0,
+    "unique_results": 0,
+    "average_relevance": 0.0
+  },
+  "queries": []
+}

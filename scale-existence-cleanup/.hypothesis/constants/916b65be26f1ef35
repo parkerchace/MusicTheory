@@ -1,0 +1,4 @@
+# file: C:\Users\parkerc\OneDrive - american.edu\music theory app\music theory v12\scale-existence-cleanup\src\config.py
+# hypothesis_version: 6.148.7
+
+[0.0, 0.2, 0.3, 0.4, 0.5, 0.8, 1.0, 1000, './backups', './reports', 'BING_API_KEY', 'CRITICAL', 'DEBUG', 'ERROR', 'GOOGLE_API_KEY', 'INFO', 'WARNING', 'aeolian', 'arabic', 'arabic music', 'batch_processing', 'bing', 'blues', 'carnatic', 'chinese', 'chinese traditional', 'classical', 'database', 'diatonic major', 'dorian', 'dorian mode', 'duckduckgo', 'fair_use', 'five-note scale', 'folk', 'gagaku', 'google', 'guqin', 'hindustani', 'indian', 'indian classical', 'ionian', 'japanese', 'japanese traditional', 'jazz', 'koto', 'logging', 'major', 'maqam', 'middle eastern', 'minor', 'mixolydian', 'mixolydian mode', 'natural minor', 'pentatonic', 'pentatonic scale', 'quality_thresholds', 'r', 'raga', 'removal_criteria', 'reporting', 'scale_cleanup.log', 'search_engines', 'utf-8', 'western', '{scale_name}']

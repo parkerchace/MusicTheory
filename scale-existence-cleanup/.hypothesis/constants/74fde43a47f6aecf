@@ -1,0 +1,4 @@
+# file: C:\Users\parkerc\AppData\Roaming\Python\Python313\site-packages\trio\lowlevel.py
+# hypothesis_version: 6.148.7
+
+['epoll', 'linux', 'sphinx.ext.autodoc', 'win32']

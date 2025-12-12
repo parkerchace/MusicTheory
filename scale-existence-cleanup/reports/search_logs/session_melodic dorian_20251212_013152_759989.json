@@ -1,0 +1,53 @@
+{
+  "session_id": "melodic dorian_20251212_013152_759989",
+  "scale_name": "melodic dorian",
+  "cultural_context": null,
+  "start_time": "2025-12-12T01:31:52.760056",
+  "end_time": "2025-12-12T01:31:52.760191",
+  "statistics": {
+    "total_queries": 3,
+    "successful_queries": 3,
+    "failed_queries": 0,
+    "total_results": 3,
+    "unique_results": 5,
+    "average_relevance": 0.23096054715893763
+  },
+  "queries": [
+    {
+      "query_id": "melodic dorian_20251212_013152_759989_q1",
+      "scale_name": "melodic dorian",
+      "search_term": "melodic dorian query 1",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:52.760087",
+      "execution_time_ms": 100.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    },
+    {
+      "query_id": "melodic dorian_20251212_013152_759989_q2",
+      "scale_name": "melodic dorian",
+      "search_term": "melodic dorian query 2",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:52.760139",
+      "execution_time_ms": 110.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    },
+    {
+      "query_id": "melodic dorian_20251212_013152_759989_q3",
+      "scale_name": "melodic dorian",
+      "search_term": "melodic dorian query 3",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:52.760175",
+      "execution_time_ms": 120.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    }
+  ]
+}

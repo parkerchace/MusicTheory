@@ -1,0 +1,53 @@
+{
+  "session_id": "G natural mixolydian_20251212_013152_605069",
+  "scale_name": "G natural mixolydian",
+  "cultural_context": null,
+  "start_time": "2025-12-12T01:31:52.605122",
+  "end_time": "2025-12-12T01:31:52.605262",
+  "statistics": {
+    "total_queries": 3,
+    "successful_queries": 3,
+    "failed_queries": 0,
+    "total_results": 3,
+    "unique_results": 5,
+    "average_relevance": 0.48768085435878
+  },
+  "queries": [
+    {
+      "query_id": "G natural mixolydian_20251212_013152_605069_q1",
+      "scale_name": "G natural mixolydian",
+      "search_term": "G natural mixolydian query 1",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:52.605158",
+      "execution_time_ms": 100.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    },
+    {
+      "query_id": "G natural mixolydian_20251212_013152_605069_q2",
+      "scale_name": "G natural mixolydian",
+      "search_term": "G natural mixolydian query 2",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:52.605229",
+      "execution_time_ms": 110.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    },
+    {
+      "query_id": "G natural mixolydian_20251212_013152_605069_q3",
+      "scale_name": "G natural mixolydian",
+      "search_term": "G natural mixolydian query 3",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:52.605249",
+      "execution_time_ms": 120.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    }
+  ]
+}

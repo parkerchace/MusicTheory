@@ -1,0 +1,16 @@
+{
+  "session_id": "natural major_20251212_013152_130313",
+  "scale_name": "natural major",
+  "cultural_context": null,
+  "start_time": "2025-12-12T01:31:52.130370",
+  "end_time": "2025-12-12T01:31:52.130397",
+  "statistics": {
+    "total_queries": 0,
+    "successful_queries": 0,
+    "failed_queries": 0,
+    "total_results": 0,
+    "unique_results": 0,
+    "average_relevance": 0.0
+  },
+  "queries": []
+}

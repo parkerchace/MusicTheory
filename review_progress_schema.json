@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Review Progress Schema",
+  "description": "Schema for tracking batch review progress of REVIEW-status scales",
+  "type": "object",
+  "properties": {
+    "lastUpdated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp of last progress update"
+    },
+    "totalReviewScales": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of REVIEW-status scales to process"
+    },
+    "reviewedScales": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of scale names that have been reviewed"
+    },
+    "remainingScales": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of scale names still needing review"
+    },
+    "approvedSources": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "Source title"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "description": "Source URL"
+              },
+              "snippet": {
+                "type": "string",
+                "description": "Source snippet/description"
+              },
+              "quality": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Quality score (0.0-1.0)"
+              }
+            },
+            "required": ["title", "url", "snippet", "quality"]
+          }
+        }
+      },
+      "description": "Map of scale names to their approved sources"
+    },
+    "rejectedScales": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of scale names where all sources were rejected"
+    }
+  },
+  "required": ["lastUpdated", "totalReviewScales", "reviewedScales", "remainingScales", "approvedSources", "rejectedScales"]
+}

@@ -1,0 +1,29 @@
+{
+  "session_id": "B chromatic_20251212_013152_805023",
+  "scale_name": "B chromatic",
+  "cultural_context": null,
+  "start_time": "2025-12-12T01:31:52.805078",
+  "end_time": "2025-12-12T01:31:52.805143",
+  "statistics": {
+    "total_queries": 1,
+    "successful_queries": 1,
+    "failed_queries": 0,
+    "total_results": 1,
+    "unique_results": 1,
+    "average_relevance": 0.5366899511239774
+  },
+  "queries": [
+    {
+      "query_id": "B chromatic_20251212_013152_805023_q1",
+      "scale_name": "B chromatic",
+      "search_term": "B chromatic query 1",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:52.805105",
+      "execution_time_ms": 100.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    }
+  ]
+}

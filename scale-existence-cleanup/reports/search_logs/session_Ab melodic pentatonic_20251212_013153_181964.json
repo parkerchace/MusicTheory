@@ -1,0 +1,53 @@
+{
+  "session_id": "Ab melodic pentatonic_20251212_013153_181964",
+  "scale_name": "Ab melodic pentatonic",
+  "cultural_context": null,
+  "start_time": "2025-12-12T01:31:53.182028",
+  "end_time": "2025-12-12T01:31:53.182137",
+  "statistics": {
+    "total_queries": 3,
+    "successful_queries": 3,
+    "failed_queries": 0,
+    "total_results": 3,
+    "unique_results": 5,
+    "average_relevance": 0.6793553405951864
+  },
+  "queries": [
+    {
+      "query_id": "Ab melodic pentatonic_20251212_013153_181964_q1",
+      "scale_name": "Ab melodic pentatonic",
+      "search_term": "Ab melodic pentatonic query 1",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:53.182059",
+      "execution_time_ms": 100.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    },
+    {
+      "query_id": "Ab melodic pentatonic_20251212_013153_181964_q2",
+      "scale_name": "Ab melodic pentatonic",
+      "search_term": "Ab melodic pentatonic query 2",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:53.182105",
+      "execution_time_ms": 110.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    },
+    {
+      "query_id": "Ab melodic pentatonic_20251212_013153_181964_q3",
+      "scale_name": "Ab melodic pentatonic",
+      "search_term": "Ab melodic pentatonic query 3",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:53.182122",
+      "execution_time_ms": 120.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    }
+  ]
+}

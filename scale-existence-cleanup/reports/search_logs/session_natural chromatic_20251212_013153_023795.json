@@ -1,0 +1,53 @@
+{
+  "session_id": "natural chromatic_20251212_013153_023795",
+  "scale_name": "natural chromatic",
+  "cultural_context": null,
+  "start_time": "2025-12-12T01:31:53.023843",
+  "end_time": "2025-12-12T01:31:53.023923",
+  "statistics": {
+    "total_queries": 3,
+    "successful_queries": 3,
+    "failed_queries": 0,
+    "total_results": 3,
+    "unique_results": 4,
+    "average_relevance": 0.5078450162755581
+  },
+  "queries": [
+    {
+      "query_id": "natural chromatic_20251212_013153_023795_q1",
+      "scale_name": "natural chromatic",
+      "search_term": "natural chromatic query 1",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:53.023865",
+      "execution_time_ms": 100.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    },
+    {
+      "query_id": "natural chromatic_20251212_013153_023795_q2",
+      "scale_name": "natural chromatic",
+      "search_term": "natural chromatic query 2",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:53.023899",
+      "execution_time_ms": 110.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    },
+    {
+      "query_id": "natural chromatic_20251212_013153_023795_q3",
+      "scale_name": "natural chromatic",
+      "search_term": "natural chromatic query 3",
+      "cultural_context": null,
+      "search_engine": "test_engine",
+      "timestamp": "2025-12-12 01:31:53.023912",
+      "execution_time_ms": 120.0,
+      "success": true,
+      "error_message": null,
+      "results_count": 1
+    }
+  ]
+}
