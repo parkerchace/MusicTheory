@@ -1848,7 +1848,7 @@
     <div id="solar-docked-module" class="hidden"></div> <!-- Logic placeholder -->
 
     <!-- Module Scripts -->
-    <script src="music-theory-engine.js?v=2"></script>
+    <script src="music-theory-engine.js?v=3"></script>
     <script src="word-database.js"></script>
     
     <!-- NEW: Comprehensive Scale Intelligence System -->
@@ -2652,15 +2652,12 @@
                     if (miniPianoContainer) {
                         miniPianoContainer.innerHTML = this.numberGenerator.renderMiniPiano();
                     }
-                    // Temporarily disable citation display to test
+                    // Update citation display
                     const compactInfoContainer = document.getElementById('piano-scale-info-compact');
                     const expandedInfoContainer = document.getElementById('piano-scale-info');
                     
-                    if (compactInfoContainer) {
-                        compactInfoContainer.textContent = '';
-                    }
-                    if (expandedInfoContainer) {
-                        expandedInfoContainer.innerHTML = '';
+                    if (compactInfoContainer && expandedInfoContainer) {
+                        renderScaleCitation(data.scale, compactInfoContainer, expandedInfoContainer);
                     }
                     // Update mini chord strip to reflect new key/scale
                     try { this.renderMiniChordStrip(data.key, data.scale); } catch(_){}
@@ -3345,15 +3342,13 @@
                 if (miniPianoContainer) {
                     miniPianoContainer.innerHTML = this.numberGenerator.renderMiniPiano();
                 }
-                // Temporarily disable citation display to test
+                // Update citation display
                 const compactInfoContainer = document.getElementById('piano-scale-info-compact');
                 const expandedInfoContainer = document.getElementById('piano-scale-info');
                 
-                if (compactInfoContainer) {
-                    compactInfoContainer.textContent = '';
-                }
-                if (expandedInfoContainer) {
-                    expandedInfoContainer.innerHTML = '';
+                if (compactInfoContainer && expandedInfoContainer) {
+                    const currentScale = this.scaleLibrary.getCurrentScale();
+                    renderScaleCitation(currentScale, compactInfoContainer, expandedInfoContainer);
                 }
             }
         }
@@ -3363,6 +3358,41 @@
             // const console = document.getElementById('debug-console');
             // console.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
             // console.scrollTop = console.scrollHeight;
+        }
+
+        // Citation display functions
+        function getConfidenceIndicator(status) {
+            switch(status) {
+                case 'verified': return '<span class="confidence-verified">✅ Well-documented</span>';
+                case 'needs-review': return '<span class="confidence-review">⚠️ Limited documentation</span>';
+                case 'limited-documentation': return '<span class="confidence-limited">❓ Needs review</span>';
+                default: return '';
+            }
+        }
+
+        function renderScaleCitation(scaleType, compactContainer, expandedContainer) {
+            if (!window.modularApp || !window.modularApp.musicTheory) {
+                return;
+            }
+            
+            const musicTheory = window.modularApp.musicTheory;
+            const citation = musicTheory.getScaleCitation(scaleType, 'html');
+            const status = musicTheory.scaleCitations[scaleType]?.validationStatus;
+            
+            // Update compact display with confidence indicator
+            const indicator = getConfidenceIndicator(status);
+            if (compactContainer) {
+                compactContainer.innerHTML = indicator ? indicator.replace(/<[^>]*>/g, '').substring(0, 10) : 'Info';
+            }
+            
+            // Update expanded display with full citation and confidence indicator
+            if (expandedContainer) {
+                if (!citation || citation.includes('Scale derivation not documented')) {
+                    expandedContainer.innerHTML = '<div class="no-sources">No academic sources found</div>';
+                } else {
+                    expandedContainer.innerHTML = indicator + '<br>' + citation;
+                }
+            }
         }
 
         // Initialize the modular app when DOM is ready
