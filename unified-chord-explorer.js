@@ -2595,10 +2595,20 @@ class UnifiedChordExplorer {
             tierGroups[t].push(sub);
         });
 
-        // Assign positions tier by tier (tier 1 = closest, tier 5 = farthest)
+        // Map harmonic distance (lower = closer) to a radial distance range
+        const distances = allSubs.map(s => (typeof s.harmonicDistance === 'number') ? s.harmonicDistance : null).filter(d => d !== null);
+        const minDist = distances.length ? Math.min(...distances) : 0;
+        const maxDist = distances.length ? Math.max(...distances) : (minDist + 1);
+        const mapDistToRadius = (d) => {
+            if (d === null || typeof d !== 'number') return 100; // fallback radius
+            const norm = (d - minDist) / (maxDist - minDist || 1);
+            const minR = 80; const maxR = 360;
+            return Math.round(minR + norm * (maxR - minR));
+        };
+
+        // Assign positions tier by tier (tier still influences slight offset)
         Object.keys(tierGroups).sort((a, b) => a - b).forEach(tier => {
             const tierSubs = tierGroups[tier];
-            const tierRadius = 100 + (tier - 1) * tierSpacing;
 
             // Within tier, group by family and spread angularly
             const tierFamilyGroups = {};
@@ -2616,19 +2626,24 @@ class UnifiedChordExplorer {
                     const spread = count > 1 ? ((idx - (count - 1) / 2) * minAngleDelta) : 0;
                     const angle = baseAngle + spread;
 
+                    // Map harmonicDistance to radius, then nudge by tier so higher priority sits slightly closer
+                    const mappedRadius = mapDistToRadius((typeof sub.harmonicDistance === 'number') ? sub.harmonicDistance : null);
+                    const tierNudge = (tier - 1) * 12; // small extra separation per tier
+                    const finalRadius = mappedRadius + tierNudge;
+
                     const rad = (angle * Math.PI) / 180;
-                    const x = Math.cos(rad) * tierRadius;
-                    const y = Math.sin(rad) * tierRadius;
+                    const x = Math.cos(rad) * finalRadius;
+                    const y = Math.sin(rad) * finalRadius;
 
                     positioned.push({
                         ...sub,
                         _targetAngle: angle,
-                        _targetRadius: tierRadius,
+                        _targetRadius: finalRadius,
                         _tier: tier,
                         x,
                         y,
                         angle,
-                        radius: tierRadius
+                        radius: finalRadius
                     });
                 });
             });

@@ -48,28 +48,77 @@
       if(!container) return;
       this.container = container;
       this.container.innerHTML = '';
+      // Detect condensed mode only when container has explicit class `solar-condensed`
+      const isCondensed = (container.classList && container.classList.contains('solar-condensed'));
+      this.condensedMode = !!isCondensed;
 
       const canvas = document.createElement('canvas');
       canvas.style.width = '100%';
       canvas.style.height = '100%';
       canvas.style.display = 'block';
-      canvas.style.borderRadius = '12px';
-      canvas.style.background = 'radial-gradient(ellipse at center, #0b1220 0%, #0a0f1a 50%, #080c14 100%)';
+      canvas.style.borderRadius = this.condensedMode ? '8px' : '12px';
+      canvas.style.background = this.condensedMode ? 'radial-gradient(ellipse at center, #050612 0%, #060813 60%, #03040a 100%)' : 'radial-gradient(ellipse at center, #0b1220 0%, #0a0f1a 50%, #080c14 100%)';
       this.container.appendChild(canvas);
 
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
 
       this.resizeCanvas();
+      // Ensure canvas CSS fills container in condensed mode (sometimes percent heights collapse)
+      if (this.condensedMode) {
+        canvas.style.display = 'block';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+      }
       this.makeStars();
 
-  this.injectControls();
-      this.injectTooltip();
+      // If container is not yet measured (e.g. sidebar just inserted or hidden), schedule a deferred resize/draw
+      const rectCheck = this.container.getBoundingClientRect();
+      if ((rectCheck.width === 0 || rectCheck.height === 0) && typeof window !== 'undefined') {
+        // Use ResizeObserver when available to catch when the sidebar becomes visible
+        if (typeof ResizeObserver !== 'undefined') {
+          try {
+            if (this._ro) { try { this._ro.disconnect(); } catch(_){} }
+            this._ro = new ResizeObserver(() => {
+              try {
+                const r = this.container.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) {
+                  this.resizeCanvas(); this.makeStars(); this.rebuildPlanets(); this.draw();
+                  if (this._ro) { try { this._ro.disconnect(); } catch(_){} }
+                  this._ro = null;
+                }
+              } catch(_){}
+            });
+            this._ro.observe(this.container);
+          } catch(_) {
+            // fallback timed retry
+            setTimeout(() => { try { this.resizeCanvas(); this.makeStars(); this.rebuildPlanets(); this.draw(); } catch(_){} }, 140);
+          }
+        } else {
+          setTimeout(() => { try { this.resizeCanvas(); this.makeStars(); this.rebuildPlanets(); this.draw(); } catch(_){} }, 140);
+        }
+      }
 
-      window.addEventListener('resize', this.handleResize);
-      this.canvas.addEventListener('click', this.onClick);
-      this.canvas.addEventListener('mousemove', this.onMouseMove);
-      this.canvas.addEventListener('mouseleave', this.onMouseLeave);
+      // In condensed mode we omit the full controls and reduce animations/interaction
+      if (!this.condensedMode) {
+        this.injectControls();
+        this.injectTooltip();
+        window.addEventListener('resize', this.handleResize);
+        this.canvas.addEventListener('click', this.onClick);
+        this.canvas.addEventListener('mousemove', this.onMouseMove);
+        this.canvas.addEventListener('mouseleave', this.onMouseLeave);
+      } else {
+        // minimal tooltip only
+        this.injectTooltip();
+        // reduced update scales for compact rendering
+        this.state.sizeScale = Math.max(0.5, Math.min(1.0, (this.state.sizeScale || 1.0) * 0.6));
+        this.state.speedScale = Math.max(0.12, Math.min(0.6, (this.state.speedScale || 0.4) * 0.5));
+        // Force an immediate draw (fallback static sun) and a lightweight interval animation for mini view
+        try { this.rebuildPlanets(); this.draw(); } catch(_){}
+        if (!this._miniInterval) {
+          this._miniInterval = setInterval(() => { try { this.state.time += 1; this.draw(); } catch(_){} }, 800);
+        }
+      }
 
       if (window.ResizeObserver) {
         this.resizeObserver = new ResizeObserver(() => this.handleResize());
@@ -88,6 +137,7 @@
         this.canvas.removeEventListener('mouseleave', this.onMouseLeave);
       }
       if (this.resizeObserver) { this.resizeObserver.disconnect(); this.resizeObserver = null; }
+      if (this._ro) { try { this._ro.disconnect(); } catch(_){} this._ro = null; }
       this.stop();
       if(this.container){ this.container.innerHTML = ''; }
     }
@@ -190,7 +240,7 @@
     }
 
     start(){ if(this.animId) return; const loop = () => { this.state.time += 1; this.draw(); this.animId = requestAnimationFrame(loop); }; this.animId = requestAnimationFrame(loop); this.isPlaying = true; this.syncPlayButton(); }
-    stop(){ if(this.animId){ cancelAnimationFrame(this.animId); this.animId = null; } this.isPlaying = false; this.syncPlayButton(); }
+    stop(){ if(this.animId){ cancelAnimationFrame(this.animId); this.animId = null; } if (this._miniInterval) { clearInterval(this._miniInterval); this._miniInterval = null; } this.isPlaying = false; this.syncPlayButton(); }
 
     syncPlayButton(){
       const btn = this.container && this.container.querySelector && this.container.querySelector('#solar-play');
@@ -203,8 +253,9 @@
       if(!this.canvas) return;
       const dpr = window.devicePixelRatio || 1;
       const rect = this.container.getBoundingClientRect();
-      const width = Math.max(300, rect.width);
-      const height = Math.max(260, Math.min(820, rect.height));
+      // In condensed mode allow much smaller canvas sizes so it fits in tight sidebars
+      const width = this.condensedMode ? Math.max(160, rect.width) : Math.max(300, rect.width);
+      const height = this.condensedMode ? Math.max(120, Math.min(240, rect.height)) : Math.max(260, Math.min(820, rect.height));
       this.canvas.width = Math.floor(width * dpr);
       this.canvas.height = Math.floor(height * dpr);
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

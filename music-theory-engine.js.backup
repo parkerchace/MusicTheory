@@ -1076,7 +1076,7 @@ class MusicTheoryEngine {
                 validationDate: "2025-12-12",
             },
             prometheus_hexatonic: {
-                description: 'Prometheus scale - Scriabin\',
+                description: 'Prometheus scale - Scriabin\'s mystic chord as a scale',
                 culturalContext: {
                     region: "Russia, late Romantic/early modern period",
                     culturalGroup: "Russian late Romantic composers",
@@ -1790,7 +1790,7 @@ class MusicTheoryEngine {
                 validationDate: "2025-12-12",
             },
             enigmatic: {
-                description: 'Verdi\',
+                description: 'Enigmatic scale - used by Verdi and other composers for mysterious effects',
                 culturalContext: {
                     region: "Italy, 19th century opera",
                     culturalGroup: "Italian Romantic composers",
@@ -3343,6 +3343,7 @@ class MusicTheoryEngine {
                 validationDate: "2025-12-12",
             },
             whole_tone: {
+                description: 'Hexatonic scale built entirely from whole tone intervals - creates a dreamy, floating harmonic quality used extensively in impressionist music',
                 references: [
                     {
                         "type": "verified_source",
@@ -3979,6 +3980,7 @@ class MusicTheoryEngine {
                 validationStatus: "needs-review",
                 validationDate: "2025-12-12",
             },
+        
         
         };
 

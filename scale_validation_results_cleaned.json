@@ -1,9 +1,9 @@
 {
   "timestamp": "20251212_082716",
   "summary": {
-    "total": 87,
-    "keep": 85,
-    "review": 0,
+    "total": 119,
+    "keep": 77,
+    "review": 40,
     "remove": 2
   },
   "results": [
@@ -1102,6 +1102,27 @@
       ]
     },
     {
+      "scale_name": "lydian_sharp2_sharp6",
+      "display_name": "Lydian Sharp2 Sharp6",
+      "intervals": [
+        0,
+        3,
+        4,
+        6,
+        7,
+        10,
+        11
+      ],
+      "total_results": 8,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 7,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
       "scale_name": "ultraphrygian",
       "display_name": "Ultraphrygian",
       "intervals": [
@@ -1214,6 +1235,27 @@
           "quality": 0.5
         }
       ]
+    },
+    {
+      "scale_name": "ionian_augmented_sharp2",
+      "display_name": "Ionian Augmented Sharp2",
+      "intervals": [
+        0,
+        3,
+        4,
+        5,
+        8,
+        9,
+        11
+      ],
+      "total_results": 8,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 7,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
     },
     {
       "scale_name": "locrian_bb3_bb7",
@@ -1595,20 +1637,13 @@
         10
       ],
       "total_results": 9,
-      "found": true,
-      "quality_score": 0.9,
+      "found": false,
+      "quality_score": 0.3,
       "music_hits": 9,
-      "scale_hits": 1,
-      "recommendation": "KEEP",
-      "reason": "Legitimate scale - Minor pentatonic with added blue note (b5), fundamental to blues music",
-      "sources": [
-        {
-          "title": "Blues Scale - Music Theory",
-          "url": "https://en.wikipedia.org/wiki/Blues_scale",
-          "snippet": "The blues scale is a pentatonic scale with added chromatic \"blue notes\"",
-          "quality": 0.9
-        }
-      ]
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
     },
     {
       "scale_name": "blues_major_pentatonic",
@@ -1846,20 +1881,13 @@
         10
       ],
       "total_results": 10,
-      "found": true,
-      "quality_score": 0.9,
+      "found": false,
+      "quality_score": 0.3,
       "music_hits": 10,
-      "scale_hits": 1,
-      "recommendation": "KEEP",
-      "reason": "Legitimate scale - Standard whole tone scale (6 notes), used extensively in impressionist music",
-      "sources": [
-        {
-          "title": "Whole Tone Scale - Wikipedia",
-          "url": "https://en.wikipedia.org/wiki/Whole_tone_scale",
-          "snippet": "The whole tone scale is a hexatonic scale with six pitches",
-          "quality": 0.9
-        }
-      ]
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
     },
     {
       "scale_name": "augmented_hexatonic",
@@ -1912,20 +1940,13 @@
         10
       ],
       "total_results": 10,
-      "found": true,
-      "quality_score": 0.85,
+      "found": false,
+      "quality_score": 0.3,
       "music_hits": 10,
-      "scale_hits": 1,
-      "recommendation": "KEEP",
-      "reason": "Legitimate scale - Scriabin's Prometheus scale, used in his symphonic poem \"Prometheus\"",
-      "sources": [
-        {
-          "title": "Prometheus Scale - Scriabin",
-          "url": "https://en.wikipedia.org/wiki/Mystic_chord",
-          "snippet": "The mystic chord or Prometheus chord is a six-note synthetic chord used by Scriabin",
-          "quality": 0.9
-        }
-      ]
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
     },
     {
       "scale_name": "hijaz",
@@ -2295,17 +2316,17 @@
       ],
       "total_results": 7,
       "found": true,
-      "quality_score": 0.85,
+      "quality_score": 0.45,
       "music_hits": 3,
       "scale_hits": 1,
-      "recommendation": "KEEP",
-      "reason": "Legitimate Indian classical raga - Todi is a well-documented raga in Hindustani music",
+      "recommendation": "REVIEW",
+      "reason": "Only one source with scale info",
       "sources": [
         {
-          "title": "Raga Todi - Indian Classical Music",
-          "url": "https://en.wikipedia.org/wiki/Todi_(raga)",
-          "snippet": "Todi is a Hindustani classical raga which gave its name to the Todi thaat",
-          "quality": 0.9
+          "title": "Raga Todi: A Technical Guide 2025 - Musikclass Raga Todi - kksongs.org Images To",
+          "url": "https://musikclass.bookmetickets.com/content/raga-todi-a-technical-guide",
+          "snippet": "Raga Todi , an illustrious sampurna raga in Carnatic music, encompasses all seven notes of the Carnatic music scale . As a melakarta raga, it serves a",
+          "quality": 0.5
         }
       ]
     },
@@ -2323,17 +2344,17 @@
       ],
       "total_results": 10,
       "found": true,
-      "quality_score": 0.85,
+      "quality_score": 0.45,
       "music_hits": 7,
       "scale_hits": 1,
-      "recommendation": "KEEP",
-      "reason": "Legitimate Indian classical raga - Marwa is a well-documented evening raga",
+      "recommendation": "REVIEW",
+      "reason": "Only one source with scale info",
       "sources": [
         {
-          "title": "Raga Marwa - Hindustani Classical Music",
-          "url": "https://en.wikipedia.org/wiki/Marwa_(raga)",
-          "snippet": "Marwa is a hexatonic Hindustani classical raga",
-          "quality": 0.9
+          "title": "Raga Marwa - KKSongs.org",
+          "url": "https://kksongs.org/raga/list/marwa.html",
+          "snippet": "Marwa that has a Pa in it, however, Marwa ’ s behavior and scale is absolutely different. Usually, almost all representative ragas will share the same",
+          "quality": 0.5
         }
       ]
     },
@@ -2350,20 +2371,13 @@
         11
       ],
       "total_results": 10,
-      "found": true,
-      "quality_score": 0.85,
+      "found": false,
+      "quality_score": 0.3,
       "music_hits": 8,
-      "scale_hits": 1,
-      "recommendation": "KEEP",
-      "reason": "Legitimate Indian classical raga - Purvi is the parent raga of Purvi thaat",
-      "sources": [
-        {
-          "title": "Raga Purvi - Indian Classical Music",
-          "url": "https://en.wikipedia.org/wiki/Purvi",
-          "snippet": "Purvi is a raga in Hindustani classical music that gave its name to the Purvi thaat",
-          "quality": 0.9
-        }
-      ]
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
     },
     {
       "scale_name": "raga_kafi",
@@ -2413,17 +2427,45 @@
       ],
       "total_results": 10,
       "found": true,
-      "quality_score": 0.9,
+      "quality_score": 0.45,
       "music_hits": 8,
       "scale_hits": 1,
-      "recommendation": "KEEP",
-      "reason": "Legitimate Indian classical raga - Bhairavi is equivalent to natural minor scale",
+      "recommendation": "REVIEW",
+      "reason": "Only one source with scale info",
       "sources": [
         {
-          "title": "Raga Bhairavi - Hindustani Classical Music",
-          "url": "https://en.wikipedia.org/wiki/Bhairavi",
-          "snippet": "Bhairavi is a Hindustani classical raga of Bhairavi thaat, equivalent to natural minor",
+          "title": "Bhairavi (Carnatic) - Wikipedia Raga Bhairav - Musicianself Raga Bhairavi - Ocea",
+          "url": "https://en.wikipedia.org/wiki/Bhairavi_(Carnatic)",
+          "snippet": "Bhairavi is a janya rāgam in Carnatic music ( musical scale of South Indian classical music). Though it is a sampoorna rāgam ( scale having all 7 note",
           "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "spanish_phrygian",
+      "display_name": "Spanish Phrygian",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.45,
+      "music_hits": 7,
+      "scale_hits": 1,
+      "recommendation": "REVIEW",
+      "reason": "Only one source with scale info",
+      "sources": [
+        {
+          "title": "Scale 1467: \"Spanish Phrygian\" - Ian Ring",
+          "url": "https://ianring.com/musictheory/scales/1467",
+          "snippet": "Notes are arranged in a lattice where perfect 5th intervals are from left to right, major third are northeast, and major 6th intervals are northwest. ",
+          "quality": 0.7
         }
       ]
     },
@@ -2967,17 +3009,17 @@
       ],
       "total_results": 9,
       "found": true,
-      "quality_score": 0.8,
+      "quality_score": 0.45,
       "music_hits": 9,
       "scale_hits": 1,
-      "recommendation": "KEEP",
-      "reason": "Legitimate scale - Whole tone scale with added leading tone, used in classical music",
+      "recommendation": "REVIEW",
+      "reason": "Only one source with scale info",
       "sources": [
         {
-          "title": "Leading Whole-Tone Scale - Music Theory",
-          "url": "https://musictheory.pugetsound.edu/mt21c/leading-whole-tone-scale.html",
-          "snippet": "The leading whole-tone scale adds a leading tone to the whole-tone collection",
-          "quality": 0.8
+          "title": "Musical Scale Info: A Leading Whole Tone - Scales-Chords.com",
+          "url": "https://www.scales-chords.com/scaleinfo.php?skey=A&sname=Leading+Whole+Tone",
+          "snippet": "Detailed information for the scale A Leading Whole Tone . Notes , Intervals and relations to other scales in the database.",
+          "quality": 0.5
         }
       ]
     },
@@ -3084,6 +3126,232 @@
       ]
     },
     {
+      "scale_name": "pentatonic_african",
+      "display_name": "Pentatonic African",
+      "intervals": [
+        0,
+        2,
+        5,
+        7,
+        10
+      ],
+      "total_results": 8,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 8,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "heptatonic_akan",
+      "display_name": "Heptatonic Akan",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 9,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "kora_scale",
+      "display_name": "Kora Scale",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 10,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "balafon_scale",
+      "display_name": "Balafon Scale",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 10,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "yoruba_traditional",
+      "display_name": "Yoruba Traditional",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 6,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "ewe_traditional",
+      "display_name": "Ewe Traditional",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 5,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "hausa_pentatonic",
+      "display_name": "Hausa Pentatonic",
+      "intervals": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 10,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "fulani_pastoral",
+      "display_name": "Fulani Pastoral",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 5,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "mandinka_griot",
+      "display_name": "Mandinka Griot",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 5,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "wolof_sabar",
+      "display_name": "Wolof Sabar",
+      "intervals": [
+        0,
+        3,
+        5,
+        6,
+        7,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 6,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "bantu_traditional",
+      "display_name": "Bantu Traditional",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 8,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
       "scale_name": "cameroon_makossa",
       "display_name": "Cameroon Makossa",
       "intervals": [
@@ -3143,6 +3411,296 @@
       ]
     },
     {
+      "scale_name": "ethiopian_tezeta",
+      "display_name": "Ethiopian Tezeta",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        6,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 4,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "kenyan_benga",
+      "display_name": "Kenyan Benga",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 6,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "ugandan_traditional",
+      "display_name": "Ugandan Traditional",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 9,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 7,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "tanzanian_taarab",
+      "display_name": "Tanzanian Taarab",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        11
+      ],
+      "total_results": 9,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 2,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "xylophone_chopi",
+      "display_name": "Xylophone Chopi",
+      "intervals": [
+        0,
+        3,
+        5,
+        7,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 7,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "zulu_traditional",
+      "display_name": "Zulu Traditional",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 6,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "xhosa_traditional",
+      "display_name": "Xhosa Traditional",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 5,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "sotho_traditional",
+      "display_name": "Sotho Traditional",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 5,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "south_african_jazz",
+      "display_name": "South African Jazz",
+      "intervals": [
+        0,
+        2,
+        3,
+        4,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 5,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 5,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "marabi_scale",
+      "display_name": "Marabi Scale",
+      "intervals": [
+        0,
+        3,
+        4,
+        5,
+        7,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 10,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "berber_traditional",
+      "display_name": "Berber Traditional",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        11
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 4,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "tuareg_pentatonic",
+      "display_name": "Tuareg Pentatonic",
+      "intervals": [
+        0,
+        2,
+        5,
+        7,
+        9
+      ],
+      "total_results": 9,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 9,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "algerian_chaabi",
+      "display_name": "Algerian Chaabi",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 9,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "egyptian_maqam_influenced",
+      "display_name": "Egyptian Maqam Influenced",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        11
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 9,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
       "scale_name": "maasai_traditional",
       "display_name": "Maasai Traditional",
       "intervals": [
@@ -3159,6 +3717,88 @@
       "scale_hits": 0,
       "recommendation": "REMOVE",
       "reason": "No music theory content found",
+      "sources": []
+    },
+    {
+      "scale_name": "san_bushmen",
+      "display_name": "San Bushmen",
+      "intervals": [
+        0,
+        3,
+        5,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 4,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "dogon_traditional",
+      "display_name": "Dogon Traditional",
+      "intervals": [
+        0,
+        2,
+        3,
+        6,
+        7,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 5,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "bambara_traditional",
+      "display_name": "Bambara Traditional",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 6,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
+      "sources": []
+    },
+    {
+      "scale_name": "senufo_traditional",
+      "display_name": "Senufo Traditional",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": false,
+      "quality_score": 0.3,
+      "music_hits": 4,
+      "scale_hits": 0,
+      "recommendation": "REVIEW",
+      "reason": "Music content found but no specific scale docs",
       "sources": []
     }
   ]

@@ -151,49 +151,9 @@
             align-items: center;
             padding: 0 16px;
             gap: 24px;
-            flex-shrink: 0;
-            z-index: 100;
-            box-shadow: 0 0 15px var(--accent-glow);
-            backdrop-filter: blur(5px);
-        }
-
-        .app-brand {
-            font-family: var(--font-tech);
-            font-weight: 700;
-            font-size: 1.2em;
-            color: var(--accent-primary);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            text-shadow: 0 0 8px var(--accent-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* Compact Modules in Header */
-        .header-module {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-left: 1px solid var(--border-light);
-            padding-left: 12px;
-        }
-        
-        /* Force children of header modules to flow horizontally */
-        .header-module .module-body { padding: 0; background: transparent; }
-        .header-module h3 { display: none; } /* Hide titles in header */
-        .header-module .module-header { display: none; }
-
-        /* Specific overrides for JS injected content in header */
-        #scale-library-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        #scale-library-container h3 { display: none; }
-        #scale-library-container .scale-selector-group { margin-bottom: 0 !important; }
-        #scale-library-container select { 
+                            ${items.join('')}
+                        </div>
+                    `;
             margin: 0 !important; 
             width: auto !important;
             background: black !important;
@@ -324,54 +284,14 @@
             filter: drop-shadow(0 0 4px var(--accent-primary));
         }
         
-        .deck-title {
-            font-weight: 700;
-            text-shadow: 0 0 8px var(--accent-glow);
-        }
-        
-        .deck-status {
-            font-size: 0.55rem;
-            color: var(--accent-secondary);
-            padding: 1px 4px;
-            background: rgba(0, 255, 65, 0.1);
-            border: 1px solid var(--accent-secondary);
-            margin-left: 2px;
-        }
-
-        /* ==================== MODULE CARDS ==================== */
-        .studio-module {
-            background: var(--bg-panel);
-            border: 1px solid var(--border-light);
-            display: flex;
-            flex-direction: column;
-            overflow: visible;
-            position: relative;
-            transition: all 0.2s ease;
-        }
-        
-        .studio-module:hover {
-            border-color: var(--accent-primary);
-            box-shadow: 0 0 10px var(--accent-glow);
-        }
-        
-        .studio-module.fill-height {
-            /* Allow natural content sizing */
-        }
-
-        .module-header {
-            background: linear-gradient(90deg, var(--bg-header) 0%, transparent 100%);
-            padding: 6px 10px;
-            border-bottom: 1px solid var(--border-light);
-            font-family: var(--font-tech);
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--accent-primary);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+                    sidebar.innerHTML = `
+                        <div style="padding:10px;">
+                            <div style="margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:0.68rem; color:var(--text-secondary);">
+                                Chord Grading (${mode})
+                            </div>
+                            ${items.join('')}
+                        </div>
+                    `;
         
         /* Tech decoration in header */
         body[data-theme="matrix-fx"] .module-header::before {
@@ -720,54 +640,14 @@
             overflow: hidden;
         }
         
-        .pb-tier-band {
-            position: absolute;
-            width: 100%;
-            height: 20%;
-            pointer-events: none;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        
-        .pb-tier-band.tier-0 { top: 0%; background: rgba(139, 0, 0, 0.1); }
-        .pb-tier-band.tier-1 { top: 20%; background: rgba(255, 140, 0, 0.08); }
-        .pb-tier-band.tier-2 { top: 40%; background: rgba(255, 215, 0, 0.06); }
-        .pb-tier-band.tier-3 { top: 60%; background: rgba(173, 255, 47, 0.04); }
-        .pb-tier-band.tier-4 { top: 80%; background: rgba(0, 255, 0, 0.02); }
-        
-        .pb-grid-lines {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(255,255,255,0.02) 19px, rgba(255,255,255,0.02) 20px),
-                repeating-linear-gradient(90deg, transparent, transparent 19px, rgba(255,255,255,0.02) 19px, rgba(255,255,255,0.02) 20px);
-            pointer-events: none;
-        }
-        
-        .pb-cursor {
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            border: 2px solid;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 10;
-        }
-        
-        .pb-status {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .pb-card {
-            flex: 1;
-            background: var(--bg-input);
-            border: 1px solid var(--border-light);
-            padding: 8px;
-            border-radius: var(--radius-sm);
+                    sidebar.innerHTML = `
+                        <div style="padding:10px;">
+                            <div style="margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:0.68rem; color:var(--text-secondary);">
+                                Chord Grading (${mode})
+                            </div>
+                            ${items.join('')}
+                        </div>
+                    `;
             text-align: center;
         }
         
@@ -791,54 +671,14 @@
             color: var(--text-muted);
         }
         
-        .pb-generated {
-            /* Generated chords display area */
-            min-height: 40px;
-        }
-
-        .pb-empty {
-            color: var(--text-muted);
-            font-style: italic;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .pb-progression-display {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .pb-chord-item {
-            background: var(--bg-input);
-            border: 1px solid var(--border-light);
-            border-radius: 4px;
-            padding: 8px;
-            min-width: 120px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .pb-chord-item:hover {
-            background: var(--surface-color);
-            border-color: var(--primary-color);
-        }
-
-        .pb-chord-main {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-            padding-left: 8px;
-        }
-
-        .pb-chord-name {
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        .pb-chord-grade {
+                    sidebar.innerHTML = `
+                        <div style="padding:10px;">
+                            <div style="margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:0.68rem; color:var(--text-secondary);">
+                                Chord Grading (${mode})
+                            </div>
+                            ${items.join('')}
+                        </div>
+                    `;
             font-size: 0.75rem;
             font-weight: 500;
         }
@@ -1848,6 +1688,13 @@
     <div id="solar-docked-module" class="hidden"></div> <!-- Logic placeholder -->
 
     <!-- Module Scripts -->
+        <style>
+            /* Remove leftover mini solar containers */
+            #solar-condensed, #solar-under-grading, .solar-condensed { display: none !important; }
+            /* Keep grading sidebar compact and scrollable so it doesn't push layout */
+            #grading-key-sidebar { max-height: 48vh; overflow: auto; font-size: 0.9rem; }
+            #grading-key-sidebar .module-header { font-size: 0.78rem; }
+        </style>
     <script src="music-theory-engine.js?v=3"></script>
     <script src="word-database.js"></script>
     
@@ -1855,11 +1702,11 @@
     <script src="scale-intelligence-engine.js"></script>
     
     <!-- NEW: Generative Word-to-Music System -->
-    <script src="phonetic-analyzer.js"></script>
+    <!-- <script src="phonetic-analyzer.js"></script> -->
     <script src="chord-attribute-engine.js"></script>
     <script src="semantic-api-engine.js"></script>
     <script src="voice-leading-engine.js"></script>
-    <script src="generative-word-mapper.js"></script>
+    <!-- <script src="generative-word-mapper.js"></script> -->
     
     <script src="simple-word-engine.js?v=5"></script>
     <script src="sheet-music-generator.js"></script>
@@ -1872,8 +1719,8 @@
     <script src="solar-system-visualizer.v2.js"></script>
     <script src="audio-visualizer.js"></script>
     <script src="unified-chord-explorer.js"></script>
-    <script src="grading-legend-help-system.js"></script>
-    <script src="word-grading-visualization.js"></script>
+    <!-- <script src="grading-legend-help-system.js"></script> -->
+    <!-- <script src="word-grading-visualization.js"></script> -->
     <script src="bitwig-midi.js"></script>
 
     <script>
@@ -2402,6 +2249,53 @@
         }
 
         // ==================== MODULAR APPLICATION ====================
+        // Lightweight fallback for grading legend help system
+        // If the full `GradingLegendHelpSystem` implementation isn't present,
+        // this stub will render the grading legend into any host elements
+        // and subscribe to the music theory engine for updates.
+        class GradingLegendHelpSystem {
+            constructor(musicTheory) {
+                this.musicTheory = musicTheory;
+                try { this.renderAll(); } catch(_) {}
+                // Subscribe to changes if possible
+                if (this.musicTheory && typeof this.musicTheory.subscribe === 'function') {
+                    this.musicTheory.subscribe((ev) => {
+                        try { this.renderAll(); } catch(_) {}
+                    });
+                }
+            }
+
+            getLegendItems() {
+                if (!this.musicTheory || typeof this.musicTheory.getGradingTierInfo !== 'function') return [];
+                const tiers = [4,3,2,1,0];
+                return tiers.map(t => this.musicTheory.getGradingTierInfo(t) || null).filter(Boolean);
+            }
+
+            renderInto(host) {
+                if (!host) return;
+                const items = this.getLegendItems();
+                if (!items.length) return;
+                const html = items.map(info => `
+                    <div style="margin-bottom:12px;">
+                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                            <div style="width:16px; height:16px; background:${info.color}; border-radius:3px; flex-shrink:0;"></div>
+                            <span style="color:${info.color}; font-weight:bold; font-size:0.9rem;">${info.short} ${info.name}</span>
+                        </div>
+                        <div style="font-size:0.75rem; opacity:0.7; margin-left:22px;">${info.desc}</div>
+                    </div>
+                `).join('');
+                host.innerHTML = `<div style="padding:10px;"><div style="margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:0.68rem; color:var(--text-secondary);">Chord Grading</div>${html}</div>`;
+            }
+
+            renderAll() {
+                // Legend element inside main UI
+                const legend = document.getElementById('grading-key-legend');
+                if (legend) this.renderInto(legend);
+                // Sidebar fallback
+                const sidebar = document.getElementById('grading-key-sidebar');
+                if (sidebar) this.renderInto(sidebar);
+            }
+        }
 
         class ModularMusicTheoryApp {
             constructor() {
@@ -3218,6 +3112,7 @@
                         const mountTarget = '#solar-dock-viewport';
                         this.solarSystem.mount(mountTarget);
                     }
+                    // (condensed sidebar solar removed)
                     // Mobile autodetect: add class and slightly reduce solar size scale
                     const applyMobileClass = () => {
                         const isMobile = window.matchMedia('(max-width: 768px)').matches || /Mobi|Android/i.test(navigator.userAgent);
@@ -3531,8 +3426,8 @@
                         </div>`;
                     });
                     sidebar.innerHTML = `
-                        <div style="padding:12px;">
-                            <div style="margin-bottom:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; font-size:0.75rem; color:var(--text-secondary);">
+                        <div style="padding:10px;">
+                            <div style="margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:0.68rem; color:var(--text-secondary);">
                                 Chord Grading (${mode})
                             </div>
                             ${items.join('')}

@@ -356,8 +356,8 @@ class ValidationImporter:
             
             # Add description
             if 'description' in citation_data:
-                desc = citation_data['description'].replace("'", "\\'")
-                lines.append(f"                description: '{desc}',")
+                desc = citation_data['description'].replace('"', '\\"')
+                lines.append(f'                description: "{desc}",')
             
             # Add culturalContext
             if 'culturalContext' in citation_data:
