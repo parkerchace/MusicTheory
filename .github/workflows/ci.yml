@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  link-check:
+    name: Link check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run lychee link checker
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: "--recursive --input . --exit-status"
+
+  license-check:
+    name: License check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify LICENSE contains CC BY
+        run: |
+          if grep -qi "CC BY" LICENSE; then
+            echo "LICENSE contains CC BY";
+          else
+            echo "LICENSE does not contain CC BY - failing"; exit 1;
+          fi
