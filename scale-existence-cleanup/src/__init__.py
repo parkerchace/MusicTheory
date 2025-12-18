@@ -1,1 +1,0 @@
-# Scale Existence Cleanup System
