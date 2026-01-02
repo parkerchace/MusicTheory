@@ -1,0 +1,37 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20251122143111
+Username: DESKTOP-8MPU3HB\spark
+RunAs User: DESKTOP-8MPU3HB\spark
+Configuration Name: 
+Machine: DESKTOP-8MPU3HB (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -file  C:\Users\spark\OneDrive - american.edu\music theory app\music theory v11\vst3-plugin\setup_python_env.ps1 
+Process ID: 27048
+PSVersion: 5.1.26100.7019
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.7019
+BuildVersion: 10.0.26100.7019
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Logging to: C:\Users\spark\OneDrive - american.edu\music theory app\music theory v11\vst3-plugin\logs\setup_python_env_20251122_143111.log
+Locating Python...
+PS>TerminatingError(Start-Process): "Missing an argument for parameter 'RedirectStandardOutput'. Specify a parameter of type 'System.String' and try again."
+>> TerminatingError(Start-Process): "Missing an argument for parameter 'RedirectStandardOutput'. Specify a parameter of type 'System.String' and try again."
+>> TerminatingError(Start-Process): "Missing an argument for parameter 'RedirectStandardOutput'. Specify a parameter of type 'System.String' and try again."
+>> TerminatingError(Start-Process): "Missing an argument for parameter 'RedirectStandardOutput'. Specify a parameter of type 'System.String' and try again."
+C:\Users\spark\OneDrive - american.edu\music theory app\music theory v11\vst3-plugin\setup_python_env.ps1 : No Python 
+interpreter found. Install Python 3 and ensure 'py' or 'python' is on PATH.
+    + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
+    + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,setup_python_env.ps1
+C:\Users\spark\OneDrive - american.edu\music theory app\music theory v11\vst3-plugin\setup_python_env.ps1 : No Python
+interpreter found. Install Python 3 and ensure 'py' or 'python' is on PATH.
+    + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
+    + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,setup_python_env.ps1
+
+**********************
+Windows PowerShell transcript end
+End time: 20251122143112
+**********************
