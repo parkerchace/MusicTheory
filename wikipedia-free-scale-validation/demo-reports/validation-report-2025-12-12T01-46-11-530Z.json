@@ -1,0 +1,328 @@
+{
+  "generatedAt": "2025-12-12T01:46:11.535Z",
+  "summary": {
+    "totalScales": 2,
+    "verifiedScales": 2,
+    "failedScales": 0,
+    "pendingScales": 0,
+    "unverifiableScales": 0,
+    "verificationRate": 1,
+    "sourceDiversity": {
+      "totalSources": 3,
+      "sourceDistribution": {
+        "britannica.com": 2
+      },
+      "maxSingleSourcePercentage": 1,
+      "isDiversityCompliant": false,
+      "dominantSource": "britannica.com"
+    },
+    "problemCategories": {
+      "network": 4
+    },
+    "completionStatus": "complete"
+  },
+  "problems": {
+    "byCategory": {
+      "network": [
+        {
+          "category": "network",
+          "severity": "high",
+          "code": "NOT_FOUND",
+          "message": "HTTP 404: Not Found for URL https://teoria.com/en/reference/s/c%20major.php",
+          "suggestedFix": "Verify the URL path is correct or try an alternative source",
+          "timestamp": "2025-12-12T01:46:10.356Z",
+          "retryable": false
+        },
+        {
+          "category": "network",
+          "severity": "high",
+          "code": "NOT_FOUND",
+          "message": "HTTP 404: Not Found for URL https://musictheory.net/lessons/c%20major",
+          "suggestedFix": "Verify the URL path is correct or try an alternative source",
+          "timestamp": "2025-12-12T01:46:10.840Z",
+          "retryable": false
+        },
+        {
+          "category": "network",
+          "severity": "high",
+          "code": "NOT_FOUND",
+          "message": "HTTP 404: Not Found for URL https://teoria.com/en/reference/s/pentatonic%20scale.php",
+          "suggestedFix": "Verify the URL path is correct or try an alternative source",
+          "timestamp": "2025-12-12T01:46:11.194Z",
+          "retryable": false
+        },
+        {
+          "category": "network",
+          "severity": "high",
+          "code": "NOT_FOUND",
+          "message": "HTTP 404: Not Found for URL https://musictheory.net/lessons/pentatonic%20scale",
+          "suggestedFix": "Verify the URL path is correct or try an alternative source",
+          "timestamp": "2025-12-12T01:46:11.351Z",
+          "retryable": false
+        }
+      ]
+    },
+    "bySeverity": {
+      "high": [
+        {
+          "category": "network",
+          "severity": "high",
+          "code": "NOT_FOUND",
+          "message": "HTTP 404: Not Found for URL https://teoria.com/en/reference/s/c%20major.php",
+          "suggestedFix": "Verify the URL path is correct or try an alternative source",
+          "timestamp": "2025-12-12T01:46:10.356Z",
+          "retryable": false
+        },
+        {
+          "category": "network",
+          "severity": "high",
+          "code": "NOT_FOUND",
+          "message": "HTTP 404: Not Found for URL https://musictheory.net/lessons/c%20major",
+          "suggestedFix": "Verify the URL path is correct or try an alternative source",
+          "timestamp": "2025-12-12T01:46:10.840Z",
+          "retryable": false
+        },
+        {
+          "category": "network",
+          "severity": "high",
+          "code": "NOT_FOUND",
+          "message": "HTTP 404: Not Found for URL https://teoria.com/en/reference/s/pentatonic%20scale.php",
+          "suggestedFix": "Verify the URL path is correct or try an alternative source",
+          "timestamp": "2025-12-12T01:46:11.194Z",
+          "retryable": false
+        },
+        {
+          "category": "network",
+          "severity": "high",
+          "code": "NOT_FOUND",
+          "message": "HTTP 404: Not Found for URL https://musictheory.net/lessons/pentatonic%20scale",
+          "suggestedFix": "Verify the URL path is correct or try an alternative source",
+          "timestamp": "2025-12-12T01:46:11.351Z",
+          "retryable": false
+        }
+      ]
+    },
+    "totalProblems": 4,
+    "criticalProblems": []
+  },
+  "results": [
+    {
+      "scaleId": "c-major-demo",
+      "status": "verified",
+      "sources": [
+        {
+          "url": "https://teoria.com/en/reference/s/c%20major.php",
+          "title": "C Major",
+          "accessible": false,
+          "contentMatch": false,
+          "httpStatus": 404,
+          "notes": [
+            "HTTP error: 404 Not Found"
+          ],
+          "errorDetails": {
+            "category": "network",
+            "severity": "high",
+            "code": "NOT_FOUND",
+            "message": "HTTP 404: Not Found for URL https://teoria.com/en/reference/s/c%20major.php",
+            "suggestedFix": "Verify the URL path is correct or try an alternative source",
+            "timestamp": "2025-12-12T01:46:10.356Z",
+            "retryable": false
+          }
+        },
+        {
+          "url": "https://musictheory.net/lessons/c%20major",
+          "title": "C Major",
+          "accessible": false,
+          "contentMatch": false,
+          "httpStatus": 404,
+          "notes": [
+            "HTTP error: 404 Not Found"
+          ],
+          "errorDetails": {
+            "category": "network",
+            "severity": "high",
+            "code": "NOT_FOUND",
+            "message": "HTTP 404: Not Found for URL https://musictheory.net/lessons/c%20major",
+            "suggestedFix": "Verify the URL path is correct or try an alternative source",
+            "timestamp": "2025-12-12T01:46:10.840Z",
+            "retryable": false
+          }
+        },
+        {
+          "url": "https://britannica.com/search?query=C%20Major",
+          "title": "C Major",
+          "accessible": true,
+          "contentMatch": true,
+          "httpStatus": 200,
+          "notes": [],
+          "contentMatchDiagnostics": {
+            "expectedKeywords": [
+              "major",
+              "c major"
+            ],
+            "foundKeywords": [
+              "major",
+              "c major"
+            ],
+            "missingKeywords": [],
+            "matchPercentage": 1,
+            "contentLength": 50215,
+            "searchStrategy": "keyword-based"
+          }
+        }
+      ],
+      "internetVerification": {
+        "scaleExists": true,
+        "sourcesFound": 4,
+        "independentConfirmations": 24,
+        "searchQueries": [
+          "C Major",
+          "C Major Western",
+          "Western C Major",
+          "C Major scale Western",
+          "C Major scale",
+          "C Major mode"
+        ],
+        "foundSources": [
+          "teoria.com",
+          "musictheory.net",
+          "britannica.com",
+          "maqamworld.com"
+        ],
+        "confidence": 1,
+        "notes": [
+          "24 independent confirmations found"
+        ]
+      },
+      "primarySource": "https://britannica.com",
+      "backupSources": [],
+      "validatedAt": "2025-12-12T01:46:10.149Z",
+      "hallucinationRisk": "low",
+      "errorSummary": {
+        "totalErrors": 2,
+        "errorsByCategory": {
+          "network": 2
+        },
+        "errorsBySeverity": {
+          "high": 2
+        },
+        "criticalErrors": [],
+        "recommendedActions": [
+          "Verify the URL path is correct or try an alternative source"
+        ]
+      }
+    },
+    {
+      "scaleId": "pentatonic-demo",
+      "status": "verified",
+      "sources": [
+        {
+          "url": "https://teoria.com/en/reference/s/pentatonic%20scale.php",
+          "title": "Pentatonic Scale",
+          "accessible": false,
+          "contentMatch": false,
+          "httpStatus": 404,
+          "notes": [
+            "HTTP error: 404 Not Found"
+          ],
+          "errorDetails": {
+            "category": "network",
+            "severity": "high",
+            "code": "NOT_FOUND",
+            "message": "HTTP 404: Not Found for URL https://teoria.com/en/reference/s/pentatonic%20scale.php",
+            "suggestedFix": "Verify the URL path is correct or try an alternative source",
+            "timestamp": "2025-12-12T01:46:11.194Z",
+            "retryable": false
+          }
+        },
+        {
+          "url": "https://musictheory.net/lessons/pentatonic%20scale",
+          "title": "Pentatonic Scale",
+          "accessible": false,
+          "contentMatch": false,
+          "httpStatus": 404,
+          "notes": [
+            "HTTP error: 404 Not Found"
+          ],
+          "errorDetails": {
+            "category": "network",
+            "severity": "high",
+            "code": "NOT_FOUND",
+            "message": "HTTP 404: Not Found for URL https://musictheory.net/lessons/pentatonic%20scale",
+            "suggestedFix": "Verify the URL path is correct or try an alternative source",
+            "timestamp": "2025-12-12T01:46:11.351Z",
+            "retryable": false
+          }
+        },
+        {
+          "url": "https://britannica.com/search?query=Pentatonic%20Scale",
+          "title": "Pentatonic Scale",
+          "accessible": true,
+          "contentMatch": true,
+          "httpStatus": 200,
+          "notes": [],
+          "contentMatchDiagnostics": {
+            "expectedKeywords": [
+              "pentatonic",
+              "scale",
+              "pentatonic scale"
+            ],
+            "foundKeywords": [
+              "pentatonic",
+              "scale",
+              "pentatonic scale"
+            ],
+            "missingKeywords": [],
+            "matchPercentage": 1,
+            "contentLength": 49373,
+            "searchStrategy": "keyword-based"
+          }
+        }
+      ],
+      "internetVerification": {
+        "scaleExists": true,
+        "sourcesFound": 4,
+        "independentConfirmations": 24,
+        "searchQueries": [
+          "Pentatonic Scale",
+          "Pentatonic Scale Global",
+          "Global Pentatonic Scale",
+          "Pentatonic Scale scale Global",
+          "Pentatonic Scale scale",
+          "Pentatonic Scale mode"
+        ],
+        "foundSources": [
+          "teoria.com",
+          "musictheory.net",
+          "britannica.com",
+          "maqamworld.com"
+        ],
+        "confidence": 1,
+        "notes": [
+          "24 independent confirmations found"
+        ]
+      },
+      "primarySource": "https://britannica.com",
+      "backupSources": [],
+      "validatedAt": "2025-12-12T01:46:11.171Z",
+      "hallucinationRisk": "low",
+      "errorSummary": {
+        "totalErrors": 2,
+        "errorsByCategory": {
+          "network": 2
+        },
+        "errorsBySeverity": {
+          "high": 2
+        },
+        "criticalErrors": [],
+        "recommendedActions": [
+          "Verify the URL path is correct or try an alternative source"
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "format": "json"
+  }
+}

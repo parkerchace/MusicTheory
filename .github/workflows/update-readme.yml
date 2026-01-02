@@ -1,0 +1,35 @@
+name: Update README Modules
+
+on:
+  push:
+    paths:
+      - '**/*.js'
+      - 'tools/update_readme.js'
+      - 'README.md'
+  workflow_dispatch:
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Generate module table
+        run: node tools/update_readme.js
+      - name: Commit & push if changed
+        run: |
+          if git diff --quiet README.md; then
+            echo 'No README changes.'
+          else
+            git config user.name 'auto-doc-bot'
+            git config user.email 'actions@github.com'
+            git add README.md
+            git commit -m 'chore(docs): auto-update module table'
+            git push
+          fi

@@ -1,0 +1,18 @@
+[
+  {
+    "id": "c-major-demo",
+    "name": "C Major",
+    "culturalContext": "Western",
+    "notes": ["C", "D", "E", "F", "G", "A", "B"],
+    "intervals": [0, 2, 4, 5, 7, 9, 11],
+    "description": "The most basic major scale in Western music theory"
+  },
+  {
+    "id": "pentatonic-demo",
+    "name": "Pentatonic Scale",
+    "culturalContext": "Global",
+    "notes": ["C", "D", "E", "G", "A"],
+    "intervals": [0, 2, 4, 7, 9],
+    "description": "A five-note scale found in many musical traditions worldwide"
+  }
+]

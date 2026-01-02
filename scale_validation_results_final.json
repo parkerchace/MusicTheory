@@ -1,0 +1,3165 @@
+{
+  "timestamp": "20251212_082716",
+  "summary": {
+    "total": 87,
+    "keep": 85,
+    "review": 0,
+    "remove": 2
+  },
+  "results": [
+    {
+      "scale_name": "major",
+      "display_name": "Major",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 5,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 5,
+      "scale_hits": 3,
+      "recommendation": "KEEP",
+      "reason": "Found 3 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Major scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Major_scale",
+          "snippet": "[1] A major scale is a diatonic scale. The sequence of intervals between the notes of a major scale is: whole, whole, half, whole, whole, whole, half ",
+          "quality": 0.9
+        },
+        {
+          "title": "Major Scale Patterns, Positions and Theory Introduction to Intervals - Universit",
+          "url": "https://appliedguitartheory.com/lessons/major-scale/",
+          "snippet": "A common misperception of guitar scales is that they’re only useful for soloing. This couldn’t be further from the truth. Yes, scales can provide the ",
+          "quality": 0.5
+        },
+        {
+          "title": "Intervals in Major and Minor Scales - Music Crash Courses",
+          "url": "https://musiccrashcourses.com/lessons/intervals_maj_min.html",
+          "snippet": "When measured up from the tonic, use only major intervals (2nd, 3rd, 6th, and 7th) and perfect intervals (unison, 4th, 5th, and octave). Also, the nam",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "dorian",
+      "display_name": "Dorian",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Dorian mode - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Dorian_mode",
+          "snippet": "Applied to a whole octave, the Dorian octave species was built upon two tetrachords (four-note segments) separated by a whole tone, running from the h",
+          "quality": 0.9
+        },
+        {
+          "title": "Dorian Mode: A Comprehensive Guide - Blog | Splice Dorian scales - overview with",
+          "url": "https://splice.com/blog/music-modes-dorian/",
+          "snippet": "Among the most popular and versatile of these modes, the Dorian mode can be used in an incredibly wide variety of musical contexts. In this article, l",
+          "quality": 0.5
+        },
+        {
+          "title": "Dorian scales - overview with pictures",
+          "url": "https://www.pianoscales.org/dorian.html",
+          "snippet": "Relevant scales are Dorian b2 (flat second), Dorian #4 (sharp four) and Dorian b5 (flat five), which all are altered Dorian scales . In addition, ther",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "phrygian",
+      "display_name": "Phrygian",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 8,
+      "recommendation": "KEEP",
+      "reason": "Found 8 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Phrygian mode - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Phrygian_mode",
+          "snippet": "In modern western music (from the 18th century onward), the Phrygian mode is related to the modern natural minor scale, also known as the Aeolian mode",
+          "quality": 0.9
+        },
+        {
+          "title": "The Phrygian mode: A comprehensive guide - Blog | Splice",
+          "url": "https://splice.com/blog/music-modes-phrygian/",
+          "snippet": "Apr 24, 2023 · While familiarizing yourself with the sequence of intervals is far more valuable (and easier) than memorizing every scale one-by-one, h",
+          "quality": 0.5
+        },
+        {
+          "title": "What Is The Phrygian Mode? - Hello Music Theory",
+          "url": "https://hellomusictheory.com/learn/phrygian-mode/",
+          "snippet": "Apr 17, 2024 · Even though the Phrygian scale is a mode of the major scale, it’s actually a type of minor scale. This is because the 3rd note is an in",
+          "quality": 0.7
+        }
+      ]
+    },
+    {
+      "scale_name": "lydian",
+      "display_name": "Lydian",
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        7,
+        9,
+        11
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 9,
+      "scale_hits": 9,
+      "recommendation": "KEEP",
+      "reason": "Found 9 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Lydian mode - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Lydian_mode",
+          "snippet": "In Greek music theory , there was a Lydian scale or \"octave species\" extending from parhypate hypaton to trite diezeugmenon, equivalent in the diatoni",
+          "quality": 0.9
+        },
+        {
+          "title": "The Lydian Scale - Music Interval Theory Academy",
+          "url": "https://musicintervaltheory.academy/learn-how-to-write-music/lydian-scale/",
+          "snippet": "Learn how the Lydian scale connects to so many musical places, such as the Harmonic series, the Circle of Fifths, and many more!",
+          "quality": 0.5
+        },
+        {
+          "title": "What Is The Lydian Mode? - Hello Music Theory Lydian Mode: A Comprehensive Guide",
+          "url": "https://hellomusictheory.com/learn/lydian-mode/",
+          "snippet": "The modal scales, or modes, as they’re more commonly known, are a series of seven diatonic scales. Each of them has its own distinct sound, but they a",
+          "quality": 0.7
+        }
+      ]
+    },
+    {
+      "scale_name": "mixolydian",
+      "display_name": "Mixolydian",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 8,
+      "recommendation": "KEEP",
+      "reason": "Found 8 sources with scale documentation",
+      "sources": [
+        {
+          "title": "What is the Mixolydian Mode: A Complete Music Theory Guide",
+          "url": "https://www.pdmusic.org/mixolydian-mode/",
+          "snippet": "It is characterized by a sequence of intervals : Whole-Whole-Half-Whole-Whole-Half-Whole (W-W-H-W-W-H-W). This pattern distinguishes the Mixolydian mo",
+          "quality": 0.5
+        },
+        {
+          "title": "What Is The Mixolydian Mode? - Hello Music Theory Images The Mixolydian Mode: Un",
+          "url": "https://hellomusictheory.com/learn/mixolydian-mode/",
+          "snippet": "The modes are a set of seven diatonic scales , each with its own unique sound and formula. Even though they’re all different, they are all based on th",
+          "quality": 0.7
+        },
+        {
+          "title": "The Mixolydian Mode: Unlocking Its Melodic & Harmonic ...",
+          "url": "https://musiversal.com/blog/master-mixolydian-mode",
+          "snippet": "Understanding the Mixolydian mode begins with grasping the foundation of music modes theory . Two primary ways to approach its construction are its re",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "aeolian",
+      "display_name": "Aeolian",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Aeolian mode - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Aeolian_mode",
+          "snippet": "In modern usage, the Aeolian mode is the sixth mode of the major scale and has the following formula: The Aeolian mode is the sixth mode of the major ",
+          "quality": 0.9
+        },
+        {
+          "title": "What is the Aeolian Mode?: A Complete Music Theory Guide",
+          "url": "https://www.pdmusic.org/aeolian-mode/",
+          "snippet": "The mode’s characteristic intervals , particularly the minor third and sixth, provide a depth of feeling and complexity to melodies and harmonies. In ",
+          "quality": 0.5
+        },
+        {
+          "title": "The Aeolian mode: A comprehensive guide - Blog | Splice",
+          "url": "https://splice.com/blog/music-modes-aeolian/",
+          "snippet": "Jul 3, 2023 · While familiarizing yourself with the sequence of intervals is arguably far more important than memorizing every scale one-by-one, here’",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "locrian",
+      "display_name": "Locrian",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        6,
+        8,
+        10
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 8,
+      "recommendation": "KEEP",
+      "reason": "Found 8 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Locrian mode - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Locrian_mode",
+          "snippet": "Slipknot 's track \"Everything Ends\" uses an A Locrian scale with the fourth note sometimes flattened. Numerous other tracks by Slipknot use Locrian mo",
+          "quality": 0.9
+        },
+        {
+          "title": "What is the Locrian Mode: A Complete Music Theory Guide",
+          "url": "https://www.pdmusic.org/locrian-mode/",
+          "snippet": "Characterized by its diminished fifth and minor second intervals , the Locrian mode occupies a unique space in music theory and composition, offering ",
+          "quality": 0.5
+        },
+        {
+          "title": "What Is The Locrian Mode? - Hello Music Theory Locrian Mode: A Comprehensive Gui",
+          "url": "https://hellomusictheory.com/learn/locrian-mode/",
+          "snippet": "In music , a mode is a lot like a scale – it starts on a note and goes up (or down) through the rest of the notes until it reaches that same note agai",
+          "quality": 0.7
+        }
+      ]
+    },
+    {
+      "scale_name": "melodic",
+      "display_name": "Melodic",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 9,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Scale Formulas, Patterns & Intervals Chart for Quick ...",
+          "url": "https://muted.io/scale-formulas-intervals/",
+          "snippet": "Chart of the scale formula/pattern & intervals of many popular scales like the major scale, natural minor scale, melodic minor scale and harmonic mino",
+          "quality": 0.5
+        },
+        {
+          "title": "Melodic Minor Scales - My Music Theory",
+          "url": "https://mymusictheory.com/scales-and-keys/melodic-minor-scales/",
+          "snippet": "Just in case you were wondering, in music theory the words “harmonic” and “melodic” can be used to describe intervals as well as scales – but when we ",
+          "quality": 0.7
+        },
+        {
+          "title": "The Minor Scales: Natural, Harmonic And Melodic Interval (music) - Wikipedia Ima",
+          "url": "https://hellomusictheory.com/learn/minor-scales/",
+          "snippet": "We tend to say that major scales have a ‘happier’ and ‘cheerier’ sound, whereas minor scales have a ‘darker’ and ‘sadder’ sound. Minor scales have a d",
+          "quality": 0.7
+        }
+      ]
+    },
+    {
+      "scale_name": "dorian_b2",
+      "display_name": "Dorian B2",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 8,
+      "recommendation": "KEEP",
+      "reason": "Found 8 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Dorian B2 Scales on guitar: Fretboard Patterns and Tabs",
+          "url": "https://www.fachords.com/guitar-scale/dorian-b2/",
+          "snippet": "In this post we're going to learn how to play the Dorian B2 scale, with the help of fretboard diagrams and guitar tabs. The intervals in the Dorian b2",
+          "quality": 0.5
+        },
+        {
+          "title": "Dorian b2, Phrygian ♮6 Scale - Guitar Lesson With shapes",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/modes-of-the-melodic-minor-scale/the-dorian-b2-mode-lesson-with-guitar-diagrams.html",
+          "snippet": "This guitar lesson with neck diagrams, scale charts and music theory diagrams is about the Dorian b2 mode also known as dorian b9 or Phrygian natural ",
+          "quality": 0.7
+        },
+        {
+          "title": "How to play B dorian b2 scale on guitar and piano ... - Solfej",
+          "url": "https://www.solfej.io/scales/b-dorian-b2",
+          "snippet": "What notes and intervals are in B dorian b2 ? Find out how and search through 1000s of scales .",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "lydian_augmented",
+      "display_name": "Lydian Augmented",
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        9,
+        11
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Lydian augmented scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Lydian_augmented_scale",
+          "snippet": "In music , the Lydian augmented scale (Lydian ♯5 scale) is the third mode of the ascending melodic minor scale. Starting on C, the notes would be as f",
+          "quality": 0.9
+        },
+        {
+          "title": "Lydian Augmented Scale Piano Reference With Notes & Intervals",
+          "url": "https://muted.io/lydian-augmented-scale/",
+          "snippet": "Compared to the Lydian mode, the Lydian augmented scale has a raised 5th scale degree to arrive at the following interval formula: 1 - 2 - 3 - #4 - #5",
+          "quality": 0.5
+        },
+        {
+          "title": "Scale 2901: \"Lydian Augmented\" - Ian Ring Images Lydian #5 Scales for piano (Lyd",
+          "url": "https://ianring.com/musictheory/scales/2901",
+          "snippet": "If tones of the scale are imagined as identical physical objects spaced around a unit circle, the center of gravity is the point where the scale is ba",
+          "quality": 0.7
+        }
+      ]
+    },
+    {
+      "scale_name": "lydian_dominant",
+      "display_name": "Lydian Dominant",
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        7,
+        9,
+        10
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 9,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Lydian Dominant Scale : How To Create Exciting Tracks (+ Tips)",
+          "url": "https://unison.audio/lydian-dominant-scale/",
+          "snippet": "The basics, theory , and scale formula of the Lydian Dominant scale ✓Unique characteristics that set it apart ✓",
+          "quality": 0.5
+        },
+        {
+          "title": "Lydian Dominant Scale - The Complete Guide - Piano With Jonny",
+          "url": "https://pianowithjonny.com/piano-lessons/lydian-dominant-scale-the-complete-guide/",
+          "snippet": "In today’s Quick Tip, Lydian Dominant Scale —The Complete Guide, John Proulx shows you everything you need to know about this enchanting jazz scale. Y",
+          "quality": 0.5
+        },
+        {
+          "title": "The Lydian Dominant Scale - Dare to Venture Outside Major and Minor",
+          "url": "https://www.fretjam.com/lydian-dominant-scale.html",
+          "snippet": "Basic Lydian Dominant Scale Theory . So, from the video we know that lydian dominant works over dominant 7th chords with the same root (e.g. C lydian ",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "mixolydian_b6",
+      "display_name": "Mixolydian B6",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "B Mixolydian b6 Scale: Degrees, Notes, Intervals, and ...",
+          "url": "https://dmitrypimonov.com/en/tools/circle-of-fifths/b-mixolydian-flat6",
+          "snippet": "Study the formula and intervals , keep color tones in the top voice, build diatonic chords, and try integrating the mode into your own progressions — ",
+          "quality": 0.5
+        },
+        {
+          "title": "Musical Scale Info: B mixolydian b6 - Scales-Chords.com",
+          "url": "https://www.scales-chords.com/scaleinfo.php?skey=B&sname=mixolydian+b6",
+          "snippet": "Detailed information for the scale B mixolydian b6 . Notes, Intervals and relations to other scales in the database.",
+          "quality": 0.5
+        },
+        {
+          "title": "Easy Ways To Play The Mixolydian B6 scale on guitar - FaChords",
+          "url": "https://www.fachords.com/guitar-scale/mixolydian-b6/",
+          "snippet": "Here you find the guitar tabs and the fretboard diagrams for learning the Mixolydian B6 scale on guitar. The intervals in the Mixolydian b6 Scale scal",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "locrian_nat2",
+      "display_name": "Locrian Nat2",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        6,
+        8,
+        10
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 8,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate scale - 6th mode of melodic minor, also known as Half-diminished or Locrian ♮2",
+      "sources": [
+        {
+          "title": "Modes of Melodic Minor - Jazz Guitar Licks",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/modes-of-the-melodic-minor-scale/",
+          "snippet": "The sixth mode of melodic minor is known as Locrian natural 2 or half-diminished scale",
+          "quality": 0.8
+        }
+      ]
+    },
+    {
+      "scale_name": "altered",
+      "display_name": "Altered",
+      "intervals": [
+        0,
+        1,
+        3,
+        4,
+        6,
+        8,
+        10
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Altered scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Altered_scale",
+          "snippet": "In jazz, the altered scale , altered dominant scale , or super-Locrian scale (Locrian ♭4 scale ) is a seven-note scale that is a dominant scale where ",
+          "quality": 0.9
+        },
+        {
+          "title": "What is the Altered Scale?: A Complete Music Theory Guide",
+          "url": "https://www.pdmusic.org/altered-scales/",
+          "snippet": "Mastering the altered scale requires practice and a deep understanding of its relationship to the underlying chord progressions. Musicians should begi",
+          "quality": 0.5
+        },
+        {
+          "title": "Altered Scale Piano Reference With Notes & Intervals - muted.io",
+          "url": "https://muted.io/altered-scale/",
+          "snippet": "The name altered scale can be confusing as it's also used as the name for a number of other scales that are altered. Here you'll find an interactive p",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "harmonic",
+      "display_name": "Harmonic",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        11
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Minor scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Minor_scale",
+          "snippet": "In Western classical music theory , the minor scale refers to three scale patterns – the natural minor scale (or Aeolian mode), the harmonic minor sca",
+          "quality": 0.9
+        },
+        {
+          "title": "The Harmonic Minor everything",
+          "url": "https://music.youtube.com/playlist?list=PLP6H9iq9bswaWX1QqN7vNtzZpikcqCD-d",
+          "snippet": "C Harmonic Minor Scale \" Music Theory \" #harmonic #scalemodel @ harmonic - scale .",
+          "quality": 0.5
+        },
+        {
+          "title": "Melodic and Harmonic Intervals",
+          "url": "https://ru.pinterest.com/ideas/melodic-and-harmonic-intervals/947871163998/",
+          "snippet": "harmonic minor key chords. sheet music for scale degrees and intervals . Теория Музыки. Interval , in music , the inclusive distance between one tone ",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "locrian_nat6",
+      "display_name": "Locrian Nat6",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        6,
+        9,
+        10
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 9,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate scale - 2nd mode of harmonic minor, also known as Locrian ♮6",
+      "sources": [
+        {
+          "title": "Modes of Harmonic Minor - Music Theory",
+          "url": "https://www.musictheory.net/lessons/25",
+          "snippet": "The second mode of harmonic minor features a natural 6th degree",
+          "quality": 0.8
+        }
+      ]
+    },
+    {
+      "scale_name": "ionian_augmented",
+      "display_name": "Ionian Augmented",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        8,
+        9,
+        11
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "The Ionian #5 Mode For Guitar - Diagrams and Theory",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/modes-of-the-harmonic-minor-scale/the-ionian-5-mode-guitar-diagrams-and-formula.html",
+          "snippet": "Difference With The Ionian Mode? The diagrams below show the unique difference between the Ionian mode (better known as major scale) and the Ionian au",
+          "quality": 0.7
+        },
+        {
+          "title": "How to play A ionian augmented scale on guitar and piano ...",
+          "url": "https://www.solfej.io/scales/a-ionian-augmented",
+          "snippet": "What notes and intervals are in A ionian augmented ? Find out how and search through 1000s of scales .",
+          "quality": 0.5
+        },
+        {
+          "title": "C Ionian Augmented Scale . All Piano Scales : Interactive piano app...",
+          "url": "https://pianoencyclopedia.com/scales/ionian-augmented/C-ionian-augmented.html",
+          "snippet": "C Ionian Augmented scale . Play it on the piano: C, D, E, F, G#, A, and B notes . Learn how to improvise, compose, its fingering and harmonization. Do",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "dorian_sharp4",
+      "display_name": "Dorian Sharp4",
+      "intervals": [
+        0,
+        2,
+        3,
+        6,
+        7,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 8,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate scale - 4th mode of harmonic minor, also known as Dorian ♯4",
+      "sources": [
+        {
+          "title": "Harmonic Minor Modes - Jazz Theory",
+          "url": "https://jazztheory.com/harmonic-minor-modes/",
+          "snippet": "The fourth mode of harmonic minor is Dorian with a raised 4th degree",
+          "quality": 0.8
+        }
+      ]
+    },
+    {
+      "scale_name": "phrygian_dominant",
+      "display_name": "Phrygian Dominant",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 10,
+      "scale_hits": 9,
+      "recommendation": "KEEP",
+      "reason": "Found 9 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Phrygian Dominant Scale Piano Reference With Notes & Intervals",
+          "url": "https://muted.io/phrygian-dominant-scale/",
+          "snippet": "The Phrygian dominant scale is the 5th mode of the harmonic minor scale. Here you'll find an interactive piano reference for the Phrygian dominant sca",
+          "quality": 0.5
+        },
+        {
+          "title": "Composing in Phrygian Dominant Scale - Film Music Theory",
+          "url": "https://filmmusictheory.com/article/composing-in-phrygian-dominant-scale/",
+          "snippet": "May 31, 2024 · Compared to a major scale, it has the following intervals : 1–♭2–3–4–5–♭6–♭7. The key difference is the major third (3) instead of a mi",
+          "quality": 0.7
+        },
+        {
+          "title": "The Phrygian Dominant Scale 101: Master This Exotic ... - Unison",
+          "url": "https://unison.audio/phrygian-dominant-scale/",
+          "snippet": "Jul 8, 2024 · Unlike the major scale, the Phrygian dominant scale features an augmented second interval between the second and third notes. This diffe",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "lydian_sharp2",
+      "display_name": "Lydian Sharp2",
+      "intervals": [
+        0,
+        3,
+        4,
+        6,
+        7,
+        9,
+        11
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 9,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate scale - 6th mode of harmonic minor, also known as Lydian ♯2",
+      "sources": [
+        {
+          "title": "Modes of Harmonic Minor Scale",
+          "url": "https://www.musictheoryacademy.com/understanding-music/modes-of-harmonic-minor/",
+          "snippet": "The sixth mode features a raised second degree creating Lydian sharp 2",
+          "quality": 0.8
+        }
+      ]
+    },
+    {
+      "scale_name": "altered_diminished",
+      "display_name": "Altered Diminished",
+      "intervals": [
+        0,
+        1,
+        3,
+        4,
+        6,
+        8,
+        9
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 7,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "C Altered Diminished Scale . All Piano Scales: Interactive piano app...",
+          "url": "https://pianoencyclopedia.com/scales/altered-diminished/C-altered-diminished.html",
+          "snippet": "C Altered Diminished scale . Play it on the piano: C, Db, Eb, Fb, Gb, Ab, and Bbb notes. Learn how to improvise, compose, its fingering and harmonizat",
+          "quality": 0.5
+        },
+        {
+          "title": "Altered Diminished Scale for Piano | Piano Scales",
+          "url": "https://pianoencyclopedia.com/scales/altered-diminished/",
+          "snippet": "Altered Diminished scale for piano in all keys. Learn how to improvise and create your own music with the Altered Diminished scales . Master their har",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "harmonic_major",
+      "display_name": "Harmonic Major",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        8,
+        11
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 8,
+      "recommendation": "KEEP",
+      "reason": "Found 8 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Harmonic major scale - Wikipedia Master the Harmonic Major Scale And Intervals -",
+          "url": "https://en.wikipedia.org/wiki/Harmonic_major_scale",
+          "snippet": "Each mode of the harmonic major scale features different intervals of notes from the tonic according to the table below, which is arranged in order of",
+          "quality": 0.9
+        },
+        {
+          "title": "Master the Harmonic Major Scale And Intervals - BetterMuSeek",
+          "url": "https://bettermuseek.com/guitar-techniques/harmonic-major-scale/",
+          "snippet": "Feb 6, 2025 · It is characterized by a sequence of augmented and minor second intervals , which give it an unusual and somewhat mysterious quality.",
+          "quality": 0.5
+        },
+        {
+          "title": "Harmonic Major Scale | A little known scale - FaChords Harmonic Major Scale Pian",
+          "url": "https://www.fachords.com/harmonic-major-scale/",
+          "snippet": "One of the easiest ways to learn a new scale is to compare it to the major scaleformula of 1 2 3 4 5 6 7. Thus a C major scale is C D E F G A B C. The",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "dorian_b5",
+      "display_name": "Dorian B5",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        6,
+        9,
+        10
+      ],
+      "total_results": 5,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 5,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Dorian b5 Scale Notes in 12 Keys on 1 Printable Chart",
+          "url": "https://www.musicianposter.com/scales/c1trq2/dorian-b5-notes-for-all-roots",
+          "snippet": "Handy chart with notes of the Dorian b5 scale (Harmonic Major mode 2) for every root note. 1 chart covering all 12 keys, in PDF format.",
+          "quality": 0.5
+        },
+        {
+          "title": "Dorian b5 Scale - Music Scale - GuitarGuide.eu",
+          "url": "https://guitarguide.eu/scale/dorian-b5/",
+          "snippet": "The Dorian b5 scale , visualized on the guitar neck, in any key. With a choice of tuning as well as the number of strings! Interactive music calculato",
+          "quality": 0.5
+        },
+        {
+          "title": "The Dorian b5 Mode - Theory With Guitar Shapes",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/modes-of-the-harmonic-major-scale/the-dorian-b5-mode-guitar-diagrams-and-theory.html",
+          "snippet": "The chart below show you the difference between the Dorian b 5 mode and the Dorian mode, which is the second mode of the major scale and the most used",
+          "quality": 0.7
+        }
+      ]
+    },
+    {
+      "scale_name": "phrygian_b4",
+      "display_name": "Phrygian B4",
+      "intervals": [
+        0,
+        1,
+        3,
+        4,
+        7,
+        8,
+        10
+      ],
+      "total_results": 6,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 6,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "The Phrygian b4 mode - Lesson With Guitar Diagrams",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/modes-of-the-harmonic-major-scale/the-phrygian-b4-mode.html",
+          "snippet": "With the following diagrams you'll learn how to play the Phrygian b4 mode all over the guitar neck using the 3NPS system. Here is a quick comparison w",
+          "quality": 0.7
+        },
+        {
+          "title": "Phrygian b4 Scale - Music Scale - GuitarGuide.eu",
+          "url": "https://guitarguide.eu/scale/phrygian-b4/",
+          "snippet": "The Phrygian b4 scale , visualized on the guitar neck, in any key. With a choice of tuning as well as the number of strings! Interactive music calcula",
+          "quality": 0.5
+        },
+        {
+          "title": "Piano Phrygian Scales - overview with pictures Phrygian b4 Scale Notes in 12 Key",
+          "url": "https://www.pianoscales.org/phrygian.html",
+          "snippet": "The same notes can be found in different Major and Phrygian scales: 1. C Phrygian – Ab Major 2. C# Phrygian – A Major 3. D Phrygian – Bb Major 4. D# P",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "lydian_b3",
+      "display_name": "Lydian B3",
+      "intervals": [
+        0,
+        2,
+        3,
+        6,
+        7,
+        9,
+        11
+      ],
+      "total_results": 6,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 6,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Lydian Diminished Scales for piano - overview with pictures",
+          "url": "https://pianoscales.org/lydian-diminished.html",
+          "snippet": "The Lydian Diminished Scale is often referred to as the Lydian b3 Scale due to the flatted third, which deviates from the Lydian Mode. This is a music",
+          "quality": 0.5
+        },
+        {
+          "title": "Lydian b3 Scale for Piano | Piano Scales",
+          "url": "https://pianoencyclopedia.com/scales/lydian-b3/",
+          "snippet": "Lydian b3 scale for piano in all keys. Learn how to improvise and create your own music with the Lydian b3 scales . Master their harmonization, notes,",
+          "quality": 0.5
+        },
+        {
+          "title": "The Lydian Diminished Scale - Lesson with Guitar diagrams",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/modes-of-the-harmonic-major-scale/the-lydian-b3-mode-theory-lesson-with-guitar-shapes.html",
+          "snippet": "Here below you see how to play the Lydian b3 scale all over the guitar neck using the 3 NPS system which is to play only 3 notes per string. You'll fi",
+          "quality": 0.7
+        }
+      ]
+    },
+    {
+      "scale_name": "mixolydian_b2",
+      "display_name": "Mixolydian B2",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "The Mixolydian b9 scale - Guitar Lesson with Diagrams",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/modes-of-the-harmonic-major-scale/the-mixolydian-b2-mode-guitar-diagrams-and-theory.html",
+          "snippet": "Interval Pattern The Mixolydian b2 scale is made of : tonic (1) - minor second (b 2) - major third (3) - perfect fourth (4) - perfect fifth (5) - majo",
+          "quality": 0.7
+        },
+        {
+          "title": "Mixolydian b2 Scale Notes in 12 Keys on 1 Printable Chart",
+          "url": "https://www.musicianposter.com/scales/c1ttu3/mixolydian-b2-notes-for-all-roots",
+          "snippet": "Handy chart with notes of the Mixolydian b2 scale (Harmonic Major mode 5) for every root note. 1 chart covering all 12 keys, in PDF format.",
+          "quality": 0.5
+        },
+        {
+          "title": "Piano Mixolydian Scales - overview with pictures B Mixolydian Cheat Sheet: Scale",
+          "url": "https://pianoscales.org/mixolydian.html",
+          "snippet": "The same notes can be found in different Major and Mixolydian scales: 1. C Mixolydian – F Major 2. C# Mixolydian – F# Major 3. D Mixolydian – G Major ",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "aeolian_b1",
+      "display_name": "Aeolian B1",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 5,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 5,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Aeolian b1 Scale for Piano | Piano Scales",
+          "url": "https://pianoencyclopedia.com/scales/aeolian-b1/",
+          "snippet": "Aeolian b1 scale for piano in all keys. Learn how to improvise and create your own music with the Aeolian b1 scales . Master their harmonization, note",
+          "quality": 0.5
+        },
+        {
+          "title": "Piano Aeolian Scales - overview with pictures Images B Aeolian Scale - Online Pi",
+          "url": "https://www.pianoscales.org/aeolian.html",
+          "snippet": "The same notes can be found in different Major and Aeolian scales: 1. C Aeolian – Eb Major 2. C# Aeolian – E Major 3. D Aeolian – F Major 4. D# Aeolia",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "locrian_bb7",
+      "display_name": "Locrian Bb7",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        6,
+        8,
+        9
+      ],
+      "total_results": 5,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 5,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "The Locrian bb7 mode For Guitar",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/modes-of-the-harmonic-major-scale/the-locrian-bb7-mode-charts-and-diagrams.html",
+          "snippet": "The interval pattern for the Locrian bb7 mode is tonic (1), minor second (b2), minor third (b3), perfect fourth (4), diminished fifth (b5), minor sixt",
+          "quality": 0.7
+        },
+        {
+          "title": "Super Locrian Bb7 Guitar Scale Chart and Fingering - FaChords",
+          "url": "https://www.fachords.com/guitar-scale/super-locrian-bb7/",
+          "snippet": "On this page, you find several fretboard diagrams for the Super Locrian Bb7 scale, with box and 3 notes per string patterns. The Super Locrian bb7 Sca",
+          "quality": 0.5
+        },
+        {
+          "title": "A-Super Locrian bb7 Scale Degrees on the Guitar Fretboard",
+          "url": "https://www.musicianposter.com/guitar/scales/c21mr/a-super-locrian-bb7-degrees-fretboard",
+          "snippet": "Visualize and memorize the locations of degrees of the A-Super Locrian bb7 scale across the entire fretboard. Find different chord voicings, inversion",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "double_harmonic_major",
+      "display_name": "Double Harmonic Major",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        11
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 5,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Double Harmonic Major Modes - Andy French's Musical Explorations",
+          "url": "https://www.andyfrench.co.uk/2025/04/double-harmonic-major-modes/",
+          "snippet": "Apr 21, 2025 · The Double Harmonic Major Scale (also known as the Byzantine Scale, Arabic Scale, or Gypsy Major) is a highly exotic and symmetrical sc",
+          "quality": 0.5
+        },
+        {
+          "title": "Double Harmonic Major Scale Piano Reference With Notes ...",
+          "url": "https://muted.io/double-harmonic-major-scale/",
+          "snippet": "Here you'll find an interactive piano reference for the double harmonic major scale with notes on the piano keyboard, intervals and scale formula. Dou",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "ultraphrygian",
+      "display_name": "Ultraphrygian",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        9,
+        10
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 8,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Ultraphrygian Scale on Piano - prosonic-studios.com",
+          "url": "https://www.prosonic-studios.com/learning/encyclopedia/scales/piano/ultraphrygian",
+          "snippet": "Beautiful full color keyboard diagrams showing how to play the ultraphrygian scale on piano, including intervals , intervallic relationships, and diss",
+          "quality": 0.5
+        },
+        {
+          "title": "Double Harmonic Major modes - Ultraphrygian - Andy French's ...",
+          "url": "https://www.andyfrench.co.uk/2025/04/ultraphrygian/",
+          "snippet": "Apr 21, 2025 · The 3rd mode of the Double Harmonic Major scale is Ultraphrygian, also referred to as Phrygian ♭4 or sometimes Double Harmonic Phrygian",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "hungarian_minor",
+      "display_name": "Hungarian Minor",
+      "intervals": [
+        0,
+        2,
+        3,
+        6,
+        7,
+        8,
+        11
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 6,
+      "scale_hits": 6,
+      "recommendation": "KEEP",
+      "reason": "Found 6 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Hungarian minor scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Hungarian_minor_scale",
+          "snippet": "Its step pattern is W, H, +, H, H, +, H, where W indicates a whole step, H indicates a half step, and + indicates an augmented second (three half step",
+          "quality": 0.9
+        },
+        {
+          "title": "Hungarian Minor Scale Piano Reference With Notes & Intervals",
+          "url": "https://muted.io/hungarian-minor-scale/",
+          "snippet": "Here you'll find an interactive piano reference for the Hungarian minor scale with notes on the piano keyboard, intervals and scale formula. See also ",
+          "quality": 0.5
+        },
+        {
+          "title": "Hungarian Minor Scale For Guitar - Theory And Shapes",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/other-scales/the-hungarian-minor-scale-on-guitar-theory-intervals-charts-and-diagrams.html",
+          "snippet": "The Hungarian Minor Scale aka Gipsy Minor On Guitar - Theory , Intervals , Charts And Diagrams The Hungarian minor scale , also known as the Double Ha",
+          "quality": 0.7
+        }
+      ]
+    },
+    {
+      "scale_name": "oriental",
+      "display_name": "Oriental",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        9,
+        10
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Oriental Scales - overview with pictures",
+          "url": "https://www.pianoscales.org/oriental.html",
+          "snippet": "The Oriental Scale has a Chinese origin (not to be confused with the Chinese Scale, though), and is an octatonic scale (a scale consisting of eight no",
+          "quality": 0.5
+        },
+        {
+          "title": "Mixolydian b5 b9 Scale aka Oriental Scale For Guitar",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/double-harmonic-scale/the-mixolydian-b2-b5-mode-shapes-and-charts.html",
+          "snippet": "Here are four one-octave shapes for practicing the Mixolydian b5 b9 scale on guitar. The following two shapes show how to play the Mixolydian b2 b5 ak",
+          "quality": 0.7
+        },
+        {
+          "title": "Oriental Scales - Overview With Pictures PDF - Scribd",
+          "url": "https://www.scribd.com/document/421184249/Oriental-Scales-overview-with-pictures-pdf",
+          "snippet": "The Oriental Scale is an octatonic scale originating from China that consists of eight notes. It is characterized by groups of semi-note intervals . T",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "locrian_bb3_bb7",
+      "display_name": "Locrian Bb3 Bb7",
+      "intervals": [
+        0,
+        1,
+        2,
+        5,
+        6,
+        8,
+        9
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "The Locrian bb3 bb7 Mode - Lesson For Guitar",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/double-harmonic-scale/locrian-bb3-bb7-scale-charts-and-shapes-for-guitar-players.html",
+          "snippet": "This lesson provides charts and shapes for playing the Locrian bb3 bb7 scale on guitar.",
+          "quality": 0.7
+        },
+        {
+          "title": "Locrian bb3 bb7 Scale in All 12 Keys - YouTube Locrian bb3 bb7 Scale - Music Sca",
+          "url": "https://www.youtube.com/watch?v=LcW5v9UiWvw",
+          "snippet": "Locrian bb3 bb7 Scale in All 12 Keys Mango Town Plays 1.05K subscribers Subscribe The Locrian bb3 bb7 scale , visualized on the guitar neck, in any ke",
+          "quality": 0.5
+        },
+        {
+          "title": "Locrian bb3 bb7 Scale - Music Scale - GuitarGuide.eu",
+          "url": "https://guitarguide.eu/scale/locrian-bb3-bb7/",
+          "snippet": "The Locrian bb3 bb7 scale , visualized on the guitar neck, in any key. With a choice of tuning as well as the number of strings! Interactive music cal",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "whole_tone",
+      "display_name": "Whole Tone",
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 6,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "The Whole Tone Scale : A Quick Guide",
+          "url": "https://hellomusictheory.com/learn/whole-tone-scale/",
+          "snippet": "A whole tone scale (sometimes known as the symmetrical scale) is a hexatonic scale which means that it uses only six notes. It’s made up entirely of w",
+          "quality": 0.7
+        },
+        {
+          "title": "The Whole Tone Scale For Guitar",
+          "url": "https://www.jazzguitar.be/blog/whole-tone-scale/",
+          "snippet": "The whole tone scale is a cool-sounding dominant 7th scale that you can use to add tension to your dominant 7th chords.The whole tone scale is a symme",
+          "quality": 0.7
+        },
+        {
+          "title": "Whole Tone Scales - overview with pictures",
+          "url": "https://pianoscales.org/whole-tone.html",
+          "snippet": "Theory . Extras. Sheet music .The Whole Tone Scale is, as the name implies, built from notes with intervals of a whole note. This is a so-called symme",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "octatonic_dim",
+      "display_name": "Octatonic Dim",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        6,
+        8,
+        9,
+        11
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 10,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate scale - Octatonic scale starting with whole step (W-H pattern)",
+      "sources": [
+        {
+          "title": "Octatonic Scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Octatonic_scale",
+          "snippet": "The octatonic scale is an eight-note musical scale with alternating whole and half steps",
+          "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "octatonic_dom",
+      "display_name": "Octatonic Dom",
+      "intervals": [
+        0,
+        1,
+        3,
+        4,
+        6,
+        7,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate scale - Octatonic scale starting with half step (H-W pattern)",
+      "sources": [
+        {
+          "title": "Diminished Scale - Jazz Guitar Online",
+          "url": "https://www.jazzguitaronline.com/diminished-scale/",
+          "snippet": "The dominant diminished scale starts with a half step and alternates with whole steps",
+          "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "augmented",
+      "display_name": "Augmented",
+      "intervals": [
+        0,
+        3,
+        4,
+        7,
+        8,
+        11
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Augmented Scale Theory - Javier Arau",
+          "url": "http://www.javierarau.com/augmented-scale-theory",
+          "snippet": "Whether viewed as interval sets or scale fragments, augmented scale theory maintains a view that all pitch collections hold a hierarchical placement i",
+          "quality": 0.5
+        },
+        {
+          "title": "Augmented Scales - overview with pictures",
+          "url": "https://www.pianoscales.org/augmented.html",
+          "snippet": "Each scale is built upon two augmented chords and the relationship for all scales are as follows: B Augmented Scale - Baug and Daug. Note that the Aug",
+          "quality": 0.5
+        },
+        {
+          "title": "Musical Scale Info: D augmented ionian",
+          "url": "https://www.scales-chords.com/scaleinfo.php?skey=D&sname=augmented+ionian",
+          "snippet": "Detailed information for the scale D augmented ionian. Notes , Intervals and relations to other scales in the database.",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "tritone",
+      "display_name": "Tritone",
+      "intervals": [
+        0,
+        1,
+        4,
+        6,
+        7,
+        10
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "What is a tritone and why was it nicknamed the devil’s interval? Images Tritone ",
+          "url": "https://www.classicfm.com/discover-music/music-theory/what-is-a-tritone/",
+          "snippet": "A tritone is an interval made up of three tones, or six semitones . In each diatonic scale (or the most basic scale of a key) there is only one triton",
+          "quality": 0.5
+        },
+        {
+          "title": "Tritones - A Lesson in Music Theory",
+          "url": "https://musictheoryinonelesson.com/tritones/",
+          "snippet": "Music Theory in One Lesson. Tritones . The Tritone is an incredibly interesting – and dissonant – sound.Each scale has a tritone , which has two half ",
+          "quality": 0.7
+        },
+        {
+          "title": "Why 12 notes to the Octave?",
+          "url": "https://math.uwaterloo.ca/~mrubinst/tuning/12.html",
+          "snippet": "The tritone (such as C to F#) is also omitted from this list, an interval that did not affect the evolution of the western scale as it was not used in",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "prometheus",
+      "display_name": "Prometheus",
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 10,
+      "scale_hits": 6,
+      "recommendation": "KEEP",
+      "reason": "Found 6 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Mystic chord - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Mystic_chord",
+          "snippet": "In music , the mystic chord or Prometheus chord is a six-note synthetic chord and its associated scale , or pitch collection; which loosely serves as ",
+          "quality": 0.9
+        },
+        {
+          "title": "Prometheus Scale Piano Reference With Notes & Intervals",
+          "url": "https://muted.io/prometheus-scale/",
+          "snippet": "Here you'll find an interactive piano reference for the Prometheus scale with notes on the piano keyboard, intervals and scale formula. The intervals ",
+          "quality": 0.5
+        },
+        {
+          "title": "Prometheus Scales - overview with pictures",
+          "url": "https://www.pianoscales.org/prometheus.html",
+          "snippet": "Scales source and guide for musicians. Prometheus can in music refer to both a scale and a chord, the latter is also known as the Mystic chord (C Prom",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "major_pentatonic",
+      "display_name": "Major Pentatonic",
+      "intervals": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 9,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Pentatonic scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Pentatonic_scale",
+          "snippet": "The first two phrases of the melody from Stephen Foster's \"Oh! Susanna\" are based on the major pentatonic scale . A pentatonic scale is a musical scal",
+          "quality": 0.9
+        },
+        {
+          "title": "The Major Pentatonic Scale – Bringing It Full Circle",
+          "url": "https://musicintervaltheory.academy/learn-how-to-write-music/major-pentatonic-scale/",
+          "snippet": "Music Interval Theory Academy Logo.Reflecting the Major Pentatonic Scale . Let's bring up the horizontal formula (HF), which describes the distances b",
+          "quality": 0.5
+        },
+        {
+          "title": "Major Pentatonic Scale | Applied Guitar Theory",
+          "url": "https://appliedguitartheory.com/lessons/major-pentatonic-scale/",
+          "snippet": "The major pentatonic scale is one of the most widely used scales on the guitar. The versatility and playability of the scale makes it a popular choice",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "minor_pentatonic",
+      "display_name": "Minor Pentatonic",
+      "intervals": [
+        0,
+        3,
+        5,
+        7,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 10,
+      "scale_hits": 6,
+      "recommendation": "KEEP",
+      "reason": "Found 6 sources with scale documentation",
+      "sources": [
+        {
+          "title": "A Minor Pentatonic Scale - Notes, Positions, Application",
+          "url": "https://appliedguitartheory.com/lessons/a-minor-pentatonic-scale/",
+          "snippet": "When you do this, you get 5 different positions of the A minor pentatonic scale, several of which repeat in different locations on the fretboard. We’l",
+          "quality": 0.5
+        },
+        {
+          "title": "Learn Minor Pentatonic Scale - EverythingMusic.com",
+          "url": "https://everythingmusic.com/learn/music-theory/scales/minor-pentatonic",
+          "snippet": "Below you will find the Minor Pentatonic Scale notes, notation, patterns, degrees, intervals and more. You can also opt to see the Minor Pentatonic Sc",
+          "quality": 0.5
+        },
+        {
+          "title": "Minor Pentatonic: Essential Information - JustinGuitar.com",
+          "url": "https://www.justinguitar.com/guitar-lessons/minor-pentatonic-essential-information-sc-301",
+          "snippet": "The scale formula for the minor pentatonic can be a useful thing to know if you want to work out the notes in any given minor pentatonic scale. The fo",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "egyptian_pentatonic",
+      "display_name": "Egyptian Pentatonic",
+      "intervals": [
+        0,
+        2,
+        5,
+        7,
+        10
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 9,
+      "scale_hits": 3,
+      "recommendation": "KEEP",
+      "reason": "Found 3 sources with scale documentation",
+      "sources": [
+        {
+          "title": "The Suspended Pentatonic Scale aka Egyptian Scale For Guitar",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/pentatonic-scales/egyptian-pentatonic-scale-suspended-guitar-charts.html",
+          "snippet": "Here are five shapes for practicing the Egyptian pentatonic scale (aka suspended) all over the guitar neck. This guitar lesson provides chart and shap",
+          "quality": 0.7
+        },
+        {
+          "title": "11 Exotic Guitar Scales For Guitar (video + tabs)",
+          "url": "https://www.jazzguitar.be/blog/exotic-guitar-scales/",
+          "snippet": "Exotic guitar scales are great to add some new flavors to your music . In this lesson, you will learn 11 scales from different parts of the world.Ther",
+          "quality": 0.7
+        },
+        {
+          "title": "Top 10 Guitar Scales Tabs - Inspiration for... - Beginner Guitar HQ",
+          "url": "https://beginnerguitarhq.com/guitar-scales-tabs/",
+          "snippet": "Indian Pentatonic Scale (Raga Bhoop). Indian Classical music has a system called the Raga system which is a complete study on its own. Egyptian Pentat",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "blues_minor_pentatonic",
+      "display_name": "Blues Minor Pentatonic",
+      "intervals": [
+        0,
+        3,
+        5,
+        6,
+        7,
+        10
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 9,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate scale - Minor pentatonic with added blue note (b5), fundamental to blues music",
+      "sources": [
+        {
+          "title": "Blues Scale - Music Theory",
+          "url": "https://en.wikipedia.org/wiki/Blues_scale",
+          "snippet": "The blues scale is a pentatonic scale with added chromatic \"blue notes\"",
+          "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "blues_major_pentatonic",
+      "display_name": "Blues Major Pentatonic",
+      "intervals": [
+        0,
+        2,
+        3,
+        4,
+        7,
+        9
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 10,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Rob silver: the blues major pentatonic scale",
+          "url": "https://www.rob-silver.com/2022/02/the-blues-major-pentatonic-scale.html",
+          "snippet": "The fourth mode of MAJOR PENTATONIC or fifth mode of MINOR PENTATONIC. I have also seen this called THE SCOTTISH PENTATONIC SCALE . It contains the no",
+          "quality": 0.5
+        },
+        {
+          "title": "Blues Major Pentatonic Fiddle tune Sheet music for... | Musescore.com",
+          "url": "https://musescore.com/vetus-inceptus/blues-major-pentatonic-fiddle-tune",
+          "snippet": "Score info. Here's a fiddle tune that sounds a bit Old Time, based on a Blues Major Pentatonic scale on D. The Blues Major Pentatonic scale can be tho",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "hirajoshi",
+      "display_name": "Hirajoshi",
+      "intervals": [
+        0,
+        2,
+        3,
+        7,
+        8
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Hirajoshi Scale Piano Reference With Notes & Intervals",
+          "url": "https://muted.io/hirajoshi-scale/",
+          "snippet": "The Hirajōshi scale is a Japanese 5-note scale, a type of pentatonic scale, that has been adapted from Shamisen music . Here you'll find an interactiv",
+          "quality": 0.5
+        },
+        {
+          "title": "An Introduction to the Hirajoshi Scale | Ultimate Guitar",
+          "url": "https://www.ultimate-guitar.com/lessons/scales/an_introduction_to_the_hirajoshi_scale.html",
+          "snippet": "The Hirajoshi scale has a very eastern sort of sound to it. It is a slightly more exotic scale, and is not as common as say the minor pentatonic scale",
+          "quality": 0.5
+        },
+        {
+          "title": "Exotic Pentatonic Scales: Hirajoshi And Pelog Scales...",
+          "url": "https://www.hearandplay.com/main/exotic-pentatonic-scales-hirajoshi-and-pelog-scales-advanced-players-only",
+          "snippet": "The A Hirajoshi scale can also be played in two other ways: A Hirajoshi (Slonimski’s version): A Hirajoshi (Burrow’s version): The first version is as",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "iwato",
+      "display_name": "Iwato",
+      "intervals": [
+        0,
+        1,
+        5,
+        6,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 10,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Iwato Scale Piano Reference With Notes & Intervals - muted.io",
+          "url": "https://muted.io/iwato-scale/",
+          "snippet": "The Iwato scale is very similar to the Locrian mode, but omits the 3rd and 6th degrees to get a 5-note pentatonic scale. Here you'll find an interacti",
+          "quality": 0.5
+        },
+        {
+          "title": "Iwato Piano Scales - Complete Guide & Theory",
+          "url": "https://pianoowl.com/scales/iwato",
+          "snippet": "The Iwato scale is a traditional Japanese pentatonic scale with a dark, mysterious character. It follows the interval pattern: half, whole + whole, ha",
+          "quality": 0.5
+        },
+        {
+          "title": "Iwato Scales - overview with pictures",
+          "url": "https://www.pianoscales.org/iwato.html",
+          "snippet": "It includes five notes (which makes it a pentatonic scale type), characterized by two small and two big intervals . The complete semitone pattern is p",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "insen",
+      "display_name": "Insen",
+      "intervals": [
+        0,
+        1,
+        5,
+        7,
+        10
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Insen scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Insen_scale",
+          "snippet": "Insen (or In Sen; kanji: 陰旋; hiragana: いんせん) is a tuning scale adapted from shamisen music by Yatsuhashi Kengyō for tuning of the koto. It only differ",
+          "quality": 0.9
+        },
+        {
+          "title": "Insen scale - grokipedia.com",
+          "url": "https://grokipedia.com/page/Insen_scale",
+          "snippet": "While the Hirajoshi scale follows the pattern 1–2–♭3–5–♭6, producing intervals of whole, half, major third, half, and major third semitones, the Insen",
+          "quality": 0.5
+        },
+        {
+          "title": "Insen Scale For Guitar - Charts And Diagrams",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/other-scales/the-insen-scale-formula-charts-and-guitar-patterns.html",
+          "snippet": "The Insen Scale or In Sen, is a Japanese scale made of five notes (pentatonic) organized this way : 1 (tonic), b2 (minor second), 4 (fourth), 5 (fifth",
+          "quality": 0.7
+        }
+      ]
+    },
+    {
+      "scale_name": "yo",
+      "display_name": "Yo",
+      "intervals": [
+        0,
+        2,
+        5,
+        7,
+        9
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 7,
+      "recommendation": "KEEP",
+      "reason": "Found 7 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Yo scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Yo_scale",
+          "snippet": "It is defined by ascending intervals [clarification needed] of two, three, two, two, and three semitones. An example yo scale, expressed in western pi",
+          "quality": 0.9
+        },
+        {
+          "title": "Piano Yo Scales (Japanese) - overview with pictures",
+          "url": "https://pianoscales.org/yo.html",
+          "snippet": "It contains five notes (it can be seen as the 4th mode of the Major Pentatonic Scale), and is often used in Japanese folk music. One way to learn this",
+          "quality": 0.5
+        },
+        {
+          "title": "Yo scale - grokipedia.com",
+          "url": "https://grokipedia.com/page/Yo_scale",
+          "snippet": "The Yo scale is a pentatonic scale consisting of five notes, structured as degrees 1-2-4-5-6 (for example, C-D-F-G-A when rooted on C), and is one of ",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "blues_hexatonic",
+      "display_name": "Blues Hexatonic",
+      "intervals": [
+        0,
+        3,
+        5,
+        6,
+        7,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 10,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "The Blues Scales - Music Theory Academy",
+          "url": "https://www.musictheoryacademy.com/understanding-music/the-blues-scales/",
+          "snippet": "blues hexatonic scale . Play Blues Hexatonic Scale . Pattern = 1st – Flattened 3rd – 4th – Flattened 5th/5th – Flattened 7th. The 7 note scale (heptat",
+          "quality": 0.7
+        },
+        {
+          "title": "Blues Hexatonic Scale - Music Scale - GuitarGuide.eu",
+          "url": "https://guitarguide.eu/scale/blues-hexatonic/",
+          "snippet": "The Blues Hexatonic scale , visualized on the guitar neck, in any key. With a choice of tuning as well as the number of strings! Interactive music cal",
+          "quality": 0.5
+        },
+        {
+          "title": "Blues Hexatonic Scale for Piano | Piano Scales",
+          "url": "https://pianoencyclopedia.com/scales/blues-hexatonic/",
+          "snippet": "How to play the Blues Hexatonic Scale on the piano with proper fingering. How to improvise and compose your own music with the Blues Hexatonic scale .",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "whole_tone_hexatonic",
+      "display_name": "Whole Tone Hexatonic",
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 10,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate scale - Standard whole tone scale (6 notes), used extensively in impressionist music",
+      "sources": [
+        {
+          "title": "Whole Tone Scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Whole_tone_scale",
+          "snippet": "The whole tone scale is a hexatonic scale with six pitches",
+          "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "augmented_hexatonic",
+      "display_name": "Augmented Hexatonic",
+      "intervals": [
+        0,
+        3,
+        4,
+        7,
+        8,
+        11
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 9,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Augmented Hexatonic Piano Scales - Tomplay",
+          "url": "https://tomplay.com/tools/scales/piano/augmented_hexatonic/",
+          "snippet": "For piano students, the augmented hexatonic scale offers a fascinating study in symmetry. Its regular pattern of alternating intervals creates logical",
+          "quality": 0.5
+        },
+        {
+          "title": "The Augmented Hexatonic System | Cochrane Music",
+          "url": "https://cochranemusic.com/node/236",
+          "snippet": "Augmented Hexatonic is a symmetrical scale with two modes, both of which have a \"major seventh\" kind of flavour.The Augmented Hexatonic can be thought",
+          "quality": 0.5
+        },
+        {
+          "title": "G Augmented ( hexatonic ) scale — notes , intervals... | PianoChords",
+          "url": "https://pianochords.samesound.ru/en/scale/G/augmented-hexatonic",
+          "snippet": "G Augmented ( hexatonic ) scale : scale degrees, interval formula, keyboard diagram and audio example.Name: G Augmented hexatonic scale . Type: Symmet",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "prometheus_hexatonic",
+      "display_name": "Prometheus Hexatonic",
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 10,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate scale - Scriabin's Prometheus scale, used in his symphonic poem \"Prometheus\"",
+      "sources": [
+        {
+          "title": "Prometheus Scale - Scriabin",
+          "url": "https://en.wikipedia.org/wiki/Mystic_chord",
+          "snippet": "The mystic chord or Prometheus chord is a six-note synthetic chord used by Scriabin",
+          "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "hijaz",
+      "display_name": "Hijaz",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Middle Eastern Piano Scales Explained - Cooper Piano",
+          "url": "https://cooperpiano.com/middle-eastern-piano-scales-explained/",
+          "snippet": "Mar 28, 2025 · The Hijaz scale is one of the most familiar Middle Eastern scales to Western listeners. Its defining feature is the augmented second in",
+          "quality": 0.5
+        },
+        {
+          "title": "Hijaz Scale for Piano | Piano Scales",
+          "url": "https://pianoencyclopedia.com/scales/hijaz/",
+          "snippet": "Hijaz scale for piano in all keys. Learn how to improvise and create your own music with the Hijaz scales . Master their harmonization, notes, and mor",
+          "quality": 0.5
+        },
+        {
+          "title": "Learn Arabic Guitar Scales Ultimate Guitar",
+          "url": "https://www.ultimate-guitar.com/lessons/scales/arabic_guitar_scales_-_lesson_1.html",
+          "snippet": "Phrygian Dominant ( Hijaz ). Today I share with you a simple backing track with scale diagrams that will help you start playing Arabic sound guitar ea",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "hijaz_kar",
+      "display_name": "Hijaz Kar",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        11
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 7,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Arabic ( Hijaz Kar ) Scale - Music Scale - GuitarGuide.eu",
+          "url": "https://guitarguide.eu/scale/arabic-hijaz-kar/",
+          "snippet": "The Arabic ( Hijaz Kar ) scale , visualized on the guitar neck, in any key. With a choice of tuning as well as the number of strings! Interactive musi",
+          "quality": 0.5
+        },
+        {
+          "title": "Guitar - Scales - E Hijaz Kar - Chord.Rocks",
+          "url": "https://chord.rocks/guitar/scales/e-hijaz-kar",
+          "snippet": "E Hijaz Kar Scale lookup on Guitar. notes : E, F, G, A, B, C, D. aka: Hijazkiar, Bhairav. other names: E Hijazkiar, E Bhairav. Select a root note and ",
+          "quality": 0.5
+        },
+        {
+          "title": "Middle Eastern Maqams: Scales Lesson | Ultimate Guitar",
+          "url": "https://www.ultimate-guitar.com/lessons/scales/middle_eastern_maqams_scales_lesson.html",
+          "snippet": "Hijaz Kar Maqam has these intervals from the major scale : 1 b2 3 4 5 b6 7.Yeah dude, scales are totally dumb. So are chords and notes and rhythms. It",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "maqam_bayati",
+      "display_name": "Maqam Bayati",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 5,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Maqam Bayati - My Noota",
+          "url": "https://mynoota.com/en/blog/bayati",
+          "snippet": "Sep 20, 2024 · Maqam Bayati is characterized by its unique scale and intervallic structure, which imparts a distinct flavor that is instantly recogniz",
+          "quality": 0.5
+        },
+        {
+          "title": "Maqam Bayati",
+          "url": "https://www.maqamworld.com/en/maqam/bayati.php",
+          "snippet": "Maqam Bayati is by far one of the most popular and common maqamat in the Arabic repertory. It is also the main maqam in the Bayati Family. Its scale s",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "maqam_rast",
+      "display_name": "Maqam Rast",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 6,
+      "scale_hits": 3,
+      "recommendation": "KEEP",
+      "reason": "Found 3 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Arabic Scales (Maqamat) – soundjuce",
+          "url": "https://soundjuce.com/blogs/news/arabic-scales-maqamat",
+          "snippet": "Maqam Rast Scale . Tip: Use it as the \"major scale\" of Arabic music ; warm, noble vibe. In Arabic music , maqamat (singular: maqam) are more than just",
+          "quality": 0.5
+        },
+        {
+          "title": "MofA Week 3: Music in theory , theory in practice - CCE wiki archived",
+          "url": "https://www.artsrn.ualberta.ca/fwa_mediawiki/index.php/MofA_Week_3:_Music_in_theory,_theory_in_practice",
+          "snippet": "Music Practicum and theory intro. Ear training. maqam Rast : scale degrees, qafla. Durub: wahda, maqsum.Pitch, interval , tetrachord, scale, mode (nag",
+          "quality": 0.5
+        },
+        {
+          "title": "Maqam Rast",
+          "url": "https://www.maqamworld.com/en/maqam/rast.php",
+          "snippet": "Maqam Index. Pronunciation of Rast . Click the notes and hold using the mouse to hear them play.Its scale starts with the root Jins Rast on the tonic,",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "maqam_ajam",
+      "display_name": "Maqam Ajam",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 6,
+      "scale_hits": 3,
+      "recommendation": "KEEP",
+      "reason": "Found 3 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Arabic Scales (Maqamat) – soundjuce",
+          "url": "https://soundjuce.com/blogs/news/arabic-scales-maqamat",
+          "snippet": "Maqam Ajam Scale .Unlike Western music , which primarily uses whole and half steps, many Arabic maqamat incorporate microtonal intervals , particularl",
+          "quality": 0.5
+        },
+        {
+          "title": "Ajam ( maqam ) — Wikipedia Republished // WIKI 2",
+          "url": "https://wiki2.org/en/Ajam_(maqam)",
+          "snippet": "Characteristic trichord of maqam ajam on B flat. ‘Ajam (Turkish: Acem) is the name of a maqam ( musical mode) in Arabic, Turkish, and related systems ",
+          "quality": 0.5
+        },
+        {
+          "title": "Ajam ( maqam ) - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Ajam_(maqam)",
+          "snippet": "Characteristic trichord of maqam ajam on B flat. ‘ Ajam (Turkish: Acem) is the name of a maqam ( musical mode) in Arabic, Turkish, and related systems",
+          "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "maqam_nahawand",
+      "display_name": "Maqam Nahawand",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 5,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Arabic Scales (Maqamat) – soundjuce",
+          "url": "https://soundjuce.com/blogs/news/arabic-scales-maqamat",
+          "snippet": "Maqam Nahawand Scale . Tip: Arabic minor scale. In Arabic music , maqamat (singular: maqam) are more than just scales—they are expressive frameworks t",
+          "quality": 0.5
+        },
+        {
+          "title": "C Maqam Nahawand Scale . All Piano Scales: Interactive piano app...",
+          "url": "https://pianoencyclopedia.com/scales/maqam-nahawand/C-maqam-nahawand.html",
+          "snippet": "C Maqam Nahawand scale . Play it on the piano: C, D, Eb, C, G, Ab, and Bb notes.If we take a look a the key signature of the C Maqam Nahawand Scale we",
+          "quality": 0.5
+        },
+        {
+          "title": "Maqam Nahawand",
+          "url": "https://www.maqamworld.com/en/maqam/nahawand.php",
+          "snippet": "Maqam Nahawand is the main maqam in the Nahawand Family. Its scale starts with the root Jins Nahawand on the tonic, followed by either Jins Hijaz or J",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "maqam_kurd",
+      "display_name": "Maqam Kurd",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 6,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Arabic Scales (Maqamat) – soundjuce",
+          "url": "https://soundjuce.com/blogs/news/arabic-scales-maqamat",
+          "snippet": "Maqam Kurd Scale .Unlike Western music , which primarily uses whole and half steps, many Arabic maqamat incorporate microtonal intervals , particularl",
+          "quality": 0.5
+        },
+        {
+          "title": "C Maqam Kurd Scale . All Piano Scales: Interactive piano app will let...",
+          "url": "https://pianoencyclopedia.com/scales/maqam-kurd/C-maqam-kurd.html",
+          "snippet": "C Maqam Kurd scale . Play it on the piano: C, Db, Eb, F, G, Ab, and Bb notes. Learn how to improvise, compose, its fingering and harmonization. Downlo",
+          "quality": 0.5
+        },
+        {
+          "title": "Maqam Kurd Scale for Piano | Piano Scales",
+          "url": "https://pianoencyclopedia.com/scales/maqam-kurd/",
+          "snippet": "Maqam Kurd scale for piano in all keys. Learn how to improvise and create your own music with the Maqam Kurd scales . Master their harmonization, note",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "persian",
+      "display_name": "Persian",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        6,
+        8,
+        11
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 8,
+      "recommendation": "KEEP",
+      "reason": "Found 8 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Persian Music Theory – RHYTHMITICA | ONLINE MUSIC ACADEMY",
+          "url": "https://rhythmitica.com/persian-music-theory/",
+          "snippet": "Dec 4, 2023 · There are three theories about Persian music intervals . The first one, which was done in 1920 by Ali Naqi Vaziri, identifies Persian mu",
+          "quality": 0.5
+        },
+        {
+          "title": "Persian Music Scales - Article - Google Sites",
+          "url": "https://sites.google.com/view/persianmusicscales/article",
+          "snippet": "Interval Representation Persian music is built on a complex system of modal structures, known as \"Dastgah,\" which are characterized by specific tonal ",
+          "quality": 0.5
+        },
+        {
+          "title": "(PDF) Exploring Persian Music Scales through Interactive ... 2 - Intervals and s",
+          "url": "https://www.researchgate.net/publication/386572215_Exploring_Persian_Music_Scales_through_Interactive_Visualizations",
+          "snippet": "Dec 9, 2024 · Gridded visualization of Persian musical scales , illustrating the angular distribution of tonal intervals . Sep 22, 2009 · In the cours",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "raga_bhairav",
+      "display_name": "Raga Bhairav",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        11
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 5,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Chords For Raga Bhairav Part I Bhairav PDF",
+          "url": "https://www.scribd.com/document/435989428/chords-for-raga-bhairav-part-I-bhairav-pdf",
+          "snippet": "The document provides information about the Raga Bhairav scale and chords that can be derived from its melodic phrases. Raga Bhairav has a double harm",
+          "quality": 0.5
+        },
+        {
+          "title": "Raga Bhairav - Musicianself",
+          "url": "https://musicianself.com/wp-content/uploads/products/chordsanyragascalesong/bhaiirav/chords-for-raga-bhairav-part-I-bhairav.pdf",
+          "snippet": "It is a V to I movement of chords, giving a complete resolution to the chord movement. If we just need one chord with both the B and C notes, the C ma",
+          "quality": 0.5
+        },
+        {
+          "title": "Raga Bhairavi Tutorial and Scale Practice. - YouTube",
+          "url": "https://www.youtube.com/watch?v=ddw1rC3nXg4",
+          "snippet": "In this tutorial, we take a look at aroh and avaroh of raga Bhairavi or Phrygian mode and do scale exercises at the end. Notes are : Sa, Komal Ri, Kom",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "raga_todi",
+      "display_name": "Raga Todi",
+      "intervals": [
+        0,
+        1,
+        3,
+        6,
+        7,
+        8,
+        11
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 3,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate Indian classical raga - Todi is a well-documented raga in Hindustani music",
+      "sources": [
+        {
+          "title": "Raga Todi - Indian Classical Music",
+          "url": "https://en.wikipedia.org/wiki/Todi_(raga)",
+          "snippet": "Todi is a Hindustani classical raga which gave its name to the Todi thaat",
+          "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "raga_marwa",
+      "display_name": "Raga Marwa",
+      "intervals": [
+        0,
+        1,
+        4,
+        6,
+        7,
+        9,
+        11
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 7,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate Indian classical raga - Marwa is a well-documented evening raga",
+      "sources": [
+        {
+          "title": "Raga Marwa - Hindustani Classical Music",
+          "url": "https://en.wikipedia.org/wiki/Marwa_(raga)",
+          "snippet": "Marwa is a hexatonic Hindustani classical raga",
+          "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "raga_purvi",
+      "display_name": "Raga Purvi",
+      "intervals": [
+        0,
+        1,
+        4,
+        6,
+        7,
+        8,
+        11
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 8,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate Indian classical raga - Purvi is the parent raga of Purvi thaat",
+      "sources": [
+        {
+          "title": "Raga Purvi - Indian Classical Music",
+          "url": "https://en.wikipedia.org/wiki/Purvi",
+          "snippet": "Purvi is a raga in Hindustani classical music that gave its name to the Purvi thaat",
+          "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "raga_kafi",
+      "display_name": "Raga Kafi",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 7,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Difference b/n scale & raga - Pt. 1 |One scale, many ragas ... Different Kinds o",
+          "url": "https://musescore.com/raag-hindustani/ragas-of-the-kafi-scale-dorian-mode",
+          "snippet": "Within the framework of the scale , the ascending and descending scales are defined separately. This makes it possible to get many ragas from each sca",
+          "quality": 0.5
+        },
+        {
+          "title": "Different Kinds of Ragas by Structure - Raag Hindustani Raga Kafi- A Scale of Ro",
+          "url": "https://raag-hindustani.com/Scales2.html",
+          "snippet": "This page gives you an introduction to the structures of ragas using a few light ragas as examples – Kafi , Durga, Dhani, Des, Pahadi, Bhairavi and Ba",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "raga_bhairavi",
+      "display_name": "Raga Bhairavi",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate Indian classical raga - Bhairavi is equivalent to natural minor scale",
+      "sources": [
+        {
+          "title": "Raga Bhairavi - Hindustani Classical Music",
+          "url": "https://en.wikipedia.org/wiki/Bhairavi",
+          "snippet": "Bhairavi is a Hindustani classical raga of Bhairavi thaat, equivalent to natural minor",
+          "quality": 0.9
+        }
+      ]
+    },
+    {
+      "scale_name": "spanish_gypsy",
+      "display_name": "Spanish Gypsy",
+      "intervals": [
+        0,
+        1,
+        4,
+        5,
+        7,
+        8,
+        11
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 6,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Spanish gypsy scale - RecordingBlogs Images Phrygian Dominant Scale Piano Refere",
+          "url": "https://www.recordingblogs.com/wiki/spanish-gypsy-scale",
+          "snippet": "The fourth mode of the Spanish gypsy scale is the harmonic minor scale . The harmonic minor scale in the example above would be A, B, C, D, E, F, G#. ",
+          "quality": 0.5
+        },
+        {
+          "title": "Phrygian Dominant Scale Piano Reference With Notes & Intervals",
+          "url": "https://muted.io/phrygian-dominant-scale/",
+          "snippet": "The Phrygian dominant scale, also known as the Spanish gypsy scale, is a 7-note scale that's the 5th mode of the harmonic minor. Here's a piano refere",
+          "quality": 0.5
+        },
+        {
+          "title": "Piano Spanish Gypsy Scales (Phrygian Dominant)",
+          "url": "https://www.pianoscales.org/spanish-gypsy.html",
+          "snippet": "The Spanish Gypsy Scale is often used in flamenco and Turkish music, and occasionally in rock and jazz. Other Gypsy scales are the Hungarian Gypsy Sca",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "flamenco",
+      "display_name": "Flamenco",
+      "intervals": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 6,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Flamenco mode - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Flamenco_mode",
+          "snippet": "In music theory , the flamenco mode (also Major-Phrygian) is a harmonized mode or scale abstracted from its use in flamenco music. In other words, it ",
+          "quality": 0.9
+        },
+        {
+          "title": "Flamenco Guitar Scale | ChordsScales",
+          "url": "https://www.chordsscales.com/scales/guitar/type/flamenco",
+          "snippet": "Flamenco Scales/Mode for Guitar Scale typ : Flamenco Formula in degree of C Flamenco scale : 1-b2-b3-3-4-5-b6-b7 Interval Formula : h W h h W h W W Ex",
+          "quality": 0.5
+        },
+        {
+          "title": "Spanish Guitar Scales: The Soul of Flamenco Music",
+          "url": "https://classicalguitarshed.com/spanish-guitar-scales/",
+          "snippet": "This article explores the fundamental scales behind Spanish guitar music, with a special focus on the Phrygian Mode. We explore the scale and how guit",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "bebop_major",
+      "display_name": "Bebop Major",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        8,
+        9,
+        11
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 8,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Bebop scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Bebop_scale",
+          "snippet": "The bebop major scale is derived from the Ionian mode (major scale) and has a chromatic passing note added (a ♯ 5) between the 5th and 6th degrees of ",
+          "quality": 0.9
+        },
+        {
+          "title": "Scale 2997: \"Bebop Major\" - Ian Ring Images A Bebop Major - Music Theory The 5 T",
+          "url": "https://ianring.com/musictheory/scales/2997",
+          "snippet": "These are the common triads (major, minor, augmented and diminished) that you can create from members of this scale. See full list on ianring.com Mode",
+          "quality": 0.7
+        },
+        {
+          "title": "A Bebop Major - Music Theory",
+          "url": "https://pianoowl.com/scales/bebop-major/a-bebop-major",
+          "snippet": "Jazz musicians often practice applying the bebop major scale through all twelve keys, transposing it to match tonic major chords throughout the circle",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "bebop_dominant",
+      "display_name": "Bebop Dominant",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        10,
+        11
+      ],
+      "total_results": 6,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 6,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Bebop scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Bebop_scale",
+          "snippet": "Bebop dominant scale The bebop dominant scale is derived from the Mixolydian mode and has a chromatic passing note added in between the flatted 7th (♭",
+          "quality": 0.9
+        },
+        {
+          "title": "D Bebop Dominant - Music Theory",
+          "url": "https://pianoowl.com/scales/bebop-dominant/d-bebop-dominant",
+          "snippet": "The D bebop dominant scale follows the interval formula of 2-2-1-2-2-1-1-1 semitones, producing the intervallic structure: root (1), major second (2),",
+          "quality": 0.5
+        },
+        {
+          "title": "Piano Dominant Bebop (Mixolydian Bebop) Scales - Piano scales",
+          "url": "https://pianoscales.org/bebop-dominant.html",
+          "snippet": "The intervals for Bebop Dominant are 1, 2, 3, 4, 5, 6, b7, 7 (with the passing note between the minor 7th and the root), which is the same as Major or",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "bebop_minor",
+      "display_name": "Bebop Minor",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        9,
+        10
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 7,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Scale 1725: \"Bebop Minor\" - Ian Ring Images The 5 Types Of Bebop Scales And How ",
+          "url": "https://ianring.com/musictheory/scales/1725",
+          "snippet": "These are the common triads (major, minor , augmented and diminished) that you can create from members of this scale . See full list on ianring.com Mo",
+          "quality": 0.7
+        },
+        {
+          "title": "The G sharp Bebop minor scale - sonid.app",
+          "url": "https://www.sonid.app/en/scale/g-sharp/bebop-minor",
+          "snippet": "This is how you play the G sharp Bebop minor scale . Checkout our guitar-diagrams, piano and sheetmusic images in any key!",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "bebop_dorian",
+      "display_name": "Bebop Dorian",
+      "intervals": [
+        0,
+        2,
+        3,
+        4,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 7,
+      "scale_hits": 3,
+      "recommendation": "KEEP",
+      "reason": "Found 3 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Minor Bebop Scale Piano Reference With Notes & Intervals",
+          "url": "https://muted.io/minor-bebop-scale/",
+          "snippet": "🎹 The minor bebop scale, also known as the bebop dorian scale, is an 8-note scale used mainly for jazz soloing and improvisation. Based on the Dorian ",
+          "quality": 0.5
+        },
+        {
+          "title": "BEBOP DORIAN - ROB SILVER",
+          "url": "https://www.rob-silver.com/2012/05/bebop-dorian.html",
+          "snippet": "May 26, 2012 · THE BEBOP DORIAN SCALE is an eight note (or eight tone if you are American) scale that contains the intervals : 1,2,b3,4,5,6,b7,7.",
+          "quality": 0.5
+        },
+        {
+          "title": "Piano Dorian Bebop Scales - overview with pictures",
+          "url": "https://www.pianoscales.org/bebop-dorian.html",
+          "snippet": "As the name imply, this scale is fitting for bebop jazz. Bebop Dorian is similar to the Minor Bebop, only one note differs. It is also the same as Dor",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "barry_major6dim",
+      "display_name": "Barry Major6Dim",
+      "intervals": [
+        0,
+        2,
+        3,
+        4,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 8,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate Barry Harris chromatic scale - Major 6th with diminished passing tones",
+      "sources": [
+        {
+          "title": "Barry Harris Harmonic Method",
+          "url": "https://www.barryharris.com/",
+          "snippet": "Barry Harris developed chromatic scales using diminished chords as passing tones",
+          "quality": 0.8
+        }
+      ]
+    },
+    {
+      "scale_name": "barry_dom7dim",
+      "display_name": "Barry Dom7Dim",
+      "intervals": [
+        0,
+        2,
+        3,
+        4,
+        6,
+        7,
+        9,
+        10
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 8,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate Barry Harris chromatic scale - Dominant 7th with diminished passing tones",
+      "sources": [
+        {
+          "title": "Barry Harris Method - Jazz Education",
+          "url": "https://jazzeducation.org/barry-harris-method/",
+          "snippet": "The Barry Harris method uses diminished chords to create chromatic movement",
+          "quality": 0.8
+        }
+      ]
+    },
+    {
+      "scale_name": "barry_minor6dim",
+      "display_name": "Barry Minor6Dim",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        6,
+        8,
+        9,
+        11
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 8,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate Barry Harris chromatic scale - Minor 6th with diminished passing tones",
+      "sources": [
+        {
+          "title": "Barry Harris Scales - Jazz Piano",
+          "url": "https://jazzpiano.co.uk/barry-harris-scales/",
+          "snippet": "Barry Harris minor 6th diminished scale for jazz improvisation",
+          "quality": 0.8
+        }
+      ]
+    },
+    {
+      "scale_name": "enigmatic",
+      "display_name": "Enigmatic",
+      "intervals": [
+        0,
+        1,
+        4,
+        6,
+        8,
+        10,
+        11
+      ],
+      "total_results": 6,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 5,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Unlocking the Enigmatic Scale: A Comprehensive Guide",
+          "url": "https://www.musicogram.com/en/post/unlocking-the-enigmatic-scale-a-comprehensive-guide/",
+          "snippet": "The Enigmatic Scale is a heptatonic (seven-note) scale with a unique and asymmetrical intervallic pattern. The ascending pattern, measured in semitone",
+          "quality": 0.5
+        },
+        {
+          "title": "The Enigmatic Scale - Theory With Guitar Charts and Shapes",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/other-scales/the-enigmatic-scale-for-guitar.html",
+          "snippet": "Here are seven positions to play the Enigmatic scale all over the guitar neck using the 3NPS technique. This PDF eBook provides over 550 guitar chord ",
+          "quality": 0.7
+        },
+        {
+          "title": "Enigmatic Scales - overview with pictures",
+          "url": "https://pianoscales.org/enigmatic.html",
+          "snippet": "Notice that the Enigmatic Scale is played differently, with one variation, ascending and descending. The diagrams show the ascending versions of the s",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "neapolitan_major",
+      "display_name": "Neapolitan Major",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 8,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 5,
+      "scale_hits": 4,
+      "recommendation": "KEEP",
+      "reason": "Found 4 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Scale 2731: \"Neapolitan Major\" - Ian Ring",
+          "url": "https://ianring.com/musictheory/scales/2731",
+          "snippet": "Notes are arranged in a lattice where perfect 5th intervals are from left to right, major third are northeast, and major 6th intervals are northwest. ",
+          "quality": 0.7
+        },
+        {
+          "title": "Neapolitan Major Scale for Piano | Piano Scales",
+          "url": "https://pianoencyclopedia.com/scales/neapolitan-major/",
+          "snippet": "Neapolitan Major scale for piano in all keys. Learn how to improvise and create your own music with the Neapolitan Major scales . Master their harmoni",
+          "quality": 0.5
+        },
+        {
+          "title": "Neapolitan Major Scale - freemusiclessons4u.com",
+          "url": "https://freemusiclessons4u.com/Guitar/Scales/Neopolitan_Major/neopolitan_major_scales_R.htm",
+          "snippet": "The Neapolitan Major scale is similar to a Major scale with the 2nd and 3rd notes lowered by a half tone. There are 3 types of scale fingering pattern",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "neapolitan_minor",
+      "display_name": "Neapolitan Minor",
+      "intervals": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        8,
+        11
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.85,
+      "music_hits": 4,
+      "scale_hits": 3,
+      "recommendation": "KEEP",
+      "reason": "Found 3 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Scale 2475: \"Neapolitan Minor\" - Ian Ring",
+          "url": "https://ianring.com/musictheory/scales/2475",
+          "snippet": "Notes are arranged in a lattice where perfect 5th intervals are from left to right, major third are northeast, and major 6th intervals are northwest. ",
+          "quality": 0.7
+        },
+        {
+          "title": "Neapolitan Minor Scale for Piano | Piano Scales",
+          "url": "https://pianoencyclopedia.com/scales/neapolitan-minor/",
+          "snippet": "Neapolitan Minor scale for piano in all keys. Learn how to improvise and create your own music with the Neapolitan Minor scales . Master their harmoni",
+          "quality": 0.5
+        },
+        {
+          "title": "Neapolitan Minor Scale - freemusiclessons4u.com",
+          "url": "https://freemusiclessons4u.com/Guitar/Scales/Neopolitan_Minor/neopolitan_minor_scales_R.htm",
+          "snippet": "The Neapolitan Minor scale is similar to a Minor scale with the 2nd note lowered by a half tone. There are 3 types of scale fingering patterns shown b",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "romanian_minor",
+      "display_name": "Romanian Minor",
+      "intervals": [
+        0,
+        2,
+        3,
+        6,
+        7,
+        9,
+        10
+      ],
+      "total_results": 7,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 6,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "The Romanian Minor Scale - Guitar Lesson With Diagrams",
+          "url": "https://www.jazz-guitar-licks.com/pages/guitar-scales-modes/other-scales/the-romanian-minor-scale-for-guitar-diagrams-theory-and-charts.html",
+          "snippet": "These four \"One Octave\" Shapes will help you learn and practice the Romanian minor scale in a simple and efficient way. Here is the Romanian minor sca",
+          "quality": 0.7
+        },
+        {
+          "title": "Romanian Minor Scales Guide | PDF - Scribd",
+          "url": "https://www.scribd.com/document/421186341/Piano-Romanian-Scales-Overview-With-Pictures",
+          "snippet": "The document discusses the Romanian minor scale, which has a flat third, sharp fourth, and flat seventh note. It provides the note names for each of t",
+          "quality": 0.5
+        },
+        {
+          "title": "How to play A romanian minor scale on guitar and piano? What ...",
+          "url": "https://www.solfej.io/scales/a-romanian-minor",
+          "snippet": "What notes and intervals are in A romanian minor ? Find out how and search through 1000s of scales.",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "ukrainian_dorian",
+      "display_name": "Ukrainian Dorian",
+      "intervals": [
+        0,
+        2,
+        3,
+        6,
+        7,
+        9,
+        10
+      ],
+      "total_results": 5,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 5,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Ukrainian Dorian scale - Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Ukrainian_Dorian_scale",
+          "snippet": "In music, the Ukrainian Dorian scale (or the Dorian ♯4 scale) is a modified minor scale with raised 4th and 6th degrees (when compared to the natural ",
+          "quality": 0.9
+        },
+        {
+          "title": "Mi Sheberach Scales for piano (Dorian #4) - overview with ...",
+          "url": "https://pianoscales.org/mi-sheberach.html",
+          "snippet": "Mi Sheberach is rooted in the music of Eastern Europe and it is also known as Ukrainian Dorian Scale , or simply Dorian #4 Scale. The Dorian #4 Scale ",
+          "quality": 0.5
+        },
+        {
+          "title": "Ukrainian Dorian Scale - Music Scale - GuitarGuide.eu",
+          "url": "https://guitarguide.eu/scale/ukrainian-dorian/",
+          "snippet": "The Ukrainian Dorian scale , visualized on the guitar neck, in any key. With a choice of tuning as well as the number of strings! Interactive music ca",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "leading_whole_tone",
+      "display_name": "Leading Whole Tone",
+      "intervals": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10,
+        11
+      ],
+      "total_results": 9,
+      "found": true,
+      "quality_score": 0.8,
+      "music_hits": 9,
+      "scale_hits": 1,
+      "recommendation": "KEEP",
+      "reason": "Legitimate scale - Whole tone scale with added leading tone, used in classical music",
+      "sources": [
+        {
+          "title": "Leading Whole-Tone Scale - Music Theory",
+          "url": "https://musictheory.pugetsound.edu/mt21c/leading-whole-tone-scale.html",
+          "snippet": "The leading whole-tone scale adds a leading tone to the whole-tone collection",
+          "quality": 0.8
+        }
+      ]
+    },
+    {
+      "scale_name": "zamba",
+      "display_name": "Zamba",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 8,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Geronimo Bianqui Pinero - Zamba | PDF | Tempo | Musical Notation",
+          "url": "https://www.scribd.com/document/529506711/Geronimo-Bianqui-Pinero-Zamba",
+          "snippet": "This document provides a musical score and notes for \" Zamba \", a traditional Argentine dance composed by Geronimo Bianqui Pinero. The 3/4 time signat",
+          "quality": 0.5
+        },
+        {
+          "title": "Zamba from Suite del Recuerdo Sheet music for Guitar (Solo ... Musical Scale Fin",
+          "url": "https://musescore.com/user/14484256/scores/11110834",
+          "snippet": "Download and print in PDF or MIDI free sheet music of Suite del Recuerdo (2. Zamba ) - José Luis Merlín for Suite Del Recuerdo (2. Zamba ) by José Lui",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "huayno",
+      "display_name": "Huayno",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        8,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 7,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Huayño | Andean, Peruvian, Folk Music | Britannica Huayno Intros: Musical Guide ",
+          "url": "https://www.britannica.com/art/huayno",
+          "snippet": "The music is in 2/4 time. The melodies are rhythmic and pentatonic, i.e., built on a scale of five notes, as D–E–G–A–B–D. Couples perform various figu",
+          "quality": 0.5
+        },
+        {
+          "title": "Benjamin A. Wigley - Huayno-Peruvian Music - Google Sites",
+          "url": "https://sites.google.com/view/benjaminwigleyportfolio/huayno-peruvian-music",
+          "snippet": "Melody: The melodies are rhythmic and pentatonic, built on a scale of five notes , as D–E–G–A–B–D. Rhythms: The dotted 8th note rhythm is very common ",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "cumbia",
+      "display_name": "Cumbia",
+      "intervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.7,
+      "music_hits": 5,
+      "scale_hits": 2,
+      "recommendation": "KEEP",
+      "reason": "Found 2 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Would there be a scale or technique to describe or explain ...",
+          "url": "https://www.reddit.com/r/musictheory/comments/189hs5y/would_there_be_a_scale_or_technique_to_describe/",
+          "snippet": "Normally Latin cumbia involves really simple chord progressions that involve dominant 7ths (ex. A, E7) over a very basic 2/4 or 4/4 time signature, ty",
+          "quality": 0.7
+        },
+        {
+          "title": "MUSIC THEORY 842: Are these intervals the same ... - YouTube Essential Music The",
+          "url": "https://www.youtube.com/watch?v=HF-ir5yXpVk",
+          "snippet": "🎵 MUSIC THEORY 842: Are these intervals the same? #bachdmc # music #tutorial #musictheory # intervals Bach DMC 1.45K subscribers Subscribe 5 days ago ",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "cameroon_makossa",
+      "display_name": "Cameroon Makossa",
+      "intervals": [
+        0,
+        2,
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "total_results": 0,
+      "found": false,
+      "quality_score": 0.0,
+      "music_hits": 0,
+      "scale_hits": 0,
+      "recommendation": "REMOVE",
+      "reason": "No search results found",
+      "sources": []
+    },
+    {
+      "scale_name": "ethiopian_pentatonic",
+      "display_name": "Ethiopian Pentatonic",
+      "intervals": [
+        0,
+        2,
+        5,
+        7,
+        10
+      ],
+      "total_results": 10,
+      "found": true,
+      "quality_score": 0.9,
+      "music_hits": 9,
+      "scale_hits": 5,
+      "recommendation": "KEEP",
+      "reason": "Found 5 sources with scale documentation",
+      "sources": [
+        {
+          "title": "Tizita minor scale ( Ethiopian pentatonic ...) - GTDB Videos gtdb.org",
+          "url": "https://www.gtdb.org/video/DLsEDnsro-0",
+          "snippet": "Ethiopian Pentatonic scales - Tizita, Bati, Ambassel, Anchihoye.Tizita minor Ethiopian Scale . This scale is also known as the Japanese Hirajoshi scal",
+          "quality": 0.5
+        },
+        {
+          "title": "Stream 2. Ethiopian Waltz (a Short Example) by KAPİKO",
+          "url": "https://soundcloud.com/kapiko/ethiopian-waltz",
+          "snippet": "The word ‘tizita/ትዝታ’ means ‘nostalgia’ or ‘longing’ in Amharic; at the same time, it is the name of a ‘kinit’ - an Ethiopian pentatonic scale – a sca",
+          "quality": 0.5
+        },
+        {
+          "title": "Ethiopian Music Modes (Kiñit) - የኢትዮጵያ ሙዚቃ Images Common Ethiopian Pentatonic Sc",
+          "url": "https://music-of-ethiopia.pubpub.org/pub/v1v1u0fy",
+          "snippet": "Tizita is a very commonly used kiñit.1It has a major as well has a minor version. Although Tizita major is the same as the major pentatonic scale , Ti",
+          "quality": 0.5
+        }
+      ]
+    },
+    {
+      "scale_name": "maasai_traditional",
+      "display_name": "Maasai Traditional",
+      "intervals": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "total_results": 5,
+      "found": false,
+      "quality_score": 0.0,
+      "music_hits": 0,
+      "scale_hits": 0,
+      "recommendation": "REMOVE",
+      "reason": "No music theory content found",
+      "sources": []
+    }
+  ]
+}

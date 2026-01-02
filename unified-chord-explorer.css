@@ -1,0 +1,54 @@
+/* Unified Chord Explorer - minimal styles to restore layout */
+.unified-chord-explorer{box-sizing:border-box;font-family:var(--font-ui, Arial, sans-serif);color:var(--text-main,#111);background:var(--bg-panel,transparent);padding:10px;border-radius:6px}
+.unified-chord-explorer .chord-explorer-header{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.unified-chord-explorer .chord-explorer-header h3{margin:0;font-size:1rem}
+.unified-chord-explorer .chord-explorer-header .hint{margin:0;font-size:0.82rem;opacity:0.8}
+.unified-chord-explorer .chord-explorer-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+.chord-card{width:140px;min-height:96px;padding:12px;border-radius:10px;background:var(--bg-input,#fff);border:1px solid rgba(0,0,0,0.06);box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.chord-card .chord-name{font-weight:700;font-size:0.95rem;margin-bottom:4px}
+.chord-card .chord-degree{font-size:0.82rem;color:var(--text-muted,#666);margin-bottom:6px}
+.chord-card .note-indicator{font-size:0.9rem;font-weight:600;background:rgba(0,0,0,0.03);padding:4px 6px;border-radius:4px}
+.chord-card .chord-functions{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.function-tag{font-size:0.65rem;padding:2px 6px;border-radius:999px;background:rgba(0,0,0,0.04);color:var(--text-muted,#666)}
+.chord-card.clickable{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+.chord-card.clickable:hover{transform:translateY(-4px);box-shadow:0 6px 16px rgba(0,0,0,0.12)}
+.chord-card.in-progression{outline:2px solid rgba(34,211,238,0.12)}
+.chord-card.substituted{opacity:0.9}
+.insert-plus{position:absolute;top:8px;background:transparent;border:none;color:var(--accent-primary,#3b82f6);font-weight:700;width:28px;height:28px;border-radius:4px}
+.insert-plus.left{left:6px}
+.insert-plus.right{right:6px}
+/* grading inline legend fallback */
+.unified-chord-explorer .chord-explorer-header div[style*="border-top"]{margin-top:6px;padding-top:6px}
+@media (max-width:720px){.chord-card{width:100%;flex-direction:row;gap:12px;align-items:center}}
+
+/* Radial menu styles */
+.radial-menu-overlay{position:fixed;inset:0;z-index:9998;background:transparent}
+.radial-menu{position:fixed;z-index:9999;pointer-events:auto;transform-origin:center center;}
+.radial-menu .radial-center{width:44px;height:44px;border-radius:50%;background:var(--bg-panel,#111);border:2px solid rgba(255,255,255,0.06);box-shadow:0 6px 18px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center}
+.radial-menu .radial-line{position:absolute;height:2px;left:50%;top:50%;transform-origin:left center;background:linear-gradient(90deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02));border-radius:2px}
+.radial-node{position:absolute;width:140px;min-height:64px;padding:10px;border-radius:10px;color:var(--text-main,#fff);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 10px 28px rgba(0,0,0,0.45);transition:transform .18s cubic-bezier(.2,.9,.2,1),opacity .12s ease}
+.radial-node .node-chord{font-weight:700;font-size:0.95rem}
+.radial-node .node-label{font-size:0.75rem;color:var(--text-muted,#ccc);margin-top:4px}
+.radial-node .node-grade{font-weight:700;margin-top:6px}
+.radial-node .node-tier-indicator{width:8px;height:8px;border-radius:2px;margin-top:6px}
+.radial-node .node-voice-leading{font-size:0.72rem;color:var(--text-muted,#ccc);margin-top:6px}
+.radial-node .node-tooltip{display:none;position:absolute;left:calc(100% + 8px);top:0;min-width:200px;max-width:320px;padding:8px;border-radius:8px;background:rgba(15,15,15,0.95);color:#fff;box-shadow:0 6px 24px rgba(0,0,0,0.6);z-index:10000}
+.radial-node:hover{transform:translateY(-6px)}
+.radial-node:hover .node-tooltip{display:block}
+.family-arc{position:absolute;width:140px;height:44px;border-radius:999px;filter:blur(8px);opacity:0.95;pointer-events:none}
+.radial-menu.cluster-mode .radial-node, .radial-menu.grouped-mode .radial-node{width:140px}
+.radial-node.tier-4{border-width:2px}
+.radial-node.tier-3{border-width:1.5px}
+.radial-node.tier-2{border-width:1px}
+.radial-node.tier-1{border-width:1px;opacity:0.95}
+.radial-node.cluster{background:linear-gradient(135deg,rgba(255,255,255,0.02),rgba(0,0,0,0.6))}
+
+/* insertion-mode tweaks */
+.radial-menu.insertion-mode .radial-center{background:var(--accent-glow,rgba(96,165,250,0.15))}
+
+/* Tooltip content styling */
+.node-tooltip strong{display:block;margin-bottom:6px}
+.node-tooltip .tooltip-type{font-size:0.78rem;color:var(--text-muted,#aaa);margin-bottom:6px}
+.node-tooltip .tooltip-grading{font-size:0.82rem;margin-bottom:6px}
+.node-tooltip .tooltip-voice,.node-tooltip .tooltip-desc,.node-tooltip .tooltip-tier{font-size:0.75rem;color:var(--text-muted,#bbb);margin-bottom:4px}
+

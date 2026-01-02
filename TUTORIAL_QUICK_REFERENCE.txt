@@ -1,0 +1,122 @@
+╔═══════════════════════════════════════════════════════════════╗
+║           MUSIC THEORY STUDIO - TUTORIAL MODES               ║
+║                     Quick Reference                           ║
+╚═══════════════════════════════════════════════════════════════╝
+
+📚 EASY MODE - Guided Learning Tour
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Button: [EASY_MODE] (top-right of control deck)
+  
+  What it does:
+  • Step-by-step interactive tutorial
+  • Highlights each tool as you learn
+  • 8 lessons from beginner to advanced
+  • Can skip or pause anytime
+  
+  Best for:
+  ✓ First-time users
+  ✓ Learning music theory basics
+  ✓ Understanding tool relationships
+  ✓ Systematic learning path
+
+
+🎯 DEMO MODE - Hover Help System
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Button: [DEMO_MODE] (top-right of control deck)
+  
+  What it does:
+  • Hover over any tool for instant help
+  • Non-intrusive tooltip explanations
+  • Always available when you need it
+  • Covers all modules and features
+  
+  Best for:
+  ✓ Quick feature lookups
+  ✓ Self-paced exploration
+  ✓ Refreshing your memory
+  ✓ Advanced users
+
+
+🎛️ MODULE TOGGLES - Customize Your View
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Button: [MODULES] (top-right of control deck)
+  
+  Available modules:
+  □ Input: Number Gen       - Generate patterns & sequences
+  □ Ref: Circle of Fifths   - Visual note relationships
+  □ Tool: Container Chord   - Find scales for chords
+  □ Score: Sheet Music      - Notation & MIDI export
+  □ Explorer: Chord Map     - Interactive chord analysis
+  □ Vis: Solar System       - 3D visualization (optional)
+
+
+📖 TUTORIAL LESSONS (Easy Mode)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. Welcome & Scales Intro    → Understanding musical scales
+  2. Choosing C Major          → Your first scale
+  3. Circle of Fifths          → Note relationships
+  4. Number Generator          → Creating patterns (1-3-5-1)
+  5. Building Chords           → Harmony basics
+  6. Piano Visualizer          → Playing & hearing
+  7. Chord Progressions        → Common patterns (1-4-5-1)
+  8. Next Steps               → Demo Mode & exploration
+
+
+💡 TIPS FOR LEARNING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Start Simple:
+  • Use C Major scale (no sharps/flats)
+  • Try pattern: 1-3-5-1 (basic arpeggio)
+  • Learn I-IV-V-I progression first
+  
+  Progress Gradually:
+  • Add more complex scales (D Dorian, A Minor)
+  • Experiment with 7th chords
+  • Try modal interchange
+  
+  Use Tools Together:
+  • Number Gen → Sheet Music → Piano
+  • Scale Selector → Circle → Chord Explorer
+  • Container Chord → find new scales
+
+
+🎹 QUICK START GUIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. Click [EASY_MODE] for full tutorial
+     OR
+  2. Quick start:
+     a) Select "C Major" from scale dropdown
+     b) Type "1 4 5 1" in manual input box
+     c) Press Enter to generate progression
+     d) Click piano keys to hear notes
+     e) Enable [DEMO_MODE] for more help
+
+
+🔧 CUSTOMIZATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Grading View:
+  • Functional - Shows harmonic function (tonic/dominant)
+  • Emotional - Happy/sad chord qualities
+  • Color - Synesthesia-inspired visualization
+  
+  Themes:
+  • Clean DAW - Logic Pro style
+  • Channel Strip - Reaper style  
+  • Matrix FX - Cyberpunk aesthetic
+  • Steam 2000 - Retro green
+  
+  Layout:
+  • Column - Traditional sidebar layout
+  • Grid - Drag-and-drop freeform
+
+
+❓ NEED HELP?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  • Click [EASY_MODE] anytime for guided tour
+  • Enable [DEMO_MODE] and hover over tools
+  • Check README.md for technical documentation
+  • See TUTORIAL_SYSTEM.md for developer info
+
+
+🎵 HAPPY COMPOSING!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
