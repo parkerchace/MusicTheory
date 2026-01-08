@@ -76,6 +76,7 @@ class ScaleRelationshipExplorer {
         
         // Bind filter and preview events after DOM is ready
         this.bindFilterEvents();
+        this.bindApplyScaleEvents();
         this.bindPreviewEvents();
     }
 
@@ -139,6 +140,8 @@ class ScaleRelationshipExplorer {
         
         // Get root value for sorting (handle enharmonics)
         const chordRootVal = this.state.parsedChord ? getVal(this.state.parsedChord.root) : -1;
+        const parsedChordRoot = this.state.parsedChord ? this.state.parsedChord.root : null;
+        const parsedChordType = this.state.parsedChord ? this.state.parsedChord.type : null;
 
         allScales.forEach(scale => {
             // Filter: Must have a link/citation to be shown
@@ -154,6 +157,27 @@ class ScaleRelationshipExplorer {
             const allIn = chordSemis.every(cSemi => scaleSemis.includes(cSemi));
             
             if (allIn) {
+                // Determine match quality: exact (diatonic) vs. just "contains notes"
+                // Exact matches will be prioritized in sorting
+                let isDiatonicMatch = false;
+                if (this.musicTheory && typeof this.musicTheory.getDiatonicChord === 'function' && 
+                    scale.root === parsedChordRoot && parsedChordType) {
+                    try {
+                        // Check if the input chord type matches the diatonic chord for degree I
+                        const diatonicI = this.musicTheory.getDiatonicChord(1, scale.root, scale.name);
+                        if (diatonicI && diatonicI.chordType) {
+                            // Exact match or close match (e.g., 'maj' matches 'maj7', 'maj9', etc.)
+                            const diaCT = String(diatonicI.chordType).toLowerCase();
+                            const inpCT = String(parsedChordType).toLowerCase();
+                            // Normalize: strip numeric suffixes for comparison
+                            const diaBase = diaCT.replace(/[0-9]/g, '').replace(/maj/, 'major').replace(/min/, 'm');
+                            const inpBase = inpCT.replace(/[0-9]/g, '').replace(/maj/, 'major').replace(/min/, 'm');
+                            isDiatonicMatch = diaBase === inpBase;
+                        }
+                    } catch (e) {
+                        // If engine lookup fails, fall back to just "contains all notes" logic
+                    }
+                }
                 // Calculate complexity score
                 let complexity = 10;
                 const name = scale.name.toLowerCase();
@@ -184,12 +208,23 @@ class ScaleRelationshipExplorer {
                     relationshipLabel = 'Mediant';
                 }
 
-                containing.push({ ...scale, complexity, citation, relationshipTier, relationshipLabel });
+                containing.push({ 
+                    ...scale, 
+                    complexity, 
+                    citation, 
+                    relationshipTier, 
+                    relationshipLabel,
+                    isDiatonicMatch  // Track whether this is an exact diatonic match
+                });
             }
         });
 
-        // Sort by Relationship Tier, then Complexity, then Root
+        // Sort: exact diatonic matches first, then by Relationship Tier, then Complexity, then Root
         containing.sort((a, b) => {
+            // Prioritize exact diatonic matches (same root + matching chord type)
+            if (a.isDiatonicMatch !== b.isDiatonicMatch) {
+                return a.isDiatonicMatch ? -1 : 1;  // Diatonic matches come first
+            }
             if (a.relationshipTier !== b.relationshipTier) return a.relationshipTier - b.relationshipTier;
             if (a.complexity !== b.complexity) return a.complexity - b.complexity;
             return a.root.localeCompare(b.root);
@@ -394,13 +429,17 @@ class ScaleRelationshipExplorer {
                     <div style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 4px; font-style: italic;">"${vibe}"</div>
                     ${description ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; line-height: 1.3;">${description}</div>` : ''}
                     
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-                        <div style="font-size: 0.75rem; color: var(--accent-primary); text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer;" onclick="window.open('${url}', '_blank')">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 6px;">
+                        <div style="font-size: 0.75rem; color: var(--accent-primary); text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; flex: 1;" onclick="window.open('${url}', '_blank')">
                             Click to learn more ↗
                         </div>
+                        <button class="btn-apply-scale" data-root="${scale.root}" data-name="${scale.name}" 
+                                style="background: var(--accent-primary); color: #000; border: none; font-size: 0.7rem; padding: 3px 8px; cursor: pointer; border-radius: 3px; font-weight: bold; text-transform: uppercase;">
+                            Apply
+                        </button>
                         <button class="btn-preview" data-id="${uniqueId}" data-root="${scale.root}" data-name="${scale.name}" 
                                 style="background: transparent; border: 1px solid var(--border-light); color: var(--text-muted); font-size: 0.7rem; padding: 2px 6px; cursor: pointer; border-radius: 3px;">
-                            Show Preview
+                            Preview
                         </button>
                     </div>
                     <div id="${uniqueId}" class="scale-preview-container" style="margin-top: 8px; display: none; padding: 12px; background: linear-gradient(135deg, rgba(10,10,15,0.95) 0%, rgba(5,5,10,0.98) 100%); border: 1px solid rgba(0,243,255,0.2); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); overflow: visible;"></div>
@@ -429,6 +468,31 @@ class ScaleRelationshipExplorer {
                 this.render();
             });
         });
+    }
+
+    bindApplyScaleEvents() {
+        if (!this.containerElement) return;
+        const applyButtons = this.containerElement.querySelectorAll('.btn-apply-scale');
+        applyButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const root = btn.getAttribute('data-root');
+                const name = btn.getAttribute('data-name');
+                this.applyScale(root, name);
+            });
+        });
+    }
+
+    applyScale(root, scaleName) {
+        // Apply to ScaleLibrary if available
+        if (typeof window !== 'undefined' && window.modularApp && window.modularApp.scaleLibrary) {
+            try {
+                window.modularApp.scaleLibrary.setKeyAndScale(root, scaleName);
+                console.log('[ScaleRelationshipExplorer] Applied scale:', { root, scaleName });
+            } catch (e) {
+                console.error('[ScaleRelationshipExplorer] Failed to apply scale:', e);
+            }
+        }
     }
 
     bindPreviewEvents() {
@@ -654,44 +718,67 @@ class ScaleRelationshipExplorer {
     }
 
     getDiatonicChords(root, scaleName, scaleNotes) {
-        // Build diatonic triads and seventh chords for the scale
-        if (!scaleNotes || scaleNotes.length < 7) return [];
-        
+        // Prefer the shared MusicTheoryEngine diatonic chord logic so
+        // bebop / Barry / exotic scales match the rest of the system.
+
         const chords = [];
-        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
-        
+
+        // If the core engine exposes getDiatonicChord, trust it.
+        if (this.musicTheory && typeof this.musicTheory.getDiatonicChord === 'function') {
+            // Always show up to seven functional degrees (I–VII) even for
+            // octatonic / bebop scales; the engine decides the chord quality.
+            for (let degree = 1; degree <= 7; degree++) {
+                try {
+                    const diat = this.musicTheory.getDiatonicChord(degree, root, scaleName);
+                    if (!diat || !diat.root) continue;
+
+                    // Use the engine's synthesized/specific chordType when available.
+                    const chordType = diat.chordType || '';
+                    const label = chordType ? `${diat.root}${chordType}` : diat.root;
+                    chords.push(label);
+                } catch (e) {
+                    // If something goes wrong for a specific degree, skip it
+                    // rather than breaking the whole relationships tool.
+                    try { console.warn('[ScaleRelationshipExplorer] getDiatonicChord failed for', { root, scaleName, degree, error: e && e.message }); } catch(_) {}
+                }
+            }
+            return chords;
+        }
+
+        // Fallback: simple stacked-third inference using raw scale notes
+        if (!scaleNotes || scaleNotes.length < 7 || !this.musicTheory || !this.musicTheory.noteValues) {
+            return [];
+        }
+
         for (let i = 0; i < Math.min(scaleNotes.length, 7); i++) {
             const rootNote = scaleNotes[i];
             const thirdNote = scaleNotes[(i + 2) % scaleNotes.length];
             const fifthNote = scaleNotes[(i + 4) % scaleNotes.length];
             const seventhNote = scaleNotes[(i + 6) % scaleNotes.length];
-            
-            // Determine chord quality
+
             const rootValue = this.musicTheory.noteValues[rootNote];
             const thirdValue = this.musicTheory.noteValues[thirdNote];
             const fifthValue = this.musicTheory.noteValues[fifthNote];
             const seventhValue = this.musicTheory.noteValues[seventhNote];
-            
+
             if (rootValue === undefined || thirdValue === undefined || fifthValue === undefined) continue;
-            
+
             const thirdInterval = (thirdValue - rootValue + 12) % 12;
             const fifthInterval = (fifthValue - rootValue + 12) % 12;
             const seventhInterval = seventhValue !== undefined ? (seventhValue - rootValue + 12) % 12 : null;
-            
+
             let quality = '';
-            
-            // Determine triad quality
+
             if (thirdInterval === 4 && fifthInterval === 7) {
-                quality = 'maj7'; // Major triad
+                quality = 'maj7';
             } else if (thirdInterval === 3 && fifthInterval === 7) {
-                quality = 'm7'; // Minor triad
+                quality = 'm7';
             } else if (thirdInterval === 3 && fifthInterval === 6) {
-                quality = 'm7b5'; // Diminished triad
+                quality = 'm7b5';
             } else if (thirdInterval === 4 && fifthInterval === 8) {
-                quality = '+'; // Augmented triad
+                quality = '+';
             }
-            
-            // Refine with seventh
+
             if (seventhInterval !== null) {
                 if (thirdInterval === 4 && fifthInterval === 7) {
                     if (seventhInterval === 11) quality = 'maj7';
@@ -704,10 +791,10 @@ class ScaleRelationshipExplorer {
                     else if (seventhInterval === 9) quality = 'dim7';
                 }
             }
-            
+
             chords.push(`${rootNote}${quality}`);
         }
-        
+
         return chords;
     }
 

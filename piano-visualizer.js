@@ -329,6 +329,11 @@ class PianoVisualizer {
 
         // Apply current state
         this.applyState();
+        
+        // Emit rendered event for connectors
+        requestAnimationFrame(() => {
+            this.emit('rendered', { startMidi, endMidi });
+        });
     }
 
     /**
@@ -366,7 +371,20 @@ class PianoVisualizer {
             labelContainer.style.fontWeight = '500';
             labelContainer.style.pointerEvents = 'none';
 
+            // High contrast: bold black text with white shadow
+            labelContainer.style.color = '#000000';
+            labelContainer.style.textShadow = '0 1px 3px rgba(255, 255, 255, 0.8)';
+            labelContainer.style.fontSize = '11px';
+            labelContainer.style.fontWeight = '700';
+            labelContainer.style.pointerEvents = 'none';
+
             // MIDI/note metadata
+                        // High contrast: bold bright text with dark shadow for black keys
+                        labelContainer.style.color = '#ffffff';
+                        labelContainer.style.textShadow = '0 1px 3px rgba(0, 0, 0, 0.9)';
+                        labelContainer.style.fontSize = '10px';
+                        labelContainer.style.fontWeight = '700';
+
             const octave = Math.floor(midi / 12) - 1;
             key.dataset.midi = String(midi);
             key.dataset.note = baseName;

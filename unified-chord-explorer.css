@@ -1,10 +1,10 @@
 /* Unified Chord Explorer - minimal styles to restore layout */
-.unified-chord-explorer{box-sizing:border-box;font-family:var(--font-ui, Arial, sans-serif);color:var(--text-main,#111);background:var(--bg-panel,transparent);padding:10px;border-radius:6px}
+.unified-chord-explorer{box-sizing:border-box;font-family:var(--font-ui, Arial, sans-serif);color:var(--text-main,#111);background:var(--bg-panel,transparent);padding:6px;border-radius:4px}
 .unified-chord-explorer .chord-explorer-header{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
 .unified-chord-explorer .chord-explorer-header h3{margin:0;font-size:1rem}
 .unified-chord-explorer .chord-explorer-header .hint{margin:0;font-size:0.82rem;opacity:0.8}
-.unified-chord-explorer .chord-explorer-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
-.chord-card{width:140px;min-height:96px;padding:12px;border-radius:10px;background:var(--bg-input,#fff);border:1px solid rgba(0,0,0,0.06);box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.unified-chord-explorer .chord-explorer-grid{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.chord-card{width:130px;min-height:86px;padding:10px;border-radius:8px;background:var(--bg-input,#fff);border:1px solid rgba(0,0,0,0.06);box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
 .chord-card .chord-name{font-weight:700;font-size:0.95rem;margin-bottom:4px}
 .chord-card .chord-degree{font-size:0.82rem;color:var(--text-muted,#666);margin-bottom:6px}
 .chord-card .note-indicator{font-size:0.9rem;font-weight:600;background:rgba(0,0,0,0.03);padding:4px 6px;border-radius:4px}
