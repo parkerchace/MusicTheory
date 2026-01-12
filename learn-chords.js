@@ -216,7 +216,15 @@
         updateRecipe(root, type, ints) {
             this.curRoot = root;
             this.chordType = type;
-            const intervalStr = ints || (type==='major'?'4,3': type==='minor'?'3,4': type==='dim'?'3,3':'4,4');
+            const intervalMap = {
+                'major': '4,3',
+                'minor': '3,4',
+                'dim': '3,3',
+                'aug': '4,4',
+                'sus2': '2,5',
+                'sus4': '5,2'
+            };
+            const intervalStr = ints || (intervalMap[type] || '4,3');
             
             // Sync State for Audio/Helpers
             this.chordIntervals = intervalStr.split(',').map(Number);
@@ -914,7 +922,9 @@
                 'major': [4, 3],
                 'minor': [3, 4],
                 'dim': [3, 3],
-                'aug': [4, 4]
+                'aug': [4, 4],
+                'sus2': [2, 5],
+                'sus4': [5, 2]
             };
             this.chordIntervals = intervals[type] || [4, 3];
             this.extensions = [];
