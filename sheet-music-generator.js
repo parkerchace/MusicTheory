@@ -4162,9 +4162,15 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		// Create mini piano keyboard
 		const pianoContainer = document.createElement('div');
 		pianoContainer.style.display = 'flex';
-		pianoContainer.style.gap = '2px';
+		pianoContainer.style.gap = '0'; // Buttons should touch or depend on border
 		pianoContainer.style.position = 'relative';
-		pianoContainer.style.height = '80px';
+		pianoContainer.style.height = '86px'; // increased for chassis
+        pianoContainer.style.background = '#111';
+        pianoContainer.style.backgroundImage = 'linear-gradient(to bottom, #222, #000)';
+        pianoContainer.style.borderRadius = '4px';
+        pianoContainer.style.padding = '4px 4px 6px 4px';
+        pianoContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)';
+        pianoContainer.style.borderTop = '1px solid #333';
 
 		// Convert note to MIDI number
 		const noteToMidi = (note) => {
@@ -4227,15 +4233,17 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 			key.style.position = isBlack ? 'absolute' : 'relative';
 			key.style.width = isBlack ? '12px' : '18px';
 			key.style.height = isBlack ? '50px' : '80px';
+            if (isBlack) key.style.marginLeft = '-6px'; // Center black key on split
+
 			const baseActiveColor = intervalColor(midi);
 			key.style.background = isActive 
 				? (isBlack ? `linear-gradient(180deg, ${baseActiveColor} 0%, ${baseActiveColor} 90%)` : `linear-gradient(180deg, ${baseActiveColor} 0%, ${baseActiveColor} 85%)`)
-				: (isBlack ? 'linear-gradient(180deg, #4b5563 0%, #374151 100%)' : 'linear-gradient(180deg, #f5f5f5 0%, #e0e0e0 100%)');
-			key.style.border = isBlack ? '1px solid #000' : '1px solid #999';
-			key.style.borderRadius = isBlack ? '0 0 4px 4px' : '0 0 6px 6px';
+				: (isBlack ? 'linear-gradient(to bottom, #333333, #000000)' : 'linear-gradient(to bottom, #ffffff, #e0e0e0)');
+			key.style.border = isBlack ? '1px solid #000' : '1px solid #ccc';
+			key.style.borderRadius = isBlack ? '0 0 2px 2px' : '0 0 3px 3px';
 			key.style.boxShadow = isActive 
 				? `0 0 14px ${baseActiveColor}AA, inset 0 2px 4px rgba(255,255,255,0.3)`
-				: (isBlack ? 'inset 0 2px 4px rgba(0,0,0,0.5)' : 'inset 0 2px 4px rgba(255,255,255,0.5)');
+				: (isBlack ? 'inset 0 0 2px rgba(255,255,255,0.2), 2px 2px 4px rgba(0,0,0,0.4)' : 'inset 0 -1px 2px rgba(0,0,0,0.1)');
 			key.style.zIndex = isBlack ? '2' : '1';
 
 			// Label active white keys with interval + note

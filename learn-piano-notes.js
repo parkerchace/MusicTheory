@@ -9,6 +9,9 @@ class LearnPianoNotes {
         this.connectorOverlay = null;
         this._localPiano = null;
         this._connectorEventsBound = false;
+        this._audioCtx = null;
+        this._isDragging = false;
+        this._lastPlayedKey = null;
     }
 
     mount(selector) {
@@ -17,7 +20,53 @@ class LearnPianoNotes {
             console.error('[LearnPianoNotes] Container not found:', selector);
             return;
         }
+        this.initAudio();
         this.render();
+    }
+
+    initAudio() {
+        if (!this._audioCtx) {
+            try {
+                this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch(e) {
+                console.warn('[LearnPianoNotes] AudioContext unavailable:', e);
+            }
+        }
+    }
+
+    playNote(midi, duration = 0.3) {
+        if (!this._audioCtx) return;
+        
+        // Resume context if suspended (browser autoplay policy)
+        if (this._audioCtx.state === 'suspended') {
+            this._audioCtx.resume();
+        }
+
+        const now = this._audioCtx.currentTime;
+        const frequency = 440 * Math.pow(2, (midi - 69) / 12);
+        
+        // Create oscillator and gain nodes for smooth sound
+        const osc = this._audioCtx.createOscillator();
+        const gain = this._audioCtx.createGain();
+        
+        osc.type = 'triangle'; // Softer tone
+        osc.frequency.value = frequency;
+        osc.connect(gain).connect(this._audioCtx.destination);
+        
+        // Smooth envelope to prevent clicks
+        const attack = 0.015;
+        const decay = 0.1;
+        const sustain = 0.15;
+        const release = 0.2;
+        
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.exponentialRampToValueAtTime(0.25, now + attack);
+        gain.gain.exponentialRampToValueAtTime(sustain, now + attack + decay);
+        gain.gain.setValueAtTime(sustain, now + duration - release);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        
+        osc.start(now);
+        osc.stop(now + duration);
     }
 
     render() {
@@ -43,7 +92,7 @@ class LearnPianoNotes {
                         Learn C Major Scale
                     </h2>
                     <p style="color: var(--text-muted); margin: 0; font-size: clamp(0.85rem, 2vw, 1rem); line-height: 1.6;">
-                        The note names repeat across the keyboard: <strong>C–D–E–F–G–A–B</strong>, then back to <strong>C</strong> in the next octave.
+                        The note names for the white keys repeat across the keyboard: <strong>C–D–E–F–G–A–B</strong>, then back to <strong>C</strong> in the next octave.
                     </p>
                 </div>
 
@@ -174,21 +223,8 @@ class LearnPianoNotes {
                         display: flex; 
                         justify-content: center;
                         min-height: 160px;
-                        margin-bottom: 16px;
                     "></div>
                 </div>
-
-                <!-- SVG markers for arrows -->
-                <svg width="0" height="0" style="position: absolute;">
-                    <defs>
-                        <marker id="h-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                            <path d="M0,0 L6,3 L0,6 Z" fill="var(--accent-primary)"/>
-                        </marker>
-                        <marker id="w-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                            <path d="M0,0 L6,3 L0,6 Z" fill="var(--accent-primary)"/>
-                        </marker>
-                    </defs>
-                </svg>
 
                 <!-- Sheet Music -->
                 <div style="background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: 8px; padding: 20px; position: relative;">
@@ -201,15 +237,6 @@ class LearnPianoNotes {
                         padding: 20px;
                         overflow-x: auto;
                     "></div>
-                </div>
-
-                <!-- Educational Info -->
-                <div style="background: rgba(96, 165, 250, 0.1); border-left: 4px solid var(--accent-primary); padding: 14px 16px; border-radius: 6px;">
-                    <div style="font-size: 0.95rem; color: var(--text-main); line-height: 1.7;">
-                        <strong style="color: var(--accent-primary);">Scales = interval patterns.</strong>
-                        A scale is a set of notes chosen from the 12-tone system by following a step formula (W/H). 
-                        The same pattern can start on any key.
-                    </div>
                 </div>
             </div>
         `;
@@ -307,7 +334,9 @@ class LearnPianoNotes {
             this._localPiano = new PianoVizClass({
                 startMidi: 60, // C4
                 endMidi: 71,   // B4 (one octave)
-                container: pianoContainer
+                container: pianoContainer,
+                // Disable built-in pointer glissando; use tutorial module's own audio drag logic
+                enablePointerGlissando: false
             });
         }
 
@@ -325,7 +354,8 @@ class LearnPianoNotes {
             showGradingTooltips: false,
             enableGradingIntegration: false,
             fitToContainer: true,
-            interactive: true
+            interactive: true,
+            enablePointerGlissando: false
         });
         
         // Ensure piano element is in container
@@ -370,12 +400,34 @@ class LearnPianoNotes {
                     key.appendChild(degreeLabel);
                 }
                 
-                // Add hover effects for all keys
+                // Add click handler for sound (when not dragging)
+                key.addEventListener('click', (e) => {
+                    if (!this._isDragging) {
+                        const midi = parseInt(key.getAttribute('data-midi'));
+                        if (!isNaN(midi)) {
+                            this.playNote(midi);
+                        }
+                    }
+                });
+
+                // Add hover effects and drag support for glissando
                 key.addEventListener('mouseenter', (e) => {
                     const note = key.getAttribute('data-note');
-                    const midi = key.getAttribute('data-midi');
+                    const midi = parseInt(key.getAttribute('data-midi'));
                     const octave = key.getAttribute('data-octave');
                     const isScale = cMajorNotes.includes(note);
+                    
+                    // Play sound when dragging over keys (glissando effect)
+                    if (this._isDragging && !isNaN(midi) && this._lastPlayedKey !== midi) {
+                        this.playNote(midi, 0.15); // Short duration for smooth glissando
+                        this._lastPlayedKey = midi;
+                        
+                        // Visual feedback during drag
+                        key.style.transform = 'scale(0.98)';
+                        setTimeout(() => {
+                            key.style.transform = '';
+                        }, 100);
+                    }
                     
                     // Show tooltip
                     const tooltip = document.createElement('div');
@@ -411,6 +463,63 @@ class LearnPianoNotes {
                     key.addEventListener('mouseleave', cleanup);
                 });
             });
+
+            // Setup mouse drag support for glissando effect
+            this._localPiano.pianoElement.addEventListener('mousedown', (e) => {
+                this._isDragging = true;
+                this._lastPlayedKey = null;
+                
+                // Prevent text selection when dragging
+                e.preventDefault();
+                
+                // Play note on initial mousedown
+                const key = e.target.closest('[data-midi]');
+                if (key) {
+                    const midi = parseInt(key.getAttribute('data-midi'));
+                    if (!isNaN(midi)) {
+                        this.playNote(midi, 0.15);
+                        this._lastPlayedKey = midi;
+                        
+                        // Visual feedback
+                        key.style.transform = 'scale(0.98)';
+                        setTimeout(() => {
+                            key.style.transform = '';
+                        }, 100);
+                    }
+                }
+            });
+
+            // Also handle mousemove to ensure smooth glissando even with fast movements
+            this._localPiano.pianoElement.addEventListener('mousemove', (e) => {
+                if (this._isDragging) {
+                    const key = e.target.closest('[data-midi]');
+                    if (key) {
+                        const midi = parseInt(key.getAttribute('data-midi'));
+                        if (!isNaN(midi) && this._lastPlayedKey !== midi) {
+                            this.playNote(midi, 0.15);
+                            this._lastPlayedKey = midi;
+                            
+                            // Visual feedback
+                            key.style.transform = 'scale(0.98)';
+                            setTimeout(() => {
+                                key.style.transform = '';
+                            }, 100);
+                        }
+                    }
+                }
+            });
+
+            // Stop dragging on mouse up anywhere
+            document.addEventListener('mouseup', () => {
+                this._isDragging = false;
+                this._lastPlayedKey = null;
+            });
+
+            // Prevent text selection on the piano element
+            this._localPiano.pianoElement.style.userSelect = 'none';
+            this._localPiano.pianoElement.style.webkitUserSelect = 'none';
+            this._localPiano.pianoElement.style.mozUserSelect = 'none';
+            this._localPiano.pianoElement.style.msUserSelect = 'none';
         }
     }
 
@@ -616,9 +725,9 @@ class LearnPianoNotes {
         // Also reflow on resize
         window.addEventListener('resize', schedule, { passive: true });
     }
+
 }
 
-// Expose globally
 if (typeof window !== 'undefined') {
     window.LearnPianoNotes = LearnPianoNotes;
 }

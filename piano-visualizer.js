@@ -27,9 +27,13 @@ class PianoVisualizer {
             showRightHandFingering: options.showRightHandFingering !== false, // Show right hand fingering by default
             showRomanNumerals: options.showRomanNumerals !== false, // Show roman numerals by default
             container: options.container || null,
+            // Pointer glissando (drag across keys) enable flag
+            enablePointerGlissando: options.enablePointerGlissando !== false,
             // Enhanced grading options
             enableGradingIntegration: options.enableGradingIntegration !== false, // Enable grading integration by default
             showGradingTooltips: options.showGradingTooltips !== false, // Show grading tooltips by default
+            // Highlight mode: 'octave' => only highlight center octave; 'all' => highlight entire keyboard
+            highlightMode: options.highlightMode || 'octave',
             gradingEngine: options.gradingEngine || null, // Music theory engine for grading
             ...options
         };
@@ -228,21 +232,28 @@ class PianoVisualizer {
         this.keysInner.style.padding = '0';
         // Reserve space above the keys for degree bubbles so they are fully visible
         this.keysInner.style.paddingTop = '28px';
+        
+        // Realistic piano chassis style
+        this.keysInner.style.backgroundColor = '#1a1a1a';
+        this.keysInner.style.backgroundImage = 'linear-gradient(to bottom, #2a2a2a, #111111)';
+        this.keysInner.style.borderTop = '2px solid #333';
+        this.keysInner.style.borderRadius = '0 0 4px 4px';
+        this.keysInner.style.boxShadow = '0 8px 16px rgba(0,0,0,0.4)';
 
         // Create layers for white and black keys inside inner container
         this.whitesLayer = document.createElement('div');
         this.whitesLayer.className = 'piano-whites-layer';
         this.whitesLayer.style.position = 'absolute';
         this.whitesLayer.style.left = '0';
-        this.whitesLayer.style.top = '0';
-        this.whitesLayer.style.height = '100%';
+        this.whitesLayer.style.top = '28px';
+        this.whitesLayer.style.height = 'calc(100% - 28px)';
 
         this.blacksLayer = document.createElement('div');
         this.blacksLayer.className = 'piano-blacks-layer';
         this.blacksLayer.style.position = 'absolute';
         this.blacksLayer.style.left = '0';
-        this.blacksLayer.style.top = '0';
-        this.blacksLayer.style.height = '100%';
+        this.blacksLayer.style.top = '28px';
+        this.blacksLayer.style.height = 'calc(100% - 28px)';
 
         this.keysInner.appendChild(this.whitesLayer);
         this.keysInner.appendChild(this.blacksLayer);
@@ -257,7 +268,7 @@ class PianoVisualizer {
             
             console.log('[PianoVisualizer] Resolved container:', container);
             
-            if (container) {
+                if (container) {
                 console.log('[PianoVisualizer] Appending piano element to container');
                 container.appendChild(this.pianoElement);
                 console.log('[PianoVisualizer] Piano element appended, children count:', container.children.length);
@@ -274,6 +285,76 @@ class PianoVisualizer {
         }
 
         this.render();
+
+        // Improve interaction: optional pointer-based glissando (click-and-drag) and prevent text selection while dragging
+        if (this.options.enablePointerGlissando !== false) {
+            try {
+                // Disable text selection on piano element
+                this.pianoElement.style.userSelect = 'none';
+                this.pianoElement.style.webkitUserSelect = 'none';
+                this.pianoElement.style.msUserSelect = 'none';
+
+                // internal state for pointer interaction
+                this._isPointerDown = false;
+                this._lastMidiUnderPointer = null;
+
+                const findKeyFromElement = (el) => {
+                    while (el && el !== this.pianoElement) {
+                        if (el.classList && (el.classList.contains('piano-white-key') || el.classList.contains('piano-black-key'))) return el;
+                        el = el.parentElement;
+                    }
+                    return null;
+                };
+
+                this.pianoElement.addEventListener('pointerdown', (evt) => {
+                    // only primary button
+                    if (evt.button && evt.button !== 0) return;
+                    evt.preventDefault();
+                    this._isPointerDown = true;
+                    this._lastMidiUnderPointer = null;
+                    try { evt.target.setPointerCapture && evt.target.setPointerCapture(evt.pointerId); } catch(_){}
+                    // prevent selection across the document while dragging
+                    try { document.body.style.userSelect = 'none'; } catch(_){}
+
+                    const el = document.elementFromPoint(evt.clientX, evt.clientY);
+                    const key = findKeyFromElement(el);
+                    if (key) {
+                        const midi = parseInt(key.dataset.midi, 10);
+                        if (!isNaN(midi)) {
+                            this._lastMidiUnderPointer = midi;
+                            this.handleNoteClick(key.dataset.note, midi);
+                        }
+                    }
+                }, { passive: false });
+
+                this.pianoElement.addEventListener('pointermove', (evt) => {
+                    if (!this._isPointerDown) return;
+                    evt.preventDefault();
+                    const el = document.elementFromPoint(evt.clientX, evt.clientY);
+                    const key = findKeyFromElement(el);
+                    if (key) {
+                        const midi = parseInt(key.dataset.midi, 10);
+                        if (!isNaN(midi) && midi !== this._lastMidiUnderPointer) {
+                            this._lastMidiUnderPointer = midi;
+                            this.handleNoteClick(key.dataset.note, midi);
+                        }
+                    }
+                }, { passive: false });
+
+                const endPointer = (evt) => {
+                    this._isPointerDown = false;
+                    this._lastMidiUnderPointer = null;
+                    try { evt.target.releasePointerCapture && evt.target.releasePointerCapture(evt.pointerId); } catch(_){}
+                    try { document.body.style.userSelect = ''; } catch(_){}
+                };
+
+                this.pianoElement.addEventListener('pointerup', endPointer, { passive: false });
+                this.pianoElement.addEventListener('pointercancel', endPointer, { passive: false });
+
+            } catch (err) {
+                console.error('[PianoVisualizer] Failed to install pointer handlers', err);
+            }
+        }
     }
 
     /**
@@ -352,12 +433,12 @@ class PianoVisualizer {
             key.style.height = `${this.options.whiteKeyHeight}px`;
             key.style.top = '0px';
             key.style.position = 'absolute';
-            key.style.background = 'linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%)';
+            key.style.background = 'linear-gradient(to bottom, #ffffff, #e0e0e0)';
             key.style.border = '1px solid var(--border-light)';
-            key.style.borderRadius = '0';
+            key.style.borderRadius = '0 0 3px 3px';
             key.style.cursor = 'pointer';
             key.style.transition = 'all 0.2s ease';
-            key.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+            key.style.boxShadow = 'inset 0 -1px 2px rgba(0,0,0,0.1)';
             
             // Create a label container at the bottom
             const labelContainer = document.createElement('div');
@@ -451,13 +532,13 @@ class PianoVisualizer {
             key.style.height = `${this.options.blackKeyHeight}px`;
             key.style.top = '0px';
             key.style.position = 'absolute';
-            key.style.background = 'linear-gradient(180deg, #1a1a1a 0%, #000000 100%)';
-            key.style.border = '1px solid var(--border-light)';
-            key.style.borderRadius = '0';
+            key.style.background = 'linear-gradient(to bottom, #333333, #000000)';
+            key.style.border = '1px solid #000';
+            key.style.borderRadius = '0 0 2px 2px';
             key.style.cursor = 'pointer';
             key.style.transition = 'all 0.2s ease';
             key.style.zIndex = '10';
-            key.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.3)';
+            key.style.boxShadow = 'inset 0 0 2px rgba(255,255,255,0.2), 2px 2px 4px rgba(0,0,0,0.4)';
             
             // Create a label container at the bottom
             const labelContainer = document.createElement('div');
@@ -1332,13 +1413,13 @@ class PianoVisualizer {
             key.classList.remove('active', 'highlighted', 'root', 'third', 'fifth', 'seventh', 'ninth', 'eleventh', 'extension');
             // Reset styling
             if (key.classList.contains('piano-white-key')) {
-                key.style.background = 'linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%)';
-                key.style.borderColor = '#cbd5e1';
-                key.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                key.style.background = 'linear-gradient(to bottom, #ffffff, #e0e0e0)';
+                key.style.borderColor = 'var(--border-light)';
+                key.style.boxShadow = 'inset 0 -1px 2px rgba(0,0,0,0.1)';
             } else if (key.classList.contains('piano-black-key')) {
-                key.style.background = 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)';
-                key.style.borderColor = '#0f172a';
-                key.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.3)';
+                key.style.background = 'linear-gradient(to bottom, #333333, #000000)';
+                key.style.borderColor = '#000000';
+                key.style.boxShadow = 'inset 0 0 2px rgba(255,255,255,0.2), 2px 2px 4px rgba(0,0,0,0.4)';
             }
         });
         
@@ -1383,11 +1464,15 @@ class PianoVisualizer {
             return m >= lowMidi && m < highMidi;
         };
 
-        // Apply active state (with grading-aware styling) but only for scale notes within center octave
+        // Apply active state (with grading-aware styling)
         this.state.activeNotes.forEach(note => {
-            if (this.state.mode !== 'chord' && !isNoteInScale(note)) return;
+            // For general highlighting, don't restrict to scale or mode unless strictly enforced
+            // if (this.state.mode !== 'chord' && !isNoteInScale(note)) return;
+
             this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key').forEach(key => {
-                if (isInCenter(key) && keyMatchesNote(key, note)) {
+                if (keyMatchesNote(key, note)) {
+                    // If highlightMode is 'octave', only apply to center octave
+                    if (this.options.highlightMode === 'octave' && !isInCenter(key)) return;
                     key.classList.add('active');
                     
                     // Enhanced grading integration: use grading colors if available
@@ -1430,13 +1515,16 @@ class PianoVisualizer {
             });
         });
 
-        // Apply highlighted state (grading-aware styling) only for scale notes within center octave
+        // Apply highlighted state (grading-aware styling)
         this.state.highlightedNotes.forEach(note => {
             const inScale = isNoteInScale(note);
-            if (this.state.mode !== 'chord' && !inScale) return;
+            // Allow chromatic highlighting even if not in scale
+            // if (this.state.mode !== 'chord' && !inScale) return;
             
             this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key').forEach(key => {
-                if (isInCenter(key) && keyMatchesNote(key, note)) {
+                if (keyMatchesNote(key, note)) {
+                    // If highlightMode is 'octave', only apply to center octave
+                    if (this.options.highlightMode === 'octave' && !isInCenter(key)) return;
                     key.classList.add('highlighted');
                     
                     // Enhanced grading integration: use grading colors for highlighting
@@ -1584,6 +1672,16 @@ class PianoVisualizer {
             return btn;
         };
         
+        // Highlight mode buttons: Octave (default) or All keys
+        const octaveBtn = createToggleButton('Octave', this.options.highlightMode === 'octave', () => {
+            this.setHighlightMode('octave');
+            updateButtonStyles();
+        });
+        const allBtn = createToggleButton('All Keys', this.options.highlightMode === 'all', () => {
+            this.setHighlightMode('all');
+            updateButtonStyles();
+        });
+        
         // Add toggle buttons
         const bothBtn = createToggleButton('Both Hands', 
             this.options.showLeftHandFingering && this.options.showRightHandFingering,
@@ -1623,6 +1721,8 @@ class PianoVisualizer {
         
         // Function to update button styles based on current state
         const updateButtonStyles = () => {
+            octaveBtn.className = `btn ${this.options.highlightMode === 'octave' ? 'btn-primary' : ''}`;
+            allBtn.className = `btn ${this.options.highlightMode === 'all' ? 'btn-primary' : ''}`;
             bothBtn.className = `btn ${this.options.showLeftHandFingering && this.options.showRightHandFingering ? 'btn-primary' : ''}`;
             rightBtn.className = `btn ${this.options.showRightHandFingering && !this.options.showLeftHandFingering ? 'btn-primary' : ''}`;
             leftBtn.className = `btn ${this.options.showLeftHandFingering && !this.options.showRightHandFingering ? 'btn-primary' : ''}`;
@@ -1630,6 +1730,9 @@ class PianoVisualizer {
         };
         
         // Add buttons to button section
+        // Highlight mode controls first
+        buttonSection.appendChild(octaveBtn);
+        buttonSection.appendChild(allBtn);
         buttonSection.appendChild(bothBtn);
         buttonSection.appendChild(rightBtn);
         buttonSection.appendChild(leftBtn);
@@ -1878,6 +1981,17 @@ class PianoVisualizer {
      */
     toggleRomanNumerals(show) {
         this.options.showRomanNumerals = show;
+        this.renderAnnotations();
+    }
+
+    /**
+     * Set highlight mode: 'octave' (center octave only) or 'all' (entire keyboard)
+     */
+    setHighlightMode(mode) {
+        if (mode !== 'octave' && mode !== 'all') return;
+        this.options.highlightMode = mode;
+        // Re-render annotations and visual state
+        this.applyState();
         this.renderAnnotations();
     }
 }

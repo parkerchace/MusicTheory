@@ -169,6 +169,14 @@ class ModuleSelector {
             });
         }
 
+        // Launch Learn Chords (separate from full studio)
+        const learnChordsBtn = document.getElementById('launch-learn-chords-btn');
+        if (learnChordsBtn) {
+            learnChordsBtn.addEventListener('click', () => {
+                this.launchLearnChords();
+            });
+        }
+
         // Launch selected modules button
         const launchSelectedBtn = document.getElementById('launch-selected-btn');
         if (launchSelectedBtn) {
@@ -350,6 +358,37 @@ class ModuleSelector {
             }
         } catch (e) {
             console.error('[ModuleSelector] Failed to mount LearnPianoNotes:', e);
+        }
+    }
+
+    launchLearnChords() {
+        const landing = document.getElementById('landing-page');
+        const learn = document.getElementById('learn-chords-page');
+        const workspace = document.querySelector('.workspace');
+        const controlDeck = document.querySelector('.control-deck');
+        const bottomDeck = document.querySelector('.bottom-deck');
+
+        if (landing) landing.style.display = 'none';
+        if (learn) learn.style.display = 'block';
+        if (workspace) workspace.style.display = 'none';
+        if (controlDeck) controlDeck.style.display = 'none';
+        if (bottomDeck) bottomDeck.style.display = 'none';
+
+        // Lazy-mount the learn chords module
+        try {
+            if (!window.learnChordsInstance) {
+                const LearnClass = window.LearnChords;
+                if (LearnClass && window.modularApp && window.modularApp.musicTheory) {
+                    window.learnChordsInstance = new LearnClass(window.modularApp.musicTheory);
+                } else if (LearnClass) {
+                    window.learnChordsInstance = new LearnClass();
+                }
+            }
+            if (window.learnChordsInstance && typeof window.learnChordsInstance.mount === 'function') {
+                window.learnChordsInstance.mount('#learn-chords-container');
+            }
+        } catch (e) {
+            console.error('[ModuleSelector] Failed to mount LearnChords:', e);
         }
     }
 
