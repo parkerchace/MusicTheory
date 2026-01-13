@@ -62,6 +62,7 @@ class PianoVisualizer {
     this._melodyCancel = null;
         // Container for vertically stacked chord note display (traditional chord stack)
         this.chordStackElement = null;
+        this._activeMidiSet = new Set(); // live MIDI-lit keys
 
         // Piano layout constants
         this.WHITE_ORDER = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -1357,6 +1358,24 @@ class PianoVisualizer {
         this.applyState();
     }
 
+    // Live MIDI feedback: light keys on MIDI note on/off
+    midiNoteOn(midi) {
+        if (typeof midi !== 'number') return;
+        this._activeMidiSet.add(midi);
+        this.applyState();
+    }
+
+    midiNoteOff(midi) {
+        if (typeof midi !== 'number') return;
+        this._activeMidiSet.delete(midi);
+        this.applyState();
+    }
+
+    clearMidiNotes() {
+        this._activeMidiSet.clear();
+        this.applyState();
+    }
+
     /**
      * Play a sequence of note names by visually stepping through them.
      * No audio output; purely visual highlight in the center octave.
@@ -1422,6 +1441,7 @@ class PianoVisualizer {
                 key.style.boxShadow = 'inset 0 0 2px rgba(255,255,255,0.2), 2px 2px 4px rgba(0,0,0,0.4)';
             }
         });
+        const midiActiveSet = this._activeMidiSet || new Set();
         
         // Remove existing annotations
         this.renderAnnotations();
@@ -1429,6 +1449,24 @@ class PianoVisualizer {
         // Helper function to check if a key matches a note (enharmonic aware)
         const keyMatchesNote = (key, note) => {
             const keyNote = key.dataset.correctNote || key.dataset.note;
+
+        // Overlay MIDI-lit keys (live play) without disturbing theoretical highlights
+        if (midiActiveSet.size && this.pianoElement) {
+            midiActiveSet.forEach(midi => {
+                const key = this.pianoElement.querySelector(`[data-midi="${midi}"]`);
+                if (key) {
+                    key.classList.add('active', 'midi-active');
+                    const isBlack = key.classList.contains('piano-black-key');
+                    const bg = isBlack
+                        ? 'linear-gradient(180deg, #22d3ee 0%, #0ea5e9 100%)'
+                        : 'linear-gradient(180deg, #a7f3d0 0%, #34d399 100%)';
+                    const border = isBlack ? '#0ea5e9' : '#059669';
+                    key.style.background = bg;
+                    key.style.borderColor = border;
+                    key.style.boxShadow = '0 0 0 3px rgba(34,197,94,0.55), 0 6px 10px rgba(0,0,0,0.35)';
+                }
+            });
+        }
             const keyOriginalNote = key.dataset.note;
             
             // Direct match

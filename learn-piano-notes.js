@@ -10,6 +10,7 @@ class LearnPianoNotes {
         this._localPiano = null;
         this._connectorEventsBound = false;
         this._audioEngine = null; // Use shared audio engine
+        this._midiActiveKeys = new Set();
         this._isDragging = false;
         this._lastPlayedKey = null;
     }
@@ -38,6 +39,39 @@ class LearnPianoNotes {
         if (this._audioEngine && typeof this._audioEngine.playNote === 'function') {
             this._audioEngine.playNote(midi, duration);
         }
+    }
+
+    // MIDI-driven key lighting for this module's octave
+    midiNoteOn(midi) {
+        if (typeof midi !== 'number') return;
+        this._midiActiveKeys.add(midi);
+        this.applyMidiHighlights();
+    }
+
+    midiNoteOff(midi) {
+        if (typeof midi !== 'number') return;
+        this._midiActiveKeys.delete(midi);
+        this.applyMidiHighlights();
+    }
+
+    applyMidiHighlights() {
+        const pianoEl = this._localPiano?.pianoElement;
+        if (!pianoEl) return;
+        const keys = pianoEl.querySelectorAll('[data-midi]');
+        keys.forEach(key => {
+            const midi = parseInt(key.getAttribute('data-midi'), 10);
+            if (!key.dataset.origBoxShadow) {
+                key.dataset.origBoxShadow = key.style.boxShadow || '';
+            }
+            if (this._midiActiveKeys.has(midi)) {
+                const base = key.dataset.origBoxShadow;
+                key.style.boxShadow = `${base ? base + ', ' : ''}0 0 10px rgba(34, 197, 94, 0.9)`;
+                key.style.transform = 'translateY(-1px)';
+            } else {
+                key.style.boxShadow = key.dataset.origBoxShadow;
+                key.style.transform = '';
+            }
+        });
     }
 
     render() {

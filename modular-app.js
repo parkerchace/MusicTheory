@@ -1569,19 +1569,36 @@
                 window.modularApp.midiManager.init().catch(e => {
                     console.error('MIDI initialization error:', e);
                 });
-                
-                // Set up MIDI note visualization on piano visualizer
-                if (window.modularApp.pianoVisualizer) {
-                    window.modularApp.midiManager.on('noteOn', (data) => {
-                        // Highlight the note on the piano
-                        const noteKey = window.modularApp.pianoVisualizer.midiToNoteName(data.midi);
-                        window.modularApp.pianoVisualizer.highlightNote(data.midi);
+
+                // Set up MIDI note visualization on all pianos once
+                const mm = window.modularApp.midiManager;
+                if (!mm._uiNoteHandlersAttached) {
+                    mm._uiNoteHandlersAttached = true;
+
+                    mm.on('noteOn', ({ midi }) => {
+                        // Global full keyboard
+                        if (window.modularApp.pianoVisualizer && typeof window.modularApp.pianoVisualizer.midiNoteOn === 'function') {
+                            window.modularApp.pianoVisualizer.midiNoteOn(midi);
+                        }
+                        // Learn: Piano Notes (1-octave keyboard)
+                        if (window.learnPianoNotesInstance && typeof window.learnPianoNotesInstance.midiNoteOn === 'function') {
+                            window.learnPianoNotesInstance.midiNoteOn(midi);
+                        }
                     });
-                    
-                    window.modularApp.midiManager.on('noteOff', (data) => {
-                        // Unhighlight the note
-                        window.modularApp.pianoVisualizer.unhighlightNote(data.midi);
+
+                    mm.on('noteOff', ({ midi }) => {
+                        if (window.modularApp.pianoVisualizer && typeof window.modularApp.pianoVisualizer.midiNoteOff === 'function') {
+                            window.modularApp.pianoVisualizer.midiNoteOff(midi);
+                        }
+                        if (window.learnPianoNotesInstance && typeof window.learnPianoNotesInstance.midiNoteOff === 'function') {
+                            window.learnPianoNotesInstance.midiNoteOff(midi);
+                        }
                     });
+                }
+
+                // Provide MIDI hookup for chord trainer
+                if (window.learnChordsInstance && typeof window.learnChordsInstance.connectMidi === 'function') {
+                    window.learnChordsInstance.connectMidi(window.modularApp.midiManager);
                 }
             }
             

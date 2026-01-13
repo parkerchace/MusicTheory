@@ -386,6 +386,9 @@ class ModuleSelector {
             }
             if (window.learnChordsInstance && typeof window.learnChordsInstance.mount === 'function') {
                 window.learnChordsInstance.mount('#learn-chords-container');
+                if (window.modularApp && window.modularApp.midiManager && typeof window.learnChordsInstance.connectMidi === 'function') {
+                    window.learnChordsInstance.connectMidi(window.modularApp.midiManager);
+                }
             }
         } catch (e) {
             console.error('[ModuleSelector] Failed to mount LearnChords:', e);

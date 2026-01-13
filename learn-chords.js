@@ -20,6 +20,9 @@
             this.containerEl = null;
             this.audio = null; // Legacy
             this._audioEngine = null; // Use shared audio engine
+            this._midiActiveKeys = new Set();
+            this._midiConnected = false;
+            this._chordMatchFired = false;
             this.step = 1;
             this.currentChordNotes = [];
             this.extensions = []; // for 7ths, 9ths, etc.
@@ -270,6 +273,52 @@
             this._initAudioEngine();
             if (this._audioEngine && typeof this._audioEngine.playNote === 'function') {
                 this._audioEngine.playNote(midi, duration, startTime);
+            }
+        }
+
+        // MIDI integration: light keys and detect correct chord
+        connectMidi(midiManager) {
+            if (!midiManager || this._midiConnected) return;
+            this._midiConnected = true;
+            midiManager.on('noteOn', ({ midi }) => this._onMidiNoteOn(midi));
+            midiManager.on('noteOff', ({ midi }) => this._onMidiNoteOff(midi));
+        }
+
+        _onMidiNoteOn(midi) {
+            if (typeof midi !== 'number') return;
+            this._midiActiveKeys.add(midi);
+            if (this.visualizer && typeof this.visualizer.midiNoteOn === 'function') {
+                this.visualizer.midiNoteOn(midi);
+            }
+            this._checkChordMatch();
+        }
+
+        _onMidiNoteOff(midi) {
+            if (typeof midi !== 'number') return;
+            this._midiActiveKeys.delete(midi);
+            if (this.visualizer && typeof this.visualizer.midiNoteOff === 'function') {
+                this.visualizer.midiNoteOff(midi);
+            }
+            this._checkChordMatch();
+        }
+
+        _checkChordMatch() {
+            const target = this.getChordMidis();
+            if (!target.length) return;
+
+            const targetPcs = new Set(target.map(m => m % 12));
+            const activePcs = new Set([...this._midiActiveKeys].map(m => m % 12));
+            const isMatch = [...targetPcs].every(pc => activePcs.has(pc));
+
+            if (isMatch && !this._chordMatchFired) {
+                this._chordMatchFired = true;
+                this._initAudioEngine();
+                if (this._audioEngine && typeof this._audioEngine.playNote === 'function') {
+                    // Gentle confirmation ding
+                    this._audioEngine.playNote(96, 0.25, 0, 0.25);
+                }
+            } else if (!isMatch) {
+                this._chordMatchFired = false;
             }
         }
 
