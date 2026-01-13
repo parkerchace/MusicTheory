@@ -19,7 +19,7 @@
             this.visualizer = null;
             this.containerEl = null;
             this.audio = null; // Legacy
-            this._audioCtx = null;
+            this._audioEngine = null; // Use shared audio engine
             this.step = 1;
             this.currentChordNotes = [];
             this.extensions = []; // for 7ths, 9ths, etc.
@@ -242,74 +242,35 @@
             
             // Audio Feedback on change
             const midisVal = this.getChordMidis();
-            this.playHighQualityNote(midisVal[0], 0, 0.4);
-            if(midisVal[1]) this.playHighQualityNote(midisVal[1], 0.15, 0.4);
-            if(midisVal[2]) this.playHighQualityNote(midisVal[2], 0.3, 0.4);
+            this._initAudioEngine();
+            if (this._audioEngine && typeof this._audioEngine.playNote === 'function') {
+                this._audioEngine.playNote(midisVal[0], 0.4, 0);
+                if(midisVal[1]) this._audioEngine.playNote(midisVal[1], 0.4, 0.15);
+                if(midisVal[2]) this._audioEngine.playNote(midisVal[2], 0.4, 0.3);
+            }
         }
 
-        _ensureAudio() {
-            if (!this._audioCtx) {
-                try { 
-                    this._audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-                } catch(e) { 
-                    console.warn('AudioContext unavailable', e); 
+        _initAudioEngine() {
+            if (!this._audioEngine && window.modularApp && window.modularApp.audioEngine) {
+                this._audioEngine = window.modularApp.audioEngine;
+                if (typeof this._audioEngine.init === 'function') {
+                    this._audioEngine.init();
                 }
             }
-            if (this._audioCtx && this._audioCtx.state === 'suspended') {
-                this._audioCtx.resume();
-            }
-            return this._audioCtx;
         }
 
         playHighQualityChord(midis, duration=1.0) {
-            const ctx = this._ensureAudio();
-            if (!ctx) return;
-
-            const t0 = ctx.currentTime;
-            
-            midis.forEach(midi => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.value = 440 * Math.pow(2, (midi - 69)/12);
-                osc.connect(gain).connect(ctx.destination);
-                
-                // Smooth exponential envelope (studio quality)
-                const attack = 0.015, decay = 0.08, sustain = 0.25, release = 0.25;
-                const dur = duration;
-                
-                gain.gain.setValueAtTime(0.001, t0);
-                gain.gain.exponentialRampToValueAtTime(0.5, t0 + attack);
-                gain.gain.exponentialRampToValueAtTime(sustain, t0 + attack + decay);
-                gain.gain.setValueAtTime(sustain, t0 + Math.max(0, dur - release));
-                gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-                
-                osc.start(t0);
-                osc.stop(t0 + dur + 0.1);
-            });
+            this._initAudioEngine();
+            if (this._audioEngine && typeof this._audioEngine.playChord === 'function') {
+                this._audioEngine.playChord(midis, duration);
+            }
         }
 
         playHighQualityNote(midi, startTime=0, duration=0.5) {
-            const ctx = this._ensureAudio();
-            if (!ctx) return;
-            
-            const t0 = ctx.currentTime + startTime;
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            
-            osc.type = 'triangle';
-            osc.frequency.value = 440 * Math.pow(2, (midi - 69)/12);
-            osc.connect(gain).connect(ctx.destination);
-            
-            const attack = 0.015, decay = 0.1, sustain = 0.2;
-            
-            gain.gain.setValueAtTime(0.001, t0);
-            gain.gain.exponentialRampToValueAtTime(0.4, t0 + attack);
-            gain.gain.exponentialRampToValueAtTime(sustain, t0 + attack + decay);
-            gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
-            
-            osc.start(t0);
-            osc.stop(t0 + duration + 0.1);
+            this._initAudioEngine();
+            if (this._audioEngine && typeof this._audioEngine.playNote === 'function') {
+                this._audioEngine.playNote(midi, duration, startTime);
+            }
         }
 
         renderRecipe() {

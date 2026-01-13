@@ -293,8 +293,9 @@
                 <h3 style="color: var(--text-main); margin-top: 0;">🎹 Start Here: Learn Piano Notes</h3>
                 <p style="color: var(--text-muted); margin: 0 0 20px 0; font-size: 0.9rem;">Master the C major scale, keyboard layout, and fingering technique before diving into the full studio.</p>
                 <button id="launch-learn-piano-btn" style="padding: 12px 30px; background: var(--accent-secondary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.95rem;">Start Learning</button>
-                <div style="margin-top: 18px;">
+                <div style="margin-top: 18px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
                     <button id="launch-learn-chords-btn" style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-secondary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Learn How to Make Chords</button>
+                    <button id="launch-learn-inversions-btn" style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-primary); color: var(--text-highlight); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">How to Play Inversions</button>
                 </div>
             </div>
 
@@ -323,6 +324,11 @@
     <!-- LEARN CHORDS VIEW (separate from full studio) -->
     <div id="learn-chords-page" style="display:none; padding: 14px; overflow:auto;">
         <div id="learn-chords-container"></div>
+    </div>
+
+    <!-- LEARN INVERSIONS VIEW (separate from full studio) -->
+    <div id="learn-inversions-page" style="display:none; padding: 14px; overflow:auto;">
+        <div id="learn-inversions-container"></div>
     </div>
 
     <!-- MAIN WORKSPACE -->
@@ -484,6 +490,7 @@
     
     <!-- NEW: Generative Word-to-Music System -->
     <!-- <script src="phonetic-analyzer.js"></script> -->
+    <script src="learn-inversions.js"></script>
     <script src="chord-attribute-engine.js"></script>
     <script src="semantic-api-engine.js"></script>
     <script src="voice-leading-engine.js"></script>
@@ -512,6 +519,8 @@
     <!-- Modular components extracted from inline code -->
     <script src="chord-explorer-inline.js"></script>
     <script src="simple-audio-engine.js"></script>
+    <script src="piano-sample-engine.js"></script>
+    <script src="midi-input-manager.js"></script>
     <script src="theme-switcher.js" defer></script>
     <script src="tutorial-system.js" defer></script>
     <script src="lexical-integration.js" defer></script>
@@ -2715,6 +2724,30 @@
     }
 
 })();
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const invBtn = document.getElementById('launch-learn-inversions-btn');
+            if (invBtn) {
+                invBtn.addEventListener('click', () => {
+                    const landing = document.getElementById('landing-page');
+                    if(landing) landing.style.display = 'none';
+
+                    const page = document.getElementById('learn-inversions-page');
+                    if(page) page.style.display = 'block';
+                    
+                    if (!window.learnInversionsApp) {
+                        // Try to reuse existing engine from global app if available
+                        const engine = (window.modularApp && window.modularApp.musicTheory) 
+                                       ? window.modularApp.musicTheory 
+                                       : (window.musicTheory || new MusicTheoryEngine());
+                        
+                        window.learnInversionsApp = new LearnInversions(engine);
+                        window.learnInversionsApp.mount('#learn-inversions-container');
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>

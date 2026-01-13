@@ -7,7 +7,16 @@
                 this._pianoConnectorMaxRetries = 20;
                 this._pianoConnectorRetryBaseDelay = 250; // ms
 
-                this.audioEngine = new SimpleAudioEngine();
+                // Use high-quality sampled piano if available, fallback to simple synth
+                this.audioEngine = typeof PianoSampleEngine !== 'undefined' 
+                    ? new PianoSampleEngine() 
+                    : new SimpleAudioEngine();
+                
+                // Initialize MIDI input manager
+                this.midiManager = typeof MIDIInputManager !== 'undefined'
+                    ? new MIDIInputManager(this.audioEngine)
+                    : null;
+                
                 this.musicTheory = new MusicTheoryEngine();
                 this.numberGenerator = new NumberGenerator();
                 this.numberGenerator.connectMusicTheory(this.musicTheory); // Connect for intelligent generation
@@ -1434,6 +1443,147 @@
             window.containerChordTool = window.modularApp.containerChordTool;
             window.progressionBuilder = window.modularApp.progressionBuilder;
             // debugLog('Application started');
+            
+            // Initialize audio engine and show loading notification for samples
+            if (window.modularApp.audioEngine) {
+                window.modularApp.audioEngine.init();
+                
+                // Show loading notification if using sampled piano
+                if (typeof PianoSampleEngine !== 'undefined' && window.modularApp.audioEngine instanceof PianoSampleEngine) {
+                    const notification = document.createElement('div');
+                    notification.id = 'audio-loading-notification';
+                    notification.style.cssText = `
+                        position: fixed;
+                        bottom: 20px;
+                        right: 20px;
+                        background: rgba(0, 150, 255, 0.95);
+                        color: white;
+                        padding: 12px 20px;
+                        border-radius: 8px;
+                        font-family: var(--font-tech, monospace);
+                        font-size: 0.9rem;
+                        z-index: 10000;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                        transition: opacity 0.3s ease;
+                    `;
+                    notification.textContent = '🎹 Loading piano samples...';
+                    document.body.appendChild(notification);
+                    
+                    // Check loading progress
+                    const checkProgress = setInterval(() => {
+                        if (window.modularApp.audioEngine.isReady()) {
+                            notification.style.background = 'rgba(0, 200, 100, 0.95)';
+                            notification.textContent = '✓ Piano samples loaded';
+                            setTimeout(() => {
+                                notification.style.opacity = '0';
+                                setTimeout(() => notification.remove(), 300);
+                            }, 2000);
+                            clearInterval(checkProgress);
+                        }
+                    }, 500);
+                    
+                    // Timeout after 10 seconds (samples might have failed to load)
+                    setTimeout(() => {
+                        if (!window.modularApp.audioEngine.isReady()) {
+                            notification.style.background = 'rgba(255, 150, 0, 0.95)';
+                            notification.textContent = '⚠ Using synthesized piano';
+                            setTimeout(() => {
+                                notification.style.opacity = '0';
+                                setTimeout(() => notification.remove(), 300);
+                            }, 3000);
+                            clearInterval(checkProgress);
+                        }
+                    }, 10000);
+                }
+            }
+            
+            // Initialize MIDI input
+            if (window.modularApp.midiManager) {
+                window.modularApp.midiManager.statusCallback = (status, message) => {
+                    console.log(`[MIDI] ${status}: ${message}`);
+                    
+                    // Create or update MIDI status indicator
+                    let indicator = document.getElementById('midi-status-indicator');
+                    if (!indicator) {
+                        indicator = document.createElement('div');
+                        indicator.id = 'midi-status-indicator';
+                        indicator.style.cssText = `
+                            position: fixed;
+                            bottom: 20px;
+                            right: 20px;
+                            background: rgba(100, 100, 100, 0.95);
+                            color: white;
+                            padding: 12px 20px;
+                            border-radius: 8px;
+                            font-family: var(--font-tech, monospace);
+                            font-size: 0.85rem;
+                            z-index: 10000;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                            transition: all 0.3s ease;
+                        `;
+                        document.body.appendChild(indicator);
+                    }
+                    
+                    // Update status indicator
+                    let bgColor = 'rgba(100, 100, 100, 0.95)';
+                    let icon = '⚙️';
+                    
+                    switch(status) {
+                        case 'error':
+                            bgColor = 'rgba(200, 50, 50, 0.95)';
+                            icon = '✗';
+                            break;
+                        case 'waiting':
+                            bgColor = 'rgba(200, 150, 50, 0.95)';
+                            icon = '⏳';
+                            break;
+                        case 'connected':
+                            bgColor = 'rgba(50, 200, 100, 0.95)';
+                            icon = '✓';
+                            break;
+                        case 'ready':
+                            bgColor = 'rgba(50, 200, 100, 0.95)';
+                            icon = '🎹';
+                            break;
+                        case 'disconnected':
+                            bgColor = 'rgba(200, 100, 50, 0.95)';
+                            icon = '⚠';
+                            break;
+                    }
+                    
+                    indicator.style.background = bgColor;
+                    indicator.textContent = `${icon} ${message}`;
+                    
+                    // Auto-hide after 5 seconds for non-error states
+                    if (status !== 'error' && status !== 'ready') {
+                        setTimeout(() => {
+                            if (indicator && indicator.parentNode) {
+                                indicator.style.opacity = '0';
+                                setTimeout(() => indicator && indicator.remove(), 300);
+                            }
+                        }, 5000);
+                    }
+                };
+                
+                // Initialize MIDI (will request permissions)
+                window.modularApp.midiManager.init().catch(e => {
+                    console.error('MIDI initialization error:', e);
+                });
+                
+                // Set up MIDI note visualization on piano visualizer
+                if (window.modularApp.pianoVisualizer) {
+                    window.modularApp.midiManager.on('noteOn', (data) => {
+                        // Highlight the note on the piano
+                        const noteKey = window.modularApp.pianoVisualizer.midiToNoteName(data.midi);
+                        window.modularApp.pianoVisualizer.highlightNote(data.midi);
+                    });
+                    
+                    window.modularApp.midiManager.on('noteOff', (data) => {
+                        // Unhighlight the note
+                        window.modularApp.pianoVisualizer.unhighlightNote(data.midi);
+                    });
+                }
+            }
             
             // Setup control deck elements
             setupControlDeck();

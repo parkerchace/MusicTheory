@@ -9,7 +9,7 @@ class LearnPianoNotes {
         this.connectorOverlay = null;
         this._localPiano = null;
         this._connectorEventsBound = false;
-        this._audioCtx = null;
+        this._audioEngine = null; // Use shared audio engine
         this._isDragging = false;
         this._lastPlayedKey = null;
     }
@@ -25,48 +25,19 @@ class LearnPianoNotes {
     }
 
     initAudio() {
-        if (!this._audioCtx) {
-            try {
-                this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            } catch(e) {
-                console.warn('[LearnPianoNotes] AudioContext unavailable:', e);
+        // Use global audio engine if available
+        if (window.modularApp && window.modularApp.audioEngine) {
+            this._audioEngine = window.modularApp.audioEngine;
+            if (typeof this._audioEngine.init === 'function') {
+                this._audioEngine.init();
             }
         }
     }
 
     playNote(midi, duration = 0.3) {
-        if (!this._audioCtx) return;
-        
-        // Resume context if suspended (browser autoplay policy)
-        if (this._audioCtx.state === 'suspended') {
-            this._audioCtx.resume();
+        if (this._audioEngine && typeof this._audioEngine.playNote === 'function') {
+            this._audioEngine.playNote(midi, duration);
         }
-
-        const now = this._audioCtx.currentTime;
-        const frequency = 440 * Math.pow(2, (midi - 69) / 12);
-        
-        // Create oscillator and gain nodes for smooth sound
-        const osc = this._audioCtx.createOscillator();
-        const gain = this._audioCtx.createGain();
-        
-        osc.type = 'triangle'; // Softer tone
-        osc.frequency.value = frequency;
-        osc.connect(gain).connect(this._audioCtx.destination);
-        
-        // Smooth envelope to prevent clicks
-        const attack = 0.015;
-        const decay = 0.1;
-        const sustain = 0.15;
-        const release = 0.2;
-        
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.exponentialRampToValueAtTime(0.25, now + attack);
-        gain.gain.exponentialRampToValueAtTime(sustain, now + attack + decay);
-        gain.gain.setValueAtTime(sustain, now + duration - release);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-        
-        osc.start(now);
-        osc.stop(now + duration);
     }
 
     render() {
