@@ -677,7 +677,7 @@
             };
 
             if (typeof this._sharedPiano.setHighlightMode === 'function') {
-                this._sharedPiano.setHighlightMode('all');
+                this._sharedPiano.setHighlightMode('octave');
             }
             if (typeof this._sharedPiano.setGradingIntegration === 'function') {
                 this._sharedPiano.setGradingIntegration(false);
@@ -1749,7 +1749,7 @@
             }
 
             if (typeof this._sharedPiano.setHighlightMode === 'function') {
-                this._sharedPiano.setHighlightMode('all');
+                this._sharedPiano.setHighlightMode('octave');
             }
             if (typeof this._sharedPiano.setGradingIntegration === 'function') {
                 this._sharedPiano.setGradingIntegration(false);
@@ -2041,17 +2041,31 @@
                 { note: fifthName, class: 'fifth' }
             ];
 
-            if (typeof this._sharedPiano.renderChord === 'function') {
-                this._sharedPiano.renderChord({
-                    notes: [],
-                    midiNotes: chordNotes,
-                    roles
-                });
+            // Ensure piano highlights only in the center octave and mark these exact MIDI notes
+            if (typeof this._sharedPiano.setHighlightMode === 'function') {
+                this._sharedPiano.setHighlightMode('octave');
+            }
+            if (typeof this._sharedPiano.setHighlightedNotes === 'function') {
+                this._sharedPiano.setHighlightedNotes(chordNotes);
+            } else if (typeof this._sharedPiano.renderChord === 'function') {
+                this._sharedPiano.renderChord({ notes: [], midiNotes: chordNotes, roles });
             } else if (typeof this._sharedPiano.setActiveNotes === 'function') {
-                this._sharedPiano.setActiveNotes([]);
+                this._sharedPiano.setActiveNotes(chordNotes);
             }
 
-            this.applyChordDegreeLabels(chordNotes);
+            // Clear any previous manual highlights then apply voice-specific coloring and labels (1,3,5)
+            this.clearAllHighlights();
+            const rootClass = this.rootMidi % 12;
+            const intervalOffset = this.quality === 'maj' ? [0, 4, 7] : [0, 3, 7];
+            chordNotes.forEach((midi) => {
+                const pc = midi % 12;
+                let label = null;
+                let color = '#3b82f6'; // default blue for 3/5
+                if (pc === (rootClass + intervalOffset[0]) % 12) { label = '1'; color = '#10b981'; }
+                else if (pc === (rootClass + intervalOffset[1]) % 12) { label = '3'; color = '#fbbf24'; }
+                else if (pc === (rootClass + intervalOffset[2]) % 12) { label = '5'; color = '#3b82f6'; }
+                this.highlightKey(midi, color, label);
+            });
 
             // Update simple chord title + subheading
             const name = `${this.rootNote} ${this.quality === 'maj' ? 'major' : 'minor'}`;
