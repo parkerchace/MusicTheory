@@ -237,13 +237,6 @@
                         .inv-intro-grid { grid-template-columns:minmax(0,1fr); }
                         .inv-root-grid button { min-width: 34px; padding: 6px 8px; font-size: 0.78rem; }
                         .inv-mini-card, .inv-sheet-card { min-width: 140px; }
-                        /* Make dedicated piano and mini keyboards more usable on small screens */
-                        .inv-dedicated-piano { height: 110px !important; padding: 8px 6px 6px 6px !important; }
-                        .inv-dedicated-piano .inv-piano-keys { height: 90px !important; }
-                        .inv-piano-key.inv-piano-white-key { min-width: 22px !important; }
-                        .inv-piano-key.inv-piano-black-key { height: 62% !important; }
-                        .inv-mini-keys-container { height:48px; }
-                        .inv-mini-key.black { height:60%; }
                     }
                 `;
                 document.head.appendChild(style);
@@ -752,49 +745,40 @@
             const whiteKeyPattern = [0, 2, 4, 5, 7, 9, 11];
             const blackKeyPattern = [1, 3, -1, 6, 8, 10, -1]; // -1 = no black key after E and B
             
+            const whiteKeyWidth = 36;
+            const blackKeyWidth = 24;
             let whiteKeyCount = 0;
-
-            // Create white keys using flex so widths adapt to container size
+            
+            // First pass: count white keys and create them
             for (let midi = startMidi; midi < endMidi; midi++) {
                 const noteInOctave = midi % 12;
                 if (whiteKeyPattern.includes(noteInOctave)) {
-                    const key = this.createPianoKey(midi, 'white', null, whiteKeyCount);
+                    const key = this.createPianoKey(midi, 'white', whiteKeyWidth, whiteKeyCount);
                     keysContainer.appendChild(key);
                     whiteKeyCount++;
                 }
             }
-
-            piano.appendChild(keysContainer);
-            container.appendChild(piano);
-
-            // After layout, measure white key positions and insert black keys sized relative to white keys
-            setTimeout(() => {
-                const whiteElems = keysContainer.querySelectorAll('.inv-piano-white-key');
-                const containerRect = keysContainer.getBoundingClientRect();
-
-                for (let i = 0; i < whiteElems.length - 1; i++) {
-                    const cur = whiteElems[i];
-                    const next = whiteElems[i + 1];
-                    const curMidi = Number(cur.dataset.midi);
-                    const nextMidi = Number(next.dataset.midi);
-
-                    // If there's a semitone between the two white keys, place a black key
-                    if (nextMidi - curMidi > 1) {
-                        const leftRect = cur.getBoundingClientRect();
-                        const rightRect = next.getBoundingClientRect();
-                        const centerPx = ((leftRect.left + (leftRect.width / 2)) + (rightRect.left + (rightRect.width / 2))) / 2;
-
-                        // Black key width proportional to white key (cap to reasonable px)
-                        const whiteW = leftRect.width;
-                        const blackW = Math.max(8, Math.min(24, Math.round(whiteW * 0.56)));
-                        const leftPx = Math.round(centerPx - containerRect.left - (blackW / 2));
-
-                        const blackMidi = curMidi + 1;
-                        const key = this.createPianoKey(blackMidi, 'black', blackW, leftPx);
+            
+            // Second pass: create black keys positioned over white keys
+            let whiteIdx = 0;
+            for (let midi = startMidi; midi < endMidi; midi++) {
+                const noteInOctave = midi % 12;
+                
+                if (whiteKeyPattern.includes(noteInOctave)) {
+                    // Check if there's a black key after this white key
+                    const blackMidi = midi + 1;
+                    if (blackMidi < endMidi && !whiteKeyPattern.includes(blackMidi % 12)) {
+                        // Position black key between this white key and the next
+                        const leftPos = (whiteIdx + 1) * whiteKeyWidth - (blackKeyWidth / 2);
+                        const key = this.createPianoKey(blackMidi, 'black', blackKeyWidth, leftPos);
                         keysContainer.appendChild(key);
                     }
+                    whiteIdx++;
                 }
-            }, 0);
+            }
+            
+            piano.appendChild(keysContainer);
+            container.appendChild(piano);
             
             return { element: piano, startMidi, endMidi };
         }
@@ -808,34 +792,18 @@
             const isWhite = type === 'white';
             
             if (isWhite) {
-                // If width is null, let white keys flex to fill the container (responsive)
-                if (width == null) {
-                    key.style.cssText = `
-                        flex: 1 1 0;
-                        height: 100%;
-                        background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 85%, #d8d8d8 100%);
-                        border: 1px solid #999;
-                        border-radius: 0 0 5px 5px;
-                        box-shadow: inset 0 -3px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.2);
-                        cursor: pointer;
-                        transition: background 0.1s, transform 0.05s;
-                        position: relative;
-                        z-index: 1;
-                    `;
-                } else {
-                    key.style.cssText = `
-                        width: ${width}px;
-                        height: 100%;
-                        background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 85%, #d8d8d8 100%);
-                        border: 1px solid #999;
-                        border-radius: 0 0 5px 5px;
-                        box-shadow: inset 0 -3px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.2);
-                        cursor: pointer;
-                        transition: background 0.1s, transform 0.05s;
-                        position: relative;
-                        z-index: 1;
-                    `;
-                }
+                key.style.cssText = `
+                    width: ${width}px;
+                    height: 100%;
+                    background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 85%, #d8d8d8 100%);
+                    border: 1px solid #999;
+                    border-radius: 0 0 5px 5px;
+                    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.2);
+                    cursor: pointer;
+                    transition: background 0.1s, transform 0.05s;
+                    position: relative;
+                    z-index: 1;
+                `;
             } else {
                 key.style.cssText = `
                     position: absolute;
