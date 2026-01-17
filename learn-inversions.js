@@ -10,9 +10,11 @@
             this.containerEl = null;
 
             // Shared piano + audio
-            this._sharedPiano = null;
-            this._pianoNoteClickedHandler = null;
+            this._sharedPiano = null;            this._pianoNoteClickedHandler = null;
             this._audioEngine = null;
+            
+            // Suppression: save original piano methods
+            this._savedPianoApplyState = null;
 
             // Core state
             this.rootNote = 'C';      // C..B
@@ -61,6 +63,8 @@
                 btn.style.opacity = '0.9';
                 btn.style.transform = 'scale(1)';
                 btn.style.backgroundImage = 'none';
+                btn.style.color = 'var(--text-main)';  // Reset text color to default
+                btn.style.background = 'rgba(0,0,0,0.5)';  // Reset background
                 return;
             }
 
@@ -124,12 +128,19 @@
             if (this._pianoNoteClickedHandler) return;
 
             this._pianoNoteClickedHandler = (evt) => {
+                console.log('[LearnInversions] noteClicked event received:', evt);
                 const midi = evt && typeof evt.midi === 'number' ? evt.midi : null;
-                if (typeof midi !== 'number') return;
+                console.log('[LearnInversions] Extracted MIDI:', midi);
+                if (typeof midi !== 'number') {
+                    console.warn('[LearnInversions] Invalid MIDI in event');
+                    return;
+                }
                 this.playNote(midi, { duration: 0.45, velocity: 0.95 });
             };
 
+            console.log('[LearnInversions] Registering noteClicked handler');
             this._sharedPiano.on('noteClicked', this._pianoNoteClickedHandler);
+            console.log('[LearnInversions] Handler registered, total listeners:', this._sharedPiano.listeners?.get('noteClicked')?.size);
         }
 
         initSharedPiano() {
@@ -142,13 +153,17 @@
         }
 
         playNote(midi, options = {}) {
+            console.log(`[LearnInversions] playNote called: midi=${midi}, audioEngine=${!!this._audioEngine}`);
             try {
                 const optionsObj = typeof options === 'number' ? { duration: options } : options;
                 if (this._audioEngine && typeof this._audioEngine.playNote === 'function') {
+                    console.log(`▶️ Playing note ${midi}`);
                     this._audioEngine.playNote(midi, optionsObj);
+                } else {
+                    console.warn('❌ No audio engine available to play note');
                 }
             } catch (error) {
-                console.warn('Audio playback failed:', error && error.message);
+                console.error('❌ Audio playback failed:', error);
             }
         }
 
@@ -202,7 +217,7 @@
                     .inv-mini-keys-container { position:relative; height:60px; overflow:visible; }
                     .inv-mini-white-keys { display:flex; height:100%; }
                     .inv-mini-key.white { flex:1; background:linear-gradient(180deg, #fff 0%, #e8e8e8 50%, #d0d0d0 100%); border:1px solid #ccc; border-right:1px solid #aaa; border-radius:0 0 4px 4px; box-shadow:inset 0 -2px 3px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.2); margin:0; }
-                    .inv-mini-key.black { position:absolute; width:10px; height:62%; background:linear-gradient(180deg, #2a2a2a 0%, #000 100%); border:1px solid #000; border-radius:0 0 3px 3px; box-shadow:inset 0 1px 3px rgba(255,255,255,0.2), 0 3px 6px rgba(0,0,0,0.6); z-index:10; }
+                    .inv-mini-key.black { position:absolute; width:10px; height:66%; background:linear-gradient(180deg, #2a2a2a 0%, #000 100%); border:1px solid #000; border-radius:0 0 3px 3px; box-shadow:inset 0 1px 3px rgba(255,255,255,0.2), 0 3px 6px rgba(0,0,0,0.6); z-index:10; }
                     .inv-mini-key.active.white { background:linear-gradient(180deg, #4ade80 0%, #22c55e 50%, #16a34a 100%) !important; box-shadow:0 0 12px rgba(34,197,94,0.8), inset 0 1px 2px rgba(255,255,255,0.3) !important; border-color:#16a34a !important; }
                     .inv-mini-key.active.black { background:linear-gradient(180deg, #4ade80 0%, #22c55e 100%) !important; box-shadow:0 0 12px rgba(34,197,94,0.8), inset 0 1px 2px rgba(255,255,255,0.2) !important; }
                     .inv-mini-key.root.white { background:linear-gradient(180deg, #fca5a5 0%, #ef4444 50%, #dc2626 100%) !important; box-shadow:0 0 14px rgba(239,68,68,0.9), inset 0 1px 2px rgba(255,255,255,0.3) !important; border-color:#dc2626 !important; }
@@ -215,13 +230,20 @@
                     .inv-sheet-row { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
                     .inv-sheet-card { flex:0 1 160px; }
                     .inv-sheet-card-label { font-size:0.85rem; font-weight:800; font-family:var(--font-tech); color:var(--text-highlight); margin-bottom:8px; text-align:center; }
-                    .inv-sheet-staff { border-radius:8px; background:rgba(0,0,0,0.6); padding:12px; box-shadow:0 3px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
+                    .inv-sheet-staff { border-radius:8px; background:linear-gradient(135deg, rgba(30,30,30,0.9), rgba(25,25,25,0.85)); padding:12px; box-shadow:0 3px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05); border: 1px solid rgba(100,100,100,0.3); }
                     .inv-divider { height:2px; background:linear-gradient(90deg, transparent, rgba(139,92,246,0.3) 20%, rgba(139,92,246,0.5) 50%, rgba(139,92,246,0.3) 80%, transparent); margin:32px 0; border-radius:2px; }
                     .inv-interactive-title { font-family:var(--font-tech); font-weight:900; font-size:1.2rem; color:var(--accent-secondary); text-align:center; margin-bottom:20px; letter-spacing:0.8px; text-shadow:0 2px 8px rgba(139,92,246,0.3); }
                     @media (max-width: 600px) {
                         .inv-intro-grid { grid-template-columns:minmax(0,1fr); }
                         .inv-root-grid button { min-width: 34px; padding: 6px 8px; font-size: 0.78rem; }
                         .inv-mini-card, .inv-sheet-card { min-width: 140px; }
+                        /* Make dedicated piano and mini keyboards more usable on small screens */
+                        .inv-dedicated-piano { height: 110px !important; padding: 8px 6px 6px 6px !important; }
+                        .inv-dedicated-piano .inv-piano-keys { height: 90px !important; }
+                        .inv-piano-key.inv-piano-white-key { min-width: 22px !important; }
+                        .inv-piano-key.inv-piano-black-key { height: 62% !important; }
+                        .inv-mini-keys-container { height:48px; }
+                        .inv-mini-key.black { height:60%; }
                     }
                 `;
                 document.head.appendChild(style);
@@ -252,7 +274,7 @@
                     <div class="inv-text-block">
                         <h3>Why chord inversions matter</h3>
                         <p>
-                            An <strong>inversion</strong> keeps the same three notes of a chord but puts a
+                            An <strong>inversion</strong> keeps the same notes of a chord but puts a
                             <strong>different note on the bottom</strong>. This simple change lets you keep chords
                             <strong>physically close together</strong> on the piano and creates smoother motion between chords.
                         </p>
@@ -537,8 +559,36 @@
                         }
 
                         const totalWhiteKeys = whiteIndices.length * 2;
-                        const leftPercent = ((offset + (octave * 7)) / totalWhiteKeys * 100);
-                        blackKey.style.left = `calc(${leftPercent}% - 7px)`;
+                        // Compute pixel-based left offset so black keys center correctly
+                        const blackKeyWidth = 10; // matches CSS .inv-mini-key.black width
+                        const positionIndex = offset + (octave * 7);
+
+                        // Prefer precise placement using rendered white key positions
+                        const whiteKeyElems = whiteKeysRow.querySelectorAll('.inv-mini-key.white');
+                        if (whiteKeyElems && whiteKeyElems.length > 1) {
+                            const leftIndex = Math.floor(positionIndex);
+                            const rightIndex = leftIndex + 1;
+                            const containerRect = keysContainer.getBoundingClientRect();
+
+                            if (rightIndex < whiteKeyElems.length) {
+                                const leftRect = whiteKeyElems[leftIndex].getBoundingClientRect();
+                                const rightRect = whiteKeyElems[rightIndex].getBoundingClientRect();
+                                const centerPx = ((leftRect.left + (leftRect.width / 2)) + (rightRect.left + (rightRect.width / 2))) / 2;
+                                const leftPx = Math.round(centerPx - containerRect.left - (blackKeyWidth / 2));
+                                blackKey.style.left = `${leftPx}px`;
+                            } else {
+                                // Fallback: proportional placement
+                                const containerWidth = containerRect.width || keysContainer.offsetWidth || 280;
+                                const leftPx = Math.round((positionIndex / totalWhiteKeys) * containerWidth - (blackKeyWidth / 2));
+                                blackKey.style.left = `${leftPx}px`;
+                            }
+                        } else {
+                            // No white keys measured — fallback
+                            const containerRect = keysContainer.getBoundingClientRect();
+                            const containerWidth = containerRect.width || keysContainer.offsetWidth || 280;
+                            const leftPx = Math.round((positionIndex / totalWhiteKeys) * containerWidth - (blackKeyWidth / 2));
+                            blackKey.style.left = `${leftPx}px`;
+                        }
 
                         blackOverlay.appendChild(blackKey);
                     });
@@ -579,15 +629,16 @@
             const staffLines = [40, 50, 60, 70, 80];
             
             // Note positions on staff (y coordinates)
-            // E4 = on first line (80), G4 = first space (70), B4 = second line (60)
-            // C5 = second space (50), E5 = third line (40)
+            // Treble clef notes (bottom to top): E4(line), F4(space), G4(line), A4(space), B4(line), C5(space), D5(line), E5(space), F5(line)
+            // E4 = on first line (80), G4 = second line (70), B4 = third line (60)
+            // C5 = second space (55), E5 = first space (45)
             // C4 = below staff (90) with ledger line
             const notePos = {
                 'C4': 90,  // Below staff
                 'E4': 80,  // First line
-                'G4': 70,  // First space
-                'C5': 50,  // Second space
-                'E5': 40   // Third line
+                'G4': 70,  // Second line
+                'C5': 55,  // Second space
+                'E5': 45   // First space (between D5 line and F5 line)
             };
 
             let notes = []; // bottom -> top
@@ -604,8 +655,9 @@
             const notesHtml = notes.map((note, i) => {
                 const y = notePos[note];
                 const x = xCenter + (i * 10);
-                const isRoot = i === 0;
-                const fill = isRoot ? '#ef4444' : '#333';
+                // Root is always C (the root note of C major), not the lowest note
+                const isRoot = note.startsWith('C');
+                const fill = isRoot ? '#ff6b6b' : '#90ee90';  // Red for root (C), green for 3rd/5th (E, G)
                 
                 return `
                     <ellipse cx="${x}" cy="${y}" rx="5" ry="4" fill="${fill}" stroke="${fill}" stroke-width="1" />
@@ -614,18 +666,21 @@
 
             // Ledger line for C4
             const ledgerLine = notes.includes('C4') 
-                ? `<line x1="${xCenter - 8}" y1="90" x2="${xCenter + 18}" y2="90" stroke="#666" stroke-width="1" />`
+                ? `<line x1="${xCenter - 8}" y1="90" x2="${xCenter + 18}" y2="90" stroke="#aaa" stroke-width="1.5" />`
                 : '';
 
-            const arrowY = notePos[notes[0]] - 12;
+            // Arrow points to the root note (C), not the lowest note
+            const rootNote = notes.find(n => n.startsWith('C'));
+            const rootX = xCenter + (notes.indexOf(rootNote) * 10);
+            const arrowY = notePos[rootNote] - 12;
 
             return `
                 <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}">
                     <!-- Staff lines -->
-                    ${staffLines.map(y => `<line x1="20" y1="${y}" x2="${width - 20}" y2="${y}" stroke="#666" stroke-width="1.5" />`).join('')}
+                    ${staffLines.map(y => `<line x1="20" y1="${y}" x2="${width - 20}" y2="${y}" stroke="#999" stroke-width="1.5" />`).join('')}
                     
                     <!-- Treble clef -->
-                    <text x="25" y="75" font-family="serif" font-size="40" fill="#666">𝄞</text>
+                    <text x="25" y="75" font-family="serif" font-size="40" fill="#bbb">𝄞</text>
                     
                     <!-- Ledger line -->
                     ${ledgerLine}
@@ -634,66 +689,294 @@
                     ${notesHtml}
                     
                     <!-- Root arrow -->
-                    <line x1="${xCenter}" y1="${arrowY}" x2="${xCenter}" y2="${arrowY + 8}" stroke="#ef4444" stroke-width="2" />
-                    <polygon points="${xCenter - 3},${arrowY + 8} ${xCenter + 3},${arrowY + 8} ${xCenter},${arrowY + 12}" fill="#ef4444" />
+                    <line x1="${rootX}" y1="${arrowY}" x2="${rootX}" y2="${arrowY + 8}" stroke="#ff6b6b" stroke-width="2" />
+                    <polygon points="${rootX - 3},${arrowY + 8} ${rootX + 3},${arrowY + 8} ${rootX},${arrowY + 12}" fill="#ff6b6b" />
                 </svg>
             `;
         }
 
         renderPiano() {
             const pianoContainer = document.getElementById('inv-piano-wrap');
-            if (!pianoContainer || !this._sharedPiano) return;
+            if (!pianoContainer) return;
 
             pianoContainer.innerHTML = '';
-
-            if (this._sharedPiano.pianoElement && !pianoContainer.contains(this._sharedPiano.pianoElement)) {
-                pianoContainer.appendChild(this._sharedPiano.pianoElement);
-            }
-
+            
+            // Build a dedicated, self-contained piano for inversions
+            // No shared state, no external dependencies
+            this._inversionPiano = this.createDedicatedPiano(pianoContainer);
+            this.updatePianoHighlights();
+        }
+        
+        /**
+         * Create a simple, dedicated piano keyboard for inversions
+         * Completely self-contained - no shared state issues
+         */
+        createDedicatedPiano(container) {
+            const piano = document.createElement('div');
+            piano.className = 'inv-dedicated-piano';
+            piano.style.cssText = `
+                position: relative;
+                display: flex;
+                justify-content: center;
+                height: 140px;
+                background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+                border-radius: 8px;
+                padding: 12px 8px 8px 8px;
+                box-shadow: inset 0 2px 8px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3);
+                border: 1px solid #333;
+                overflow: hidden;
+            `;
+            
+            const keysContainer = document.createElement('div');
+            keysContainer.className = 'inv-piano-keys';
+            keysContainer.style.cssText = `
+                position: relative;
+                display: flex;
+                height: 120px;
+            `;
+            
+            // Auto-adjust range: lowest chord note at left edge + small padding
             const chordNotes = this.getChordNotes();
-            const range = this._sharedPiano.calculateOptimalRange
-                ? this._sharedPiano.calculateOptimalRange(chordNotes, { minPadding: 10, maxPadding: 14, minKeys: 24 })
-                : { startMidi: Math.min.apply(null, chordNotes) - 6, endMidi: Math.max.apply(null, chordNotes) + 10 };
+            const lowestNote = Math.min(...chordNotes);
+            const highestNote = Math.max(...chordNotes);
+            
+            // Start from the lowest note with minimal padding (1 white key = 2 semitones on either side)
+            // This ensures all chord notes are visible, with root/3rd/5th at or near the left edge
+            let startMidi = lowestNote - 2; // Minimal padding
+            startMidi = Math.max(36, startMidi); // Don't go below C2
+            
+            // Ensure we have enough width to show all notes (2+ octaves)
+            const endMidi = Math.max(startMidi + 24, highestNote + 5);
+            
+            // White key positions (C, D, E, F, G, A, B pattern)
+            const whiteKeyPattern = [0, 2, 4, 5, 7, 9, 11];
+            const blackKeyPattern = [1, 3, -1, 6, 8, 10, -1]; // -1 = no black key after E and B
+            
+            let whiteKeyCount = 0;
 
-            let startMidi = Math.max(21, range.startMidi);
-            let endMidi = Math.min(108, range.endMidi);
-            if (endMidi - startMidi < 24) endMidi = startMidi + 24;
-
-            if (startMidi % 12 !== 0) startMidi -= (startMidi % 12);
-
-            const visualSettings = {
-                container: pianoContainer,
-                startMidi,
-                endMidi,
-                fitToContainer: true,
-                showFingering: false,
-                showRomanNumerals: false,
-                enableGradingIntegration: false,
-                showGradingTooltips: false,
-                enablePointerGlissando: true,
-                showNoteLabels: false,
-                showChordStack: false,
-                keyPressStyle: 'subtle'
-            };
-
-            if (typeof this._sharedPiano.setHighlightMode === 'function') {
-                this._sharedPiano.setHighlightMode('octave');
-            }
-            if (typeof this._sharedPiano.setGradingIntegration === 'function') {
-                this._sharedPiano.setGradingIntegration(false);
-            }
-            if (typeof this._sharedPiano.setGradingTooltips === 'function') {
-                this._sharedPiano.setGradingTooltips(false);
+            // Create white keys using flex so widths adapt to container size
+            for (let midi = startMidi; midi < endMidi; midi++) {
+                const noteInOctave = midi % 12;
+                if (whiteKeyPattern.includes(noteInOctave)) {
+                    const key = this.createPianoKey(midi, 'white', null, whiteKeyCount);
+                    keysContainer.appendChild(key);
+                    whiteKeyCount++;
+                }
             }
 
-            if (typeof this._sharedPiano.resize === 'function') {
-                this._sharedPiano.resize(visualSettings);
+            piano.appendChild(keysContainer);
+            container.appendChild(piano);
+
+            // After layout, measure white key positions and insert black keys sized relative to white keys
+            setTimeout(() => {
+                const whiteElems = keysContainer.querySelectorAll('.inv-piano-white-key');
+                const containerRect = keysContainer.getBoundingClientRect();
+
+                for (let i = 0; i < whiteElems.length - 1; i++) {
+                    const cur = whiteElems[i];
+                    const next = whiteElems[i + 1];
+                    const curMidi = Number(cur.dataset.midi);
+                    const nextMidi = Number(next.dataset.midi);
+
+                    // If there's a semitone between the two white keys, place a black key
+                    if (nextMidi - curMidi > 1) {
+                        const leftRect = cur.getBoundingClientRect();
+                        const rightRect = next.getBoundingClientRect();
+                        const centerPx = ((leftRect.left + (leftRect.width / 2)) + (rightRect.left + (rightRect.width / 2))) / 2;
+
+                        // Black key width proportional to white key (cap to reasonable px)
+                        const whiteW = leftRect.width;
+                        const blackW = Math.max(8, Math.min(24, Math.round(whiteW * 0.56)));
+                        const leftPx = Math.round(centerPx - containerRect.left - (blackW / 2));
+
+                        const blackMidi = curMidi + 1;
+                        const key = this.createPianoKey(blackMidi, 'black', blackW, leftPx);
+                        keysContainer.appendChild(key);
+                    }
+                }
+            }, 0);
+            
+            return { element: piano, startMidi, endMidi };
+        }
+        
+        createPianoKey(midi, type, width, position) {
+            const key = document.createElement('div');
+            key.className = `inv-piano-key inv-piano-${type}-key`;
+            key.dataset.midi = midi;
+            key.dataset.note = this.midiToNoteName(midi);
+            
+            const isWhite = type === 'white';
+            
+            if (isWhite) {
+                // If width is null, let white keys flex to fill the container (responsive)
+                if (width == null) {
+                    key.style.cssText = `
+                        flex: 1 1 0;
+                        height: 100%;
+                        background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 85%, #d8d8d8 100%);
+                        border: 1px solid #999;
+                        border-radius: 0 0 5px 5px;
+                        box-shadow: inset 0 -3px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.2);
+                        cursor: pointer;
+                        transition: background 0.1s, transform 0.05s;
+                        position: relative;
+                        z-index: 1;
+                    `;
+                } else {
+                    key.style.cssText = `
+                        width: ${width}px;
+                        height: 100%;
+                        background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 85%, #d8d8d8 100%);
+                        border: 1px solid #999;
+                        border-radius: 0 0 5px 5px;
+                        box-shadow: inset 0 -3px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.2);
+                        cursor: pointer;
+                        transition: background 0.1s, transform 0.05s;
+                        position: relative;
+                        z-index: 1;
+                    `;
+                }
             } else {
-                this._sharedPiano.options = { ...(this._sharedPiano.options || {}), ...visualSettings };
-                if (typeof this._sharedPiano.render === 'function') this._sharedPiano.render();
+                key.style.cssText = `
+                    position: absolute;
+                    left: ${position}px;
+                    width: ${width}px;
+                    height: 65%;
+                    background: linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 60%, #000000 100%);
+                    border: 1px solid #000;
+                    border-radius: 0 0 4px 4px;
+                    box-shadow: inset 0 -2px 4px rgba(255,255,255,0.1), 2px 3px 6px rgba(0,0,0,0.5);
+                    cursor: pointer;
+                    transition: background 0.1s, transform 0.05s;
+                    z-index: 2;
+                `;
             }
-
-            this.installSharedPianoSoundHandler();
+            
+            // Click handler - play note
+            key.addEventListener('click', (e) => {
+                e.stopPropagation();
+                console.log(`[InversionPiano] Key clicked: ${midi} (${this.midiToNoteName(midi)})`);
+                this.playNote(midi, { duration: 0.5, velocity: 0.9 });
+                
+                // Visual feedback
+                const originalBg = key.style.background;
+                key.style.transform = 'scaleY(0.98)';
+                key.style.background = isWhite 
+                    ? 'linear-gradient(180deg, #e0e0e0 0%, #c8c8c8 100%)'
+                    : 'linear-gradient(180deg, #2a2a2a 0%, #000000 100%)';
+                
+                setTimeout(() => {
+                    key.style.transform = '';
+                    // Restore either the original or the highlighted state
+                    this.updatePianoHighlights();
+                }, 100);
+            });
+            
+            // Hover effect
+            key.addEventListener('mouseenter', () => {
+                if (!key.classList.contains('inv-highlighted')) {
+                    key.style.filter = 'brightness(0.95)';
+                }
+            });
+            key.addEventListener('mouseleave', () => {
+                key.style.filter = '';
+            });
+            
+            return key;
+        }
+        
+        updatePianoHighlights() {
+            const container = document.getElementById('inv-piano-wrap');
+            if (!container) return;
+            
+            // Reset all keys first
+            container.querySelectorAll('.inv-piano-key').forEach(key => {
+                key.classList.remove('inv-highlighted');
+                const isWhite = key.classList.contains('inv-piano-white-key');
+                
+                // Remove any existing label
+                const existingLabel = key.querySelector('.inv-degree-label');
+                if (existingLabel) existingLabel.remove();
+                
+                // Reset to default styling
+                if (isWhite) {
+                    key.style.background = 'linear-gradient(180deg, #ffffff 0%, #f0f0f0 85%, #d8d8d8 100%)';
+                    key.style.boxShadow = 'inset 0 -3px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.2)';
+                    key.style.borderColor = '#999';
+                } else {
+                    key.style.background = 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 60%, #000000 100%)';
+                    key.style.boxShadow = 'inset 0 -2px 4px rgba(255,255,255,0.1), 2px 3px 6px rgba(0,0,0,0.5)';
+                    key.style.borderColor = '#000';
+                }
+            });
+            
+            // Highlight chord notes with voice-specific colors
+            const chordNotes = this.getChordNotes();
+            const rootPitchClass = this.rootMidi % 12;
+            const thirdOffset = this.quality === 'maj' ? 4 : 3;
+            const fifthOffset = 7;
+            
+            chordNotes.forEach(midi => {
+                const key = container.querySelector(`[data-midi="${midi}"]`);
+                if (!key) return;
+                
+                key.classList.add('inv-highlighted');
+                const isWhite = key.classList.contains('inv-piano-white-key');
+                const pitchClass = midi % 12;
+                
+                // Determine which voice this is
+                let color, label, textColor;
+                if (pitchClass === rootPitchClass) {
+                    // Root - Green
+                    color = isWhite 
+                        ? 'linear-gradient(180deg, #34d399 0%, #10b981 60%, #059669 100%)'
+                        : 'linear-gradient(180deg, #10b981 0%, #059669 100%)';
+                    label = '1';
+                    textColor = '#000';
+                } else if (pitchClass === (rootPitchClass + thirdOffset) % 12) {
+                    // Third - Yellow/Orange
+                    color = isWhite
+                        ? 'linear-gradient(180deg, #fcd34d 0%, #fbbf24 60%, #f59e0b 100%)'
+                        : 'linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%)';
+                    label = '3';
+                    textColor = '#000';
+                } else if (pitchClass === (rootPitchClass + fifthOffset) % 12) {
+                    // Fifth - Blue
+                    color = isWhite
+                        ? 'linear-gradient(180deg, #60a5fa 0%, #3b82f6 60%, #2563eb 100%)'
+                        : 'linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)';
+                    label = '5';
+                    textColor = '#fff';
+                } else {
+                    color = isWhite ? 'linear-gradient(180deg, #a5b4fc 0%, #818cf8 100%)' : 'linear-gradient(180deg, #818cf8 0%, #6366f1 100%)';
+                    label = '?';
+                    textColor = '#000';
+                }
+                
+                key.style.background = color;
+                key.style.boxShadow = isWhite
+                    ? '0 0 20px rgba(16,185,129,0.5), inset 0 -3px 6px rgba(0,0,0,0.2)'
+                    : '0 0 16px rgba(16,185,129,0.5), inset 0 -2px 4px rgba(255,255,255,0.2)';
+                key.style.borderColor = 'transparent';
+                
+                // Add degree label
+                const labelEl = document.createElement('div');
+                labelEl.className = 'inv-degree-label';
+                labelEl.textContent = label;
+                labelEl.style.cssText = `
+                    position: absolute;
+                    bottom: ${isWhite ? '8px' : '6px'};
+                    left: 50%;
+                    transform: translateX(-50%);
+                    font-size: ${isWhite ? '1.2rem' : '0.9rem'};
+                    font-weight: 900;
+                    color: ${textColor};
+                    font-family: var(--font-tech);
+                    pointer-events: none;
+                    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+                `;
+                key.appendChild(labelEl);
+            });
         }
 
         setupPianoKeyHandlers() {
@@ -1923,151 +2206,13 @@
             if (bottomDeck) bottomDeck.style.display = 'none';
         }
 
-        highlightKey(midi, color, degreeLabel = null) {
-            if (!this._sharedPiano || !this._sharedPiano.pianoElement) return;
-            
-            // Find the key element
-            const key = this._sharedPiano.pianoElement.querySelector(`[data-midi="${midi}"]`);
-            if (key) {
-                const isWhiteKey = key.classList.contains('piano-white-key');
-                
-                if (isWhiteKey) {
-                    // Enhanced gradient for white keys with strong contrast
-                    if (color === '#10b981') {
-                        // Root note: bright green gradient
-                        key.style.background = 'linear-gradient(180deg, #10b981 0%, #0d9668 80%, #0a7d5a 100%)';
-                        key.style.borderColor = '#059669';
-                        key.style.borderWidth = '2px';
-                    } else {
-                        // Other chord tones: bright blue gradient
-                        key.style.background = 'linear-gradient(180deg, #3b82f6 0%, #2563eb 80%, #1e40af 100%)';
-                        key.style.borderColor = '#1d4ed8';
-                        key.style.borderWidth = '2px';
-                    }
-                    key.style.boxShadow = `0 0 20px ${color}CC, inset 0 -2px 8px rgba(0,0,0,0.3)`;
-                } else {
-                    // Black keys: bright solid color
-                    if (color === '#10b981') {
-                        key.style.background = `linear-gradient(180deg, #10b981 0%, #059669 100%)`;
-                    } else {
-                        key.style.background = `linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)`;
-                    }
-                    key.style.boxShadow = `0 0 16px ${color}FF, inset 0 0 4px rgba(255,255,255,0.3)`;
-                }
-                
-                key.style.opacity = '1';
-                key.classList.add('highlighted');
-                
-                // Add degree label overlay
-                if (degreeLabel) {
-                    // Remove existing label if any
-                    const existingLabel = key.querySelector('.degree-label');
-                    if (existingLabel) existingLabel.remove();
-                    
-                    const label = document.createElement('div');
-                    label.className = 'degree-label';
-                    label.textContent = degreeLabel;
-                    label.style.cssText = `
-                        position: absolute;
-                        top: ${isWhiteKey ? '50%' : '60%'};
-                        left: 50%;
-                        transform: translate(-50%, -50%);
-                        font-size: ${isWhiteKey ? '1.4rem' : '1.1rem'};
-                        font-weight: 900;
-                        color: ${color === '#10b981' ? '#000' : '#fff'};
-                        text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-                        font-family: var(--font-tech);
-                        pointer-events: none;
-                        z-index: 10;
-                    `;
-                    key.style.position = 'relative';
-                    key.appendChild(label);
-                }
-            }
-        }
-
-        clearAllHighlights() {
-            if (!this._sharedPiano || !this._sharedPiano.pianoElement) return;
-            
-            // Clear all highlighted keys
-            const whiteKeys = this._sharedPiano.pianoElement.querySelectorAll('.piano-white-key');
-            const blackKeys = this._sharedPiano.pianoElement.querySelectorAll('.piano-black-key');
-            
-            whiteKeys.forEach(key => {
-                key.classList.remove('highlighted');
-                key.style.boxShadow = 'rgba(0, 0, 0, 0.1) 0px -1px 2px inset';
-                key.style.background = 'linear-gradient(rgb(255, 255, 255), rgb(224, 224, 224))';
-                key.style.borderWidth = '';
-                key.style.borderColor = 'var(--border-light)';
-                key.style.opacity = '1';
-                
-                // Remove degree label
-                const label = key.querySelector('.degree-label');
-                if (label) label.remove();
-            });
-            
-            blackKeys.forEach(key => {
-                key.classList.remove('highlighted');
-                key.style.boxShadow = 'rgba(255, 255, 255, 0.2) 0px 0px 2px inset, rgba(0, 0, 0, 0.4) 2px 2px 4px';
-                key.style.background = 'linear-gradient(rgb(51, 51, 51), rgb(0, 0, 0))';
-                key.style.opacity = '1';
-                
-                // Remove degree label
-                const label = key.querySelector('.degree-label');
-                if (label) label.remove();
-            });
-        }
-
         updateVisualization() {
-            if (!this._sharedPiano) return;
+            // Re-render the dedicated piano with current chord
+            this.renderPiano();
 
             const chordNotes = this.getChordNotes();
-
-            // Reset any scale/highlight state so ONLY this voicing shows.
-            if (typeof this._sharedPiano.setHighlightedNotes === 'function') {
-                this._sharedPiano.setHighlightedNotes([]);
-            }
-            if (this._sharedPiano.state) {
-                this._sharedPiano.state.highlightedNotes = [];
-                this._sharedPiano.state.scaleNotes = [];
-            }
-
-            // Only use MIDI-based highlighting so each note appears once.
-            const thirdName = this.midiToNoteName(this.rootMidi + (this.quality === 'maj' ? 4 : 3)).replace(/\d+$/, '');
-            const fifthName = this.midiToNoteName(this.rootMidi + 7).replace(/\d+$/, '');
-            const roles = [
-                { note: this.rootNote, class: 'root' },
-                { note: thirdName, class: 'third' },
-                { note: fifthName, class: 'fifth' }
-            ];
-
-            // Ensure piano highlights only in the center octave and mark these exact MIDI notes
-            if (typeof this._sharedPiano.setHighlightMode === 'function') {
-                this._sharedPiano.setHighlightMode('octave');
-            }
-            if (typeof this._sharedPiano.setHighlightedNotes === 'function') {
-                this._sharedPiano.setHighlightedNotes(chordNotes);
-            } else if (typeof this._sharedPiano.renderChord === 'function') {
-                this._sharedPiano.renderChord({ notes: [], midiNotes: chordNotes, roles });
-            } else if (typeof this._sharedPiano.setActiveNotes === 'function') {
-                this._sharedPiano.setActiveNotes(chordNotes);
-            }
-
-            // Clear any previous manual highlights then apply voice-specific coloring and labels (1,3,5)
-            this.clearAllHighlights();
-            const rootClass = this.rootMidi % 12;
-            const intervalOffset = this.quality === 'maj' ? [0, 4, 7] : [0, 3, 7];
-            chordNotes.forEach((midi) => {
-                const pc = midi % 12;
-                let label = null;
-                let color = '#3b82f6'; // default blue for 3/5
-                if (pc === (rootClass + intervalOffset[0]) % 12) { label = '1'; color = '#10b981'; }
-                else if (pc === (rootClass + intervalOffset[1]) % 12) { label = '3'; color = '#fbbf24'; }
-                else if (pc === (rootClass + intervalOffset[2]) % 12) { label = '5'; color = '#3b82f6'; }
-                this.highlightKey(midi, color, label);
-            });
-
-            // Update simple chord title + subheading
+            
+            // Update chord title + subheading
             const name = `${this.rootNote} ${this.quality === 'maj' ? 'major' : 'minor'}`;
             const invLabel = this.inversion === 0 ? 'Root position' : (this.inversion === 1 ? '1st inversion' : '2nd inversion');
             const noteStr = chordNotes.map(m => this.midiToNoteName(m).replace(/\d+$/, '')).join(' – ');
