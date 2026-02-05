@@ -202,6 +202,13 @@ body {
     border-right: 2px solid var(--accent-primary);
 }
 
+/* ==================== LEARN MODULE PAGES ==================== */
+#learn-inversions-page,
+#learn-chords-page,
+#learn-piano-notes-page {
+    max-width: 100%;
+}
+
 /* ==================== BOTTOM DECK (PIANO) ==================== */
 .bottom-deck {
     min-height: auto;

@@ -245,8 +245,8 @@ class GuitarFretboardVisualizer {
                     this.state.highlightedNote = cell.dataset.note;
                     this.state.focusMidi = midiNum;
                     this.applyState();
-                    const audio = (typeof window !== 'undefined' && window.modularApp && window.modularApp.audioEngine)
-                        ? window.modularApp.audioEngine
+                    const audio = (typeof window !== 'undefined' && window.modularApp)
+                        ? (window.modularApp.guitarEngine || window.modularApp.audioEngine)
                         : null;
                     if (audio && typeof audio.playNote === 'function') audio.playNote(midiNum);
                     this.emit('noteClicked', { note: cell.dataset.note, midi: midiNum });
@@ -313,8 +313,8 @@ class GuitarFretboardVisualizer {
                     this.state.highlightedNote = cell.dataset.note;
                     this.state.focusMidi = midiNum;
                     this.applyState();
-                    const audio = (typeof window !== 'undefined' && window.modularApp && window.modularApp.audioEngine)
-                        ? window.modularApp.audioEngine
+                    const audio = (typeof window !== 'undefined' && window.modularApp)
+                        ? (window.modularApp.guitarEngine || window.modularApp.audioEngine)
                         : null;
                     if (audio && typeof audio.playNote === 'function') audio.playNote(midiNum);
                     this.emit('noteClicked', { note: cell.dataset.note, midi: midiNum });

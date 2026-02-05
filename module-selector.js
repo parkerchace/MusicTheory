@@ -8,18 +8,21 @@ class ModuleSelector {
     constructor() {
         this.selectedModules = new Set();
         this.currentSkillLevel = 'beginner';
+        // Preferred instrument for lessons (default to piano)
+        this.preferredInstrument = localStorage.getItem('music-theory-instrument') || 'piano';
         
         // Module definitions organized by skill level
         this.modules = {
             beginner: [
                 {
-                    id: 'scale-library',
-                    name: 'Scale Explorer',
-                    description: 'Learn about different scales, modes, and musical traditions. Visualize notes on the piano.',
+                    id: 'learn-scales',
+                    name: 'Learn Scales',
+                    description: 'Master scales through structured lessons: whole/half steps, scale degrees, ear training, modes, and building chords from scales.',
                     icon: '🎵',
                     category: 'Learning',
-                    keywords: ['scales', 'modes', 'learn', 'notes', 'piano'],
-                    workspaceModules: ['scale-circle-container', 'piano-container']
+                    keywords: ['scales', 'modes', 'learn', 'lessons', 'theory', 'intervals', 'degrees', 'practice'],
+                    workspaceModules: ['scale-circle-container', 'piano-container'],
+                    isLearnModule: true
                 },
                 {
                     id: 'piano-visualizer',
@@ -134,9 +137,40 @@ class ModuleSelector {
         this.renderModuleGrid();
         this.setupEventListeners();
         this.showLandingPage();
+        this.applyInstrumentButtonState();
+    }
+
+    applyInstrumentButtonState() {
+        // Highlight the currently selected instrument button
+        document.querySelectorAll('.instrument-btn').forEach(btn => {
+            const inst = btn.getAttribute('data-instrument');
+            if (inst === this.preferredInstrument) {
+                btn.style.background = 'var(--accent-primary)';
+                btn.style.color = '#000';
+                btn.style.border = 'none';
+            } else {
+                btn.style.background = 'transparent';
+                btn.style.color = 'var(--text-main)';
+                btn.style.border = '2px solid var(--accent-primary)';
+            }
+        });
+    }
+
+    selectInstrument(instrument) {
+        this.preferredInstrument = instrument;
+        localStorage.setItem('music-theory-instrument', instrument);
+        this.applyInstrumentButtonState();
     }
 
     setupEventListeners() {
+        // Instrument selector buttons
+        document.querySelectorAll('.instrument-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const inst = e.currentTarget.getAttribute('data-instrument');
+                this.selectInstrument(inst);
+            });
+        });
+
         // Skill level buttons
         document.querySelectorAll('.skill-level-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -166,6 +200,14 @@ class ModuleSelector {
         if (learnPianoBtn) {
             learnPianoBtn.addEventListener('click', () => {
                 this.launchLearnPiano();
+            });
+        }
+
+        // Launch Learn Scales (separate from full studio)
+        const learnScalesBtn = document.getElementById('launch-learn-scales-btn');
+        if (learnScalesBtn) {
+            learnScalesBtn.addEventListener('click', () => {
+                this.launchLearnScales();
             });
         }
 
@@ -205,8 +247,8 @@ class ModuleSelector {
                     <span class="module-card-tag">${mod.category}</span>
                     <span class="module-card-tag" style="background: transparent; border-color: var(--accent-secondary); color: var(--accent-secondary);">${this.getSkillLevel(mod.id)}</span>
                 </div>
-                <button class="btn-select-module" data-module-id="${mod.id}" style="margin-top: auto; padding: 10px 16px; background: var(--accent-primary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.85rem;">
-                    Select
+                <button class="btn-select-module ${mod.isLearnModule ? 'is-learn-module' : ''}" data-module-id="${mod.id}" style="margin-top: auto; padding: 10px 16px; background: var(--accent-primary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.85rem;">
+                    ${mod.isLearnModule ? 'Start Learning' : 'Select'}
                 </button>
             </div>
         `).join('');
@@ -215,7 +257,19 @@ class ModuleSelector {
         document.querySelectorAll('.btn-select-module').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const moduleId = e.target.getAttribute('data-module-id');
-                this.toggleModuleSelection(moduleId);
+
+                // Special handling for learn modules - launch them directly
+                if (e.target.classList.contains('is-learn-module')) {
+                    if (moduleId === 'learn-scales') {
+                        this.launchLearnScales();
+                    } else if (moduleId === 'piano-visualizer') {
+                        this.launchLearnPiano();
+                    } else if (moduleId === 'chord-explorer') {
+                        this.launchLearnChords();
+                    }
+                } else {
+                    this.toggleModuleSelection(moduleId);
+                }
             });
         });
     }
@@ -392,6 +446,40 @@ class ModuleSelector {
             }
         } catch (e) {
             console.error('[ModuleSelector] Failed to mount LearnChords:', e);
+        }
+    }
+
+    launchLearnScales() {
+        const landing = document.getElementById('landing-page');
+        const learn = document.getElementById('learn-scales-page');
+        const workspace = document.querySelector('.workspace');
+        const controlDeck = document.querySelector('.control-deck');
+        const bottomDeck = document.querySelector('.bottom-deck');
+
+        if (landing) landing.style.display = 'none';
+        if (learn) learn.style.display = 'block';
+        if (workspace) workspace.style.display = 'none';
+        if (controlDeck) controlDeck.style.display = 'none';
+        if (bottomDeck) bottomDeck.style.display = 'none';
+
+        // Lazy-mount the learn scales module
+        try {
+            if (!window.learnScalesInstance) {
+                const LearnClass = window.LearnScales;
+                if (LearnClass && window.modularApp && window.modularApp.musicTheory) {
+                    window.learnScalesInstance = new LearnClass(window.modularApp.musicTheory);
+                } else if (LearnClass) {
+                    window.learnScalesInstance = new LearnClass();
+                }
+            }
+            if (window.learnScalesInstance && typeof window.learnScalesInstance.mount === 'function') {
+                window.learnScalesInstance.mount('#learn-scales-container');
+                if (window.modularApp && window.modularApp.midiManager && typeof window.learnScalesInstance.connectMidi === 'function') {
+                    window.learnScalesInstance.connectMidi(window.modularApp.midiManager);
+                }
+            }
+        } catch (e) {
+            console.error('[ModuleSelector] Failed to mount LearnScales:', e);
         }
     }
 

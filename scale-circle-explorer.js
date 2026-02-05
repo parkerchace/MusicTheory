@@ -247,134 +247,818 @@ class ScaleCircleExplorer {
     }
 
     /**
-     * Render circle visualization
+     * Render circle visualization with modern UI and pedagogical approach
      */
     render() {
         if (!this.containerElement) return;
-        // Build inline overlay UI INSIDE the circle to reduce footprint
+        
+        // Build pedagogical context
         const circleConfig = {
-            fifths: { title: 'Circle of Fifths', direction: 'clockwise', step: 7 },
-            fourths: { title: 'Circle of Fourths', direction: 'counter-clockwise', step: 5 },
-            chromatic: { title: 'Chromatic Circle', direction: 'clockwise', step: 1 }
+            fifths: { 
+                title: 'Circle of Fifths', 
+                direction: 'clockwise', 
+                step: 7,
+                explanation: 'Keys arranged by perfect fifths - the foundation of Western harmony',
+                pedagogyTip: 'Moving clockwise adds sharps; counterclockwise adds flats',
+                musicalContext: 'Essential for understanding key signatures and chord progressions'
+            },
+            fourths: { 
+                title: 'Circle of Fourths', 
+                direction: 'counter-clockwise', 
+                step: 5,
+                explanation: 'Keys arranged by perfect fourths - the inverse of the circle of fifths',
+                pedagogyTip: 'Each step represents a plagal (IV-I) relationship',
+                musicalContext: 'Useful for understanding subdominant relationships'
+            },
+            chromatic: { 
+                title: 'Chromatic Circle', 
+                direction: 'clockwise', 
+                step: 1,
+                explanation: 'All 12 chromatic pitches arranged by semitones',
+                pedagogyTip: 'Shows the equal temperament system and enharmonic relationships',
+                musicalContext: 'Foundation for atonal and twelve-tone composition'
+            }
         };
         const config = circleConfig[this.state.mode];
 
-        // Gather scale categories for inline select (fallback if external ScaleLibrary hidden)
-        const scaleCategories = (this.musicTheory.getScaleCategories && this.musicTheory.getScaleCategories()) || {};
-        const currentScale = (window.modularApp && window.modularApp.scaleLibrary && window.modularApp.scaleLibrary.getCurrentScale && window.modularApp.scaleLibrary.getCurrentScale()) || this.state.scaleType;
-        const buildScaleOptions = () => {
-            let html = '';
-            Object.entries(scaleCategories).forEach(([category, scales]) => {
-                html += `<optgroup label="${category}">`;
-                scales.forEach(scaleId => {
-                    // Try to reuse display name logic from ScaleLibrary if available
-                    let displayName = scaleId;
-                    if (window.modularApp && window.modularApp.scaleLibrary && typeof window.modularApp.scaleLibrary.getScaleDisplayName === 'function') {
-                        displayName = window.modularApp.scaleLibrary.getScaleDisplayName(scaleId);
-                    } else {
-                        displayName = scaleId.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());
-                    }
-                    const selected = scaleId === currentScale ? 'selected' : '';
-                    html += `<option value="${scaleId}" ${selected}>${displayName}</option>`;
-                });
-                html += '</optgroup>';
-            });
-            return html;
-        };
+        // Get scale information for context
+        const currentScaleInfo = this.getCurrentScaleInfo();
 
         this.containerElement.innerHTML = `
-            <div class="scale-circle-wrapper">
-                <canvas id="circle-canvas" width="420" height="420"></canvas>
-                <div class="circle-tooltip" id="circle-tooltip" style="display:none;"></div>
-            </div>
-            <div class="circle-controls" aria-label="Scale circle controls">
-                <div class="cc-row cc-header">${config.title}</div>
-                <div class="cc-row cc-modes">
-                    <button class="cc-btn ${this.state.mode === 'fifths' ? 'active' : ''}" data-mode="fifths" title="Circle of Fifths">5ths</button>
-                    <button class="cc-btn ${this.state.mode === 'fourths' ? 'active' : ''}" data-mode="fourths" title="Circle of Fourths">4ths</button>
-                    <button class="cc-btn ${this.state.mode === 'chromatic' ? 'active' : ''}" data-mode="chromatic" title="Chromatic Circle">Chrom</button>
-                    <button class="cc-btn ${this.state.showScaleLines ? 'active' : ''}" id="cc-toggle-scale-lines" title="Toggle scale polygon">Scale</button>
+            <div class="scale-circle-modern-wrapper">
+                <!-- Header with pedagogical context -->
+                <div class="circle-header">
+                    <h2 class="circle-title">${config.title}</h2>
+                    <p class="circle-explanation">${config.explanation}</p>
+                    
+                    <div class="pedagogy-insight">
+                        <div class="insight-icon">💡</div>
+                        <div>
+                            <strong>Learning Tip:</strong> ${config.pedagogyTip}
+                        </div>
+                    </div>
                 </div>
-                
+
+                <!-- Current context display -->
+                ${this.renderCurrentContext(currentScaleInfo)}
+
+                <!-- Interactive circle visualization -->
+                <div class="circle-visualization-container">
+                    <canvas id="circle-canvas" width="460" height="460"></canvas>
+                    <div class="circle-tooltip" id="circle-tooltip"></div>
+                    
+                    <!-- Scale polygon overlay info -->
+                    ${this.state.showScaleLines ? this.renderScalePolygonInfo() : ''}
+                </div>
+
+                <!-- Modern control panel -->
+                <div class="circle-controls-modern">
+                    <!-- Mode selection with pedagogical context -->
+                    <div class="control-section">
+                        <h3 class="control-section-title">Circle Mode</h3>
+                        <div class="mode-buttons">
+                            <button class="mode-btn ${this.state.mode === 'fifths' ? 'active' : ''}" 
+                                    data-mode="fifths" 
+                                    title="Circle of Fifths - ${circleConfig.fifths.explanation}">
+                                <span class="mode-icon">🎵</span>
+                                <span>Fifths</span>
+                            </button>
+                            <button class="mode-btn ${this.state.mode === 'fourths' ? 'active' : ''}" 
+                                    data-mode="fourths"
+                                    title="Circle of Fourths - ${circleConfig.fourths.explanation}">
+                                <span class="mode-icon">🎼</span>
+                                <span>Fourths</span>
+                            </button>
+                            <button class="mode-btn ${this.state.mode === 'chromatic' ? 'active' : ''}" 
+                                    data-mode="chromatic"
+                                    title="Chromatic Circle - ${circleConfig.chromatic.explanation}">
+                                <span class="mode-icon">🎹</span>
+                                <span>Chromatic</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Visualization options -->
+                    <div class="control-section">
+                        <h3 class="control-section-title">Visualization</h3>
+                        <div class="toggle-controls">
+                            <label class="toggle-control">
+                                <input type="checkbox" ${this.state.showScaleLines ? 'checked' : ''} 
+                                       id="toggle-scale-polygon">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Scale Polygon</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Musical context -->
+                    <div class="control-section">
+                        <h3 class="control-section-title">Musical Context</h3>
+                        <div class="context-info">
+                            <div class="context-item">
+                                <strong>Current Key:</strong> 
+                                <span class="current-key-display">${this.state.currentKey}</span>
+                            </div>
+                            <div class="context-item">
+                                <strong>Scale Notes:</strong>
+                                <span class="scale-notes-display">
+                                    ${this.state.scaleNotes.join(' - ') || 'None selected'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div class="control-section">
+                        <div class="action-buttons">
+                            <button class="action-btn primary" id="play-scale-btn">
+                                <span>🎵</span> Play Scale
+                            </button>
+                            <button class="action-btn secondary" id="random-key-btn">
+                                <span>🎲</span> Random Key
+                            </button>
+                            <button class="action-btn secondary" id="clear-highlights-btn">
+                                <span>🧹</span> Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Educational insights panel -->
+                <div class="insights-panel">
+                    <h3>Musical Insights</h3>
+                    <div class="insight-content">
+                        ${this.renderMusicalInsights(config)}
+                    </div>
+                </div>
             </div>
+
+            <style>
+                .scale-circle-modern-wrapper {
+                    --color-bg-primary: #0f172a;
+                    --color-bg-secondary: #1e293b;
+                    --color-bg-tertiary: #334155;
+                    --color-text-primary: #f1f5f9;
+                    --color-text-secondary: #cbd5e1;
+                    --color-text-muted: #64748b;
+                    --color-border: #475569;
+                    --color-accent: #3b82f6;
+                    --color-accent-secondary: #10b981;
+                    --color-warning: #f59e0b;
+                    --color-error: #ef4444;
+                    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+                    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+                    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+                    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+                    --radius-sm: 6px;
+                    --radius-md: 12px;
+                    --radius-lg: 16px;
+                    --spacing-xs: 0.5rem;
+                    --spacing-sm: 0.75rem;
+                    --spacing-md: 1rem;
+                    --spacing-lg: 1.5rem;
+                    --spacing-xl: 2rem;
+                    --spacing-2xl: 3rem;
+
+                    background: var(--color-bg-primary);
+                    color: var(--color-text-primary);
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+                    padding: var(--spacing-lg);
+                    border-radius: var(--radius-lg);
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--spacing-lg);
+                    max-width: 1200px;
+                    margin: 0 auto;
+                }
+
+                /* Header Section */
+                .circle-header {
+                    text-align: center;
+                    background: var(--color-bg-secondary);
+                    padding: var(--spacing-xl);
+                    border-radius: var(--radius-lg);
+                    border: 1px solid var(--color-border);
+                }
+
+                .circle-title {
+                    font-size: 2rem;
+                    font-weight: 700;
+                    margin: 0 0 var(--spacing-sm) 0;
+                    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-secondary));
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                }
+
+                .circle-explanation {
+                    font-size: 1.125rem;
+                    color: var(--color-text-secondary);
+                    margin: 0 0 var(--spacing-lg) 0;
+                    line-height: 1.6;
+                }
+
+                .pedagogy-insight {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: var(--spacing-sm);
+                    background: rgba(59, 130, 246, 0.1);
+                    padding: var(--spacing-md);
+                    border-radius: var(--radius-md);
+                    border-left: 4px solid var(--color-accent);
+                    text-align: left;
+                    max-width: 600px;
+                    margin: 0 auto;
+                }
+
+                .insight-icon {
+                    font-size: 1.25rem;
+                    flex-shrink: 0;
+                }
+
+                /* Current Context Display */
+                .current-context {
+                    background: var(--color-bg-secondary);
+                    padding: var(--spacing-lg);
+                    border-radius: var(--radius-md);
+                    border: 1px solid var(--color-border);
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                    gap: var(--spacing-md);
+                }
+
+                .context-card {
+                    background: var(--color-bg-tertiary);
+                    padding: var(--spacing-md);
+                    border-radius: var(--radius-sm);
+                    border: 1px solid var(--color-border);
+                }
+
+                .context-card h4 {
+                    margin: 0 0 var(--spacing-xs) 0;
+                    font-size: 0.875rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    color: var(--color-text-muted);
+                }
+
+                .context-value {
+                    font-size: 1.125rem;
+                    font-weight: 600;
+                    color: var(--color-accent);
+                }
+
+                /* Circle Visualization */
+                .circle-visualization-container {
+                    position: relative;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    background: var(--color-bg-secondary);
+                    padding: var(--spacing-xl);
+                    border-radius: var(--radius-lg);
+                    border: 1px solid var(--color-border);
+                    min-height: 500px;
+                }
+
+                #circle-canvas {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 50%;
+                    background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 70%);
+                    box-shadow: var(--shadow-xl);
+                    cursor: pointer;
+                    transition: transform 0.2s ease;
+                }
+
+                #circle-canvas:hover {
+                    transform: scale(1.02);
+                }
+
+                .circle-tooltip {
+                    position: absolute;
+                    pointer-events: none;
+                    background: var(--color-bg-primary);
+                    color: var(--color-text-primary);
+                    padding: var(--spacing-xs) var(--spacing-sm);
+                    border-radius: var(--radius-sm);
+                    border: 1px solid var(--color-border);
+                    box-shadow: var(--shadow-md);
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    transform: translate(-50%, -120%);
+                    white-space: nowrap;
+                    opacity: 0;
+                    transition: opacity 0.2s ease;
+                    z-index: 100;
+                }
+
+                .circle-tooltip.visible {
+                    opacity: 1;
+                }
+
+                /* Control Panel */
+                .circle-controls-modern {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                    gap: var(--spacing-lg);
+                    background: var(--color-bg-secondary);
+                    padding: var(--spacing-lg);
+                    border-radius: var(--radius-lg);
+                    border: 1px solid var(--color-border);
+                }
+
+                .control-section {
+                    background: var(--color-bg-tertiary);
+                    padding: var(--spacing-md);
+                    border-radius: var(--radius-md);
+                    border: 1px solid var(--color-border);
+                }
+
+                .control-section-title {
+                    margin: 0 0 var(--spacing-md) 0;
+                    font-size: 0.875rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    color: var(--color-text-muted);
+                }
+
+                /* Mode Buttons */
+                .mode-buttons {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                    gap: var(--spacing-xs);
+                }
+
+                .mode-btn {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: var(--spacing-xs);
+                    padding: var(--spacing-md);
+                    background: var(--color-bg-primary);
+                    color: var(--color-text-secondary);
+                    border: 2px solid var(--color-border);
+                    border-radius: var(--radius-md);
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    font-weight: 500;
+                    min-height: 80px;
+                }
+
+                .mode-btn:hover {
+                    background: var(--color-bg-secondary);
+                    border-color: var(--color-accent);
+                    transform: translateY(-2px);
+                    box-shadow: var(--shadow-md);
+                }
+
+                .mode-btn.active {
+                    background: var(--color-accent);
+                    color: white;
+                    border-color: var(--color-accent);
+                    box-shadow: var(--shadow-lg);
+                }
+
+                .mode-icon {
+                    font-size: 1.5rem;
+                }
+
+                /* Toggle Controls */
+                .toggle-controls {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--spacing-sm);
+                }
+
+                .toggle-control {
+                    display: flex;
+                    align-items: center;
+                    gap: var(--spacing-sm);
+                    cursor: pointer;
+                }
+
+                .toggle-control input {
+                    display: none;
+                }
+
+                .toggle-slider {
+                    position: relative;
+                    width: 48px;
+                    height: 24px;
+                    background: var(--color-border);
+                    border-radius: 24px;
+                    transition: background 0.2s ease;
+                }
+
+                .toggle-slider:before {
+                    content: '';
+                    position: absolute;
+                    width: 20px;
+                    height: 20px;
+                    background: white;
+                    border-radius: 50%;
+                    top: 2px;
+                    left: 2px;
+                    transition: transform 0.2s ease;
+                }
+
+                .toggle-control input:checked + .toggle-slider {
+                    background: var(--color-accent);
+                }
+
+                .toggle-control input:checked + .toggle-slider:before {
+                    transform: translateX(24px);
+                }
+
+                .toggle-label {
+                    font-weight: 500;
+                    color: var(--color-text-secondary);
+                }
+
+                /* Context Info */
+                .context-info {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--spacing-sm);
+                }
+
+                .context-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: var(--spacing-xs) 0;
+                    border-bottom: 1px solid var(--color-border);
+                }
+
+                .context-item:last-child {
+                    border-bottom: none;
+                }
+
+                .current-key-display {
+                    background: var(--color-accent);
+                    color: white;
+                    padding: 0.25rem 0.75rem;
+                    border-radius: 20px;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                }
+
+                .scale-notes-display {
+                    font-family: 'Courier New', monospace;
+                    color: var(--color-accent-secondary);
+                    font-weight: 500;
+                }
+
+                /* Action Buttons */
+                .action-buttons {
+                    display: flex;
+                    gap: var(--spacing-xs);
+                    flex-wrap: wrap;
+                }
+
+                .action-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: var(--spacing-xs);
+                    padding: var(--spacing-sm) var(--spacing-md);
+                    border: 2px solid var(--color-border);
+                    border-radius: var(--radius-md);
+                    cursor: pointer;
+                    font-weight: 500;
+                    transition: all 0.2s ease;
+                    min-height: 44px;
+                    flex: 1;
+                    justify-content: center;
+                }
+
+                .action-btn.primary {
+                    background: var(--color-accent);
+                    color: white;
+                    border-color: var(--color-accent);
+                }
+
+                .action-btn.primary:hover {
+                    background: #2563eb;
+                    transform: translateY(-2px);
+                    box-shadow: var(--shadow-md);
+                }
+
+                .action-btn.secondary {
+                    background: var(--color-bg-primary);
+                    color: var(--color-text-secondary);
+                }
+
+                .action-btn.secondary:hover {
+                    background: var(--color-bg-secondary);
+                    border-color: var(--color-accent);
+                    color: var(--color-text-primary);
+                }
+
+                /* Insights Panel */
+                .insights-panel {
+                    background: var(--color-bg-secondary);
+                    padding: var(--spacing-lg);
+                    border-radius: var(--radius-lg);
+                    border: 1px solid var(--color-border);
+                }
+
+                .insights-panel h3 {
+                    margin: 0 0 var(--spacing-md) 0;
+                    font-size: 1.25rem;
+                    font-weight: 600;
+                    color: var(--color-text-primary);
+                }
+
+                .insight-content {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: var(--spacing-md);
+                }
+
+                .insight-card {
+                    background: var(--color-bg-tertiary);
+                    padding: var(--spacing-md);
+                    border-radius: var(--radius-md);
+                    border-left: 4px solid var(--color-accent-secondary);
+                }
+
+                .insight-card h4 {
+                    margin: 0 0 var(--spacing-xs) 0;
+                    font-size: 0.875rem;
+                    font-weight: 600;
+                    color: var(--color-accent-secondary);
+                }
+
+                .insight-card p {
+                    margin: 0;
+                    line-height: 1.5;
+                    color: var(--color-text-secondary);
+                }
+
+                /* Scale Polygon Info */
+                .scale-polygon-info {
+                    position: absolute;
+                    top: var(--spacing-md);
+                    right: var(--spacing-md);
+                    background: rgba(16, 185, 129, 0.1);
+                    padding: var(--spacing-sm);
+                    border-radius: var(--radius-sm);
+                    border: 1px solid var(--color-accent-secondary);
+                    font-size: 0.75rem;
+                    color: var(--color-accent-secondary);
+                    max-width: 200px;
+                }
+
+                /* Responsive Design */
+                @media (max-width: 768px) {
+                    .scale-circle-modern-wrapper {
+                        padding: var(--spacing-md);
+                        gap: var(--spacing-md);
+                    }
+
+                    .circle-header {
+                        padding: var(--spacing-lg);
+                    }
+
+                    .circle-title {
+                        font-size: 1.5rem;
+                    }
+
+                    .circle-controls-modern {
+                        grid-template-columns: 1fr;
+                    }
+
+                    .mode-buttons {
+                        grid-template-columns: repeat(3, 1fr);
+                    }
+
+                    .action-buttons {
+                        flex-direction: column;
+                    }
+
+                    .current-context {
+                        grid-template-columns: 1fr;
+                    }
+
+                    .insight-content {
+                        grid-template-columns: 1fr;
+                    }
+                }
+
+                /* Animation and transitions */
+                .fade-in {
+                    animation: fadeIn 0.4s ease-out;
+                }
+
+                @keyframes fadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(20px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+
+                .pulse {
+                    animation: pulse 2s infinite;
+                }
+
+                @keyframes pulse {
+                    0%, 100% {
+                        opacity: 1;
+                    }
+                    50% {
+                        opacity: 0.6;
+                    }
+                }
+            </style>
         `;
 
-        // Inject / update styles once (avoid duplicates)
-        {
-            const existing = document.getElementById('scale-circle-inline-styles');
-            const css = `
-                .scale-circle-wrapper { position: relative; width: 100%; max-width: 520px; margin: 0 auto; }
-                #circle-canvas { width: 100%; height: auto; display: block; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 70%); box-shadow: 0 0 12px rgba(0,0,0,0.4); }
-                .circle-tooltip { position:absolute; pointer-events:none; background:#111827; color:#e5e7eb; padding:4px 6px; font-size:11px; border:1px solid rgba(148,163,184,0.35); border-radius:4px; box-shadow: 0 2px 8px rgba(0,0,0,0.4); transform: translate(-50%, -120%); white-space:nowrap; }
-                .circle-controls { margin: 10px auto 0; width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
-                .cc-row { display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; }
-                .cc-header { font-weight:600; font-size:12px; color:#e2e8f0; letter-spacing:.5px; }
-                .cc-btn { background: rgba(30,41,59,0.6); color:#cbd5e1; border:1px solid rgba(148,163,184,0.3); padding:4px 8px; border-radius:6px; cursor:pointer; font-size:11px; line-height:1; transition:.18s; display:inline-flex; align-items:center; gap:4px; }
-                .cc-btn.small { padding:3px 8px; font-size:12px; }
-                .cc-btn.grow { flex: 1 1 auto; justify-content:center; }
-                .cc-btn.active { background:#2563eb; color:#fff; border-color:#1d4ed8; box-shadow:0 0 0 2px rgba(37,99,235,0.4); }
-                .cc-btn:hover { background: rgba(59,130,246,0.4); color:#fff; }
-                .cc-select { background: rgba(30,41,59,0.6); color:#f1f5f9; border:1px solid rgba(148,163,184,0.35); border-radius:6px; padding:3px 6px; font-size:11px; min-width:90px; }
-                .cc-select:focus { outline:2px solid #2563eb; }
-                .cc-label { font-size:10px; font-weight:600; color:#94a3b8; }
-                .current-key-pill { background:#334155; color:#f1f5f9; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; min-width:40px; text-align:center; border:1px solid rgba(148,163,184,0.3); }
-                @media (max-width: 480px) { .circle-controls { padding:6px 8px; gap:6px; } .cc-select{ min-width:72px; } }
-            `;
-            if (existing) {
-                existing.textContent = css;
-            } else {
-                const styleEl = document.createElement('style');
-                styleEl.id = 'scale-circle-inline-styles';
-                styleEl.textContent = css;
-                document.head.appendChild(styleEl);
-            }
-        }
-        
-        // Add event listeners
-        // Mode buttons
-        this.containerElement.querySelectorAll('.cc-btn[data-mode]').forEach(btn => {
-            btn.addEventListener('click', () => this.setMode(btn.dataset.mode));
-        });
-        // Scale polygon toggle
-        const scaleBtn = this.containerElement.querySelector('#cc-toggle-scale-lines');
-        if (scaleBtn) {
-            scaleBtn.addEventListener('click', () => this.toggleScaleLines());
-        }
-        // Removed progression and transpose UI; handled in Piano Visualizer
-        // Key/Scale selects removed from circle explorer—piano visualizer now manages key/scale UI
-        
-        const canvas = this.containerElement.querySelector('#circle-canvas');
-        canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
-        canvas.addEventListener('mousemove', (e) => this.handleCanvasHover(e));
-        canvas.addEventListener('mouseleave', () => this.handleCanvasLeave());
+        // Add fade-in animation
+        this.containerElement.querySelector('.scale-circle-modern-wrapper').classList.add('fade-in');
 
-        // No overlay collapse; controls live under the circle now
+        // Setup event listeners with modern approach
+        this.setupModernEventListeners();
         
         // Render circle
         this.renderCircleCanvas();
     }
 
-    setupResizeObserver() {
-        const wrapper = this.containerElement && this.containerElement.querySelector('.scale-circle-wrapper');
-        const canvas = this.containerElement && this.containerElement.querySelector('#circle-canvas');
-        if (!wrapper || !canvas) return;
-
-        const updateSize = () => {
-            const rect = wrapper.getBoundingClientRect();
-            const size = Math.min(rect.width, 520); // cap to reduce GPU cost
-            // Ensure crisp canvas by setting intrinsic pixels
-            canvas.width = Math.floor(size);
-            canvas.height = Math.floor(size);
-            this.renderCircleCanvas();
-        };
-
-        if (typeof ResizeObserver !== 'undefined') {
-            this._ro = new ResizeObserver(() => updateSize());
-            this._ro.observe(wrapper);
-        } else {
-            window.addEventListener('resize', updateSize);
+    getCurrentScaleInfo() {
+        if (!this.state.scaleNotes || this.state.scaleNotes.length === 0) {
+            return {
+                hasScale: false,
+                scaleNotesCount: 0,
+                scaleName: 'None selected'
+            };
         }
-        updateSize();
+
+        return {
+            hasScale: true,
+            scaleNotesCount: this.state.scaleNotes.length,
+            scaleName: this.formatScaleName(),
+            keySignature: this.getKeySignatureInfo()
+        };
+    }
+
+    formatScaleName() {
+        if (!this.state.scaleType) return 'Unknown';
+        return this.state.scaleType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    getKeySignatureInfo() {
+        if (!this.musicTheory.keySignatures || !this.musicTheory.keySignatures[this.state.currentKey]) {
+            return { accidentals: [], type: 'natural' };
+        }
+        return this.musicTheory.keySignatures[this.state.currentKey];
+    }
+
+    renderCurrentContext(scaleInfo) {
+        return `
+            <div class="current-context">
+                <div class="context-card">
+                    <h4>Current Key</h4>
+                    <div class="context-value">${this.state.currentKey} ${this.getKeySignatureInfo().type}</div>
+                </div>
+                
+                <div class="context-card">
+                    <h4>Circle Mode</h4>
+                    <div class="context-value">${this.state.mode.charAt(0).toUpperCase() + this.state.mode.slice(1)}</div>
+                </div>
+                
+                <div class="context-card">
+                    <h4>Scale</h4>
+                    <div class="context-value">${scaleInfo.hasScale ? scaleInfo.scaleName : 'None'}</div>
+                </div>
+                
+                <div class="context-card">
+                    <h4>Scale Notes</h4>
+                    <div class="context-value">${scaleInfo.hasScale ? scaleInfo.scaleNotesCount + ' notes' : 'N/A'}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    renderScalePolygonInfo() {
+        if (!this.state.scaleNotes || this.state.scaleNotes.length === 0) return '';
+        
+        return `
+            <div class="scale-polygon-info">
+                <strong>Scale Polygon Active</strong>
+                <br>Showing ${this.state.scaleNotes.length} scale degrees
+                <br>Connected in diatonic order
+            </div>
+        `;
+    }
+
+    renderMusicalInsights(config) {
+        const insights = [];
+        
+        // Mode-specific insights
+        if (this.state.mode === 'fifths') {
+            insights.push({
+                title: 'Key Relationships',
+                content: 'Adjacent keys share 6 notes in common. Moving clockwise adds sharps, counterclockwise adds flats.'
+            });
+            
+            if (this.state.scaleNotes.length > 0) {
+                insights.push({
+                    title: 'Related Keys',
+                    content: `The dominant key (+1 sharp) and subdominant key (+1 flat) are your closest harmonic neighbors.`
+                });
+            }
+        } else if (this.state.mode === 'fourths') {
+            insights.push({
+                title: 'Subdominant Motion',
+                content: 'This circle shows plagal relationships (IV-I motion). Each step moves up a perfect fourth.'
+            });
+        } else if (this.state.mode === 'chromatic') {
+            insights.push({
+                title: 'Enharmonic Equivalents',
+                content: 'Some positions represent the same pitch with different names (e.g., F# = Gb).'
+            });
+        }
+        
+        // Scale-specific insights
+        if (this.state.showScaleLines && this.state.scaleNotes.length > 0) {
+            insights.push({
+                title: 'Scale Geometry',
+                content: `Your ${this.state.scaleNotes.length}-note scale creates a ${this.state.scaleNotes.length}-sided polygon. The shape reveals the scale's intervallic structure.`
+            });
+        }
+        
+        // Musical context insights
+        insights.push({
+            title: 'Practice Tip',
+            content: config.musicalContext || 'Explore different keys by clicking around the circle. Listen to how key signatures affect the same scale in different positions.'
+        });
+        
+        return insights.map(insight => `
+            <div class="insight-card">
+                <h4>${insight.title}</h4>
+                <p>${insight.content}</p>
+            </div>
+        `).join('');
+    }
+
+    setupModernEventListeners() {
+        // Mode buttons with smooth transitions
+        this.containerElement.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setMode(btn.dataset.mode);
+            });
+        });
+        
+        // Scale polygon toggle
+        const polygonToggle = this.containerElement.querySelector('#toggle-scale-polygon');
+        if (polygonToggle) {
+            polygonToggle.addEventListener('change', () => {
+                this.toggleScaleLines();
+            });
+        }
+        
+        // Action buttons
+        const playScaleBtn = this.containerElement.querySelector('#play-scale-btn');
+        if (playScaleBtn) {
+            playScaleBtn.addEventListener('click', () => {
+                this.emit('playScale', {
+                    key: this.state.currentKey,
+                    notes: this.state.scaleNotes
+                });
+            });
+        }
+        
+        const randomKeyBtn = this.containerElement.querySelector('#random-key-btn');
+        if (randomKeyBtn) {
+            randomKeyBtn.addEventListener('click', () => {
+                const keys = this.musicTheory.getKeys();
+                const randomKey = keys[Math.floor(Math.random() * keys.length)];
+                this.setKey(randomKey, { emitUserEvent: true });
+            });
+        }
+        
+        const clearBtn = this.containerElement.querySelector('#clear-highlights-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.state.highlightedKeys = [];
+                this.state.scaleNotes = [];
+                this.state.generatedNotes = [];
+                this.render();
+            });
+        }
+        
+        // Canvas events with improved handling
+        const canvas = this.containerElement.querySelector('#circle-canvas');
+        if (canvas) {
+            canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+            canvas.addEventListener('mousemove', (e) => this.handleCanvasHover(e));
+            canvas.addEventListener('mouseleave', () => this.handleCanvasLeave());
+        }
     }
 
     /**
@@ -718,11 +1402,40 @@ class ScaleCircleExplorer {
     showTooltip(info) {
         const tooltip = this.containerElement.querySelector('#circle-tooltip');
         if (!tooltip) return;
-        if (!info) { tooltip.style.display = 'none'; return; }
-        tooltip.textContent = `${info.key}`;
+        
+        if (!info) { 
+            tooltip.style.display = 'none'; 
+            tooltip.classList.remove('visible');
+            return; 
+        }
+        
+        // Enhanced tooltip with musical context
+        let content = `<strong>${info.key}</strong>`;
+        
+        // Add key signature info if available
+        if (this.musicTheory.keySignatures && this.musicTheory.keySignatures[info.key]) {
+            const keySig = this.musicTheory.keySignatures[info.key];
+            if (keySig.accidentals.length > 0) {
+                const accidentalText = keySig.type === 'sharp' ? '♯' : '♭';
+                content += `<br><small>${keySig.accidentals.length} ${accidentalText}</small>`;
+            } else {
+                content += `<br><small>Natural</small>`;
+            }
+        }
+        
+        // Add scale relationship info if a scale is active
+        if (this.state.scaleNotes.length > 0 && this.isNoteInScale(info.key)) {
+            const scaleIndex = this.state.scaleNotes.indexOf(info.key);
+            if (scaleIndex >= 0) {
+                content += `<br><small>Scale degree ${scaleIndex + 1}</small>`;
+            }
+        }
+        
+        tooltip.innerHTML = content;
         tooltip.style.left = `${info.x}px`;
         tooltip.style.top = `${info.y}px`;
         tooltip.style.display = 'block';
+        tooltip.classList.add('visible');
     }
 
     /**

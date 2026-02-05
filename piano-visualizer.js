@@ -144,6 +144,61 @@ class PianoVisualizer {
     }
 
     /**
+     * Calculate optimal MIDI range based on highlighted notes with padding
+     * @param {number[]} midiNotes - Array of MIDI note numbers to display
+     * @param {Object} options - { minPadding: 3, maxPadding: 3, minKeys: 12 }
+     * @returns {Object} { startMidi, endMidi }
+     */
+    calculateOptimalRange(midiNotes = [], options = {}) {
+        const { 
+            minPadding = 3, 
+            maxPadding = 3, 
+            minKeys = 12 
+        } = options;
+
+        if (!midiNotes.length) {
+            // Default: 2 octaves centered on middle C
+            return { startMidi: 48, endMidi: 71 };
+        }
+
+        const min = Math.min(...midiNotes);
+        const max = Math.max(...midiNotes);
+        
+        let startMidi = Math.max(21, min - minPadding);
+        let endMidi = Math.min(108, max + maxPadding);
+        
+        // Ensure minimum keyboard width
+        const span = endMidi - startMidi + 1;
+        if (span < minKeys) {
+            const center = Math.floor((startMidi + endMidi) / 2);
+            const halfKeys = Math.floor(minKeys / 2);
+            startMidi = Math.max(21, center - halfKeys);
+            endMidi = Math.min(108, startMidi + minKeys - 1);
+        }
+        
+        return { startMidi, endMidi };
+    }
+
+    /**
+     * Update visible piano range dynamically
+     * @param {number} startMidi - Starting MIDI note
+     * @param {number} endMidi - Ending MIDI note (inclusive)
+     */
+    updateRange(startMidi, endMidi) {
+        this.options.startMidi = startMidi;
+        this.options.endMidi = endMidi;
+        
+        // Re-render with new range
+        if (this.options.container) {
+            this.render({ 
+                container: this.options.container,
+                startMidi,
+                endMidi
+            });
+        }
+    }
+
+    /**
      * Initialize grading integration
      */
     initializeGradingIntegration() {
@@ -356,6 +411,143 @@ class PianoVisualizer {
                 console.error('[PianoVisualizer] Failed to install pointer handlers', err);
             }
         }
+
+        // Inject pianovisualizer CSS variables and improved label styles once
+        if (!document.getElementById('piano-visualizer-inline-styles')) {
+            const styleEl = document.createElement('style');
+            styleEl.id = 'piano-visualizer-inline-styles';
+            styleEl.textContent = `
+                :root {
+                    --piano-label-white-size: 12px;
+                    --piano-label-black-size: 11px;
+                    --piano-degree-bg: rgba(255,255,255,0.92);
+                    --piano-degree-color: #111;
+                }
+                .piano-visualizer .piano-white-key > div {
+                    color: #000 !important;
+                    font-weight: 800 !important;
+                    font-size: var(--piano-label-white-size) !important;
+                    text-shadow: 0 1px 0 #fff !important;
+                    pointer-events: none;
+                }
+                .piano-visualizer .piano-black-key > div {
+                    color: #fff !important;
+                    font-weight: 800 !important;
+                    font-size: var(--piano-label-black-size) !important;
+                    text-shadow: 0 1px 0 rgba(0,0,0,0.7) !important;
+                    pointer-events: none;
+                }
+                .piano-visualizer .scale-degree-label {
+                    background: var(--piano-degree-bg);
+                    color: var(--piano-degree-color) !important;
+                    padding: 2px 6px;
+                    border-radius: 12px;
+                    font-weight: 800;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+                    border: 1px solid rgba(0,0,0,0.08);
+                }
+                .piano-visualizer .piano-black-key .scale-degree-label {
+                    background: rgba(0,0,0,0.85);
+                    color: #fff !important;
+                }
+                /* Smooth play highlight transitions */
+                .piano-visualizer .piano-white-key,
+                .piano-visualizer .piano-black-key {
+                    transition: background 320ms ease, box-shadow 380ms ease, transform 180ms ease, opacity 380ms ease;
+                }
+                .piano-visualizer .piano-white-key.play-active {
+                    background: linear-gradient(180deg, #fef08a 0%, #fbbf24 100%) !important;
+                    box-shadow: 0 0 20px rgba(251, 191, 36, 0.95) inset, 0 6px 18px rgba(251, 191, 36, 0.5) !important;
+                }
+                .piano-visualizer .piano-black-key.play-active {
+                    background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%) !important;
+                    box-shadow: 0 0 15px rgba(251, 191, 36, 0.95) inset !important;
+                }
+                .piano-visualizer .play-active .scale-degree-label { opacity: 1; transition: opacity 280ms ease; }
+            `;
+            document.head.appendChild(styleEl);
+        }
+
+        // Adaptive fit/scroll logic: observe container size and toggle fitToContainer
+        try {
+            const observeTarget = this.pianoElement.parentElement || document.body;
+            const updateFitMode = () => {
+                const w = (observeTarget.clientWidth && observeTarget.clientWidth > 0) ? observeTarget.clientWidth : window.innerWidth;
+                // Mobile threshold 480px
+                const mobile = w <= 480;
+                this.options.fitToContainer = !mobile;
+                // If mobile, allow scrolling on the parent container
+                if (mobile && this.pianoElement.parentElement) {
+                    this.pianoElement.parentElement.style.overflowX = 'auto';
+                    this.pianoElement.parentElement.style.webkitOverflowScrolling = 'touch';
+                } else if (this.pianoElement.parentElement) {
+                    this.pianoElement.parentElement.style.overflowX = 'hidden';
+                }
+                // Trigger a render to apply new fit behavior
+                this.render();
+            };
+
+            // Debounced ResizeObserver
+            let resizeTimer = null;
+            if (typeof ResizeObserver !== 'undefined') {
+                this._pv_ro = new ResizeObserver(() => {
+                    clearTimeout(resizeTimer);
+                    resizeTimer = setTimeout(updateFitMode, 120);
+                });
+                this._pv_ro.observe(observeTarget);
+            } else {
+                window.addEventListener('resize', () => {
+                    clearTimeout(resizeTimer);
+                    resizeTimer = setTimeout(updateFitMode, 120);
+                });
+            }
+            // Initial run
+            updateFitMode();
+        } catch (e) {
+            // Non-fatal
+        }
+    }
+
+    // Public API: programmatically set lowest displayed MIDI (root) and rerender
+    setRootMidi(startMidi) {
+        if (typeof startMidi !== 'number') return;
+        // Offset the start by 2-3 semitones so the actual tonic isn't at the absolute left edge
+        // This prevents degree bubbles from being clipped
+        const paddedStart = Math.max(21, startMidi - 3);
+        this.options.startMidi = paddedStart;
+        // Mark that an external caller requested this exact leftmost MIDI.
+        this._pv_forcedStartMidi = paddedStart;
+        this._pv_forcedRootMidi = startMidi;
+        // If endMidi was computed from octaves, leave that logic to render
+        // Ensure visible range covers at least one octave above the tonic so scales aren't cut off
+        try {
+            const minRequiredTop = startMidi + 12; // tonic + 1 octave
+            const currentEnd = (typeof this.options.endMidi === 'number') ? this.options.endMidi : (paddedStart + (this.options.octaves * 12) - 1);
+            if (currentEnd < minRequiredTop) {
+                // Bump octaves so that endMidi >= minRequiredTop
+                const neededSemis = minRequiredTop - paddedStart + 1;
+                const neededOctaves = Math.ceil(neededSemis / 12);
+                this.options.octaves = Math.max(this.options.octaves || 1, neededOctaves);
+                if (this.options.endMidi) delete this.options.endMidi; // force recompute
+            }
+        } catch (e) {}
+
+        this.render();
+    }
+
+    // Public API: set number of visible octaves
+    setRange(octaves) {
+        if (typeof octaves !== 'number' || octaves < 1) return;
+        this.options.octaves = octaves;
+        // Clear explicit endMidi to allow recompute
+        if (this.options.endMidi) delete this.options.endMidi;
+        this.render();
+    }
+
+    // Public API: clear forced startMidi and allow auto-centering
+    clearForcedRoot() {
+        delete this._pv_forcedStartMidi;
+        delete this._pv_forcedRootMidi;
     }
 
     /**
@@ -366,6 +558,9 @@ class PianoVisualizer {
 
         this.whitesLayer.innerHTML = '';
         this.blacksLayer.innerHTML = '';
+
+        // Reset helper maps used for precise key placement
+        this._whiteKeyPositions = new Map(); // midi -> left px
 
         // Compute range
         const startMidi = this.options.startMidi;
@@ -458,24 +653,23 @@ class PianoVisualizer {
             labelContainer.style.textShadow = '0 1px 3px rgba(255, 255, 255, 0.8)';
             labelContainer.style.fontSize = '11px';
             labelContainer.style.fontWeight = '700';
-            labelContainer.style.pointerEvents = 'none';
 
             // MIDI/note metadata
-                        // High contrast: bold bright text with dark shadow for black keys
-                        labelContainer.style.color = '#ffffff';
-                        labelContainer.style.textShadow = '0 1px 3px rgba(0, 0, 0, 0.9)';
-                        labelContainer.style.fontSize = '10px';
-                        labelContainer.style.fontWeight = '700';
 
             const octave = Math.floor(midi / 12) - 1;
             key.dataset.midi = String(midi);
             key.dataset.note = baseName;
             key.dataset.octave = String(octave);
 
+            // Record left position for precise black-key placement
+            try { this._whiteKeyPositions.set(midi, whiteIndex * this.options.whiteKeyWidth); } catch(e){}
+
             // Label
-            const noteWithOctave = `${baseName}${octave}`;
-            labelContainer.textContent = noteWithOctave;
-            key.appendChild(labelContainer);
+            if (this.options.showNoteLabels !== false) {
+                const noteWithOctave = `${baseName}${octave}`;
+                labelContainer.textContent = noteWithOctave;
+                key.appendChild(labelContainer);
+            }
 
             // Clicks
             key.addEventListener('click', (e) => {
@@ -515,21 +709,50 @@ class PianoVisualizer {
      * Render black keys
      */
     renderBlackKeys(startMidi, endMidi) {
-        let whiteIndex = 0;
-        let lastWhiteX = 0;
+        // To place black keys accurately, find adjacent white key positions
         for (let midi = startMidi; midi <= endMidi; midi++) {
             const baseName = this.SEMITONE_TO_NOTE[midi % 12];
             const isBlack = baseName.includes('#');
-            if (!isBlack) {
-                lastWhiteX = whiteIndex * this.options.whiteKeyWidth;
-                whiteIndex++;
-                continue;
-            }
+            if (!isBlack) continue;
 
             const key = document.createElement('div');
             key.className = 'piano-black-key';
-            key.style.left = `${lastWhiteX + (this.options.whiteKeyWidth * 0.7)}px`;
-            key.style.width = `${this.options.whiteKeyWidth * 0.6}px`;
+            const blackWidth = this.options.whiteKeyWidth * 0.6;
+
+            // Find previous white midi left and next white midi left
+            let prevLeft = null;
+            let nextLeft = null;
+            for (let p = midi - 1; p >= startMidi; p--) {
+                const name = this.SEMITONE_TO_NOTE[p % 12];
+                if (!name.includes('#')) {
+                    const val = this._whiteKeyPositions.get(p);
+                    if (typeof val === 'number') { prevLeft = val; break; }
+                }
+            }
+            for (let n = midi + 1; n <= endMidi; n++) {
+                const name = this.SEMITONE_TO_NOTE[n % 12];
+                if (!name.includes('#')) {
+                    const val = this._whiteKeyPositions.get(n);
+                    if (typeof val === 'number') { nextLeft = val; break; }
+                }
+            }
+
+            let leftPx;
+            if (prevLeft !== null && nextLeft !== null) {
+                // place centered between adjacent whites
+                const prevRight = prevLeft + this.options.whiteKeyWidth;
+                const nextLeftEdge = nextLeft;
+                leftPx = ((prevRight + nextLeftEdge) / 2) - (blackWidth / 2);
+            } else if (prevLeft !== null) {
+                leftPx = prevLeft + (this.options.whiteKeyWidth * 0.7);
+            } else if (nextLeft !== null) {
+                leftPx = nextLeft - (this.options.whiteKeyWidth * 0.7) - blackWidth;
+            } else {
+                leftPx = 0;
+            }
+
+            key.style.left = `${Math.round(leftPx)}px`;
+            key.style.width = `${blackWidth}px`;
             key.style.height = `${this.options.blackKeyHeight}px`;
             key.style.top = '0px';
             key.style.position = 'absolute';
@@ -558,9 +781,11 @@ class PianoVisualizer {
             key.dataset.note = baseName;
             key.dataset.octave = String(octave);
 
-            const noteWithOctave = `${baseName}${octave}`;
-            labelContainer.textContent = noteWithOctave;
-            key.appendChild(labelContainer);
+            if (this.options.showNoteLabels !== false) {
+                const noteWithOctave = `${baseName}${octave}`;
+                labelContainer.textContent = noteWithOctave;
+                key.appendChild(labelContainer);
+            }
 
             key.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -948,32 +1173,25 @@ class PianoVisualizer {
      * @param {string} key - The selected key (e.g., 'C', 'F#')
      */
     adjustPianoRange(key) {
-        // Get the MIDI note for the selected key at octave 4
         const keyMidiNote = this.getMidiNoteNumber(key, 4);
-        
-        // Update the startMidi to match the selected key
-        this.options.startMidi = keyMidiNote;
-        
-        // Set endMidi to show one octave (or the configured number of octaves)
-        this.options.endMidi = keyMidiNote + (this.options.octaves * 12);
-        
-        // Re-render the piano with the new range
+        const windowSemis = Math.round((this.options.octaves || 1.5) * 12); // typically 18
+        const leftPad = Math.round((windowSemis - 12) / 2); // center the highlighted octave
+
+        // If an external caller forced a leftmost start MIDI (e.g., tonic should be the lowest displayed key),
+        // don't override the range here — just update the highlighted center bounds.
+        if (typeof this._pv_forcedStartMidi === 'number') {
+            this.state.centerLowMidi = keyMidiNote;
+            this.state.centerHighMidi = keyMidiNote + 12;
+            this.render();
+            return;
+        }
+
+        this.options.startMidi = keyMidiNote - leftPad; // usually key-3
+        this.options.endMidi = this.options.startMidi + windowSemis - 1; // inclusive
+        this.state.centerLowMidi = keyMidiNote;
+        this.state.centerHighMidi = keyMidiNote + 12;
         this.render();
     }
-        adjustPianoRange(key) {
-            // Base the display around the selected key's octave, centered within a 1.5-octave window
-            const keyMidiNote = this.getMidiNoteNumber(key, 4);
-            const windowSemis = Math.round((this.options.octaves || 1.5) * 12); // typically 18
-            const leftPad = Math.round((windowSemis - 12) / 2); // center the 12-semi highlighted octave
-            // Start a few semitones below the key so the highlighted octave sits in the middle
-            this.options.startMidi = keyMidiNote - leftPad; // usually key-3
-            this.options.endMidi = this.options.startMidi + windowSemis; // usually start+18
-            // Track the central highlighted octave bounds [low, high)
-            this.state.centerLowMidi = keyMidiNote;           // inclusive
-            this.state.centerHighMidi = keyMidiNote + 12;     // exclusive
-            // Re-render the piano with the new range
-            this.render();
-        }
 
     /**
      * Update note gradings based on current context
@@ -1148,8 +1366,14 @@ class PianoVisualizer {
         this.state.currentScale = config.scale || 'major';
         this.state.scaleNotes = config.notes || [];
 
-        // Adjust the piano range to start from the selected key
-        this.adjustPianoRange(this.state.currentKey);
+        // Only auto-adjust piano range if no external forced startMidi is set
+        if (typeof this._pv_forcedStartMidi !== 'number') {
+            this.adjustPianoRange(this.state.currentKey);
+        } else {
+            // Update center bounds for annotations when forced
+            this.state.centerLowMidi = this._pv_forcedStartMidi;
+            this.state.centerHighMidi = this._pv_forcedStartMidi + 12;
+        }
 
         // Update key labels based on key signature
         this.updateKeyLabels(this.state.currentKey);
@@ -1204,7 +1428,9 @@ class PianoVisualizer {
         }
 
         this.applyState();
-        this.renderChordStack();
+        if (this.options.showChordStack !== false) {
+            this.renderChordStack();
+        }
     }
 
     /**
@@ -1503,7 +1729,56 @@ class PianoVisualizer {
         };
 
         // Apply active state (with grading-aware styling)
-        this.state.activeNotes.forEach(note => {
+        // PRIORITY: If MIDI notes are specified (e.g. specific voicing), use them to highlight EXACT keys.
+        // FALLBACK: If only note names are provided, highlight all instances (octave-aware if mode is 'octave').
+        if (this.state.activeMidiNotes && this.state.activeMidiNotes.length > 0) {
+            this.state.activeMidiNotes.forEach(midi => {
+                const key = this.pianoElement.querySelector(`[data-midi="${midi}"]`);
+                if (!key) return; // Note might be out of visual range
+                
+                key.classList.add('active');
+                
+                // Use grading color if available, else default chord colors
+                let backgroundColor, borderColor, boxShadow;
+                // (Reuse the existing color logic, but applied to this specific key)
+                if (this.options.enableGradingIntegration) {
+                     const noteName = key.dataset.note;
+                     const gradingInfo = this.getGradingInfoForNote(noteName);
+                     if (gradingInfo && gradingInfo.info) {
+                        const gradingColor = gradingInfo.info.color;
+                        const isBlackKey = key.classList.contains('piano-black-key');
+                         if (isBlackKey) {
+                            backgroundColor = `linear-gradient(180deg, ${gradingColor} 0%, ${this.darkenColor(gradingColor, 0.2)} 100%)`;
+                            borderColor = this.darkenColor(gradingColor, 0.4);
+                            boxShadow = `0 0 0 3px ${gradingColor}80, 0 6px 10px rgba(0, 0, 0, 0.35)`;
+                        } else {
+                            backgroundColor = `linear-gradient(180deg, ${this.lightenColor(gradingColor, 0.3)} 0%, ${gradingColor} 100%)`;
+                            borderColor = this.darkenColor(gradingColor, 0.2);
+                            boxShadow = `0 0 0 3px ${gradingColor}80, 0 6px 10px rgba(0, 0, 0, 0.35)`;
+                        }
+                     }
+                }
+
+                if (!backgroundColor) {
+                    // Standard chord voicing colors
+                    if (key.classList.contains('piano-white-key')) {
+                        backgroundColor = 'linear-gradient(180deg, #fde047 0%, #f59e0b 100%)';
+                        borderColor = '#b45309';
+                        boxShadow = '0 0 0 3px rgba(245, 158, 11, 0.5), 0 6px 10px rgba(0, 0, 0, 0.35)';
+                    } else {
+                        backgroundColor = 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)';
+                        borderColor = '#15803d';
+                        boxShadow = '0 0 0 3px rgba(34, 197, 94, 0.5), 0 6px 10px rgba(0, 0, 0, 0.35)';
+                    }
+                }
+
+                key.style.background = backgroundColor;
+                key.style.borderColor = borderColor;
+                key.style.boxShadow = boxShadow;
+            });
+        } else {
+            // Original behavior: Highlight by note name (potentially multiple octaves)
+            this.state.activeNotes.forEach(note => {
             // For general highlighting, don't restrict to scale or mode unless strictly enforced
             // if (this.state.mode !== 'chord' && !isNoteInScale(note)) return;
 
@@ -1552,6 +1827,7 @@ class PianoVisualizer {
                 }
             });
         });
+        }
 
         // Apply highlighted state (grading-aware styling)
         this.state.highlightedNotes.forEach(note => {
@@ -1619,12 +1895,43 @@ class PianoVisualizer {
             });
         });
 
-        // Apply role-based styling only for scale notes within center octave
+        const getRoleColorFallback = (role) => {
+             switch(role) {
+                case 'root': return '#f59e0b';
+                case 'third': return '#10b981';
+                case 'fifth': return '#3b82f6';
+                case 'seventh': return '#ec4899';
+                case 'ninth': return '#6366f1';
+                case 'eleventh': return '#0ea5e9';
+                case 'extension': return '#8b5cf6';
+                default: return '#64748b';
+            }
+        };
+
+        // Apply role-based styling
         this.state.noteRoles.forEach((role, note) => {
             if (this.state.mode !== 'chord' && !isNoteInScale(note)) return;
             this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key').forEach(key => {
-                if (isInCenter(key) && keyMatchesNote(key, note)) {
+                // If in chord mode, apply to ALL matching keys (ignore center restriction for inversions)
+                const shouldApply = (this.state.mode === 'chord') 
+                    ? keyMatchesNote(key, note)
+                    : (isInCenter(key) && keyMatchesNote(key, note));
+
+                if (shouldApply) {
                     key.classList.add(role);
+                    // Force precise role colors
+                    const color = getRoleColorFallback(role);
+                    // Use gradients to retain 3D feel but with role color
+                    const isWhite = key.classList.contains('piano-white-key');
+                    if (isWhite) {
+                        key.style.background = `linear-gradient(180deg, ${this.lightenColor(color, 0.4)} 0%, ${color} 100%)`;
+                        key.style.borderColor = this.darkenColor(color, 0.2);
+                        key.style.boxShadow = `inset 0 -1px 2px rgba(0,0,0,0.1), 0 0 0 2px ${color}80`;
+                    } else {
+                        key.style.background = `linear-gradient(180deg, ${this.lightenColor(color, 0.1)} 0%, ${this.darkenColor(color, 0.2)} 100%)`;
+                        key.style.borderColor = this.darkenColor(color, 0.4);
+                        key.style.boxShadow = `inset 0 0 2px rgba(255,255,255,0.2), 0 0 0 2px ${color}80`;
+                    }
                 }
             });
         });

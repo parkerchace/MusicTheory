@@ -11,6 +11,16 @@
                 this.audioEngine = typeof PianoSampleEngine !== 'undefined' 
                     ? new PianoSampleEngine() 
                     : new SimpleAudioEngine();
+                // Create a separate guitar engine (plucked/triangle tone) to avoid using sampled piano for guitar
+                try {
+                    this.guitarEngine = typeof EnhancedAudioEngine !== 'undefined'
+                        ? new EnhancedAudioEngine({ masterVolume: 0.22, oscillatorType: 'triangle', useReverb: true, reverbAmount: 0.08 })
+                        : null;
+                    if (this.guitarEngine && typeof this.guitarEngine.init === 'function') this.guitarEngine.init();
+                } catch (e) {
+                    console.warn('Failed to initialize guitarEngine:', e);
+                    this.guitarEngine = null;
+                }
                 
                 // Initialize MIDI input manager
                 this.midiManager = typeof MIDIInputManager !== 'undefined'

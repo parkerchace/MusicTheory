@@ -280,6 +280,13 @@
                 <div id="intent-results" style="margin-top: 15px; color: var(--text-muted); font-size: 0.85rem; min-height: 20px;"></div>
             </div>
 
+            <!-- Instrument Preference Selector -->
+            <div id="instrument-selector" style="display: flex; justify-content: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
+                <span style="color: var(--text-muted); align-self: center; font-size: 0.9rem;">Visualize on:</span>
+                <button class="instrument-btn" data-instrument="piano" style="padding: 10px 20px; background: var(--accent-primary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">🎹 Piano</button>
+                <button class="instrument-btn" data-instrument="guitar" style="padding: 10px 20px; background: transparent; border: 2px solid var(--accent-primary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">🎸 Guitar</button>
+            </div>
+
             <!-- Skill Level Selector -->
             <div style="display: flex; justify-content: center; gap: 12px; margin-bottom: 40px; flex-wrap: wrap;">
                 <button class="skill-level-btn" data-level="beginner" style="padding: 10px 20px; background: var(--accent-primary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Beginner</button>
@@ -290,12 +297,13 @@
 
             <!-- Beginner Path -->
             <div id="beginner-section" style="display: block; text-align: center; padding: 30px; background: rgba(52, 211, 153, 0.1); border: 2px solid var(--accent-secondary); border-radius: 8px; margin-bottom: 40px;">
-                <h3 style="color: var(--text-main); margin-top: 0;">🎹 Start Here: Learn Piano Notes</h3>
-                <p style="color: var(--text-muted); margin: 0 0 20px 0; font-size: 0.9rem;">Master the C major scale, keyboard layout, and fingering technique before diving into the full studio.</p>
-                <button id="launch-learn-piano-btn" style="padding: 12px 30px; background: var(--accent-secondary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.95rem;">Start Learning</button>
+                <h3 style="color: var(--text-main); margin-top: 0;">🎹 Start Here: Learn Music Fundamentals</h3>
+                <p style="color: var(--text-muted); margin: 0 0 20px 0; font-size: 0.9rem;">Master the basics with structured, interactive lessons before exploring the full studio.</p>
+                <button id="launch-learn-piano-btn" style="padding: 12px 30px; background: var(--accent-secondary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.95rem;">Learn Piano Notes</button>
                 <div style="margin-top: 18px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
-                    <button id="launch-learn-chords-btn" style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-secondary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Learn How to Make Chords</button>
-                    <button id="launch-learn-inversions-btn" style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-primary); color: var(--text-highlight); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">How to Play Inversions</button>
+                    <button id="launch-learn-scales-btn" style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-secondary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Learn Scales</button>
+                    <button id="launch-learn-chords-btn" style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-secondary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Learn Chords</button>
+                    <button id="launch-learn-inversions-btn" style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-primary); color: var(--text-highlight); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Learn Inversions</button>
                 </div>
             </div>
 
@@ -319,6 +327,11 @@
     <!-- LEARN PIANO VIEW (separate from full studio) -->
     <div id="learn-piano-page" style="display:none; padding: 14px; overflow:auto;">
         <div id="learn-piano-notes-container"></div>
+    </div>
+
+    <!-- LEARN SCALES VIEW (separate from full studio) -->
+    <div id="learn-scales-page" style="display:none; padding: 14px; overflow:auto;">
+        <div id="learn-scales-container"></div>
     </div>
 
     <!-- LEARN CHORDS VIEW (separate from full studio) -->
@@ -495,6 +508,7 @@
     <script src="semantic-api-engine.js"></script>
     <script src="voice-leading-engine.js"></script>
     <script src="learn-piano-notes.js"></script>
+    <script src="learn-scales.js"></script>
     <script src="learn-chords.js"></script>
     <!-- <script src="generative-word-mapper.js"></script> -->
     
@@ -519,6 +533,8 @@
     <!-- Modular components extracted from inline code -->
     <script src="chord-explorer-inline.js"></script>
     <script src="simple-audio-engine.js"></script>
+    <script src="enhanced-audio-engine.js"></script>
+    <script src="scale-helper.js"></script>
     <script src="piano-sample-engine.js"></script>
     <script src="midi-input-manager.js"></script>
     <script src="theme-switcher.js" defer></script>

@@ -363,7 +363,7 @@
                     this.rootNote = note;
                     this.rootMidi = 60 + i;
                     rootGrid.querySelectorAll('button').forEach(b => this._setButtonActive(b, b === btn, 'primary'));
-                    this.renderPiano();
+                    if (typeof this.renderInstrument === 'function') { this.renderInstrument(); } else { this.renderPiano(); }
                     this.updateVisualization();
                     this.playNote(this.rootMidi, 0.3);
                 });
@@ -457,7 +457,7 @@
             wrapper.appendChild(insight);
 
             // Attach existing shared piano + render once
-            this.renderPiano();
+            if (typeof this.renderInstrument === 'function') { this.renderInstrument(); } else { this.renderPiano(); }
             this.updateVisualization();
         }
 
@@ -2176,7 +2176,7 @@
 
         updateVisualization() {
             // Re-render the dedicated piano with current chord
-            this.renderPiano();
+            if (typeof this.renderInstrument === 'function') { this.renderInstrument(); } else { this.renderPiano(); }
 
             const chordNotes = this.getChordNotes();
             

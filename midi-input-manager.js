@@ -59,8 +59,14 @@ class MIDIInputManager {
 
             return true;
         } catch (error) {
-            console.error('MIDI initialization error:', error);
-            this.onStatusChange('error', `MIDI Error: ${error.message}`);
+            // Handle user denying permission to access MIDI separately
+            if (error && (error.name === 'NotAllowedError' || (error.message && error.message.toLowerCase().includes('permission')))) {
+                console.warn('MIDI permission denied by user:', error);
+                this.onStatusChange('permission-denied', 'Permission to use Web MIDI API was not granted');
+            } else {
+                console.error('MIDI initialization error:', error);
+                this.onStatusChange('error', `MIDI Error: ${error && error.message ? error.message : String(error)}`);
+            }
             return false;
         }
     }

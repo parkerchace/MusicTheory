@@ -78,7 +78,7 @@ class LearnPianoNotes {
         if (!this.container) return;
 
         this.container.innerHTML = `
-            <div id="learn-module-wrapper" style="position: relative; display: flex; flex-direction: column; gap: 16px; padding: 16px; max-width: 1100px; margin: 0 auto;">
+            <div id="learn-module-wrapper" style="position: relative; display: flex; flex-direction: column; gap: 16px; padding: 16px; max-width: 800px; margin: 0 auto;">
                 
                 <!-- Top Navigation Bar -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -247,7 +247,7 @@ class LearnPianoNotes {
         `;
 
         // Render components
-        this.renderPiano();
+        if (typeof this.renderInstrument === 'function') { this.renderInstrument(); } else { this.renderPiano(); }
         this.renderSheetMusic();
         
         // Setup connector overlay

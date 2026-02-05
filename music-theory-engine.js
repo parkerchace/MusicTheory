@@ -4244,6 +4244,22 @@ class MusicTheoryEngine {
     }
 
     /**
+     * Convert note name with octave (e.g., "C4") to MIDI number.
+     * Exposed here so all modules can use a single canonical conversion.
+     */
+    noteToMidi(noteName) {
+        if (!noteName || typeof noteName !== 'string') return 60;
+        const match = noteName.match(/^([A-Ga-g][#b]?)(\d+)$/);
+        if (!match) return 60;
+        const note = match[1].toUpperCase();
+        const octave = parseInt(match[2], 10);
+        const semitone = this.noteValues[note];
+        if (semitone === undefined) return 60;
+        // MIDI: C-1 = 0, so C4 = (4 + 1) * 12 = 60
+        return (octave + 1) * 12 + semitone;
+    }
+
+    /**
      * Get all notes in a scale, respecting key signature enharmonics
      */
     getScaleNotesWithKeySignature(key, scaleType) {

@@ -47,6 +47,11 @@
             this.containerEl = host;
             host.innerHTML = '';
 
+            // Add wrapper with max-width for consistent alignment
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'max-width: 800px; margin: 0 auto; padding: 0 16px;';
+            host.appendChild(wrapper);
+
             // 1. Header
             const header = document.createElement('div');
             header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid var(--border-light);';
@@ -57,7 +62,7 @@
                 </div>
                 <button id="back-to-landing-from-chords" class="btn" style="padding:8px 14px;">← Back</button>
             `;
-            host.appendChild(header);
+            wrapper.appendChild(header);
 
             // Back button wiring
             const backBtn = header.querySelector('#back-to-landing-from-chords');
@@ -161,7 +166,7 @@
             typeGroup.appendChild(typeBtns);
             controls.appendChild(typeGroup);
 
-            host.appendChild(controls);
+            wrapper.appendChild(controls);
 
             // 3. The Main Interval Visualizer Stage
             const stage = document.createElement('div');
@@ -178,7 +183,7 @@
                 min-height: 140px;
             `;
             stage.innerHTML = `<div id="interval-vis-container" style="display:flex; justify-content:center; gap:20px; flex-wrap:wrap; width:100%;"></div>`;
-            host.appendChild(stage);
+            wrapper.appendChild(stage);
 
             // 4. Playback Controls
             const playback = document.createElement('div');
@@ -188,7 +193,7 @@
                     ▶ Play Chord
                 </button>
             `;
-            host.appendChild(playback);
+            wrapper.appendChild(playback);
             
             playback.querySelector('#play-chord-btn').onclick = () => {
                 this.playHighQualityChord(this.getChordMidis(), 1.5);
