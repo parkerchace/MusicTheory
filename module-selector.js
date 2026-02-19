@@ -501,6 +501,9 @@ class ModuleSelector {
         if (useSelectedOnly && this.selectedModules.size > 0) {
             this.filterWorkspaceModules(Array.from(this.selectedModules));
         }
+
+        // First-time visitor prompt for tutorial (moved from tutorial-system.js)
+        // Tutorial prompt logic now handled in tutorial-system.js after launch-workspace-btn click
     }
 
     filterWorkspaceModules(selectedModuleIds) {

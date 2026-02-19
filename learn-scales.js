@@ -825,6 +825,24 @@ class LearnScales {
         pianoContainer.style.paddingLeft = '20px';
         pianoContainer.style.boxSizing = 'border-box';
 
+        // Ensure piano container centers the keyboard within the lesson content
+        // Use flex so the piano visual can be centered even when it has intrinsic width
+        pianoContainer.style.display = 'flex';
+        pianoContainer.style.justifyContent = 'center';
+        pianoContainer.style.alignItems = 'center';
+
+        // Ensure the piano element itself has predictable box-sizing and positioning
+        try {
+            if (this._localPiano.pianoElement) {
+                this._localPiano.pianoElement.style.boxSizing = 'content-box';
+                this._localPiano.pianoElement.style.position = 'relative';
+                this._localPiano.pianoElement.style.width = 'max-content';
+                this._localPiano.pianoElement.style.minWidth = '100%';
+                // Allow inner keys to determine scroll behavior while keeping visual centered
+                if (!isMobile) this._localPiano.pianoElement.style.margin = '0 auto';
+            }
+        } catch (e) {}
+
         // Mobile: allow horizontal scrolling with native momentum scrolling
         if (isMobile) {
             pianoContainer.style.overflowX = 'auto';
@@ -1089,23 +1107,112 @@ class LearnScales {
                     return `
                         <h3 style="color: var(--text-highlight); margin-top: 0;">Lesson 1: What is a Scale?</h3>
                         <div style="color: var(--text-muted); line-height: 1.8; margin-bottom: 20px;">
-                            <p>A <strong>scale</strong> is a collection of notes arranged in order from lowest to highest (or highest to lowest). In many musical traditions the directional pattern can differ — for example some ancient Greek practices and maqam traditions emphasize starting from a central tone and moving outwards (middle-up / middle-down) rather than strictly bottom-to-top or top-to-bottom. Scales are the foundation of melody and harmony in music.</p>
+                            <p>The English word <strong>scale</strong> comes from the Latin <em>scala</em> (ladder). In Western music theory, we define it as a set of pitch classes ordered by frequency.</p>
                             
-                            <p><strong>Why learn scales?</strong></p>
-                            <ul style="margin-left: 20px;">
-                                <li>They help you understand how melodies are constructed</li>
-                                <li>They show you which notes sound good together</li>
-                                <li>They're the basis for chords and progressions</li>
-                                <li>They improve your ear training and improvisation</li>
-                                <li><strong>They help you, as a musician, know which notes to avoid and which options you have before you play.</strong></li>
+                            <p>However, many musical traditions view this concept with much more nuance than a simple "list of notes":</p>
+                            
+                            <ul style="margin-left: 10px; list-style-type: none; padding: 0;">
+                                <li style="margin-bottom: 16px; padding-left: 16px; border-left: 3px solid var(--accent-primary);">
+                                    <strong style="color: var(--accent-primary);">Western Tonal Music</strong> typically organizes scales as <strong>ascending</strong> ladders (Do-Re-Mi...). They serve as a resource pool for building chords and melodies.
+                                </li>
+                                <li style="margin-bottom: 16px; padding-left: 16px; border-left: 3px solid var(--accent-secondary);">
+                                    <strong style="color: var(--accent-secondary);">Ancient Greek Theory</strong> (and many others) often conceptualized scales—like the <em>Dorian</em> mode—as <strong>descending</strong> from a high reference pitch, relaxing downward like gravity.
+                                </li>
+                                <li style="margin-bottom: 16px; padding-left: 16px; border-left: 3px solid #e879f9;">
+                                    <strong style="color: #e879f9;">Arabic Maqam & Indian Raga</strong> are far more than just scales.
+                                    <ul style="margin-top: 8px; margin-left: -5px; padding-left: 20px; list-style-type: disc; color: #d1d5db; font-size: 0.9em;">
+                                        <li style="margin-bottom: 6px;">
+                                            <strong>Maqam:</strong> A system of melodic modes that includes <em>microtones</em> (notes "between" the piano keys) and specific rules for melodic movement (<em>Sayr</em>). It's not just <em>what</em> notes you play, but <em>how</em> you travel through them.
+                                        </li>
+                                        <li>
+                                            <strong>Raga:</strong> A melodic framework meant to "color the mind" with a specific emotion. Ragas often have different rules for ascending vs. descending and are deeply connected to seasons or times of day.
+                                        </li>
+                                    </ul>
+                                </li>
                             </ul>
 
-                            <div style="background: rgba(96, 165, 250, 0.1); border-left: 3px solid var(--accent-primary); padding: 12px; margin: 16px 0; border-radius: 4px;">
-                                <strong>Key Concept:</strong> Think of a scale as a musical "alphabet" - just like letters make words, scale notes make melodies!
+                            <!-- Scale Direction Visuals -->
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin: 30px 0;">
+                                <!-- Ascending -->
+                                <div style="text-align: center;">
+                                    <svg width="150" height="100" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                                        <defs>
+                                            <marker id="ls-v3-arrow-up" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                                                <path d="M0,0 L6,3 L0,6 L0,0" fill="var(--accent-primary)" />
+                                            </marker>
+                                        </defs>
+                                        <g stroke="rgba(255,255,255,0.1)" stroke-width="1">
+                                            <line x1="10" y1="25" x2="140" y2="25"/><line x1="10" y1="35" x2="140" y2="35"/>
+                                            <line x1="10" y1="45" x2="140" y2="45"/><line x1="10" y1="55" x2="140" y2="55"/>
+                                            <line x1="10" y1="65" x2="140" y2="65"/>
+                                        </g>
+                                        <!-- Stepwise Up -->
+                                        <g fill="var(--accent-primary)">
+                                            <circle cx="30" cy="70" r="4"/> <circle cx="50" cy="65" r="4"/>
+                                            <circle cx="70" cy="60" r="4"/> <circle cx="90" cy="55" r="4"/>
+                                            <circle cx="110" cy="50" r="4"/>
+                                        </g>
+                                        <path d="M 30 70 L 110 50" stroke="var(--accent-primary)" stroke-width="2" fill="none" marker-end="url(#ls-v3-arrow-up)" opacity="0.6"/>
+                                    </svg>
+                                    <p style="font-size: 0.8rem; margin-top: 8px; font-weight:600; color: var(--text-heading);">Western (Ascending)</p>
+                                </div>
+
+                                <!-- Descending -->
+                                <div style="text-align: center;">
+                                    <svg width="150" height="100" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                                        <defs>
+                                            <marker id="ls-v3-arrow-down" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                                                <path d="M0,0 L6,3 L0,6 L0,0" fill="var(--accent-secondary)" />
+                                            </marker>
+                                        </defs>
+                                        <g stroke="rgba(255,255,255,0.1)" stroke-width="1">
+                                            <line x1="10" y1="25" x2="140" y2="25"/><line x1="10" y1="35" x2="140" y2="35"/>
+                                            <line x1="10" y1="45" x2="140" y2="45"/><line x1="10" y1="55" x2="140" y2="55"/>
+                                            <line x1="10" y1="65" x2="140" y2="65"/>
+                                        </g>
+                                        <!-- Stepwise Down -->
+                                        <g fill="var(--accent-secondary)">
+                                            <circle cx="30" cy="50" r="4"/> <circle cx="50" cy="55" r="4"/>
+                                            <circle cx="70" cy="60" r="4"/> <circle cx="90" cy="65" r="4"/>
+                                            <circle cx="110" cy="70" r="4"/>
+                                        </g>
+                                        <path d="M 30 50 L 110 70" stroke="var(--accent-secondary)" stroke-width="2" fill="none" marker-end="url(#ls-v3-arrow-down)" opacity="0.6"/>
+                                    </svg>
+                                    <p style="font-size: 0.8rem; margin-top: 8px; font-weight:600; color: var(--text-heading);">Greek (Descending)</p>
+                                </div>
+
+                                <!-- Complex/Directional -->
+                                <div style="text-align: center;">
+                                    <svg width="150" height="100" style="background: rgba(255,255,255,0.03); border-radius: 8px;">
+                                        <defs>
+                                            <marker id="ls-v3-arrow-complex" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                                                <path d="M0,0 L6,3 L0,6 L0,0" fill="#e879f9" />
+                                            </marker>
+                                        </defs>
+                                        <g stroke="rgba(255,255,255,0.1)" stroke-width="1">
+                                            <line x1="10" y1="25" x2="140" y2="25"/><line x1="10" y1="35" x2="140" y2="35"/>
+                                            <line x1="10" y1="45" x2="140" y2="45"/><line x1="10" y1="55" x2="140" y2="55"/>
+                                            <line x1="10" y1="65" x2="140" y2="65"/>
+                                        </g>
+                                        <!-- Different Notes Up vs Down visual hint -->
+                                        <!-- Up: White notes -->
+                                        <g fill="#e879f9" opacity="0.8">
+                                            <circle cx="30" cy="70" r="3"/> <circle cx="45" cy="65" r="3"/> <circle cx="60" cy="60" r="3"/>
+                                        </g>
+                                        <path d="M 30 70 L 60 60" stroke="#e879f9" stroke-width="1.5" fill="none" marker-end="url(#ls-v3-arrow-complex)"/>
+                                        
+                                        <!-- Down: Hollow/Different Path -->
+                                        <g stroke="#e879f9" stroke-width="1.5" fill="none">
+                                            <circle cx="80" cy="55" r="3"/> <circle cx="95" cy="60" r="3"/> <circle cx="110" cy="70" r="3"/>
+                                        </g>
+                                        <path d="M 80 55 L 110 70" stroke="#e879f9" stroke-width="1.5" fill="none" marker-end="url(#ls-v3-arrow-complex)" stroke-dasharray="2,2"/>
+                                    </svg>
+                                    <p style="font-size: 0.8rem; margin-top: 8px; font-weight:600; color: var(--text-heading);">Complex Directionality</p>
+                                </div>
                             </div>
 
-                            <div style="background: rgba(52, 211, 153, 0.1); border-left: 3px solid var(--accent-secondary); padding: 12px; margin: 16px 0; border-radius: 4px;">
-                                <strong>Try it:</strong> Use the key and scale selectors above, then click <strong>▶ Play Scale</strong> to hear and see the scale on your instrument!
+                            <div style="background: rgba(96, 165, 250, 0.1); border-left: 3px solid var(--accent-primary); padding: 12px; margin: 16px 0; border-radius: 4px;">
+                                <strong>For this tool:</strong> We will focus on the Western system of numbered scale degrees (1, 2, 3...) to help you build chords and understand modern harmony interactively.
                             </div>
                         </div>
 

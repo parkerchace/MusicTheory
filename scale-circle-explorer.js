@@ -11,6 +11,10 @@
  */
 
 class ScaleCircleExplorer {
+        // Add a no-op setupResizeObserver to prevent errors if not implemented
+        setupResizeObserver() {
+            // No-op: implement resize observer logic here if needed
+        }
     constructor(musicTheoryEngine) {
         if (!musicTheoryEngine) {
             throw new Error('ScaleCircleExplorer requires MusicTheoryEngine');

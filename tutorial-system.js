@@ -330,24 +330,34 @@
         if (demoTooltip) demoTooltip.classList.remove('show');
     }
     
-    // First-time visitor prompt
-    const hasVisited = localStorage.getItem('music-theory-visited');
-    if (!hasVisited) {
-        setTimeout(() => {
-            if (confirm('Welcome! Would you like a guided tour to learn the basics?')) {
-                easyModeActive = true;
-                startTutorial();
-                if (easyModeBtn) {
-                    easyModeBtn.style.color = 'var(--accent-secondary)';
-                    easyModeBtn.style.borderColor = 'var(--accent-secondary)';
+    // First-time visitor prompt: only trigger after launching the full studio
+    function promptTutorialOnStudioLaunch() {
+        // Only prompt after launch-workspace-btn click, never on page load
+        const hasVisited = localStorage.getItem('music-theory-visited');
+        if (!hasVisited) {
+            setTimeout(() => {
+                if (confirm('Welcome! Would you like a guided tour to learn the basics?')) {
+                    easyModeActive = true;
+                    startTutorial();
+                    if (easyModeBtn) {
+                        easyModeBtn.style.color = 'var(--accent-secondary)';
+                        easyModeBtn.style.borderColor = 'var(--accent-secondary)';
+                    }
+                    const badge = document.createElement('div');
+                    badge.className = 'easy-mode-badge';
+                    badge.textContent = 'Easy Mode Active';
+                    document.body.appendChild(badge);
                 }
-                
-                const badge = document.createElement('div');
-                badge.className = 'easy-mode-badge';
-                badge.textContent = 'Easy Mode Active';
-                document.body.appendChild(badge);
-            }
-            localStorage.setItem('music-theory-visited', 'true');
-        }, 1000);
+                localStorage.setItem('music-theory-visited', 'true');
+            }, 1000);
+        }
     }
+
+    // Listen for launch-workspace-btn click to trigger tutorial prompt
+    document.addEventListener('DOMContentLoaded', () => {
+        const launchBtn = document.querySelector('#launch-workspace-btn');
+        if (launchBtn) {
+            launchBtn.addEventListener('click', promptTutorialOnStudioLaunch);
+        }
+    });
 })();

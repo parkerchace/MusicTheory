@@ -1142,23 +1142,7 @@
     }
     
     // Check if user is first-time visitor
-    const hasVisited = localStorage.getItem('music-theory-visited');
-    if (!hasVisited) {
-        setTimeout(() => {
-            if (confirm('Welcome! Would you like a guided tour to learn the basics?')) {
-                easyModeActive = true;
-                startTutorial();
-                easyModeBtn.style.color = 'var(--accent-secondary)';
-                easyModeBtn.style.borderColor = 'var(--accent-secondary)';
-                
-                const badge = document.createElement('div');
-                badge.className = 'easy-mode-badge';
-                badge.textContent = 'Easy Mode Active';
-                document.body.appendChild(badge);
-            }
-            localStorage.setItem('music-theory-visited', 'true');
-        }, 1000);
-    }
+    // Tutorial prompt logic now handled in tutorial-system.js after launch-workspace-btn click
 
     // ========================================
     // LEXICAL MUSIC ENGINE INTEGRATION
