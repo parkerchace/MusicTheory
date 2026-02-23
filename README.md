@@ -1,4 +1,12 @@
+
 # 🎵 Music Theory Studio V12
+
+## 🌐 Live Demo
+
+You can try the latest version online via GitHub Pages:
+
+👉 [Music Theory Studio Live](https://parkerchace.github.io/MusicTheory/modular-music-theory.html)
+
 
 A professional, DAW-inspired music theory workstation with modular tools for composition, analysis, and learning.
 
