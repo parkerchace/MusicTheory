@@ -188,19 +188,31 @@
       // Precompute sizes to establish safe margins
       const sizes = notes.map(n => this.computePlanetSize(this.classifyFunction(n)));
       const maxSize = sizes.length ? Math.max(...sizes) : 10;
-      const labelMargin = 18; // room for text label above planet
-      const edgePadding = 12; // keep a little gap from rounded corners
 
-      const maxOrbit = Math.max(40, halfMin - (maxSize + labelMargin + edgePadding));
-      const innerOrbit = Math.min(maxOrbit * 0.35, halfMin * 0.18); // keep sun clearance but never exceed max
+      // Dynamic margins that scale with viewport so small/large canvases behave sensibly
+      const labelMargin = Math.max(12, Math.min(28, Math.round(Math.min(rect.width, rect.height) * 0.02)));
+      const edgePadding = Math.max(8, Math.min(48, Math.round(Math.min(rect.width, rect.height) * 0.03)));
+
+      // Allowable radial zone for orbits (from center to edge minus padding)
+      const maxOrbitLimit = Math.max(40, halfMin - edgePadding - maxSize);
+
+      // Inner orbit should clear the sun and labels; keep it proportional but not huge
+      const innerOrbit = Math.max(Math.min(maxOrbitLimit * 0.22, Math.max(24, maxSize + labelMargin)), 12);
 
       const n = Math.max(1, notes.length);
 
+      // Minimum separation between adjacent orbits to avoid overlap
+      const minSeparation = Math.max(12, Math.round((maxSize * 2) + 8));
+
+      // Compute available radial span and choose spacing that respects minSeparation
+      const availableSpan = Math.max(8, maxOrbitLimit - innerOrbit - maxSize);
+      const spacing = Math.max(minSeparation, availableSpan / Math.max(1, n));
+
       this.state.planets = notes.map((note, i) => {
-        const t = (i + 1) / (n + 1); // 0..1 spacing
-        const orbitRadius = innerOrbit + t * (maxOrbit - innerOrbit);
+        // place planets evenly using computed spacing, center them inside available area
+        const orbitRadius = Math.min(maxOrbitLimit - maxSize, innerOrbit + spacing * (i + 0.5));
         const func = this.classifyFunction(note);
-        const size = sizes[i];
+        const size = sizes[i] || Math.max(6, Math.round(9 * this.state.sizeScale));
         const angularSpeed = this.computePlanetSpeed(func, i);
         return { note, orbitRadius, size, angle: (Math.PI * 2) * (i / Math.max(1, notes.length)), angularSpeed, satellites: this.computeSatellites(note) };
       });
