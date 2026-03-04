@@ -130,7 +130,7 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            overflow: auto; /* allow workspace scrolling when content exceeds viewport */
             font-size: 12px;
         }
 

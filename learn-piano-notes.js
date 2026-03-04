@@ -78,7 +78,7 @@ class LearnPianoNotes {
         if (!this.container) return;
 
         this.container.innerHTML = `
-            <div id="learn-module-wrapper" style="position: relative; display: flex; flex-direction: column; gap: 16px; padding: 16px; max-width: 800px; margin: 0 auto;">
+            <div id="learn-module-wrapper" style="position: relative; display: flex; flex-direction: column; gap: 16px; padding: 16px; width: 100%; max-width: none; margin: 0;">
                 
                 <!-- Top Navigation Bar -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -94,15 +94,15 @@ class LearnPianoNotes {
                 <!-- Header -->
                 <div style="text-align: center; margin-bottom: 12px;">
                     <h2 style="color: var(--text-main); margin: 0 0 12px 0; font-size: clamp(1.2rem, 3vw, 1.8rem);">
-                        Learn C Major Scale
+                        Learn Notes
                     </h2>
                     <p style="color: var(--text-muted); margin: 0; font-size: clamp(0.85rem, 2vw, 1rem); line-height: 1.6;">
-                        The note names for the white keys repeat across the keyboard: <strong>C–D–E–F–G–A–B</strong>, then back to <strong>C</strong> in the next octave.
+                        Start here to understand individual note names, octave repetition, and accidentals (sharps/flats). If you want a fuller lesson on scale construction, <button id="learn-more-scales-btn" style="display:inline-block;margin-left:8px;padding:6px 10px;border:2px solid var(--accent-secondary);background:transparent;color:var(--text-main);border-radius:4px;cursor:pointer;font-weight:700;">Want to learn more about scales?</button>
                     </p>
                 </div>
 
                 <!-- Whole Steps vs Half Steps Explanation (Foundation) -->
-                <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-light); border-radius: 8px; padding: 16px;">
+                <div id="steps-block" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-light); border-radius: 8px; padding: 16px;">
                     <div style="color: var(--text-main); font-weight:700; font-size: 0.95rem; margin-bottom: 16px; text-align: center;">
                         What Are Whole Steps (W) and Half Steps (H)?
                     </div>
@@ -187,18 +187,7 @@ class LearnPianoNotes {
                         </div>
                     </div>
 
-                    <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.1);">
-                        <div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; margin-bottom: 10px;">
-                            <strong>📊 C Major Scale Pattern:</strong>
-                        </div>
-                        <div style="display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap;">
-                            ${['W', 'W', 'H', 'W', 'W', 'W', 'H'].map((step, i) => `
-                                <div style="background: ${step === 'W' ? 'rgba(52, 211, 153, 0.3)' : 'rgba(96, 165, 250, 0.3)'}; border: 1px solid ${step === 'W' ? 'var(--accent-secondary)' : 'var(--accent-primary)'}; padding: 6px 12px; border-radius: 3px; font-family: var(--font-tech); font-weight: bold; color: ${step === 'W' ? 'var(--accent-secondary)' : 'var(--accent-primary)'}; font-size: 0.85rem;">
-                                    ${step}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
+                    <!-- Scale construction details intentionally omitted here. Link above leads to full Learn Scales module. -->
                 </div>
 
                 <!-- Visual Guide Legend -->
@@ -223,11 +212,12 @@ class LearnPianoNotes {
                         🎹 Piano Keyboard (C Major Scale)
                     </div>
                     <div id="piano-learn-container" style="
-                        overflow-x: auto; 
-                        overflow-y: visible;
-                        display: flex; 
+                        overflow: hidden;
+                        display: flex;
                         justify-content: center;
+                        align-items: center;
                         min-height: 160px;
+                        width: 100%;
                     "></div>
                 </div>
 
@@ -249,14 +239,27 @@ class LearnPianoNotes {
         // Render components
         if (typeof this.renderInstrument === 'function') { this.renderInstrument(); } else { this.renderPiano(); }
         this.renderSheetMusic();
-        
+
+        // Move the steps block (half/whole step explanation) to appear AFTER the piano & sheet music
+        try {
+            const steps = this.container.querySelector('#steps-block');
+            const sheet = this.container.querySelector('#sheet-music-learn-container');
+            if (steps && sheet && sheet.parentNode) {
+                sheet.parentNode.insertBefore(steps, sheet.nextSibling);
+            }
+        } catch (e) { /* non-fatal */ }
+
+        // Render Accidentals explanation into the moved steps block
+        try { this.renderAccidentals(); } catch (e) { console.warn('renderAccidentals failed', e); }
+
         // Setup connector overlay
         this.setupConnectorOverlay();
         this.setupConnectorRedrawEvents();
-        
-        // Setup navigation buttons
+
+        // Setup navigation buttons and accidentals bindings
         this.setupNavigationButtons();
-        
+        try { this.setupAccidentalsBindings(); } catch (e) { /* non-fatal */ }
+
         // Draw connectors with delays to ensure elements are ready
         setTimeout(() => this.drawConnectorLines(), 800);
         setTimeout(() => this.drawConnectorLines(), 2000);
@@ -310,6 +313,26 @@ class LearnPianoNotes {
             themeBtn.addEventListener('mouseleave', () => {
                 themeBtn.style.background = 'transparent';
                 themeBtn.style.color = 'var(--text-main)';
+            });
+        }
+
+        // Link to Learn Scales with instrument continuity
+        const learnMoreScalesBtn = document.getElementById('learn-more-scales-btn');
+        if (learnMoreScalesBtn) {
+            learnMoreScalesBtn.addEventListener('click', () => {
+                // Determine preferred instrument (persisted or default to piano)
+                const inst = localStorage.getItem('music-theory-instrument') || (window.moduleSelector && window.moduleSelector.preferredInstrument) || 'piano';
+                try {
+                    if (window.moduleSelector && typeof window.moduleSelector.selectInstrument === 'function') {
+                        window.moduleSelector.selectInstrument(inst);
+                    }
+                    if (window.moduleSelector && typeof window.moduleSelector.launchLearnScales === 'function') {
+                        window.moduleSelector.launchLearnScales();
+                    } else if (typeof window.showLearnNotesModule === 'function') {
+                        // fallback: show Learn Scales page directly
+                        window.showLearnNotesModule(inst);
+                    }
+                } catch (e) { console.warn('Failed to open Learn Scales:', e); }
             });
         }
     }
@@ -585,6 +608,177 @@ class LearnPianoNotes {
         `;
     }
 
+    renderAccidentals() {
+        // Find the steps block (half/whole step SVG) and append a compact accidentals explanation below it
+        const steps = this.container.querySelector('#steps-block');
+        if (!steps) return;
+
+        // Avoid duplicating the explain block
+        let explain = this.container.querySelector('#accidentals-explain');
+        if (!explain) {
+            explain = document.createElement('div');
+            explain.id = 'accidentals-explain';
+            explain.style.margin = '12px 0 18px 0';
+            explain.style.padding = '10px';
+            explain.style.border = '1px solid rgba(255,255,255,0.04)';
+            explain.style.borderRadius = '8px';
+            explain.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.005), rgba(0,0,0,0.01))';
+
+            explain.innerHTML = `
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="font-weight:800;color:var(--text-main);font-size:1.02rem;">What are sharps and flats? What are the black keys?</div>
+                    <div style="color:var(--text-muted);">Start with the white-key C major view above — there are no accidentals there, which makes learning note names easier. Now we'll introduce accidentals in a focused, step-by-step way.</div>
+
+                    <ol style="color:var(--text-muted);margin:0 0 6px 18px;padding:0;">
+                        <li><strong>Black keys = accidentals.</strong> They are named relative to the nearest white keys.</li>
+                        <li><strong>Flat (♭):</strong> lowers a note by a half-step (one semitone). Example: <em>B → B♭</em> — the black key immediately left of B.</li>
+                        <li><strong>Sharp (♯):</strong> raises a note by a half-step. Example: <em>B → B♯</em>. Because B and C are adjacent (no black key between), <strong>B♯ is the same pitch as C</strong> — we call those enharmonic equivalents.</li>
+                        <li><strong>Enharmonic:</strong> different names, same pitch (e.g., B♯ = C, C♭ = B).</li>
+                    </ol>
+
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+                        <div style="flex:1;min-width:220px">
+                            <div style="font-weight:700;margin-bottom:6px;color:var(--text-main);">Hear & See</div>
+                            <div style="display:flex;gap:8px;">
+                                <button id="acc_play_B" class="btn" style="padding:8px 12px;border:2px solid var(--accent-primary);background:transparent;color:var(--text-main);font-weight:700;border-radius:6px;">Play B</button>
+                                <button id="acc_play_Bb" class="btn" style="padding:8px 12px;border:2px solid #f59e0b;background:transparent;color:var(--text-main);font-weight:700;border-radius:6px;">Play B♭</button>
+                                <button id="acc_play_Bsharp" class="btn" style="padding:8px 12px;border:2px solid #60a5fa;background:transparent;color:var(--text-main);font-weight:700;border-radius:6px;">Play B♯ = C</button>
+                            </div>
+                            <div style="color:var(--text-muted);font-size:0.9rem;margin-top:8px;">Click a button to hear the pitch; the corresponding piano key will flash and the half-step path on the diagram above will highlight.</div>
+                        </div>
+
+                        <div style="min-width:220px;">
+                            <div style="font-weight:700;margin-bottom:6px;color:var(--text-main);">Quick Practice</div>
+                            <div id="acc_quiz" style="display:flex;gap:8px;flex-direction:column">
+                                <div style="color:var(--text-muted);font-size:0.95rem;">Which key is one half-step below B?</div>
+                                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+                                    <button class="acc-option" data-answer="A" style="padding:8px 12px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--text-main);border-radius:6px;">A</button>
+                                    <button class="acc-option" data-answer="Bb" style="padding:8px 12px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--text-main);border-radius:6px;">B♭</button>
+                                    <button class="acc-option" data-answer="C" style="padding:8px 12px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--text-main);border-radius:6px;">C</button>
+                                </div>
+                                <div id="acc_feedback" style="margin-top:8px;color:var(--text-muted);"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Insert the explain block immediately after the steps block
+            steps.parentNode.insertBefore(explain, steps.nextSibling);
+        }
+
+        // Highlight the existing half-step path briefly when interacting
+        const halfSvg = steps.querySelector('svg');
+        const halfPath = halfSvg ? (halfSvg.querySelector('path') || halfSvg.querySelector('line')) : null;
+        const flashPath = (color = '#ffd700') => {
+            if (!halfPath) return;
+            const orig = halfPath.getAttribute('stroke') || '#60a5fa';
+            try { halfPath.setAttribute('stroke', color); } catch(e){}
+            setTimeout(() => { try { halfPath.setAttribute('stroke', orig); } catch(e){} }, 700);
+        };
+
+        // Wiring for play buttons (use piano audio engine)
+        const playBBtn = explain.querySelector('#acc_play_B');
+        const playBbBtn = explain.querySelector('#acc_play_Bb');
+        const playBshBtn = explain.querySelector('#acc_play_Bsharp');
+
+        // MIDI mappings: use octave around middle C (B4=71, Bb4=70, C5=72)
+        const midiB = 71, midiBb = 70, midiBsh = 72;
+
+        playBBtn && playBBtn.addEventListener('click', () => { this.playNote(midiB); this._highlightLocalPianoKey(midiB); flashPath('#60a5fa'); });
+        playBbBtn && playBbBtn.addEventListener('click', () => { this.playNote(midiBb); this._highlightLocalPianoKey(midiBb); flashPath('#f59e0b'); });
+        playBshBtn && playBshBtn.addEventListener('click', () => { this.playNote(midiBsh); this._highlightLocalPianoKey(midiBsh); flashPath('#34d399'); });
+
+        // Quiz wiring
+        const options = explain.querySelectorAll('.acc-option');
+        const feedback = explain.querySelector('#acc_feedback');
+        options.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const ans = btn.getAttribute('data-answer');
+                // correct is Bb
+                if (ans === 'Bb') {
+                    feedback.style.color = '#34d399';
+                    feedback.textContent = 'Correct — B♭ is one half-step below B.';
+                    // highlight Bb and play it
+                    this.playNote(midiBb);
+                    this._highlightLocalPianoKey(midiBb);
+                    flashPath('#f59e0b');
+                } else {
+                    feedback.style.color = '#f87171';
+                    feedback.textContent = 'Not quite — try listening: the half-step below B is the black key (B♭).';
+                    // play the chosen key if we can map it
+                    if (ans === 'A') { this.playNote(69); this._highlightLocalPianoKey(69); }
+                    if (ans === 'C') { this.playNote(midiBsh); this._highlightLocalPianoKey(midiBsh); }
+                }
+            });
+        });
+
+        // Create compact visual demos by reusing the existing half-step/whole-step SVGs
+        try {
+            const svgs = steps.querySelectorAll('svg');
+            if (svgs && svgs.length > 0) {
+                const src = svgs[0];
+                const demoRow = document.createElement('div');
+                demoRow.style.display = 'flex';
+                demoRow.style.gap = '12px';
+                demoRow.style.marginTop = '12px';
+
+                const makeDemo = (labelText, color) => {
+                    const clone = src.cloneNode(true);
+                    clone.style.width = '160px';
+                    clone.style.height = '70px';
+                    clone.style.display = 'block';
+                    // try to tint the primary path/line to the provided color for emphasis
+                    try {
+                        const p = clone.querySelector('path') || clone.querySelector('line');
+                        if (p) p.setAttribute('stroke', color);
+                    } catch (e) {}
+
+                    const box = document.createElement('div');
+                    box.style.display = 'flex';
+                    box.style.flexDirection = 'column';
+                    box.style.alignItems = 'center';
+                    box.appendChild(clone);
+                    const lbl = document.createElement('div');
+                    lbl.textContent = labelText;
+                    lbl.style.fontSize = '12px';
+                    lbl.style.color = 'var(--text-muted)';
+                    lbl.style.marginTop = '6px';
+                    box.appendChild(lbl);
+                    return box;
+                };
+
+                // B -> Bb (half-step down) — orange highlight
+                demoRow.appendChild(makeDemo('B → B♭ (half-step down)', '#f59e0b'));
+                // B -> B# (enharmonic to C) — blue highlight
+                demoRow.appendChild(makeDemo('B → B♯ (same as C)', '#60a5fa'));
+
+                // Insert demos before the practice quiz area if present
+                const quiz = explain.querySelector('#acc_quiz');
+                if (quiz) explain.insertBefore(demoRow, quiz);
+                else explain.appendChild(demoRow);
+            }
+        } catch (e) { /* non-fatal demo clone failure */ }
+    }
+
+    setupAccidentalsBindings() {
+        // Binding handled by renderAccidentals to ensure elements exist; no-op here to avoid double-binding.
+        return;
+    }
+
+    _highlightLocalPianoKey(midi) {
+        if (!this._localPiano || !this._localPiano.pianoElement) return;
+        const key = this._localPiano.pianoElement.querySelector(`[data-midi="${midi}"]`);
+        if (!key) return;
+        const orig = key.style.boxShadow || '';
+        key.style.boxShadow = '0 0 18px rgba(250,200,80,0.95)';
+        key.style.transform = 'translateY(-2px)';
+        setTimeout(() => {
+            key.style.boxShadow = orig;
+            key.style.transform = '';
+        }, 420);
+    }
+
     setupConnectorOverlay() {
         if (!this.container) return;
         
@@ -732,7 +926,7 @@ class LearnPianoNotes {
     }
 
 }
-
-if (typeof window !== 'undefined') {
+// Export to global only if not already defined
+if (typeof window !== 'undefined' && typeof window.LearnPianoNotes === 'undefined') {
     window.LearnPianoNotes = LearnPianoNotes;
 }

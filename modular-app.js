@@ -1,3 +1,71 @@
+// Instrument module loader for landing menu
+window.showLearnNotesModule = function(instrument) {
+    // Hide landing and studio UI so the learn page becomes a full standalone view
+    const landing = document.getElementById('landing-page');
+    const workspace = document.querySelector('.workspace');
+    const controlDeck = document.querySelector('.control-deck');
+    const bottomDeck = document.querySelector('.bottom-deck');
+    if (landing) landing.style.display = 'none';
+    if (workspace) workspace.style.display = 'none';
+    if (controlDeck) controlDeck.style.display = 'none';
+    if (bottomDeck) bottomDeck.style.display = 'none';
+
+    // Hide all learn pages
+    document.getElementById('learn-piano-page').style.display = 'none';
+    document.getElementById('learn-guitar-page').style.display = 'none';
+    // Show the selected instrument's learn page
+    if (instrument === 'guitar') {
+        document.getElementById('learn-guitar-page').style.display = 'block';
+        // Dynamically load the module only if the class isn't already available
+        if (!window.LearnGuitarNotes) {
+            const existingScript = document.querySelector('script[src="learn-guitar-notes.js"]');
+            if (!existingScript && !window.learnGuitarNotesLoaded) {
+                const script = document.createElement('script');
+                script.src = 'learn-guitar-notes.js';
+                script.onload = () => { window.learnGuitarNotesLoaded = true; window.mountLearnModuleIfReady('guitar'); };
+                document.body.appendChild(script);
+            } else {
+                // If the script tag exists or was previously loaded, attempt to mount
+                window.mountLearnModuleIfReady('guitar');
+            }
+        } else {
+            window.mountLearnModuleIfReady('guitar');
+        }
+    } else {
+        document.getElementById('learn-piano-page').style.display = 'block';
+        // Dynamically load the module only if the class isn't already available
+        if (!window.LearnPianoNotes) {
+            const existingScript = document.querySelector('script[src="learn-piano-notes.js"]');
+            if (!existingScript && !window.learnPianoNotesLoaded) {
+                const script = document.createElement('script');
+                script.src = 'learn-piano-notes.js';
+                script.onload = () => { window.learnPianoNotesLoaded = true; window.mountLearnModuleIfReady('piano'); };
+                document.body.appendChild(script);
+            } else {
+                window.mountLearnModuleIfReady('piano');
+            }
+        } else {
+            window.mountLearnModuleIfReady('piano');
+        }
+    }
+};
+
+// Mount modules after load (or immediately if already available)
+window.mountLearnModuleIfReady = function(instrument) {
+    if (instrument === 'guitar') {
+        if (window.LearnGuitarNotes && !window._learnGuitarInstance) {
+            window._learnGuitarInstance = new window.LearnGuitarNotes();
+            window._learnGuitarInstance.mount('#learn-guitar-notes-container');
+        } else if (window._learnGuitarInstance) {
+            // already created
+        }
+    } else {
+        if (window.LearnPianoNotes && !window._learnPianoInstance) {
+            window._learnPianoInstance = new window.LearnPianoNotes();
+            window._learnPianoInstance.mount('#learn-piano-notes-container');
+        }
+    }
+};
 // ==================== MODULAR APPLICATION ====================
         class ModularMusicTheoryApp {
             constructor() {

@@ -202,6 +202,50 @@ body {
     border-right: 2px solid var(--accent-primary);
 }
 
+/* ==================== STUDIO MODULE BASE STYLES ==================== */
+.studio-module {
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 220px;
+    width: 100%;
+    min-height: 120px;
+    color: var(--text-main);
+    font-family: var(--font-ui);
+}
+
+.studio-module .module-header {
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    background: rgba(0,0,0,0.03);
+}
+
+.studio-module .module-header .btn-icon {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+}
+
+.studio-module .module-content {
+    padding: 10px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Keep module-specific overrides (e.g. sheet music) intact */
+
 /* ==================== LEARN MODULE PAGES ==================== */
 #learn-inversions-page,
 #learn-chords-page,

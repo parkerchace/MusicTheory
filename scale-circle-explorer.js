@@ -303,8 +303,7 @@ class ScaleCircleExplorer {
                     </div>
                 </div>
 
-                <!-- Current context display -->
-                ${this.renderCurrentContext(currentScaleInfo)}
+                <!-- Current context display (moved to controls for compact layout) -->
 
                 <!-- Interactive circle visualization -->
                 <div class="circle-visualization-container">
@@ -317,6 +316,7 @@ class ScaleCircleExplorer {
 
                 <!-- Modern control panel -->
                 <div class="circle-controls-modern">
+                    ${this.renderCurrentContext(currentScaleInfo)}
                     <!-- Mode selection with pedagogical context -->
                     <div class="control-section">
                         <h3 class="control-section-title">Circle Mode</h3>
@@ -388,28 +388,108 @@ class ScaleCircleExplorer {
                     </div>
                 </div>
 
-                <!-- Educational insights panel -->
-                <div class="insights-panel">
-                    <h3>Musical Insights</h3>
-                    <div class="insight-content">
-                        ${this.renderMusicalInsights(config)}
-                    </div>
-                </div>
+                <!-- Insights panel removed per user request -->
             </div>
 
             <style>
+                /* When the circle is placed inside a ".studio-module", inherit module styling */
+                .studio-module .scale-circle-modern-wrapper {
+                    background: transparent !important;
+                    padding: 0 !important;
+                    border-radius: 0 !important;
+                    border: none !important;
+                    box-shadow: none !important;
+                }
+
+                /* Make the circle header match other module headers */
+                .studio-module .scale-circle-modern-wrapper .circle-header {
+                    background: transparent !important;
+                    padding: 8px 10px !important;
+                    border: none !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: space-between !important;
+                }
+
+                .studio-module .scale-circle-modern-wrapper .circle-title {
+                    font-size: 0.95rem !important;
+                    margin: 0 !important;
+                    -webkit-text-fill-color: initial !important;
+                    background: none !important;
+                    color: inherit !important;
+                    -webkit-background-clip: unset !important;
+                }
+
+                .studio-module .scale-circle-modern-wrapper .circle-explanation {
+                    display: none !important; /* keep module headers compact; explanation shouldn't push layout */
+                }
+
+                .studio-module .scale-circle-modern-wrapper .circle-visualization-container {
+                    padding: 8px !important;
+                    border-radius: 0 !important;
+                    border: none !important;
+                    background: transparent !important;
+                }
+
+                /* Further simplify internal elements when embedded as a standard module */
+                .studio-module .scale-circle-modern-wrapper,
+                .studio-module .scale-circle-modern-wrapper * {
+                    color: inherit !important;
+                    font-family: inherit !important;
+                }
+
+                .studio-module .scale-circle-modern-wrapper .context-card {
+                    background: transparent !important;
+                    padding: 6px 8px !important;
+                    border: none !important;
+                    border-radius: 0 !important;
+                }
+
+                .studio-module .scale-circle-modern-wrapper .control-section {
+                    background: transparent !important;
+                    padding: 6px 8px !important;
+                    border: none !important;
+                    border-radius: 0 !important;
+                }
+
+                .studio-module .scale-circle-modern-wrapper .mode-btn {
+                    padding: 6px !important;
+                    min-height: 44px !important;
+                    gap: 6px !important;
+                    border-radius: 4px !important;
+                    border: 1px solid rgba(255,255,255,0.06) !important;
+                    background: transparent !important;
+                    color: inherit !important;
+                }
+
+                .studio-module .scale-circle-modern-wrapper .mode-btn.active {
+                    background: var(--accent-primary) !important;
+                    color: #000 !important;
+                    border-color: var(--accent-primary) !important;
+                    box-shadow: none !important;
+                }
+
+                .studio-module .scale-circle-modern-wrapper .pedagogy-insight {
+                    display: none !important; /* remove extra pedagogy row inside compact modules */
+                }
+
+                .studio-module .scale-circle-modern-wrapper #circle-canvas {
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+                }
+
                 .scale-circle-modern-wrapper {
-                    --color-bg-primary: #0f172a;
-                    --color-bg-secondary: #1e293b;
-                    --color-bg-tertiary: #334155;
-                    --color-text-primary: #f1f5f9;
-                    --color-text-secondary: #cbd5e1;
-                    --color-text-muted: #64748b;
-                    --color-border: #475569;
-                    --color-accent: #3b82f6;
-                    --color-accent-secondary: #10b981;
-                    --color-warning: #f59e0b;
-                    --color-error: #ef4444;
+                    /* Prefer global theme variables; fallback to previous dark palette */
+                    --color-bg-primary: var(--bg-panel, #0f172a);
+                    --color-bg-secondary: var(--bg-secondary, #1e293b);
+                    --color-bg-tertiary: var(--bg-tertiary, #334155);
+                    --color-text-primary: var(--text-main, #f1f5f9);
+                    --color-text-secondary: var(--text-muted, #cbd5e1);
+                    --color-text-muted: var(--text-muted, #64748b);
+                    --color-border: var(--border-light, #475569);
+                    --color-accent: var(--accent-primary, #3b82f6);
+                    --color-accent-secondary: var(--accent-secondary, #10b981);
+                    --color-warning: var(--warning, #f59e0b);
+                    --color-error: var(--error, #ef4444);
                     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
                     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
                     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
@@ -427,28 +507,34 @@ class ScaleCircleExplorer {
                     background: var(--color-bg-primary);
                     color: var(--color-text-primary);
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-                    padding: var(--spacing-lg);
+                    padding: var(--spacing-md); /* tightened */
                     border-radius: var(--radius-lg);
-                    display: flex;
-                    flex-direction: column;
-                    gap: var(--spacing-lg);
-                    max-width: 1200px;
-                    margin: 0 auto;
+                    display: grid;
+                    grid-template-columns: minmax(480px, 1fr) 300px;
+                    grid-template-areas: "header header" "visual controls";
+                    gap: var(--spacing-md);
+                    max-width: 100%;
+                    width: 100%;
+                    margin: 0;
                 }
 
                 /* Header Section */
                 .circle-header {
-                    text-align: center;
+                    grid-area: header;
+                    display: flex;
+                    align-items: center;
+                    gap: var(--spacing-md);
                     background: var(--color-bg-secondary);
-                    padding: var(--spacing-xl);
+                    padding: calc(var(--spacing-md) / 1.2);
                     border-radius: var(--radius-lg);
                     border: 1px solid var(--color-border);
+                    justify-content: space-between;
                 }
 
                 .circle-title {
-                    font-size: 2rem;
+                    font-size: 1.15rem;
                     font-weight: 700;
-                    margin: 0 0 var(--spacing-sm) 0;
+                    margin: 0 0 var(--spacing-xs) 0;
                     background: linear-gradient(135deg, var(--color-accent), var(--color-accent-secondary));
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
@@ -456,23 +542,23 @@ class ScaleCircleExplorer {
                 }
 
                 .circle-explanation {
-                    font-size: 1.125rem;
+                    font-size: 0.9rem;
                     color: var(--color-text-secondary);
-                    margin: 0 0 var(--spacing-lg) 0;
-                    line-height: 1.6;
+                    margin: 0;
+                    line-height: 1.4;
                 }
 
                 .pedagogy-insight {
                     display: flex;
-                    align-items: flex-start;
+                    align-items: center;
                     gap: var(--spacing-sm);
-                    background: rgba(59, 130, 246, 0.1);
-                    padding: var(--spacing-md);
-                    border-radius: var(--radius-md);
-                    border-left: 4px solid var(--color-accent);
+                    background: rgba(59, 130, 246, 0.06);
+                    padding: calc(var(--spacing-sm));
+                    border-radius: var(--radius-sm);
+                    border-left: 3px solid var(--color-accent);
                     text-align: left;
-                    max-width: 600px;
-                    margin: 0 auto;
+                    max-width: 420px;
+                    margin: 0;
                 }
 
                 .insight-icon {
@@ -482,13 +568,17 @@ class ScaleCircleExplorer {
 
                 /* Current Context Display */
                 .current-context {
-                    background: var(--color-bg-secondary);
-                    padding: var(--spacing-lg);
+                    /* placed inside controls column now */
+                    background: transparent;
+                    padding: 0 0 8px 0;
                     border-radius: var(--radius-md);
-                    border: 1px solid var(--color-border);
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                    gap: var(--spacing-md);
+                    border: none;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    width: 100%;
+                    align-items: stretch;
+                    justify-content: flex-start;
                 }
 
                 .context-card {
@@ -515,25 +605,29 @@ class ScaleCircleExplorer {
 
                 /* Circle Visualization */
                 .circle-visualization-container {
+                    grid-area: visual;
                     position: relative;
                     display: flex;
                     justify-content: center;
                     align-items: center;
                     background: var(--color-bg-secondary);
-                    padding: var(--spacing-xl);
+                    padding: var(--spacing-md);
                     border-radius: var(--radius-lg);
                     border: 1px solid var(--color-border);
-                    min-height: 500px;
+                    min-height: 320px; /* tightened */
                 }
 
                 #circle-canvas {
-                    max-width: 100%;
+                    width: 100%;
+                    max-width: 680px; /* allow larger visualization when space permits */
                     height: auto;
+                    aspect-ratio: 1/1;
                     border-radius: 50%;
-                    background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 70%);
+                    background: radial-gradient(circle at 50% 50%, var(--color-bg-secondary) 0%, var(--color-bg-primary) 70%);
                     box-shadow: var(--shadow-xl);
                     cursor: pointer;
-                    transition: transform 0.2s ease;
+                    transition: transform 0.12s ease;
+                    display: block;
                 }
 
                 #circle-canvas:hover {
@@ -543,18 +637,19 @@ class ScaleCircleExplorer {
                 .circle-tooltip {
                     position: absolute;
                     pointer-events: none;
-                    background: var(--color-bg-primary);
-                    color: var(--color-text-primary);
-                    padding: var(--spacing-xs) var(--spacing-sm);
+                    background: var(--bg-panel, var(--color-bg-primary));
+                    color: var(--text-main, var(--color-text-primary));
+                    padding: 6px 8px;
                     border-radius: var(--radius-sm);
-                    border: 1px solid var(--color-border);
-                    box-shadow: var(--shadow-md);
-                    font-size: 0.875rem;
-                    font-weight: 500;
-                    transform: translate(-50%, -120%);
+                    border: 1px solid var(--border-light, var(--color-border));
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    line-height: 1.2;
+                    transform: translate(-50%, -110%);
                     white-space: nowrap;
                     opacity: 0;
-                    transition: opacity 0.2s ease;
+                    transition: opacity 0.12s ease, transform 0.12s ease;
                     z-index: 100;
                 }
 
@@ -564,11 +659,12 @@ class ScaleCircleExplorer {
 
                 /* Control Panel */
                 .circle-controls-modern {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-                    gap: var(--spacing-lg);
+                    grid-area: controls;
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--spacing-sm);
                     background: var(--color-bg-secondary);
-                    padding: var(--spacing-lg);
+                    padding: var(--spacing-sm);
                     border-radius: var(--radius-lg);
                     border: 1px solid var(--color-border);
                 }
@@ -601,15 +697,16 @@ class ScaleCircleExplorer {
                     flex-direction: column;
                     align-items: center;
                     gap: var(--spacing-xs);
-                    padding: var(--spacing-md);
+                    padding: 8px 10px;
                     background: var(--color-bg-primary);
-                    color: var(--color-text-secondary);
+                    color: var(--text-muted, var(--color-text-secondary));
                     border: 2px solid var(--color-border);
                     border-radius: var(--radius-md);
                     cursor: pointer;
                     transition: all 0.2s ease;
                     font-weight: 500;
-                    min-height: 80px;
+                    min-height: 56px;
+                    font-size: 0.9rem;
                 }
 
                 .mode-btn:hover {
@@ -627,7 +724,7 @@ class ScaleCircleExplorer {
                 }
 
                 .mode-icon {
-                    font-size: 1.5rem;
+                    font-size: 1.15rem;
                 }
 
                 /* Toggle Controls */
@@ -650,8 +747,8 @@ class ScaleCircleExplorer {
 
                 .toggle-slider {
                     position: relative;
-                    width: 48px;
-                    height: 24px;
+                    width: 40px;
+                    height: 20px;
                     background: var(--color-border);
                     border-radius: 24px;
                     transition: background 0.2s ease;
@@ -686,14 +783,14 @@ class ScaleCircleExplorer {
                 .context-info {
                     display: flex;
                     flex-direction: column;
-                    gap: var(--spacing-sm);
+                    gap: 6px;
                 }
 
                 .context-item {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: var(--spacing-xs) 0;
+                    padding: 4px 0;
                     border-bottom: 1px solid var(--color-border);
                 }
 
@@ -702,18 +799,19 @@ class ScaleCircleExplorer {
                 }
 
                 .current-key-display {
-                    background: var(--color-accent);
-                    color: white;
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 20px;
-                    font-weight: 600;
-                    font-size: 0.875rem;
+                    background: var(--accent-primary, var(--color-accent));
+                    color: #000;
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    font-weight: 700;
+                    font-size: 0.85rem;
                 }
 
                 .scale-notes-display {
-                    font-family: 'Courier New', monospace;
-                    color: var(--color-accent-secondary);
-                    font-weight: 500;
+                    font-family: var(--font-ui, 'Courier New', monospace);
+                    color: var(--accent-secondary, var(--color-accent-secondary));
+                    font-weight: 600;
+                    font-size: 0.9rem;
                 }
 
                 /* Action Buttons */
@@ -727,7 +825,7 @@ class ScaleCircleExplorer {
                     display: flex;
                     align-items: center;
                     gap: var(--spacing-xs);
-                    padding: var(--spacing-sm) var(--spacing-md);
+                    padding: 6px 10px;
                     border: 2px solid var(--color-border);
                     border-radius: var(--radius-md);
                     cursor: pointer;
@@ -762,45 +860,7 @@ class ScaleCircleExplorer {
                 }
 
                 /* Insights Panel */
-                .insights-panel {
-                    background: var(--color-bg-secondary);
-                    padding: var(--spacing-lg);
-                    border-radius: var(--radius-lg);
-                    border: 1px solid var(--color-border);
-                }
-
-                .insights-panel h3 {
-                    margin: 0 0 var(--spacing-md) 0;
-                    font-size: 1.25rem;
-                    font-weight: 600;
-                    color: var(--color-text-primary);
-                }
-
-                .insight-content {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                    gap: var(--spacing-md);
-                }
-
-                .insight-card {
-                    background: var(--color-bg-tertiary);
-                    padding: var(--spacing-md);
-                    border-radius: var(--radius-md);
-                    border-left: 4px solid var(--color-accent-secondary);
-                }
-
-                .insight-card h4 {
-                    margin: 0 0 var(--spacing-xs) 0;
-                    font-size: 0.875rem;
-                    font-weight: 600;
-                    color: var(--color-accent-secondary);
-                }
-
-                .insight-card p {
-                    margin: 0;
-                    line-height: 1.5;
-                    color: var(--color-text-secondary);
-                }
+                /* Insights panel removed - styles omitted */
 
                 /* Scale Polygon Info */
                 .scale-polygon-info {
@@ -1030,9 +1090,18 @@ class ScaleCircleExplorer {
         const playScaleBtn = this.containerElement.querySelector('#play-scale-btn');
         if (playScaleBtn) {
             playScaleBtn.addEventListener('click', () => {
+                const notesToPlay = (this.state.scaleNotes && this.state.scaleNotes.length) ? this.state.scaleNotes : [this.state.currentKey];
+                // Local playback fallback for better UX
+                try {
+                    this.playNotes(notesToPlay, 110);
+                } catch (e) {
+                    console.warn('Local playback failed:', e);
+                }
+
+                // Still emit event for external listeners
                 this.emit('playScale', {
                     key: this.state.currentKey,
-                    notes: this.state.scaleNotes
+                    notes: notesToPlay
                 });
             });
         }
@@ -1106,6 +1175,68 @@ class ScaleCircleExplorer {
                 return allKeys;
         }
     }
+
+            /*
+             * Convert a note name (e.g., C, C#, Db, A) to frequency in Hz (default octave 4)
+             */
+            noteNameToFreq(name) {
+                if (!name) return null;
+                const normalized = String(name).replace(/♯/g, '#').replace(/♭/g, 'b').trim();
+                const m = normalized.match(/^([A-Ga-g])([#b]?)(\d?)$/);
+                const baseMap = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+                let octave = 4;
+                let letter, accidental;
+
+                if (m) {
+                    letter = m[1].toUpperCase();
+                    accidental = m[2] || '';
+                    if (m[3]) octave = parseInt(m[3], 10);
+                } else {
+                    // fallback parsing for names like 'Bb' or 'C#'
+                    letter = normalized[0].toUpperCase();
+                    accidental = normalized[1] === '#' || normalized[1] === 'b' ? normalized[1] : '';
+                }
+
+                if (!baseMap.hasOwnProperty(letter)) return null;
+                let semitone = baseMap[letter] + (accidental === '#' ? 1 : accidental === 'b' ? -1 : 0);
+                const midi = (octave + 1) * 12 + semitone;
+                return 440 * Math.pow(2, (midi - 69) / 12);
+            }
+
+            /*
+             * Simple local note playback using WebAudio as a fallback when no external player is attached
+             */
+            playNotes(notes = [], tempo = 120) {
+                if (!notes || notes.length === 0) return;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const now = ctx.currentTime;
+                const beat = 60 / Math.max(30, tempo);
+                const noteDuration = Math.min(0.6, beat * 0.9);
+
+                notes.forEach((n, i) => {
+                    const freq = this.noteNameToFreq(n);
+                    if (!freq) return;
+                    const start = now + i * (noteDuration + 0.05);
+                    const stop = start + noteDuration;
+
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, start);
+                    gain.gain.setValueAtTime(0.0, start);
+                    gain.gain.linearRampToValueAtTime(0.12, start + 0.02);
+                    gain.gain.linearRampToValueAtTime(0.0, stop - 0.02);
+
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(stop);
+                });
+
+                const totalMs = Math.ceil((notes.length * (noteDuration + 0.05)) * 1000 + 200);
+                setTimeout(() => { try { ctx.close(); } catch (e) {} }, totalMs);
+            }
 
     /**
      * Get key positions with proper spacing
@@ -1248,11 +1379,14 @@ class ScaleCircleExplorer {
                             (this.isNoteInScale(key)) ? '#10b981' : '#6b7280';
             ctx.fill();
             
-            // Draw key label
+            // Draw key label with improved contrast and size
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 14px Arial';
+            ctx.font = 'bold 16px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+            // Add subtle dark stroke for readability over complex backgrounds
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(0,0,0,0.75)';
             
             // Handle enharmonic equivalents based on current key signature
             let displayKey = key;
@@ -1282,6 +1416,7 @@ class ScaleCircleExplorer {
                 if (key === 'Gb' && this.state.mode === 'fourths') displayKey = 'F#';
             }
             
+            ctx.strokeText(displayKey, x, y);
             ctx.fillText(displayKey, x, y);
             
             // Draw dice emoji for generated notes

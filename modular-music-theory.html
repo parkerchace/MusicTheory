@@ -1,3 +1,18 @@
+    <script>
+    // Modular instrument learn notes button logic
+    document.addEventListener('DOMContentLoaded', function() {
+        const learnBtn = document.getElementById('launch-learn-notes-btn');
+        const instrumentSelect = document.getElementById('instrument-select');
+        if (learnBtn && instrumentSelect) {
+            learnBtn.addEventListener('click', function() {
+                const instr = instrumentSelect.value;
+                window.showLearnNotesModule(instr);
+                // attempt to mount immediately if class already loaded
+                window.mountLearnModuleIfReady(instr);
+            });
+        }
+    });
+    </script>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -280,12 +295,7 @@
                 <div id="intent-results" style="margin-top: 15px; color: var(--text-muted); font-size: 0.85rem; min-height: 20px;"></div>
             </div>
 
-            <!-- Instrument Preference Selector -->
-            <div id="instrument-selector" style="display: flex; justify-content: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
-                <span style="color: var(--text-muted); align-self: center; font-size: 0.9rem;">Visualize on:</span>
-                <button class="instrument-btn" data-instrument="piano" style="padding: 10px 20px; background: var(--accent-primary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">🎹 Piano</button>
-                <button class="instrument-btn" data-instrument="guitar" style="padding: 10px 20px; background: transparent; border: 2px solid var(--accent-primary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">🎸 Guitar</button>
-            </div>
+            <!-- Instrument Preference Selector (use dropdown below instead) -->
 
             <!-- Skill Level Selector -->
             <div style="display: flex; justify-content: center; gap: 12px; margin-bottom: 40px; flex-wrap: wrap;">
@@ -299,7 +309,14 @@
             <div id="beginner-section" style="display: block; text-align: center; padding: 30px; background: rgba(52, 211, 153, 0.1); border: 2px solid var(--accent-secondary); border-radius: 8px; margin-bottom: 40px;">
                 <h3 style="color: var(--text-main); margin-top: 0;">🎹 Start Here: Learn Music Fundamentals</h3>
                 <p style="color: var(--text-muted); margin: 0 0 20px 0; font-size: 0.9rem;">Master the basics with structured, interactive lessons before exploring the full studio.</p>
-                <button id="launch-learn-piano-btn" style="padding: 12px 30px; background: var(--accent-secondary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.95rem;">Learn Piano Notes</button>
+                <div style="margin-bottom: 18px;">
+                    <label for="instrument-select" style="font-weight: bold; margin-right: 8px;">Instrument:</label>
+                    <select id="instrument-select" style="padding: 6px 16px; font-size: 1rem; border-radius: 4px;">
+                        <option value="piano">Piano</option>
+                        <option value="guitar">Guitar</option>
+                    </select>
+                </div>
+                <button id="launch-learn-notes-btn" style="padding: 12px 30px; background: var(--accent-secondary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.95rem;">Learn Notes</button>
                 <div style="margin-top: 18px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
                     <button id="launch-learn-scales-btn" style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-secondary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Learn Scales</button>
                     <button id="launch-learn-chords-btn" style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-secondary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Learn Chords</button>
@@ -327,6 +344,11 @@
     <!-- LEARN PIANO VIEW (separate from full studio) -->
     <div id="learn-piano-page" style="display:none; padding: 14px; overflow:auto;">
         <div id="learn-piano-notes-container"></div>
+    </div>
+
+    <!-- LEARN GUITAR VIEW (separate from full studio) -->
+    <div id="learn-guitar-page" style="display:none; padding: 14px; overflow:auto;">
+        <div id="learn-guitar-notes-container"></div>
     </div>
 
     <!-- LEARN SCALES VIEW (separate from full studio) -->
@@ -507,7 +529,6 @@
     <script src="chord-attribute-engine.js"></script>
     <script src="semantic-api-engine.js"></script>
     <script src="voice-leading-engine.js"></script>
-    <script src="learn-piano-notes.js"></script>
     <script src="learn-scales.js"></script>
     <script src="learn-chords.js"></script>
     <!-- <script src="generative-word-mapper.js"></script> -->

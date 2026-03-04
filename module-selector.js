@@ -22,6 +22,7 @@ class ModuleSelector {
                     category: 'Learning',
                     keywords: ['scales', 'modes', 'learn', 'lessons', 'theory', 'intervals', 'degrees', 'practice'],
                     workspaceModules: ['scale-circle-container', 'piano-container'],
+                    supportedInstruments: ['piano','guitar','all'],
                     isLearnModule: true
                 },
                 {
@@ -31,7 +32,8 @@ class ModuleSelector {
                     icon: '🎹',
                     category: 'Tools',
                     keywords: ['piano', 'keyboard', 'notes', 'midi', 'visual'],
-                    workspaceModules: ['piano-container']
+                    workspaceModules: ['piano-container'],
+                    supportedInstruments: ['piano']
                 },
                 {
                     id: 'chord-explorer',
@@ -40,7 +42,8 @@ class ModuleSelector {
                     icon: '🎼',
                     category: 'Learning',
                     keywords: ['chords', 'voicing', 'harmony', 'learn'],
-                    workspaceModules: ['chord-explorer-container']
+                    workspaceModules: ['chord-explorer-container'],
+                    supportedInstruments: ['all']
                 }
             ],
             intermediate: [
@@ -51,7 +54,8 @@ class ModuleSelector {
                     icon: '⛓️',
                     category: 'Composition',
                     keywords: ['progression', 'chords', 'composition', 'voice leading', 'harmony'],
-                    workspaceModules: ['progression-builder-container']
+                    workspaceModules: ['progression-builder-container'],
+                    supportedInstruments: ['all']
                 },
                 {
                     id: 'sheet-music',
@@ -60,7 +64,8 @@ class ModuleSelector {
                     icon: '📄',
                     category: 'Output',
                     keywords: ['notation', 'sheet music', 'print', 'score'],
-                    workspaceModules: ['sheet-music-container']
+                    workspaceModules: ['sheet-music-container'],
+                    supportedInstruments: ['all']
                 },
                 {
                     id: 'container-chord',
@@ -69,7 +74,8 @@ class ModuleSelector {
                     icon: '🎯',
                     category: 'Analysis',
                     keywords: ['chords', 'notes', 'analysis', 'harmony', 'reharmonize'],
-                    workspaceModules: ['container-chord-container']
+                    workspaceModules: ['container-chord-container'],
+                    supportedInstruments: ['all']
                 },
                 {
                     id: 'scale-relationships',
@@ -78,7 +84,8 @@ class ModuleSelector {
                     icon: '🌍',
                     category: 'Analysis',
                     keywords: ['scales', 'chords', 'modal', 'analysis', 'relationships'],
-                    workspaceModules: ['scale-relationship-container']
+                    workspaceModules: ['scale-relationship-container'],
+                    supportedInstruments: ['all']
                 }
             ],
             advanced: [
@@ -89,7 +96,8 @@ class ModuleSelector {
                     icon: '🤖',
                     category: 'Generation',
                     keywords: ['generative', 'ai', 'composition', 'semantic', 'advanced'],
-                    workspaceModules: ['number-generator-container']
+                    workspaceModules: ['number-generator-container'],
+                    supportedInstruments: ['all']
                 },
                 {
                     id: 'solar-visualizer',
@@ -98,7 +106,8 @@ class ModuleSelector {
                     icon: '☀️',
                     category: 'Visualization',
                     keywords: ['visualization', 'advanced', 'harmonic', 'relationships'],
-                    workspaceModules: ['solar-dock-viewport']
+                    workspaceModules: ['solar-dock-viewport'],
+                    supportedInstruments: ['all']
                 },
                 {
                     id: 'guitar-fretboard',
@@ -107,7 +116,8 @@ class ModuleSelector {
                     icon: '🎸',
                     category: 'Instruments',
                     keywords: ['guitar', 'fretboard', 'tuning', 'positions'],
-                    workspaceModules: ['guitar-fretboard-container']
+                    workspaceModules: ['guitar-fretboard-container'],
+                    supportedInstruments: ['guitar']
                 }
             ]
         };
@@ -135,10 +145,12 @@ class ModuleSelector {
 
     init() {
         this.renderModuleGrid();
+        this.wrapOrphanModuleContainers();
         this.setupEventListeners();
         this.showLandingPage();
         this.applyInstrumentButtonState();
     }
+
 
     applyInstrumentButtonState() {
         // Highlight the currently selected instrument button
@@ -154,6 +166,58 @@ class ModuleSelector {
                 btn.style.border = '2px solid var(--accent-primary)';
             }
         });
+        // Also sync the dropdown if present
+        const instrumentSelect = document.getElementById('instrument-select');
+        if (instrumentSelect) instrumentSelect.value = this.preferredInstrument;
+    }
+
+    wrapOrphanModuleContainers() {
+        try {
+            // First, unwrap any existing studio-module wrappers that contain mini or hidden containers
+            Array.from(document.querySelectorAll('.studio-module')).forEach(wrapper => {
+                try {
+                    const inner = wrapper.querySelector('.module-content > div');
+                    if (!inner) return;
+                    const id = inner.id || '';
+                    const style = window.getComputedStyle(inner);
+                    if (id.startsWith('mini-') || style.display === 'none') {
+                        const parent = wrapper.parentElement;
+                        if (!parent) return;
+                        parent.replaceChild(inner, wrapper);
+                    }
+                } catch (e) {
+                    // ignore per-wrapper errors
+                }
+            });
+
+            const containers = Array.from(document.querySelectorAll('[id$="-container"], #solar-dock-viewport'));
+            containers.forEach(el => {
+                // Skip mini helpers and hidden containers — they should not get their own module header
+                if ((el.id && el.id.startsWith && el.id.startsWith('mini-')) || window.getComputedStyle(el).display === 'none') {
+                    return;
+                }
+
+                if (!el.closest('.studio-module')) {
+                    const parent = el.parentElement || document.querySelector('.workspace .workspace-column.center-stage') || document.querySelector('.workspace');
+                    if (!parent) return;
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'studio-module';
+                    const header = document.createElement('div');
+                    header.className = 'module-header';
+                    header.innerHTML = `<span>${el.id.replace(/-/g,' ').toUpperCase()}</span>`;
+                    const content = document.createElement('div');
+                    content.className = 'module-content';
+
+                    // Replace the raw container with the full module wrapper
+                    parent.replaceChild(wrapper, el);
+                    content.appendChild(el);
+                    wrapper.appendChild(header);
+                    wrapper.appendChild(content);
+                }
+            });
+        } catch (e) {
+            console.warn('[ModuleSelector] wrapOrphanModuleContainers error', e);
+        }
     }
 
     selectInstrument(instrument) {
@@ -171,11 +235,22 @@ class ModuleSelector {
             });
         });
 
+        // Instrument select (dropdown) if present on page
+        const instrumentSelect = document.getElementById('instrument-select');
+        if (instrumentSelect) {
+            instrumentSelect.value = this.preferredInstrument;
+            instrumentSelect.addEventListener('change', (e) => {
+                this.selectInstrument(e.target.value);
+                this.renderModuleGrid();
+            });
+        }
+
         // Skill level buttons
         document.querySelectorAll('.skill-level-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const level = e.target.getAttribute('data-level');
                 this.selectSkillLevel(level);
+                this.renderModuleGrid();
             });
         });
 
@@ -200,6 +275,28 @@ class ModuleSelector {
         if (learnPianoBtn) {
             learnPianoBtn.addEventListener('click', () => {
                 this.launchLearnPiano();
+            });
+        }
+
+        // Launch Learn Notes (instrument-aware: opens a dedicated learn page)
+        const learnNotesBtn = document.getElementById('launch-learn-notes-btn');
+        if (learnNotesBtn) {
+            learnNotesBtn.addEventListener('click', () => {
+                // Determine preferred instrument (falls back to instrument select if available)
+                const instSelect = document.getElementById('instrument-select');
+                const inst = this.preferredInstrument || (instSelect ? instSelect.value : 'piano');
+                if (typeof window.showLearnNotesModule === 'function') {
+                    window.showLearnNotesModule(inst);
+                } else {
+                    // Fallback: show piano or guitar learn page directly
+                    if (inst === 'guitar' && document.getElementById('learn-guitar-page')) {
+                        document.getElementById('learn-guitar-page').style.display = 'block';
+                        document.getElementById('landing-page') && (document.getElementById('landing-page').style.display = 'none');
+                    } else if (document.getElementById('learn-piano-page')) {
+                        document.getElementById('learn-piano-page').style.display = 'block';
+                        document.getElementById('landing-page') && (document.getElementById('landing-page').style.display = 'none');
+                    }
+                }
             });
         }
 
@@ -232,14 +329,33 @@ class ModuleSelector {
         const grid = document.getElementById('module-grid');
         if (!grid) return;
 
+        // Gather modules across levels filtered by selected instrument
         const allModules = [
             ...this.modules.beginner,
             ...this.modules.intermediate,
             ...this.modules.advanced
         ];
 
-        grid.innerHTML = allModules.map(mod => `
-            <div class="module-card" data-module-id="${mod.id}" data-skill-level="${this.getSkillLevel(mod.id)}" style="display: ${this.currentSkillLevel === 'all' || this.getSkillLevel(mod.id) === this.currentSkillLevel ? 'flex' : 'none'};">
+        const filtered = allModules.filter(mod => {
+            const instr = mod.supportedInstruments || ['all'];
+            return instr.includes(this.preferredInstrument) || instr.includes('all');
+        }).filter(mod => (this.currentSkillLevel === 'all' || this.getSkillLevel(mod.id) === this.currentSkillLevel));
+
+        // Deduplicate by workspace container to avoid duplicate modules (prefer first match)
+        const seenContainers = new Set();
+        const uniqueModules = [];
+        for (const mod of filtered) {
+            const containers = mod.workspaceModules || [];
+            // if any container is already represented, skip this module to avoid duplication
+            const hasOverlap = containers.some(c => seenContainers.has(c));
+            if (!hasOverlap) {
+                uniqueModules.push(mod);
+                containers.forEach(c => seenContainers.add(c));
+            }
+        }
+
+        grid.innerHTML = uniqueModules.map(mod => `
+            <div class="module-card" data-module-id="${mod.id}" data-skill-level="${this.getSkillLevel(mod.id)}" style="display: flex;">
                 <div style="font-size: 2rem;">${mod.icon}</div>
                 <div class="module-card-title">${mod.name}</div>
                 <div class="module-card-description">${mod.description}</div>
