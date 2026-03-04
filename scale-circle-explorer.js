@@ -464,7 +464,7 @@ class ScaleCircleExplorer {
 
                 .studio-module .scale-circle-modern-wrapper .mode-btn.active {
                     background: var(--accent-primary) !important;
-                    color: #000 !important;
+                    color: var(--color-on-accent, #000) !important;
                     border-color: var(--accent-primary) !important;
                     box-shadow: none !important;
                 }
@@ -504,7 +504,7 @@ class ScaleCircleExplorer {
                     --spacing-xl: 2rem;
                     --spacing-2xl: 3rem;
 
-                    background: var(--color-bg-primary);
+                    background: var(--bg-panel, var(--bg, var(--color-bg-primary)));
                     color: var(--color-text-primary);
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
                     padding: var(--spacing-md); /* tightened */
@@ -524,7 +524,7 @@ class ScaleCircleExplorer {
                     display: flex;
                     align-items: center;
                     gap: var(--spacing-md);
-                    background: var(--color-bg-secondary);
+                    background: var(--bg-header, var(--bg-secondary, var(--bg-panel, var(--color-bg-secondary))));
                     padding: calc(var(--spacing-md) / 1.2);
                     border-radius: var(--radius-lg);
                     border: 1px solid var(--color-border);
@@ -582,7 +582,7 @@ class ScaleCircleExplorer {
                 }
 
                 .context-card {
-                    background: var(--color-bg-tertiary);
+                    background: var(--bg-input, var(--bg-panel, var(--color-bg-tertiary)));
                     padding: var(--spacing-md);
                     border-radius: var(--radius-sm);
                     border: 1px solid var(--color-border);
@@ -610,7 +610,7 @@ class ScaleCircleExplorer {
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    background: var(--color-bg-secondary);
+                    background: var(--bg-panel, var(--bg-secondary, var(--bg, var(--color-bg-secondary))));
                     padding: var(--spacing-md);
                     border-radius: var(--radius-lg);
                     border: 1px solid var(--color-border);
@@ -623,7 +623,7 @@ class ScaleCircleExplorer {
                     height: auto;
                     aspect-ratio: 1/1;
                     border-radius: 50%;
-                    background: radial-gradient(circle at 50% 50%, var(--color-bg-secondary) 0%, var(--color-bg-primary) 70%);
+                    background: radial-gradient(circle at 50% 50%, var(--bg-secondary, var(--color-bg-secondary)) 0%, var(--bg-panel, var(--color-bg-primary)) 70%);
                     box-shadow: var(--shadow-xl);
                     cursor: pointer;
                     transition: transform 0.12s ease;
@@ -637,7 +637,7 @@ class ScaleCircleExplorer {
                 .circle-tooltip {
                     position: absolute;
                     pointer-events: none;
-                    background: var(--bg-panel, var(--color-bg-primary));
+                    background: var(--bg-panel, var(--bg, var(--color-bg-primary)));
                     color: var(--text-main, var(--color-text-primary));
                     padding: 6px 8px;
                     border-radius: var(--radius-sm);
@@ -663,14 +663,14 @@ class ScaleCircleExplorer {
                     display: flex;
                     flex-direction: column;
                     gap: var(--spacing-sm);
-                    background: var(--color-bg-secondary);
+                    background: var(--bg-panel, var(--bg-secondary, var(--bg, var(--color-bg-secondary))));
                     padding: var(--spacing-sm);
                     border-radius: var(--radius-lg);
                     border: 1px solid var(--color-border);
                 }
 
                 .control-section {
-                    background: var(--color-bg-tertiary);
+                    background: var(--bg-input, var(--bg-panel, var(--color-bg-tertiary)));
                     padding: var(--spacing-md);
                     border-radius: var(--radius-md);
                     border: 1px solid var(--color-border);
@@ -698,7 +698,7 @@ class ScaleCircleExplorer {
                     align-items: center;
                     gap: var(--spacing-xs);
                     padding: 8px 10px;
-                    background: var(--color-bg-primary);
+                    background: var(--bg-panel, var(--bg, var(--color-bg-primary)));
                     color: var(--text-muted, var(--color-text-secondary));
                     border: 2px solid var(--color-border);
                     border-radius: var(--radius-md);
@@ -710,7 +710,7 @@ class ScaleCircleExplorer {
                 }
 
                 .mode-btn:hover {
-                    background: var(--color-bg-secondary);
+                    background: var(--bg-panel, var(--bg-secondary, var(--bg, var(--color-bg-secondary))));
                     border-color: var(--color-accent);
                     transform: translateY(-2px);
                     box-shadow: var(--shadow-md);
@@ -800,7 +800,7 @@ class ScaleCircleExplorer {
 
                 .current-key-display {
                     background: var(--accent-primary, var(--color-accent));
-                    color: #000;
+                    color: var(--color-on-accent, #000);
                     padding: 4px 8px;
                     border-radius: 12px;
                     font-weight: 700;
@@ -843,18 +843,18 @@ class ScaleCircleExplorer {
                 }
 
                 .action-btn.primary:hover {
-                    background: #2563eb;
+                    background: var(--color-accent-hover, var(--color-accent));
                     transform: translateY(-2px);
                     box-shadow: var(--shadow-md);
                 }
 
                 .action-btn.secondary {
-                    background: var(--color-bg-primary);
+                    background: var(--bg-panel, var(--bg, var(--color-bg-primary)));
                     color: var(--color-text-secondary);
                 }
 
                 .action-btn.secondary:hover {
-                    background: var(--color-bg-secondary);
+                    background: var(--bg-panel, var(--bg-secondary, var(--bg, var(--color-bg-secondary))));
                     border-color: var(--color-accent);
                     color: var(--color-text-primary);
                 }
@@ -1263,6 +1263,37 @@ class ScaleCircleExplorer {
         const canvas = this.containerElement.querySelector('#circle-canvas');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
+        // Resolve theme-aware colors from the wrapper or container
+        const cssRoot = this.containerElement.querySelector('.scale-circle-modern-wrapper') || this.containerElement;
+        const cs = window.getComputedStyle(cssRoot);
+        const getColor = (prop, fallback) => {
+            const v = cs.getPropertyValue(prop);
+            if (v && v.trim()) return v.trim();
+            return fallback;
+        };
+        const hexToRgba = (hex, a) => {
+            if (!hex) return `rgba(255,255,255,${a})`;
+            hex = hex.trim();
+            if (hex.startsWith('rgb')) {
+                return hex.replace('rgb(', 'rgba(').replace(')', `, ${a})`);
+            }
+            if (hex[0] === '#') {
+                const h = hex.substring(1);
+                const bigint = parseInt(h.length === 3 ? h.split('').map(ch => ch+ch).join('') : h, 16);
+                const r = (bigint >> 16) & 255;
+                const g = (bigint >> 8) & 255;
+                const b = bigint & 255;
+                return `rgba(${r}, ${g}, ${b}, ${a})`;
+            }
+            return hex;
+        };
+        const colorBorder = getColor('--color-border', '#6b7280');
+        const colorTextPrimary = getColor('--color-text-primary', '#ffffff');
+        const colorTextSecondary = getColor('--color-text-secondary', '#cbd5e1');
+        const colorTextMuted = getColor('--color-text-muted', '#6b7280');
+        const colorAccent = getColor('--color-accent', '#3b82f6');
+        const colorAccentSecondary = getColor('--color-accent-secondary', '#10b981');
+        const colorWarning = getColor('--color-warning', '#f59e0b');
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
         const radius = Math.min(centerX, centerY) * 0.8;
@@ -1273,7 +1304,7 @@ class ScaleCircleExplorer {
         // Draw circle
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-        ctx.strokeStyle = '#ddd';
+        ctx.strokeStyle = colorBorder;
         ctx.lineWidth = 2;
         ctx.stroke();
         
@@ -1298,7 +1329,7 @@ class ScaleCircleExplorer {
                 }
                 ctx.lineTo(x2, y2);
             });
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.strokeStyle = hexToRgba(colorTextPrimary, 0.22);
             ctx.lineWidth = 1;
             ctx.stroke();
         }
@@ -1333,7 +1364,7 @@ class ScaleCircleExplorer {
                 // Close back to root
                 ctx.lineTo(scalePositions[0].x, scalePositions[0].y);
                 
-                ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)';
+                ctx.strokeStyle = hexToRgba(colorAccentSecondary, 0.6);
                 ctx.lineWidth = 2;
                 ctx.stroke();
             }
@@ -1375,12 +1406,12 @@ class ScaleCircleExplorer {
             // Draw key point
             ctx.beginPath();
             ctx.arc(x, y, 12, 0, 2 * Math.PI);
-            ctx.fillStyle = this.state.highlightedKeys.includes(key) ? '#ff9900' : 
-                            (this.isNoteInScale(key)) ? '#10b981' : '#6b7280';
+            ctx.fillStyle = this.state.highlightedKeys.includes(key) ? colorWarning : 
+                            (this.isNoteInScale(key)) ? colorAccentSecondary : colorTextMuted;
             ctx.fill();
             
             // Draw key label with improved contrast and size
-            ctx.fillStyle = 'white';
+            ctx.fillStyle = colorTextPrimary;
             ctx.font = 'bold 16px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -1429,7 +1460,7 @@ class ScaleCircleExplorer {
             if (this.state.hoveredKey === key) {
                 ctx.beginPath();
                 ctx.arc(x, y, 18, 0, 2 * Math.PI);
-                ctx.strokeStyle = '#38bdf8';
+                ctx.strokeStyle = colorAccent;
                 ctx.lineWidth = 2;
                 ctx.stroke();
             }
@@ -1446,7 +1477,7 @@ class ScaleCircleExplorer {
             
             ctx.beginPath();
             ctx.arc(x, y, 15, 0, 2 * Math.PI);
-            ctx.strokeStyle = '#ff7f0e';
+            ctx.strokeStyle = colorWarning;
             ctx.lineWidth = 3;
             ctx.stroke();
         }
