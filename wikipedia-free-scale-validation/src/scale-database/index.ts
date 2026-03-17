@@ -1,1 +1,0 @@
-export { ScaleDatabase } from './scale-database';
