@@ -1457,3 +1457,12 @@ This modular music theory system is provided as open source for educational and 
 ---
 
 **Ready to explore music theory in a modular way!** 🎼✨
+
+## Legal
+
+- **Common-property musical elements:** Common musical elements such as scales, arpeggios, chord charts, and short musical examples are treated as common-property elements and are not protected as copyrightable works under U.S. copyright law (see discussion in the U.S. Copyright Office guidance: https://www.copyright.gov/comp3/chap800/ch800-performing-arts.pdf).
+
+- **Keys, scales, and intervals:** Keys and other basic musical parameters (for example, scales and intervals) are basic building blocks of music and are not in themselves copyrightable; see: https://blogs.law.gwu.edu/mcir/2018/12/20/key/.
+
+- **If you prefer removal:** If you would like any material removed from this repository, please contact me at sparkerchace@gmail.com and I will remove any material you're not comfortable with using. No questions asked — this project is intended as an educational tool, not to cause stress for any community.
+
