@@ -26,6 +26,110 @@ class ScaleLibrary {
         this.pianoRenderer = null;
 
         this.initialize();
+
+        // Ensure the canonical scales dataset is available on the shared engine.
+        // If another module already provided `musicTheory.scales`, prefer that.
+        if (!this.musicTheory.scales || Object.keys(this.musicTheory.scales).length === 0) {
+            this.musicTheory.scales = {
+                major: [0, 2, 4, 5, 7, 9, 11],
+                dorian: [0, 2, 3, 5, 7, 9, 10],
+                phrygian: [0, 1, 3, 5, 7, 8, 10],
+                lydian: [0, 2, 4, 6, 7, 9, 11],
+                mixolydian: [0, 2, 4, 5, 7, 9, 10],
+                aeolian: [0, 2, 3, 5, 7, 8, 10],
+                locrian: [0, 1, 3, 5, 6, 8, 10],
+
+                melodic: [0, 2, 3, 5, 7, 9, 11],
+                dorian_b2: [0, 1, 3, 5, 7, 9, 10],
+                lydian_augmented: [0, 2, 4, 6, 8, 9, 11],
+                lydian_dominant: [0, 2, 4, 6, 7, 9, 10],
+                mixolydian_b6: [0, 2, 4, 5, 7, 8, 10],
+                locrian_nat2: [0, 2, 3, 5, 6, 8, 10],
+                altered: [0, 1, 3, 4, 6, 8, 10],
+
+                harmonic: [0, 2, 3, 5, 7, 8, 11],
+                locrian_nat6: [0, 1, 3, 5, 6, 9, 10],
+                ionian_augmented: [0, 2, 4, 5, 8, 9, 11],
+                dorian_sharp4: [0, 2, 3, 6, 7, 9, 10],
+                phrygian_dominant: [0, 1, 4, 5, 7, 8, 10],
+                lydian_sharp2: [0, 3, 4, 6, 7, 9, 11],
+                altered_diminished: [0, 1, 3, 4, 6, 8, 9],
+
+                harmonic_major: [0, 2, 4, 5, 7, 8, 11],
+                dorian_b5: [0, 2, 3, 5, 6, 9, 10],
+                phrygian_b4: [0, 1, 3, 4, 7, 8, 10],
+                lydian_b3: [0, 2, 3, 6, 7, 9, 11],
+                mixolydian_b2: [0, 1, 4, 5, 7, 9, 10],
+                aeolian_b1: [0, 1, 3, 5, 7, 8, 10],
+                locrian_bb7: [0, 1, 3, 5, 6, 8, 9],
+
+                double_harmonic_major: [0, 1, 4, 5, 7, 8, 11],
+                lydian_sharp2_sharp6: [0, 3, 4, 6, 7, 10, 11],
+                ultraphrygian: [0, 1, 4, 5, 6, 9, 10],
+                hungarian_minor: [0, 2, 3, 6, 7, 8, 11],
+                oriental: [0, 1, 4, 5, 6, 9, 10],
+                ionian_augmented_sharp2: [0, 3, 4, 5, 8, 9, 11],
+                locrian_bb3_bb7: [0, 1, 2, 5, 6, 8, 9],
+
+                whole_tone: [0, 2, 4, 6, 8, 10],
+                octatonic_dim: [0, 2, 3, 5, 6, 8, 9, 11],
+                octatonic_dom: [0, 1, 3, 4, 6, 7, 9, 10],
+                augmented: [0, 3, 4, 7, 8, 11],
+                tritone: [0, 1, 4, 6, 7, 10],
+                prometheus: [0, 2, 4, 6, 9, 10],
+
+                major_pentatonic: [0, 2, 4, 7, 9],
+                minor_pentatonic: [0, 3, 5, 7, 10],
+                egyptian_pentatonic: [0, 2, 5, 7, 10],
+                blues_minor_pentatonic: [0, 3, 5, 6, 7, 10],
+                blues_major_pentatonic: [0, 2, 3, 4, 7, 9],
+                hirajoshi: [0, 2, 3, 7, 8],
+                iwato: [0, 1, 5, 6, 10],
+                insen: [0, 1, 5, 7, 10],
+                yo: [0, 2, 5, 7, 9],
+
+                blues_hexatonic: [0, 3, 5, 6, 7, 10],
+                whole_tone_hexatonic: [0, 2, 4, 6, 8, 10],
+                augmented_hexatonic: [0, 3, 4, 7, 8, 11],
+                prometheus_hexatonic: [0, 2, 4, 6, 9, 10],
+
+                hijaz: [0, 1, 4, 5, 7, 8, 10],
+                hijaz_kar: [0, 1, 4, 5, 7, 8, 11],
+                maqam_bayati: [0, 1, 3, 5, 7, 8, 10],
+                maqam_rast: [0, 2, 4, 5, 7, 9, 10],
+                maqam_ajam: [0, 2, 4, 5, 7, 9, 11],
+                maqam_nahawand: [0, 2, 3, 5, 7, 8, 10],
+                maqam_kurd: [0, 1, 3, 5, 7, 8, 10],
+                persian: [0, 1, 4, 5, 6, 8, 11],
+
+                raga_bhairav: [0, 1, 4, 5, 7, 8, 11],
+                raga_todi: [0, 1, 3, 6, 7, 8, 11],
+                raga_marwa: [0, 1, 4, 6, 7, 9, 11],
+                raga_purvi: [0, 1, 4, 6, 7, 8, 11],
+                raga_kafi: [0, 2, 3, 5, 7, 9, 10],
+                raga_bhairavi: [0, 1, 3, 5, 7, 8, 10],
+
+                spanish_phrygian: [0, 1, 4, 5, 7, 8, 10],
+                spanish_gypsy: [0, 1, 4, 5, 7, 8, 11],
+                flamenco: [0, 1, 3, 4, 5, 7, 8, 10],
+
+                bebop_major: [0, 2, 4, 5, 7, 8, 9, 11],
+                bebop_dominant: [0, 2, 4, 5, 7, 9, 10, 11],
+                bebop_minor: [0, 2, 3, 5, 7, 8, 9, 10],
+                bebop_dorian: [0, 2, 3, 4, 5, 7, 9, 10],
+
+                barry_major6dim: [0, 2, 3, 4, 5, 7, 9, 10],
+                barry_dom7dim: [0, 2, 3, 4, 6, 7, 9, 10],
+                barry_minor6dim: [0, 2, 3, 5, 6, 8, 9, 11],
+
+                enigmatic: [0, 1, 4, 6, 8, 10, 11],
+                neapolitan_major: [0, 1, 3, 5, 7, 9, 11],
+                neapolitan_minor: [0, 1, 3, 5, 7, 8, 11],
+                romanian_minor: [0, 2, 3, 6, 7, 9, 10],
+                ukrainian_dorian: [0, 2, 3, 6, 7, 9, 10],
+                leading_whole_tone: [0, 2, 4, 6, 8, 10, 11]
+            };
+        }
     }
 
     initialize() {
