@@ -42,7 +42,7 @@ Legal
 
 - **Keys, scales, and intervals:** Keys and other basic musical parameters (for example, scales and intervals) are basic building blocks of music and are not in themselves copyrightable; see: https://blogs.law.gwu.edu/mcir/2018/12/20/key/.
 
-- **If you prefer removal:** If you would like any material removed from this repository, please contact me at sparkerchace@gmail.com and I will remove any material you're not comfortable with using. No questions asked — this project is intended as an educational tool, not to cause stress for any community.
+- **If you prefer removal:** If you would like any your material removed from this repository, please contact me at sparkerchace@gmail.com and I will remove anything you're not comfortable with me using. No questions asked — this project is intended as an educational tool, not to cause stress for any community.
 
 Contact
 - Parker Chace — sparkerchace@gmail.com
