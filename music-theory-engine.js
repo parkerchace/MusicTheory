@@ -54,9 +54,16 @@ class MusicTheoryEngine {
             'Cb': { accidentals: ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Fb'], type: 'flat' }
         };
 
-        // Scales dataset moved to `ScaleLibrary` to centralize scale data and avoid duplication.
-        // The ScaleLibrary will populate `musicTheory.scales` at runtime when available.
-        this.scales = {};
+        // Load centralized scales dataset (intervals + meta)
+        try {
+            const SCALES = require('./scales.js');
+            this.scales = SCALES && SCALES.intervals ? SCALES.intervals : {};
+            this.scalesMeta = SCALES && SCALES.meta ? SCALES.meta : {};
+        } catch (err) {
+            // Fallback empty objects if require fails (e.g., runtime context without module loader)
+            this.scales = this.scales || {};
+            this.scalesMeta = this.scalesMeta || {};
+        }
 
         this.scaleCitations = {};
 
