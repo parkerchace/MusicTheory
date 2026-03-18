@@ -2,7 +2,7 @@
 
 A compact, browser-based collection of modular music-theory tools for exploration, practice, and lightweight composition. This project bundles interactive visualizers, scale and chord utilities, simple audio/MIDI helpers, and educational examples — intended for learning and experimentation rather than professional DAW production.
 
-Live demo: https://parkerchace.github.io/MusicTheory/modular-music-theory.html
+Live demo: [Music Theory Studio Live](https://parkerchace.github.io/MusicTheory/modular-music-theory.html)
 
 What this repository is
 - A set of client-side JavaScript modules and HTML/CSS that run in a browser.
