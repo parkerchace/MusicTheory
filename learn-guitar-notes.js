@@ -9,6 +9,8 @@ class LearnGuitarNotes {
         this.steps = ['C','D','E','F','G','A','B'];
         this.stepIndex = 0;
         this.showOctave = true;
+        // speech is disabled by default to avoid unsolicited audio output
+        this.speechEnabled = false;
         this.lessonStepIndex = 0;
         this.ui = {};
         this.pages = ['Intro','Notes','Octaves','Intervals','Practice','Quiz'];
@@ -715,6 +717,32 @@ class LearnGuitarNotes {
         parent.appendChild(intervalRow);
         this.ui.intervalToggle = intervalToggle;
 
+        // Speech toggle for accessibility: disabled by default
+        const speechRow = document.createElement('div');
+        speechRow.style.display = 'flex';
+        speechRow.style.alignItems = 'center';
+        speechRow.style.gap = '8px';
+        speechRow.style.marginBottom = '10px';
+
+        const speechToggle = document.createElement('input');
+        speechToggle.type = 'checkbox';
+        speechToggle.id = 'guitar-speech-toggle';
+        speechToggle.checked = !!this.speechEnabled;
+        const speechLabel = document.createElement('label');
+        speechLabel.htmlFor = 'guitar-speech-toggle';
+        speechLabel.textContent = 'Enable spoken note names';
+        speechLabel.style.color = 'var(--text-muted,#cbd5e1)';
+
+        speechRow.appendChild(speechToggle);
+        speechRow.appendChild(speechLabel);
+        parent.appendChild(speechRow);
+        this.ui.speechToggle = speechToggle;
+
+        speechToggle.addEventListener('change', (ev) => {
+            this.speechEnabled = !!ev.target.checked;
+            if (!this.speechEnabled && window && window.speechSynthesis) window.speechSynthesis.cancel();
+        });
+
         intervalToggle.addEventListener('change', (ev) => {
             // only run interval demo when on the Intervals page
             if (this.pages[this.currentPage] !== 'Intervals') return;
@@ -1061,12 +1089,15 @@ class LearnGuitarNotes {
         else if (noteName) this._playNoteForName(noteName);
         // Speak the note aloud to assist beginners and older users
         try {
-            const speakText = this.showOctave && octave !== null ? `${noteName} ${octave}` : noteName;
-            if (window && window.speechSynthesis && speakText) {
-                const u = new SpeechSynthesisUtterance(speakText);
-                u.rate = 0.95;
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(u);
+            // Only speak if the user has explicitly enabled speech
+            if (this.speechEnabled) {
+                const speakText = this.showOctave && octave !== null ? `${noteName} ${octave}` : noteName;
+                if (window && window.speechSynthesis && speakText) {
+                    const u = new SpeechSynthesisUtterance(speakText);
+                    u.rate = 0.95;
+                    window.speechSynthesis.cancel();
+                    window.speechSynthesis.speak(u);
+                }
             }
         } catch (e) { /* ignore speech failures */ }
     }
