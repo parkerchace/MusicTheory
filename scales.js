@@ -187,6 +187,64 @@ const meta = {
         ukrainian_dorian: 'Ukrainian Dorian',
         leading_whole_tone: 'Leading Whole Tone'
     }
+    ,
+    // Optional chord/type metadata for scales (used by ScaleHelper and chord UIs)
+    chordTypes: {
+        major: {
+            I: { intervals: [0, 4, 7], quality: 'maj' },
+            ii: { intervals: [2, 5, 9], quality: 'min' },
+            iii: { intervals: [4, 7, 11], quality: 'min' },
+            IV: { intervals: [5, 9, 0], quality: 'maj' },
+            V: { intervals: [7, 11, 2], quality: 'maj' },
+            vi: { intervals: [9, 0, 4], quality: 'min' },
+            'vii°': { intervals: [11, 2, 5], quality: 'dim' }
+        },
+        minor: {
+            i: { intervals: [0, 3, 7], quality: 'min' },
+            'ii°': { intervals: [2, 5, 8], quality: 'dim' },
+            III: { intervals: [3, 7, 10], quality: 'maj' },
+            iv: { intervals: [5, 8, 0], quality: 'min' },
+            v: { intervals: [7, 10, 2], quality: 'min' },
+            VI: { intervals: [8, 0, 3], quality: 'maj' },
+            VII: { intervals: [10, 2, 5], quality: 'maj' }
+        },
+        dorian: {
+            i: { intervals: [0, 3, 7], quality: 'min' },
+            ii: { intervals: [2, 5, 9], quality: 'min' },
+            III: { intervals: [3, 7, 10], quality: 'maj' },
+            IV: { intervals: [5, 9, 0], quality: 'maj' },
+            v: { intervals: [7, 10, 2], quality: 'min' },
+            'vi°': { intervals: [9, 0, 3], quality: 'dim' },
+            VII: { intervals: [10, 2, 5], quality: 'maj' }
+        },
+        phrygian: {
+            i: { intervals: [0, 3, 7], quality: 'min' },
+            II: { intervals: [1, 5, 8], quality: 'maj' },
+            III: { intervals: [3, 7, 10], quality: 'maj' },
+            iv: { intervals: [5, 8, 0], quality: 'min' },
+            'v°': { intervals: [7, 10, 1], quality: 'dim' },
+            VI: { intervals: [8, 0, 3], quality: 'maj' },
+            vii: { intervals: [10, 1, 5], quality: 'min' }
+        },
+        lydian: {
+            I: { intervals: [0, 4, 7], quality: 'maj' },
+            II: { intervals: [2, 6, 9], quality: 'maj' },
+            iii: { intervals: [4, 7, 11], quality: 'min' },
+            'iv°': { intervals: [6, 9, 0], quality: 'dim' },
+            V: { intervals: [7, 11, 2], quality: 'maj' },
+            vi: { intervals: [9, 0, 4], quality: 'min' },
+            vii: { intervals: [11, 2, 6], quality: 'min' }
+        },
+        mixolydian: {
+            I: { intervals: [0, 4, 7], quality: 'maj' },
+            ii: { intervals: [2, 5, 9], quality: 'min' },
+            'iii°': { intervals: [4, 7, 10], quality: 'dim' },
+            IV: { intervals: [5, 9, 0], quality: 'maj' },
+            v: { intervals: [7, 10, 2], quality: 'min' },
+            vi: { intervals: [9, 0, 4], quality: 'min' },
+            VII: { intervals: [10, 2, 5], quality: 'maj' }
+        }
+    }
 };
 
 const exported = { intervals, meta };

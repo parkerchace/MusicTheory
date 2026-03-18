@@ -4,87 +4,45 @@
  * Uses NumberGenerator concepts for scale degrees
  */
 class ScaleHelper {
-    constructor() {
-        this.scales = {
-            'major': {
-                name: 'Major (Ionian)',
-                intervals: [0, 2, 4, 5, 7, 9, 11], // Semitone intervals from root
-                chordTypes: {
-                    'I': { intervals: [0, 4, 7], quality: 'maj' },
-                    'ii': { intervals: [2, 5, 9], quality: 'min' },
-                    'iii': { intervals: [4, 7, 11], quality: 'min' },
-                    'IV': { intervals: [5, 9, 0], quality: 'maj' },
-                    'V': { intervals: [7, 11, 2], quality: 'maj' },
-                    'vi': { intervals: [9, 0, 4], quality: 'min' },
-                    'vii°': { intervals: [11, 2, 5], quality: 'dim' }
-                }
-            },
-            'minor': {
-                name: 'Minor (Natural)',
-                intervals: [0, 2, 3, 5, 7, 8, 10], // Natural minor
-                chordTypes: {
-                    'i': { intervals: [0, 3, 7], quality: 'min' },
-                    'ii°': { intervals: [2, 5, 8], quality: 'dim' },
-                    'III': { intervals: [3, 7, 10], quality: 'maj' },
-                    'iv': { intervals: [5, 8, 0], quality: 'min' },
-                    'v': { intervals: [7, 10, 2], quality: 'min' },
-                    'VI': { intervals: [8, 0, 3], quality: 'maj' },
-                    'VII': { intervals: [10, 2, 5], quality: 'maj' }
-                }
-            },
-            'dorian': {
-                name: 'Dorian',
-                intervals: [0, 2, 3, 5, 7, 9, 10],
-                chordTypes: {
-                    'i': { intervals: [0, 3, 7], quality: 'min' },
-                    'ii': { intervals: [2, 5, 9], quality: 'min' },
-                    'III': { intervals: [3, 7, 10], quality: 'maj' },
-                    'IV': { intervals: [5, 9, 0], quality: 'maj' },
-                    'v': { intervals: [7, 10, 2], quality: 'min' },
-                    'vi°': { intervals: [9, 0, 3], quality: 'dim' },
-                    'VII': { intervals: [10, 2, 5], quality: 'maj' }
-                }
-            },
-            'phrygian': {
-                name: 'Phrygian',
-                intervals: [0, 1, 3, 5, 7, 8, 10],
-                chordTypes: {
-                    'i': { intervals: [0, 3, 7], quality: 'min' },
-                    'II': { intervals: [1, 5, 8], quality: 'maj' },
-                    'III': { intervals: [3, 7, 10], quality: 'maj' },
-                    'iv': { intervals: [5, 8, 0], quality: 'min' },
-                    'v°': { intervals: [7, 10, 1], quality: 'dim' },
-                    'VI': { intervals: [8, 0, 3], quality: 'maj' },
-                    'vii': { intervals: [10, 1, 5], quality: 'min' }
-                }
-            },
-            'lydian': {
-                name: 'Lydian',
-                intervals: [0, 2, 4, 6, 7, 9, 11],
-                chordTypes: {
-                    'I': { intervals: [0, 4, 7], quality: 'maj' },
-                    'II': { intervals: [2, 6, 9], quality: 'maj' },
-                    'iii': { intervals: [4, 7, 11], quality: 'min' },
-                    'iv°': { intervals: [6, 9, 0], quality: 'dim' },
-                    'V': { intervals: [7, 11, 2], quality: 'maj' },
-                    'vi': { intervals: [9, 0, 4], quality: 'min' },
-                    'vii': { intervals: [11, 2, 6], quality: 'min' }
-                }
-            },
-            'mixolydian': {
-                name: 'Mixolydian',
-                intervals: [0, 2, 4, 5, 7, 9, 10],
-                chordTypes: {
-                    'I': { intervals: [0, 4, 7], quality: 'maj' },
-                    'ii': { intervals: [2, 5, 9], quality: 'min' },
-                    'iii°': { intervals: [4, 7, 10], quality: 'dim' },
-                    'IV': { intervals: [5, 9, 0], quality: 'maj' },
-                    'v': { intervals: [7, 10, 2], quality: 'min' },
-                    'vi': { intervals: [9, 0, 4], quality: 'min' },
-                    'VII': { intervals: [10, 2, 5], quality: 'maj' }
-                }
+    constructor(musicTheoryEngine) {
+        // Prefer an injected engine (consistent with other modules).
+        // Fall back to a global `window.musicTheory` or to the centralized `scales.js` dataset.
+        this.musicTheory = musicTheoryEngine || (typeof window !== 'undefined' && window.musicTheory) || null;
+
+        // Attempt to source centralized scale/chord metadata
+        let central = null;
+        if (this.musicTheory && this.musicTheory.scales && this.musicTheory.scalesMeta) {
+            central = { intervals: this.musicTheory.scales, meta: this.musicTheory.scalesMeta };
+        } else if (typeof globalThis !== 'undefined' && globalThis.SCALES) {
+            central = globalThis.SCALES;
+        } else if (typeof window !== 'undefined' && window.SCALES) {
+            central = window.SCALES;
+        } else {
+            try {
+                // Try to require the centralized file in Node/CommonJS contexts
+                const S = require('./scales.js');
+                central = S || null;
+            } catch (e) {
+                central = null;
             }
-        };
+        }
+
+        if (central && central.intervals) {
+            // Build a lightweight view for compatibility with previous `this.scales` usage
+            this.scales = Object.keys(central.intervals).reduce((acc, k) => {
+                acc[k] = {
+                    name: (central.meta && central.meta.displayNames && central.meta.displayNames[k]) || k,
+                    intervals: central.intervals[k],
+                    chordTypes: (central.meta && central.meta.chordTypes && central.meta.chordTypes[k]) || {}
+                };
+                return acc;
+            }, {});
+        } else {
+            // Last-resort fallback: minimal major scale to avoid runtime errors
+            this.scales = {
+                major: { name: 'Major (Ionian)', intervals: [0,2,4,5,7,9,11], chordTypes: {} }
+            };
+        }
 
         this.selectedScale = 'major';
         this.selectedKey = 'C';

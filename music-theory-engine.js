@@ -60,9 +60,26 @@ class MusicTheoryEngine {
             this.scales = SCALES && SCALES.intervals ? SCALES.intervals : {};
             this.scalesMeta = SCALES && SCALES.meta ? SCALES.meta : {};
         } catch (err) {
-            // Fallback empty objects if require fails (e.g., runtime context without module loader)
+            // Fallback: try browser/global exposure, then ensure a minimal default
+            try {
+                const globalScales = (typeof globalThis !== 'undefined' && globalThis.SCALES) || (typeof window !== 'undefined' && window.SCALES) || (typeof SCALES !== 'undefined' && SCALES);
+                if (globalScales) {
+                    this.scales = globalScales.intervals || globalScales.intervals === 0 ? globalScales.intervals : (globalScales || {});
+                    this.scalesMeta = globalScales.meta || {};
+                } else {
+                    this.scales = this.scales || {};
+                    this.scalesMeta = this.scalesMeta || {};
+                }
+            } catch (e) {
+                this.scales = this.scales || {};
+                this.scalesMeta = this.scalesMeta || {};
+            }
+        }
+
+        // Ensure at least a canonical major scale exists to avoid runtime errors
+        if (!this.scales || !this.scales.major) {
             this.scales = this.scales || {};
-            this.scalesMeta = this.scalesMeta || {};
+            this.scales.major = this.scales.major || [0, 2, 4, 5, 7, 9, 11];
         }
 
         this.scaleCitations = {};

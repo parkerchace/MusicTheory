@@ -95,8 +95,40 @@ class ScaleLibrary {
             throw new Error(`Invalid key: ${key}`);
         }
 
-        if (!this.musicTheory.scales[scale]) {
-            throw new Error(`Invalid scale: ${scale}`);
+        // If the engine doesn't yet have the requested scale (e.g., central
+        // `scales.js` hasn't been loaded in the browser), try to pick it up
+        // from global `SCALES` or require it, then re-check before falling
+        // back to a safe default. This handles script load-order differences.
+        if (!this.musicTheory.scales || !this.musicTheory.scales[scale]) {
+            // Try global SCALES
+            try {
+                const globalS = (typeof globalThis !== 'undefined' && globalThis.SCALES) || (typeof window !== 'undefined' && window.SCALES) || null;
+                if (globalS && globalS.intervals) {
+                    this.musicTheory.scales = globalS.intervals;
+                    this.musicTheory.scalesMeta = globalS.meta || {};
+                } else {
+                    // Try CommonJS require as a last resort (node environment)
+                    try {
+                        const S = require('./scales.js');
+                        if (S && S.intervals) {
+                            this.musicTheory.scales = S.intervals;
+                            this.musicTheory.scalesMeta = S.meta || {};
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+            } catch (e) { /* ignore */ }
+
+            if (!this.musicTheory.scales || !this.musicTheory.scales[scale]) {
+                console.warn(`ScaleLibrary: requested scale '${scale}' not found; falling back to 'major'`);
+                scale = 'major';
+                if (!this.musicTheory.scales || !this.musicTheory.scales[scale]) {
+                    // Ensure we have at least a minimal major scale to proceed
+                    this.musicTheory.scales = this.musicTheory.scales || {};
+                    this.musicTheory.scales.major = this.musicTheory.scales.major || [0,2,4,5,7,9,11];
+                }
+            }
         }
 
         this.state.currentKey = key;
