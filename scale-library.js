@@ -441,12 +441,27 @@ class ScaleLibrary {
         
         const currentScale = this.getCurrentScale();
         const scaleCategories = this.musicTheory.getScaleCategories();
-        
-        // Build optgroups for organized dropdown
-        let scaleOptionsHTML = '';
+
+        // Permanently remove unverified cultural groups (South American / African)
+        const skipPatterns = ['south american', 'south_american', 'southamerican', 'african', 'africa'];
+        const removedScaleIds = new Set();
+        const filteredCategories = {};
+
         Object.entries(scaleCategories).forEach(([category, scales]) => {
+            const catLower = String(category).toLowerCase();
+            if (skipPatterns.some(p => catLower.includes(p))) {
+                // record scale ids removed so other lists can exclude them too
+                (scales || []).forEach(s => removedScaleIds.add(s));
+                return;
+            }
+            filteredCategories[category] = scales;
+        });
+
+        // Build optgroups for organized dropdown using filtered categories
+        let scaleOptionsHTML = '';
+        Object.entries(filteredCategories).forEach(([category, scales]) => {
             scaleOptionsHTML += `<optgroup label="${category}">`;
-            scales.forEach(scaleId => {
+            (scales || []).forEach(scaleId => {
                 const displayName = this.getScaleDisplayName(scaleId);
                 const selected = scaleId === currentScale ? 'selected' : '';
                 scaleOptionsHTML += `<option value="${scaleId}" ${selected}>${displayName}</option>`;
@@ -611,10 +626,18 @@ class ScaleLibrary {
     }
 
     getAvailableScales() {
-        const scales = Object.keys(this.musicTheory.scales).map(scale => ({
-            id: scale,
-            name: this.getScaleDisplayName(scale)
-        }));
+        const categories = this.getScaleCategories();
+        const skipPatterns = ['south american', 'south_american', 'southamerican', 'african', 'africa'];
+        const removed = new Set();
+        Object.entries(categories).forEach(([category, scales]) => {
+            if (skipPatterns.some(p => String(category).toLowerCase().includes(p))) {
+                (scales || []).forEach(s => removed.add(s));
+            }
+        });
+
+        const scales = Object.keys(this.musicTheory.scales)
+            .filter(scaleId => !removed.has(scaleId))
+            .map(scale => ({ id: scale, name: this.getScaleDisplayName(scale) }));
 
         return scales;
     }
