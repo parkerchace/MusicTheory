@@ -442,24 +442,9 @@ class ScaleLibrary {
         const currentScale = this.getCurrentScale();
         const scaleCategories = this.musicTheory.getScaleCategories();
 
-        // Permanently remove unverified cultural groups (South American / African)
-        const skipPatterns = ['south american', 'south_american', 'southamerican', 'african', 'africa'];
-        const removedScaleIds = new Set();
-        const filteredCategories = {};
-
-        Object.entries(scaleCategories).forEach(([category, scales]) => {
-            const catLower = String(category).toLowerCase();
-            if (skipPatterns.some(p => catLower.includes(p))) {
-                // record scale ids removed so other lists can exclude them too
-                (scales || []).forEach(s => removedScaleIds.add(s));
-                return;
-            }
-            filteredCategories[category] = scales;
-        });
-
-        // Build optgroups for organized dropdown using filtered categories
+        // Build optgroups for organized dropdown using provided categories
         let scaleOptionsHTML = '';
-        Object.entries(filteredCategories).forEach(([category, scales]) => {
+        Object.entries(scaleCategories || {}).forEach(([category, scales]) => {
             scaleOptionsHTML += `<optgroup label="${category}">`;
             (scales || []).forEach(scaleId => {
                 const displayName = this.getScaleDisplayName(scaleId);
@@ -468,10 +453,6 @@ class ScaleLibrary {
             });
             scaleOptionsHTML += `</optgroup>`;
         });
-        
-        // Get citation for current scale
-        const currentCitation = this.musicTheory.getScaleCitation ? 
-            this.musicTheory.getScaleCitation(currentScale, 'html') : '';
         
         this.container.innerHTML = `
             <div class="scale-library-ui">
@@ -489,92 +470,9 @@ class ScaleLibrary {
                         ${scaleOptionsHTML}
                     </select>
                 </div>
-                ${currentCitation ? `
-                    <div class="scale-citation-compact">
-                        <span class="citation-summary">📚 Academic Info</span>
-                        <button class="citation-toggle" onclick="
-                            const fullDiv = this.parentElement.nextElementSibling;
-                            const isHidden = fullDiv.style.display === 'none' || fullDiv.style.display === '';
-                            fullDiv.style.display = isHidden ? 'block' : 'none';
-                            this.textContent = isHidden ? '−' : '+';
-                        ">+</button>
-                    </div>
-                    <div class="scale-citation-full" style="display: none;">${currentCitation}</div>
-                ` : ''}
+                <!-- citation UI removed: sources and academic references sanitized -->
             </div>
             <style>
-                .scale-citation-compact {
-                    margin-top: 8px;
-                    padding: 4px 8px;
-                    background: rgba(0, 243, 255, 0.05);
-                    border: 1px solid rgba(0, 243, 255, 0.2);
-                    font-size: 0.7rem;
-                    color: var(--text-muted);
-                    font-family: var(--font-tech);
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-                .citation-summary {
-                    flex: 1;
-                }
-                .citation-toggle {
-                    width: 14px;
-                    height: 14px;
-                    font-size: 0.45rem;
-                    padding: 0px;
-                    background: rgba(0, 243, 255, 0.15);
-                    border: 1px solid rgba(0, 243, 255, 0.3);
-                    color: var(--accent-primary);
-                    cursor: pointer;
-                    border-radius: 0px;
-                    flex-shrink: 0;
-                    line-height: 1;
-                }
-                .scale-citation-full {
-                    margin-top: 4px;
-                    padding: 8px 12px;
-                    background: linear-gradient(135deg, rgba(0, 243, 255, 0.1) 0%, rgba(5, 10, 15, 0.9) 100%);
-                    border-left: 3px solid var(--accent-primary);
-                    border-radius: 0;
-                    font-size: 0.75rem;
-                    color: var(--text-main);
-                    line-height: 1.4;
-                    font-family: var(--font-tech);
-                    border: 1px solid var(--border-light);
-                    border-left-width: 3px;
-                    max-height: 200px;
-                    overflow-y: auto;
-                }
-                .scale-citation-content {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
-                }
-                .citation-description {
-                    font-weight: 500;
-                    color: var(--accent-primary);
-                }
-                .citation-references {
-                    font-size: 0.8rem;
-                    color: var(--text-muted);
-                }
-                .citation-references strong {
-                    color: var(--accent-primary);
-                    margin-right: 4px;
-                }
-                .citation-references a {
-                    color: var(--accent-secondary);
-                    text-decoration: none;
-                    border-bottom: 1px dotted var(--accent-secondary);
-                    transition: all 0.2s ease;
-                }
-                .citation-references a:hover {
-                    color: var(--accent-primary);
-                    border-bottom-style: solid;
-                    background: rgba(0, 243, 255, 0.1);
-                    padding: 2px 4px;
-                }
                 #scale-select optgroup {
                     font-weight: bold;
                     font-style: normal;
@@ -627,17 +525,7 @@ class ScaleLibrary {
     }
 
     getAvailableScales() {
-        const categories = this.getScaleCategories();
-        const skipPatterns = ['south american', 'south_american', 'southamerican', 'african', 'africa'];
-        const removed = new Set();
-        Object.entries(categories).forEach(([category, scales]) => {
-            if (skipPatterns.some(p => String(category).toLowerCase().includes(p))) {
-                (scales || []).forEach(s => removed.add(s));
-            }
-        });
-
-        const scales = Object.keys(this.musicTheory.scales)
-            .filter(scaleId => !removed.has(scaleId))
+        const scales = Object.keys(this.musicTheory.scales || {})
             .map(scale => ({ id: scale, name: this.getScaleDisplayName(scale) }));
 
         return scales;

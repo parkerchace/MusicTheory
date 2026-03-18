@@ -1488,28 +1488,9 @@ window.mountLearnModuleIfReady = function(instrument) {
         }
 
         function renderScaleCitation(scaleType, compactContainer, expandedContainer) {
-            if (!window.modularApp || !window.modularApp.musicTheory) {
-                return;
-            }
-            
-            const musicTheory = window.modularApp.musicTheory;
-            const citation = musicTheory.getScaleCitation(scaleType, 'html');
-            const status = musicTheory.scaleCitations[scaleType]?.validationStatus;
-            
-            // Update compact display with confidence indicator
-            const indicator = getConfidenceIndicator(status);
-            if (compactContainer) {
-                compactContainer.innerHTML = indicator ? indicator.replace(/<[^>]*>/g, '').substring(0, 10) : 'Info';
-            }
-            
-            // Update expanded display with full citation and confidence indicator
-            if (expandedContainer) {
-                if (!citation || citation.includes('Scale derivation not documented')) {
-                    expandedContainer.innerHTML = '<div class="no-sources">No academic sources found</div>';
-                } else {
-                    expandedContainer.innerHTML = indicator + '<br>' + citation;
-                }
-            }
+            // Citation display has been removed for licensing reasons.
+            if (compactContainer) compactContainer.innerHTML = '';
+            if (expandedContainer) expandedContainer.innerHTML = '<div class="no-sources">Source information removed</div>';
         }
 
         // Initialize the modular app when DOM is ready
