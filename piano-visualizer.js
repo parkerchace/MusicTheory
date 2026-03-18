@@ -2105,58 +2105,10 @@ class PianoVisualizer {
         compactInfo.style.overflow = 'hidden';
         compactInfo.style.textOverflow = 'ellipsis';
         
-        // Tiny expand button
-        const expandBtn = document.createElement('button');
-        expandBtn.innerHTML = '+';
-        expandBtn.style.width = '14px';
-        expandBtn.style.height = '14px';
-        expandBtn.style.fontSize = '0.45rem';
-        expandBtn.style.padding = '0';
-        expandBtn.style.background = 'rgba(0, 243, 255, 0.15)';
-        expandBtn.style.border = '1px solid rgba(0, 243, 255, 0.3)';
-        expandBtn.style.color = 'var(--accent-primary)';
-        expandBtn.style.cursor = 'pointer';
-        expandBtn.style.borderRadius = '0';
-        expandBtn.style.flexShrink = '0';
-        expandBtn.style.lineHeight = '1';
-        
-        // Expanded info (hidden by default)
-        const expandedInfo = document.createElement('div');
-        expandedInfo.id = 'piano-scale-info';
-        expandedInfo.style.position = 'absolute';
-        expandedInfo.style.top = '100%';
-        expandedInfo.style.left = '0';
-        expandedInfo.style.right = '0';
-        expandedInfo.style.background = 'rgba(0, 0, 0, 0.95)';
-        expandedInfo.style.border = '1px solid rgba(0, 243, 255, 0.3)';
-        expandedInfo.style.padding = '6px';
-        expandedInfo.style.fontSize = '0.65rem';
-        expandedInfo.style.lineHeight = '1.3';
-        expandedInfo.style.maxHeight = '120px';
-        expandedInfo.style.overflowY = 'auto';
-        expandedInfo.style.display = 'none';
-        expandedInfo.style.zIndex = '1000';
-        expandedInfo.style.fontFamily = 'var(--font-tech)';
-        
-        // Toggle functionality
-        let isExpanded = false;
-        expandBtn.addEventListener('click', () => {
-            isExpanded = !isExpanded;
-            if (isExpanded) {
-                expandedInfo.style.display = 'block';
-                expandBtn.innerHTML = '−';
-                expandBtn.style.background = 'rgba(0, 243, 255, 0.3)';
-            } else {
-                expandedInfo.style.display = 'none';
-                expandBtn.innerHTML = '+';
-                expandBtn.style.background = 'rgba(0, 243, 255, 0.2)';
-            }
-        });
+        // (Removed tiny expand button and expanded info — consolidated with other UI controls)
         
         scaleInfoContainer.style.position = 'relative';
         scaleInfoContainer.appendChild(compactInfo);
-        scaleInfoContainer.appendChild(expandBtn);
-        scaleInfoContainer.appendChild(expandedInfo);
         
         // Add sections to fingering row (scale info on top, buttons below)
         fingeringRow.appendChild(scaleInfoContainer);

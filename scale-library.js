@@ -519,15 +519,16 @@ class ScaleLibrary {
                     flex: 1;
                 }
                 .citation-toggle {
-                    width: 16px;
-                    height: 16px;
-                    font-size: 0.6rem;
-                    padding: 0;
-                    background: rgba(0, 243, 255, 0.2);
-                    border: 1px solid rgba(0, 243, 255, 0.4);
+                    width: 14px;
+                    height: 14px;
+                    font-size: 0.45rem;
+                    padding: 0px;
+                    background: rgba(0, 243, 255, 0.15);
+                    border: 1px solid rgba(0, 243, 255, 0.3);
                     color: var(--accent-primary);
                     cursor: pointer;
-                    border-radius: 0;
+                    border-radius: 0px;
+                    flex-shrink: 0;
                     line-height: 1;
                 }
                 .scale-citation-full {
