@@ -256,3 +256,16 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
     window.SCALES = exported;
 }
+
+// ============================================================================
+// Ian Ring import helper (generated)
+// After running the scraper and normalization script in `scale database/`,
+// you can merge generated intervals into the central `intervals` object like:
+//
+// const { ianring_intervals } = require('./scale database/scales_ianring_intervals.js');
+// Object.assign(intervals, ianring_intervals);
+//
+// NOTE: This file only documents the merge steps. Do not modify program logic
+// here; instead run the normalization script and merge the entries in a
+// controlled review.
+// ============================================================================

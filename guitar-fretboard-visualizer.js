@@ -472,7 +472,7 @@ class GuitarFretboardVisualizer {
                 }
             }
 
-            // Root emphasis: bright orange/gold
+            // Root emphasis: bright orange/gold (only meaningful for scale tones)
             if (isRoot && isScaleTone) {
                 cell.style.background = 'radial-gradient(circle, rgba(245,158,11,1) 0%, rgba(245,158,11,0.7) 100%)';
                 cell.style.boxShadow = '0 0 12px rgba(245,158,11,0.8), inset 0 1px 2px rgba(255,255,255,0.4)';
@@ -483,10 +483,10 @@ class GuitarFretboardVisualizer {
                 }
             }
 
-            // Focused note: bright blue ring
-            if (isFocused && isScaleTone) {
-                cell.style.background = 'radial-gradient(circle, rgba(96,165,250,1) 0%, rgba(96,165,250,0.7) 100%)';
-                cell.style.boxShadow = '0 0 16px rgba(96,165,250,1), inset 0 1px 3px rgba(255,255,255,0.5)';
+            // Focused note: bright blue ring — always highlight the focused/focused-midi note
+            if (isFocused) {
+                cell.style.background = 'radial-gradient(circle, rgba(96,165,250,1) 0%, rgba(96,165,250,0.85) 100%)';
+                cell.style.boxShadow = '0 0 20px rgba(96,165,250,1), inset 0 1px 4px rgba(255,255,255,0.6)';
                 if (label) {
                     label.style.color = '#000';
                     label.style.fontWeight = '900';
