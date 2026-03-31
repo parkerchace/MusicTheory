@@ -100,6 +100,7 @@ window.mountLearnModuleIfReady = function(instrument) {
                 this.numberGenerator.connectMusicTheory(this.musicTheory); // Connect for intelligent generation
                 this.scaleLibrary = new ScaleLibrary(this.musicTheory);
                 this.pianoVisualizer = new PianoVisualizer({
+                    container: '#piano-container',
                     startMidi: 21,
                     octaves: 7,
                     whiteKeyWidth: 30,
@@ -117,8 +118,8 @@ window.mountLearnModuleIfReady = function(instrument) {
                 this.scaleRelationshipExplorer = new ScaleRelationshipExplorer(this.musicTheory);
                 this.progressionBuilder = new ProgressionBuilder(this.musicTheory);
                 this.scaleCircleExplorer = new ScaleCircleExplorer(this.musicTheory);
-                this.solarSystem = new SolarSystemVisualizer(this.musicTheory);
-                this.audioVisualizer = new AudioVisualizer();
+                this.solarSystem = typeof SolarSystemVisualizer !== 'undefined' ? new SolarSystemVisualizer(this.musicTheory) : null;
+                this.audioVisualizer = typeof AudioVisualizer !== 'undefined' ? new AudioVisualizer() : null;
                 // Use UnifiedChordExplorer (new consolidated explorer). Keep tools wired to it.
                 try {
                     this.chordExplorer = new UnifiedChordExplorer(this.musicTheory);

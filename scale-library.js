@@ -174,6 +174,124 @@ class ScaleLibrary {
         return categories[category] || [];
     }
 
+    getTaxonomyMeta() {
+        const taxonomy = this.musicTheory?.scalesMeta?.taxonomy;
+        if (taxonomy && taxonomy.byFamily && taxonomy.byScale) {
+            return taxonomy;
+        }
+        return this.buildFallbackTaxonomy();
+    }
+
+    buildFallbackTaxonomy() {
+        const categories = this.getScaleCategories() || {};
+        const byFamily = {};
+        const byScale = {};
+        Object.entries(categories).forEach(([family, scaleIds]) => {
+            byFamily[family] = { subcategories: { 'Main Scales': scaleIds.slice() } };
+            scaleIds.forEach((id, index) => {
+                byScale[id] = {
+                    family,
+                    subcategory: 'Main Scales',
+                    isCore: index < 8,
+                    variationOf: null,
+                    displayOrder: index,
+                    isCommonCore: index < 6
+                };
+            });
+        });
+        return {
+            topLevel: ['Common & Core', 'All Families'],
+            familyOrder: Object.keys(byFamily),
+            byFamily,
+            byScale,
+            commonCore: ['major', 'aeolian', 'dorian', 'mixolydian', 'lydian', 'phrygian', 'locrian'],
+            unclassified: []
+        };
+    }
+
+    // Recursive helper to flatten nested taxonomy structures (from elastic splitting)
+    flattenIds(input) {
+        if (Array.isArray(input)) return input;
+        if (typeof input === 'object' && input !== null) {
+            let flat = [];
+            Object.values(input).forEach(v => flat = flat.concat(this.flattenIds(v)));
+            return flat;
+        }
+        return [];
+    }
+
+    getVariationGroups(scaleIdsInput, taxonomyByScale) {
+        const groups = new Map();
+        const roots = [];
+        
+        const scaleIds = this.flattenIds(scaleIdsInput);
+
+        (scaleIds || []).forEach(scaleId => {
+            const info = (taxonomyByScale && taxonomyByScale[scaleId]) ? (Array.isArray(taxonomyByScale[scaleId]) ? taxonomyByScale[scaleId][0] : taxonomyByScale[scaleId]) : {};
+            if (info.subcategory === 'Variations' && info.variationOf) {
+                if (!groups.has(info.variationOf)) {
+                    groups.set(info.variationOf, []);
+                }
+                groups.get(info.variationOf).push(scaleId);
+                return;
+            }
+            roots.push(scaleId);
+        });
+        roots.sort((a, b) => this.getScaleDisplayName(a).localeCompare(this.getScaleDisplayName(b)));
+        roots.forEach(rootId => {
+            const variants = groups.get(rootId);
+            if (variants) {
+                variants.sort((a, b) => this.getScaleDisplayName(a).localeCompare(this.getScaleDisplayName(b)));
+            }
+        });
+        return { roots, groups };
+    }
+
+    renderRecursiveTaxonomy(node, byScale, currentScale) {
+        if (Array.isArray(node)) {
+            const grouped = this.getVariationGroups(node, byScale);
+            return grouped.roots.map(scaleId => {
+                const displayName = this.getScaleDisplayName(scaleId);
+                const isActive = scaleId === currentScale ? 'active' : '';
+                const variants = grouped.groups.get(scaleId) || [];
+                if (!variants.length) {
+                    return `<div class="scale-item ${isActive}" data-scale="${scaleId}">${displayName}</div>`;
+                }
+
+                return `
+                    <div class="variation-group" data-root="${scaleId}">
+                        <button class="variation-toggle scale-item ${isActive}" data-scale="${scaleId}">
+                            <span>${displayName}</span>
+                            <span class="variation-count">${variants.length} variations</span>
+                        </button>
+                        <div class="variation-items">
+                            ${variants.map(variantId => {
+                                const variantName = this.getScaleDisplayName(variantId);
+                                const variantActive = variantId === currentScale ? 'active' : '';
+                                return `<div class="scale-item ${variantActive}" data-scale="${variantId}" data-variation="true">${variantName}</div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        return Object.entries(node).map(([label, nextNode]) => {
+            const subId = `nested-${label.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Math.floor(Math.random() * 1000)}`;
+            return `
+                <div class="nested-category-box">
+                    <div class="nested-category-header" data-category-header="${subId}">
+                        <span>${label}</span>
+                        <span class="picker-icon">▼</span>
+                    </div>
+                    <div class="nested-category-content" id="${subId}" style="display:none;">
+                        ${this.renderRecursiveTaxonomy(nextNode, byScale, currentScale)}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
     /**
      * Get all available keys
      */
@@ -201,6 +319,14 @@ class ScaleLibrary {
      * Get display name for scale
      */
     getScaleDisplayName(scaleType) {
+        // First check if we have display names from scalesMeta (scraped data)
+        if (this.musicTheory.scalesMeta && 
+            this.musicTheory.scalesMeta.displayNames && 
+            this.musicTheory.scalesMeta.displayNames[scaleType]) {
+            return this.musicTheory.scalesMeta.displayNames[scaleType];
+        }
+        
+        // Fallback to hardcoded display names
         const displayNames = {
             // Major & Modes
             major: 'Major (Ionian)',
@@ -475,65 +601,918 @@ class ScaleLibrary {
         if (!this.container) return;
         
         const currentScale = this.getCurrentScale();
+        const currentScaleName = this.getScaleDisplayName(currentScale);
         const scaleCategories = this.musicTheory.getScaleCategories();
-
-        // Build optgroups for organized dropdown using provided categories
-        let scaleOptionsHTML = '';
-        Object.entries(scaleCategories || {}).forEach(([category, scales]) => {
-            scaleOptionsHTML += `<optgroup label="${category}">`;
-            (scales || []).forEach(scaleId => {
-                const displayName = this.getScaleDisplayName(scaleId);
-                const selected = scaleId === currentScale ? 'selected' : '';
-                scaleOptionsHTML += `<option value="${scaleId}" ${selected}>${displayName}</option>`;
-            });
-            scaleOptionsHTML += `</optgroup>`;
-        });
+        const taxonomy = this.getTaxonomyMeta();
+        if (document.getElementById('scale-picker-modal') && this.container.innerHTML.includes('scale-picker-modal')) {
+            const nameSpan = document.querySelector('#scale-picker-btn .current-scale-name');
+            if (nameSpan) nameSpan.textContent = currentScaleName;
+            const keySelect = document.getElementById('key-select');
+            if (keySelect) keySelect.value = this.state.currentKey;
+            return;
+        }
         
         this.container.innerHTML = `
             <div class="scale-library-ui">
-                <h3>Scale Library</h3>
-                <div class="scale-selector">
-                    <label>Key:</label>
-                    <select id="key-select">
-                        ${this.musicTheory.getKeys().map(key => 
-                            `<option value="${key}" ${key === this.state.currentKey ? 'selected' : ''}>${key}</option>`
-                        ).join('')}
-                    </select>
+                <div class="scale-library-header">
+                    <div class="key-selector">
+                        <label>Key:</label>
+                        <select id="key-select">
+                            ${this.musicTheory.getKeys().map(key => 
+                                `<option value="${key}" ${key === this.state.currentKey ? 'selected' : ''}>${key}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
                     
-                    <label>Scale:</label>
-                    <select id="scale-select">
-                        ${scaleOptionsHTML}
-                    </select>
+                    <button id="scale-picker-btn" class="scale-picker-button">
+                        <span class="current-scale-name">${currentScaleName}</span>
+                        <span class="picker-icon">▼</span>
+                    </button>
                 </div>
-                <!-- citation UI removed: sources and academic references sanitized -->
             </div>
+            
+            <!-- Modal Overlay -->
+            <div id="scale-picker-modal" class="scale-picker-modal" style="display: none;">
+                <div class="modal-backdrop"></div>
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div class="scale-view-tabs">
+                            <button class="scale-view-tab active" data-view="tree">Family Tree</button>
+                            <button class="scale-view-tab" data-view="special">Special View</button>
+                        </div>
+                        <div class="scale-search-container">
+                            <input 
+                                type="text" 
+                                id="scale-search-input" 
+                                class="scale-search-input" 
+                                placeholder="Search scales, traditions, intervals..."
+                                autocomplete="off"
+                            />
+                        </div>
+                        <button id="close-modal-btn" class="close-btn">×</button>
+                    </div>
+                    <div class="categories-grid">
+                        ${this.buildCategoriesHTML(scaleCategories, currentScale, taxonomy)}
+                    </div>
+                </div>
+            </div>
+            
             <style>
-                #scale-select optgroup {
-                    font-weight: bold;
-                    font-style: normal;
-                    color: var(--accent-primary);
-                    background: #000;
-                }
-                #scale-select option {
-                    font-weight: normal;
-                    padding-left: 8px;
-                    background: #000;
+                .scale-library-ui {
+                    font-family: var(--font-tech);
                     color: var(--text-main);
+                }
+                
+                .scale-library-header {
+                    display: flex;
+                    gap: 12px;
+                    align-items: center;
+                }
+                
+                .key-selector {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                
+                .key-selector label {
+                    font-size: 0.85rem;
+                    color: var(--text-muted);
+                }
+                
+                .key-selector select {
+                    padding: 6px 10px;
+                    background: var(--bg-app);
+                    border: 1px solid var(--border-light);
+                    color: var(--text-main);
+                    border-radius: 4px;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                }
+                
+                .scale-picker-button {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 6px 12px;
+                    background: var(--bg-panel);
+                    border: 1px solid var(--border-light);
+                    border-radius: 4px;
+                    color: var(--text-main);
+                    cursor: pointer;
+                    font-size: 0.85rem;
+                    transition: all 0.2s ease;
+                    min-width: 180px;
+                    justify-content: space-between;
+                }
+                
+                .scale-picker-button:hover {
+                    background: var(--bg-hover);
+                    border-color: var(--accent-primary);
+                }
+                
+                .current-scale-name {
+                    font-weight: 600;
+                }
+                
+                .picker-icon {
+                    font-size: 0.7rem;
+                    opacity: 0.6;
+                }
+                
+                /* Modal Styles */
+                .scale-picker-modal {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    z-index: 9999;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                
+                .modal-backdrop {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.7);
+                    backdrop-filter: blur(4px);
+                }
+                
+                .modal-content {
+                    position: relative;
+                    background: var(--bg-app);
+                    border: 2px solid var(--border-light);
+                    border-radius: 12px;
+                    max-width: 900px;
+                    max-height: 80vh;
+                    width: 90%;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                    animation: modalSlideIn 0.3s ease-out;
+                }
+                
+                @keyframes modalSlideIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-20px) scale(0.95);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
+                }
+                
+                .modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 16px 20px;
+                    border-bottom: 1px solid var(--border-light);
+                    gap: 16px;
+                }
+                
+                .modal-header h3 {
+                    margin: 0;
+                    font-size: 1.2rem;
+                    white-space: nowrap;
+                }
+                
+                .scale-search-input {
+                    flex: 1;
+                    padding: 8px 12px;
+                    background: var(--bg-panel);
+                    border: 1px solid var(--border-light);
+                    border-radius: 6px;
+                    color: var(--text-main);
+                    font-size: 0.9rem;
+                    font-family: var(--font-tech);
+                    transition: all 0.2s ease;
+                }
+                
+                .scale-search-input:focus {
+                    outline: none;
+                    border-color: var(--accent-primary);
+                    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+                }
+                
+                .scale-search-input::placeholder {
+                    color: var(--text-muted);
+                }
+                
+                .close-btn {
+                    background: transparent;
+                    border: none;
+                    color: var(--text-muted);
+                    font-size: 28px;
+                    cursor: pointer;
+                    padding: 0;
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 4px;
+                    transition: all 0.2s ease;
+                }
+                
+                .close-btn:hover {
+                    background: var(--bg-hover);
+                    color: var(--text-main);
+                }
+                
+                .categories-grid {
+                    padding: 18px;
+                    overflow-y: auto;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                    grid-auto-rows: min-content;
+                    gap: 14px;
+                    align-items: start;
+                }
+                
+                .category-box {
+                    background: var(--bg-panel);
+                    border: 1px solid var(--border-light);
+                    border-radius: 8px;
+                    overflow: hidden;
+                    transition: box-shadow 0.18s ease, border-color 0.18s ease;
+                    display: flex;
+                    flex-direction: column;
+                    min-height: 56px;
+                }
+
+                .category-scales {
+                    max-height: 38vh;
+                    overflow-y: auto;
+                    padding: 8px 10px;
+                }
+                
+                .category-box:hover {
+                    border-color: var(--accent-primary);
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                }
+                
+                .category-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 12px 14px;
+                    cursor: pointer;
+                    user-select: none;
+                    background: var(--bg-app);
+                    transition: background 0.12s ease;
+                }
+                
+                .category-header:hover {
+                    background: var(--bg-hover);
+                }
+                
+                .category-box.expanded .category-header {
+                    background: var(--accent-primary);
+                    color: #000;
+                }
+                
+                .category-name {
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                }
+                
+                .category-count {
+                    font-size: 0.75rem;
+                    padding: 2px 6px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 10px;
+                    font-weight: 600;
+                }
+                
+                .category-box.expanded .category-count {
+                    background: rgba(0, 0, 0, 0.2);
+                }
+                
+                .category-scales {
+                    max-height: 250px;
+                    overflow-y: auto;
+                    background: var(--bg-panel);
+                }
+
+                .scale-view-tabs {
+                    display: flex;
+                    gap: 8px;
+                }
+
+                .scale-view-tab {
+                    border: 1px solid var(--border-light);
+                    background: var(--bg-panel);
+                    color: var(--text-main);
+                    border-radius: 6px;
+                    font-size: 0.78rem;
+                    padding: 6px 10px;
+                    cursor: pointer;
+                }
+
+                .scale-view-tab.active {
+                    border-color: var(--accent-primary);
+                    background: var(--accent-primary);
+                    color: #000;
+                    font-weight: 600;
+                }
+
+                .subcategory-block {
+                    border-top: 1px dashed var(--border-light);
+                    padding: 8px 10px;
+                }
+
+                .subcategory-title {
+                    font-size: 0.74rem;
+                    font-weight: 600;
+                    opacity: 0.75;
+                    text-transform: uppercase;
+                    margin-bottom: 6px;
+                }
+
+                .variation-group {
+                    border: 1px solid var(--border-light);
+                    border-radius: 4px;
+                    margin-bottom: 6px;
+                    overflow: hidden;
+                }
+
+                .variation-toggle {
+                    width: 100%;
+                    border: none;
+                    background: var(--bg-app);
+                    color: var(--text-main);
+                    text-align: left;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                .variation-count {
+                    font-size: 0.72rem;
+                    opacity: 0.7;
+                }
+
+                .variation-items {
+                    display: none;
+                    max-height: 26vh;
+                    overflow-y: auto;
+                }
+
+                .variation-group.expanded .variation-items {
+                    display: block;
+                }
+
+                .nested-category-box {
+                    border: 1px solid var(--border-light);
+                    border-radius: 6px;
+                    margin: 8px;
+                    overflow: hidden;
+                    background: rgba(255, 255, 255, 0.01);
+                }
+
+                .nested-category-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 10px 12px;
+                    cursor: pointer;
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    background: var(--bg-app);
+                }
+
+                .nested-category-header:hover {
+                    background: var(--bg-hover);
+                }
+
+                .nested-category-content {
+                    border-top: 1px solid var(--border-light);
+                    max-height: 32vh;
+                    overflow-y: auto;
+                }
+                
+                .scale-item {
+                    padding: 8px 12px;
+                    font-size: 0.8rem;
+                    cursor: pointer;
+                    border-bottom: 1px solid var(--border-light);
+                    transition: padding-left 0.12s ease, background 0.12s ease;
+                }
+                
+                .scale-item:last-child {
+                    border-bottom: none;
+                }
+                
+                .scale-item:hover {
+                    background: var(--bg-hover);
+                    padding-left: 16px;
+                }
+                
+                .scale-item.active {
+                    background: var(--accent-primary);
+                    color: #000;
+                    font-weight: 600;
+                }
+                
+                .scale-item.active:hover {
+                    background: var(--accent-secondary);
+                }
+
+                .scale-item.similar-highlight {
+                    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.12) inset, 0 6px 18px rgba(250, 204, 21, 0.06);
+                    border-left: 3px solid rgba(250, 204, 21, 0.9);
+                    background: rgba(250, 204, 21, 0.03);
                 }
             </style>
         `;
         
-        // Add change event listeners for automatic updates
-        document.getElementById('key-select').addEventListener('change', (e) => {
-            const key = e.target.value;
-            const scale = document.getElementById('scale-select').value;
-            this.setKeyAndScale(key, scale);
+        this.attachEventListeners(scaleCategories, currentScale);
+    }
+    
+    buildCategoriesHTML(scaleCategories, currentScale, taxonomy) {
+        if (taxonomy.bySuperGroup && Object.keys(taxonomy.bySuperGroup).length > 0) {
+            return this.buildSuperGroupCategoriesHTML(currentScale, taxonomy);
+        }
+
+        let html = '';
+        const byFamily = taxonomy.byFamily || {};
+        const byScale = taxonomy.byScale || {};
+        const familyOrder = taxonomy.familyOrder || Object.keys(byFamily);
+        const commonCore = taxonomy.commonCore || [];
+
+        const commonByFamily = {};
+        commonCore.forEach(scaleId => {
+            const family = byScale[scaleId]?.family || 'Other/Unclassified';
+            if (!commonByFamily[family]) commonByFamily[family] = [];
+            commonByFamily[family].push(scaleId);
+        });
+
+        Object.entries(commonByFamily).forEach(([family, scales]) => {
+            const categoryId = (`common-${family}`).replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            html += `
+                <div class="category-box expanded" data-view="common" data-category="${categoryId}">
+                    <div class="category-header">
+                        <span class="category-name">${family}</span>
+                        <span class="category-count">${scales.length}</span>
+                    </div>
+                    <div class="category-scales" id="scales-${categoryId}" style="display: block;">
+                        ${scales.map(scaleId => {
+                            const displayName = this.getScaleDisplayName(scaleId);
+                            const isActive = scaleId === currentScale ? 'active' : '';
+                            return `<div class="scale-item ${isActive}" data-scale="${scaleId}">${displayName}</div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        });
+
+        familyOrder.forEach(category => {
+            const familyData = byFamily[category];
+            if (!familyData || !familyData.subcategories) return;
+            const categoryId = category.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            const subcategoryHTML = Object.entries(familyData.subcategories).map(([subcategory, subBucket]) => {
+                const subSubHTML = Object.entries(subBucket.subSubcategories || {}).map(([ssName, node]) => {
+                    const ssLabel = ssName !== 'Standard' ? `<div class="sub-sub-label">${ssName}</div>` : '';
+                    return `
+                        <div class="sub-sub-block">
+                            ${ssLabel}
+                            ${this.renderRecursiveTaxonomy(node, byScale, currentScale)}
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="subcategory-block">
+                        <div class="subcategory-title">${subcategory}</div>
+                        ${subSubHTML}
+                    </div>
+                `;
+            }).join('');
+
+            const allScaleCount = Object.values(familyData.subcategories).reduce((sum, subBucket) => {
+                return sum + Object.values(subBucket.subSubcategories || {}).reduce((inner, node) => inner + this.flattenIds(node).length, 0);
+            }, 0);
+
+            html += `
+                <div class="category-box" data-view="tree" data-category="${categoryId}" style="display: none;">
+                    <div class="category-header">
+                        <span class="category-name">${category}</span>
+                        <span class="category-count">${allScaleCount}</span>
+                    </div>
+                    <div class="category-scales" id="scales-${categoryId}" style="display: none;">
+                        ${subcategoryHTML}
+                    </div>
+                </div>
+            `;
+        });
+
+        return html;
+    }
+
+    buildSuperGroupCategoriesHTML(currentScale, taxonomy) {
+        let html = '';
+        const bySuperGroup = taxonomy.bySuperGroup || {};
+        const byScale = taxonomy.byScale || {};
+        const commonCore = taxonomy.commonCore || [];
+        const superGroupOrder = taxonomy.superGroupOrder || Object.keys(bySuperGroup);
+
+        const commonByGroup = {};
+        commonCore.forEach(scaleId => {
+            const group = byScale[scaleId]?.superGroup || 'Synthetic / Experimental';
+            if (!commonByGroup[group]) commonByGroup[group] = [];
+            commonByGroup[group].push(scaleId);
+        });
+
+        Object.entries(commonByGroup).forEach(([group, scales]) => {
+            const groupId = (`common-${group}`).replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            html += `
+                <div class="category-box expanded" data-view="common" data-category="${groupId}">
+                    <div class="category-header">
+                        <span class="category-name">${group}</span>
+                        <span class="category-count">${scales.length}</span>
+                    </div>
+                    <div class="category-scales" id="scales-${groupId}" style="display:block;">
+                        ${scales.map(scaleId => {
+                            const displayName = this.getScaleDisplayName(scaleId);
+                            const isActive = scaleId === currentScale ? 'active' : '';
+                            return `<div class="scale-item ${isActive}" data-scale="${scaleId}">${displayName}</div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        });
+
+        superGroupOrder.forEach(superGroup => {
+            const groupBucket = bySuperGroup[superGroup];
+            if (!groupBucket || !groupBucket.categories) return;
+            const superGroupId = superGroup.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            
+            const categoryRows = Object.entries(groupBucket.categories).map(([categoryName, categoryBucket]) => {
+                const categoryId = `${superGroupId}-${categoryName}`.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+                
+                const subRows = Object.entries(categoryBucket.subcategories || {}).map(([subName, subBucket]) => {
+                    const subSubRows = Object.entries(subBucket.subSubcategories || {}).map(([ssName, node]) => {
+                        return `
+                            <div class="sub-sub-block">
+                                <div class="sub-sub-label">${ssName}</div>
+                                ${this.renderRecursiveTaxonomy(node, byScale, currentScale)}
+                            </div>
+                        `;
+                    }).join('');
+
+                    return `
+                        <div class="subcategory-block">
+                            <div class="subcategory-title">${subName}</div>
+                            ${subSubRows}
+                        </div>
+                    `;
+                }).join('');
+
+                const categoryCount = Object.values(categoryBucket.subcategories || {}).reduce((sum, subBucket) => {
+                    return sum + Object.values(subBucket.subSubcategories || {}).reduce((inner, node) => inner + this.flattenIds(node).length, 0);
+                }, 0);
+
+                return `
+                    <div class="nested-category-box" data-category-box="${categoryId}">
+                        <div class="nested-category-header" data-category-header="${categoryId}">
+                            <span>${categoryName}</span>
+                            <span class="category-count">${categoryCount}</span>
+                        </div>
+                        <div class="nested-category-content" id="nested-${categoryId}" style="display:none;">
+                            ${subRows}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const groupCount = Object.values(groupBucket.categories).reduce((sum, categoryBucket) => {
+                return sum + Object.values(categoryBucket.subcategories || {}).reduce((inner, subBucket) => {
+                    return inner + Object.values(subBucket.subSubcategories || {}).reduce((ssSum, ids) => ssSum + ids.length, 0);
+                }, 0);
+            }, 0);
+
+            html += `
+                <div class="category-box" data-view="special" data-category="${superGroupId}" style="display:none;">
+                    <div class="category-header">
+                        <span class="category-name">${superGroup}</span>
+                        <span class="category-count">${groupCount}</span>
+                    </div>
+                    <div class="category-scales" id="scales-${superGroupId}" style="display:none;">
+                        ${categoryRows}
+                    </div>
+                </div>
+            `;
+        });
+
+        return html;
+    }
+    
+    attachEventListeners(scaleCategories, currentScale) {
+        // Key selector
+        const keySelect = document.getElementById('key-select');
+        if (keySelect) {
+            keySelect.addEventListener('change', (e) => {
+                this.setKey(e.target.value);
+            });
+        }
+        
+        // Open modal button
+        const pickerBtn = document.getElementById('scale-picker-btn');
+        const modal = document.getElementById('scale-picker-modal');
+        
+        if (pickerBtn && modal) {
+            pickerBtn.addEventListener('click', () => {
+                modal.style.display = 'flex';
+                // Focus search input when modal opens
+                setTimeout(() => {
+                    const searchInput = document.getElementById('scale-search-input');
+                    if (searchInput) searchInput.focus();
+                }, 100);
+            });
+        }
+        
+        // Search functionality
+        const searchInput = document.getElementById('scale-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                this.filterScales(query);
+            });
+        }
+
+        document.querySelectorAll('.scale-view-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.scale-view-tab').forEach(other => other.classList.remove('active'));
+                tab.classList.add('active');
+                const view = tab.dataset.view;
+                document.querySelectorAll('.category-box').forEach(box => {
+                    const visible = box.dataset.view === view;
+                    box.style.display = visible ? 'block' : 'none';
+                    if (!visible) return;
+                    const categoryId = box.dataset.category;
+                    const scalesDiv = document.getElementById(`scales-${categoryId}`);
+                    if (scalesDiv) {
+                        scalesDiv.style.display = view === 'common' ? 'block' : 'none';
+                    }
+                    if (view === 'families') {
+                        box.classList.remove('expanded');
+                    } else {
+                        box.classList.add('expanded');
+                    }
+                });
+            });
         });
         
-        document.getElementById('scale-select').addEventListener('change', (e) => {
-            const scale = e.target.value;
-            const key = document.getElementById('key-select').value;
-            this.setKeyAndScale(key, scale);
+        // Close modal button
+        const closeBtn = document.getElementById('close-modal-btn');
+        if (closeBtn && modal) {
+            closeBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+                // Clear search when closing
+                if (searchInput) {
+                    searchInput.value = '';
+                    this.filterScales('');
+                }
+            });
+        }
+        
+        // Close on backdrop click
+        const backdrop = modal?.querySelector('.modal-backdrop');
+        if (backdrop && modal) {
+            backdrop.addEventListener('click', () => {
+                modal.style.display = 'none';
+                if (searchInput) {
+                    searchInput.value = '';
+                    this.filterScales('');
+                }
+            });
+        }
+        
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal && modal.style.display === 'flex') {
+                modal.style.display = 'none';
+                if (searchInput) {
+                    searchInput.value = '';
+                    this.filterScales('');
+                }
+            }
+        });
+        
+        // Category expansion toggle
+        document.querySelectorAll('.category-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                const box = e.target.closest('.category-box');
+                if (box.dataset.view === 'common') return;
+                const categoryId = box.dataset.category;
+                const scalesDiv = document.getElementById(`scales-${categoryId}`);
+                
+                if (box.classList.contains('expanded')) {
+                    box.classList.remove('expanded');
+                    scalesDiv.style.display = 'none';
+                } else {
+                    box.classList.add('expanded');
+                    scalesDiv.style.display = 'block';
+                }
+            });
+        });
+
+        document.querySelectorAll('.variation-toggle').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const group = e.currentTarget.closest('.variation-group');
+                if (group) {
+                    group.classList.toggle('expanded');
+                }
+                const scaleId = e.currentTarget.dataset.scale;
+                if (scaleId) {
+                    const key = document.getElementById('key-select').value;
+                    this.setKeyAndScale(key, scaleId);
+                }
+            });
+        });
+
+        document.querySelectorAll('.nested-category-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const content = header.nextElementSibling;
+                if (content && content.classList.contains('nested-category-content')) {
+                    const isHidden = content.style.display === 'none';
+                    content.style.display = isHidden ? 'block' : 'none';
+                    header.querySelector('.picker-icon').textContent = isHidden ? '▲' : '▼';
+                }
+            });
+        });
+        
+        // Scale selection
+        document.querySelectorAll('.scale-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (e.target.closest('.variation-toggle')) return;
+                const scaleId = e.target.dataset.scale;
+                if (!scaleId) return;
+                const key = document.getElementById('key-select').value;
+                this.setKeyAndScale(key, scaleId);
+                
+                // Close modal after selection
+                if (modal) {
+                    modal.style.display = 'none';
+                    if (searchInput) {
+                        searchInput.value = '';
+                        this.filterScales('');
+                    }
+                }
+            });
+        });
+
+        this.attachModalInteractions();
+    }
+    
+    filterScales(query) {
+        const categoryBoxes = document.querySelectorAll('.category-box');
+        
+        if (!query) {
+            const activeView = document.querySelector('.scale-view-tab.active')?.dataset.view || 'common';
+            categoryBoxes.forEach(box => {
+                const visible = box.dataset.view === activeView;
+                box.style.display = visible ? 'block' : 'none';
+                const categoryId = box.dataset.category;
+                const scalesDiv = document.getElementById(`scales-${categoryId}`);
+                if (scalesDiv) {
+                    scalesDiv.style.display = box.dataset.view === 'common' ? 'block' : 'none';
+                }
+                box.classList.toggle('expanded', box.dataset.view === 'common');
+                box.querySelectorAll('.variation-group').forEach(group => group.classList.remove('expanded'));
+            });
+            return;
+        }
+        
+        // Filter scales
+        categoryBoxes.forEach(box => {
+            const categoryId = box.dataset.category;
+            const scalesDiv = document.getElementById(`scales-${categoryId}`);
+            const scaleItems = scalesDiv?.querySelectorAll('.scale-item');
+            
+            let hasVisibleScales = false;
+            
+            scaleItems?.forEach(item => {
+                const scaleName = item.textContent.toLowerCase();
+                if (scaleName.includes(query)) {
+                    item.style.display = 'block';
+                    hasVisibleScales = true;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Show/hide category based on whether it has matching scales
+            if (hasVisibleScales) {
+                box.style.display = 'block';
+                box.classList.add('expanded');
+                if (scalesDiv) scalesDiv.style.display = 'block';
+                box.querySelectorAll('.variation-group').forEach(group => {
+                    if (group.querySelector('.scale-item[style="display: block;"]')) {
+                        group.classList.add('expanded');
+                    }
+                });
+            } else {
+                box.style.display = 'none';
+            }
+        });
+
+        // Hover similarity highlighting (scales sharing exact interval sets)
+        const allScaleItems = Array.from(document.querySelectorAll('.scale-item'));
+        function getIntervalsFor(id) {
+            try {
+                return (window.SCALES && window.SCALES.intervals && window.SCALES.intervals[id]) || null;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function arrayEquals(a, b) {
+            if (!a || !b) return false;
+            if (a.length !== b.length) return false;
+            for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+            return true;
+        }
+
+        function highlightSimilar(scaleId) {
+            const target = getIntervalsFor(scaleId);
+            if (!target) return;
+            allScaleItems.forEach(el => {
+                const id = el.dataset.scale;
+                if (!id) return;
+                const ints = getIntervalsFor(id);
+                if (!ints) return;
+                if (arrayEquals(target, ints)) {
+                    el.classList.add('similar-highlight');
+                }
+            });
+        }
+
+        function clearSimilar() {
+            allScaleItems.forEach(el => el.classList.remove('similar-highlight'));
+        }
+
+        allScaleItems.forEach(item => {
+            item.addEventListener('mouseenter', (e) => {
+                const id = e.currentTarget.dataset.scale;
+                if (!id) return;
+                highlightSimilar(id);
+            });
+            item.addEventListener('mouseleave', () => {
+                clearSimilar();
+            });
+        });
+    }
+
+    attachModalInteractions() {
+        const modal = document.getElementById('scale-picker-modal');
+        const content = modal?.querySelector('.modal-content');
+        const header = modal?.querySelector('.modal-header');
+        if (!modal || !content || !header) return;
+        if (content.dataset.interactionsAttached === 'true') return;
+        content.dataset.interactionsAttached = 'true';
+
+        content.style.resize = 'both';
+        content.style.overflow = 'hidden';
+        content.style.minWidth = '640px';
+        content.style.minHeight = '420px';
+        content.style.maxWidth = '95vw';
+        content.style.maxHeight = '90vh';
+
+        let isDragging = false;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        header.style.cursor = 'move';
+        header.addEventListener('mousedown', (event) => {
+            if (event.target && (event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON')) return;
+            const rect = content.getBoundingClientRect();
+            isDragging = true;
+            dragOffsetX = event.clientX - rect.left;
+            dragOffsetY = event.clientY - rect.top;
+            content.style.position = 'fixed';
+            content.style.margin = '0';
+        });
+
+        document.addEventListener('mousemove', (event) => {
+            if (!isDragging) return;
+            const nextLeft = Math.max(8, Math.min(window.innerWidth - content.offsetWidth - 8, event.clientX - dragOffsetX));
+            const nextTop = Math.max(8, Math.min(window.innerHeight - content.offsetHeight - 8, event.clientY - dragOffsetY));
+            content.style.left = `${nextLeft}px`;
+            content.style.top = `${nextTop}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
         });
     }
 

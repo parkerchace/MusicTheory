@@ -17,9 +17,9 @@ class SemanticAPIEngine {
         
         // API endpoints (all free, no auth required)
         this.apis = {
-            dictionary: 'https://api.dictionaryapi.dev/api/v2/entries/en/',
-            conceptnet: 'https://api.conceptnet.io/c/en/',
-            datamuse: 'https://api.datamuse.com/words'
+            dictionary: 'REMOVED',
+            conceptnet: 'REMOVED',
+            datamuse: 'REMOVED'
         };
         
         this.debug = true;

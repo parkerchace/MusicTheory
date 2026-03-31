@@ -1,18 +1,3 @@
-    <script>
-    // Modular instrument learn notes button logic
-    document.addEventListener('DOMContentLoaded', function() {
-        const learnBtn = document.getElementById('launch-learn-notes-btn');
-        const instrumentSelect = document.getElementById('instrument-select');
-        if (learnBtn && instrumentSelect) {
-            learnBtn.addEventListener('click', function() {
-                const instr = instrumentSelect.value;
-                window.showLearnNotesModule(instr);
-                // attempt to mount immediately if class already loaded
-                window.mountLearnModuleIfReady(instr);
-            });
-        }
-    });
-    </script>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,6 +7,234 @@
     <link rel="stylesheet" href="unified-chord-explorer.css">
     <link rel="stylesheet" href="modular-music-theory.css">
     <link rel="stylesheet" href="modular-styles.css">
+    <style>
+        /* Taxonomy View Polish */
+        .taxonomy-view-wrapper { height: 75vh; overflow-y: auto; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; scrollbar-width: thin; }
+        
+        /* --- 10X TAXONOMY EXPANSION POLISH --- */
+    .taxonomy-controls {
+        display: flex;
+        gap: 12px;
+        padding: 12px 20px;
+        background: radial-gradient(circle at center, rgba(0, 40, 0, 0.4), rgba(0, 0, 0, 0.7));
+        border-bottom: 2px solid rgba(0, 255, 65, 0.2);
+        align-items: center;
+        flex-wrap: wrap;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .lens-switcher {
+        display: flex;
+        background: rgba(0, 20, 0, 0.8);
+        border: 2px solid rgba(0, 255, 65, 0.4);
+        border-radius: 6px;
+        overflow: hidden;
+        box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
+    }
+
+    .lens-btn {
+        padding: 8px 16px;
+        font-size: 0.7rem;
+        color: rgba(0, 255, 65, 0.6);
+        cursor: pointer;
+        text-transform: uppercase;
+        font-family: var(--font-tech);
+        border-right: 1px solid rgba(0, 255, 65, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+
+    .lens-btn:last-child { border-right: none; }
+    .lens-btn:hover { background: rgba(0, 255, 65, 0.1); color: #00ff41; }
+    .lens-btn.active {
+        background: linear-gradient(to bottom, rgba(0, 255, 65, 0.3), rgba(0, 60, 0, 0.5));
+        color: #00ff41;
+        text-shadow: 0 0 10px #00ff41, 0 0 20px #00ff41;
+        box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.3);
+    }
+
+    .special-view {
+        display: flex !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        padding: 25px;
+        gap: 25px;
+        height: 65vh;
+        scrollbar-width: thin;
+        scrollbar-color: #00ff41 rgba(0, 20, 0, 0.8);
+        background: linear-gradient(135deg, rgba(0,10,0,0.4) 0%, rgba(0,0,0,0.8) 100%);
+    }
+
+    .special-view::-webkit-scrollbar { height: 8px; }
+    .special-view::-webkit-scrollbar-track { background: rgba(0, 20, 0, 0.8); }
+    .special-view::-webkit-scrollbar-thumb { background: #00ff41; border-radius: 10px; border: 2px solid rgba(0,20,0,0.8); }
+
+    .special-column {
+        min-width: 280px;
+        flex-shrink: 0;
+        background: rgba(0, 20, 0, 0.7);
+        border: 2px solid rgba(0, 255, 65, 0.15);
+        display: flex;
+        flex-direction: column;
+        border-radius: 8px;
+        transition: all 0.4s ease;
+        backdrop-filter: blur(5px);
+        overflow: hidden;
+    }
+
+    .special-column:hover {
+        border-color: #00ff41;
+        box-shadow: 0 0 30px rgba(0, 255, 65, 0.15), inset 0 0 20px rgba(0, 255, 65, 0.05);
+        transform: translateY(-5px) scale(1.02);
+        z-index: 10;
+    }
+
+    .special-header {
+        font-size: 0.85rem;
+        color: #00ff41;
+        padding: 15px;
+        background: linear-gradient(to bottom, rgba(0, 50, 0, 0.6), rgba(0, 20, 0, 0.8));
+        border-bottom: 2px solid rgba(0, 255, 65, 0.2);
+        text-transform: uppercase;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-family: var(--font-tech);
+        letter-spacing: 1.5px;
+        text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+    }
+
+    .special-header span { font-size: 1.2rem; }
+
+    .special-content {
+        padding: 15px;
+        overflow-y: auto;
+        flex-grow: 1;
+        scrollbar-width: thin;
+    }
+
+    .special-cat-title {
+        color: #00ff41;
+        font-size: 0.7rem;
+        opacity: 0.9;
+        margin-top: 18px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        border-left: 3px solid #00ff41;
+        background: rgba(0, 255, 65, 0.05);
+        padding: 4px 8px;
+        font-family: var(--font-tech);
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .special-cat-title:first-child { margin-top: 0; }
+
+    .special-item {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer;
+        border-radius: 4px;
+        margin: 2px 0;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        border: 1px solid transparent;
+        position: relative;
+    }
+
+    .tree-sub-node { position: relative; }
+
+    .special-item.is-secondary {
+        opacity: 0.5;
+        font-style: italic;
+    }
+
+    .special-tooltip {
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        background: rgba(0, 30, 0, 0.95);
+        border: 1px solid #00ff41;
+        padding: 8px 12px;
+        border-radius: 4px;
+        z-index: 1000;
+        display: none;
+        pointer-events: none;
+        width: max-content;
+        max-width: 250px;
+        box-shadow: 0 4px 15px rgba(0, 255, 65, 0.3);
+        backdrop-filter: blur(8px);
+        font-family: var(--font-tech);
+        font-size: 0.65rem;
+    }
+
+    .special-item:hover .special-tooltip {
+        display: block;
+    }
+
+    /* Tooltip automatic flip for top elements to prevent clipping */
+    .special-item:nth-child(-n+5) .special-tooltip {
+        bottom: auto;
+        top: 100%;
+        margin-top: 5px;
+    }
+
+    .tooltip-section { margin-top: 4px; border-top: 1px solid rgba(0, 255, 65, 0.1); padding-top: 4px; }
+    .tooltip-label { color: #00ff41; opacity: 0.6; text-transform: uppercase; margin-right: 4px; }
+
+    .special-item:hover {
+        background: rgba(0, 255, 65, 0.15);
+        color: #00ff41;
+        border-color: rgba(0, 255, 65, 0.3);
+        padding-left: 18px;
+        text-shadow: 0 0 8px rgba(0, 255, 65, 0.3);
+    }
+
+    .tree-family-wrapper { margin-bottom: 30px; border-left: 2px solid var(--accent-primary); padding-left: 15px; }
+        .tree-family-root { font-family: var(--font-tech); color: var(--accent-primary); font-size: 1.1rem; cursor: pointer; margin-bottom: 15px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .tree-category-node { margin: 10px 0 10px 20px; color: var(--text-highlight); cursor: pointer; font-weight: 600; }
+        .tree-sub-node { margin: 5px 0 5px 40px; color: var(--text-main); font-size: 0.9rem; font-style: italic; cursor: pointer; }
+        .scale-item-node { margin: 4px 0 4px 60px; display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(255,255,255,0.03); border-radius: 4px; cursor: pointer; transition: all 0.2s; position: relative; }
+        .scale-item-node:hover { background: rgba(255,255,255,0.08); transform: translateX(5px); }
+        .scale-item-node:hover .special-tooltip { display: block; }
+        .scale-item-node.is-secondary { opacity: 0.5; font-style: italic; }
+
+        /* Pyramid (Upside Down Tree) Styles */
+        .categories-grid.pyramid-view { display: flex; flex-direction: column; align-items: center; gap: 40px; padding: 40px 20px; }
+        .pyramid-row { display: flex; justify-content: center; gap: 20px; width: 100%; position: relative; }
+        .pyramid-node { background: rgba(52, 211, 153, 0.05); border: 1px solid rgba(52, 211, 153, 0.2); padding: 10px 20px; border-radius: 4px; text-align: center; min-width: 120px; cursor: pointer; transition: 0.3s; position: relative; }
+        .pyramid-node:hover { background: rgba(52, 211, 153, 0.15); border-color: var(--accent-secondary); box-shadow: 0 0 15px rgba(52, 211, 153, 0.2); }
+        .pyramid-node.root { border-width: 2px; border-color: var(--accent-secondary); font-size: 1.2rem; font-weight: bold; color: var(--accent-secondary); }
+        
+        /* SPECIAL View Polish (Horizontal Grid) */
+        .categories-grid.special-view { display: flex; gap: 20px; overflow-x: auto; padding: 20px; scrollbar-width: thin; scroll-snap-type: x mandatory; background: #050a05; position: relative; min-height: 500px; }
+        .special-column { min-width: 280px; scroll-snap-align: start; background: rgba(0, 20, 0, 0.6); border: 1px solid #1a3a1a; padding: 0; display: flex; flex-direction: column; box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.05); position: relative; overflow: hidden; }
+        .special-header { padding: 15px; background: #0a1a0a; border-bottom: 2px solid #1a3a1a; color: #00ff41; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 2px; font-weight: bold; display: flex; align-items: center; gap: 10px; font-size: 1.1rem; text-shadow: 0 0 8px rgba(0, 255, 0, 0.5); }
+        .special-header-icon { font-size: 1.4rem; filter: drop-shadow(0 0 5px #00ff41); }
+        .special-content { flex: 1; overflow-y: auto; padding: 10px; scrollbar-width: none; }
+        .special-item { color: #00ff41; font-family: 'Courier New', monospace; padding: 8px 12px; border-bottom: 1px solid rgba(0, 255, 0, 0.1); cursor: pointer; transition: 0.2s; font-size: 0.9rem; position: relative; }
+        .special-item:hover { background: rgba(0, 255, 0, 0.1); padding-left: 18px; }
+        .special-item:hover::before { content: '>'; position: absolute; left: 5px; color: #00ff41; }
+        
+        /* Retro Scanline Effect */
+        .categories-grid.special-view::after { content: " "; position: absolute; top: 0; left: 0; bottom: 0; right: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03)); z-index: 10; background-size: 100% 4px, 3px 100%; pointer-events: none; }
+        
+        .collapsed-content { display: none !important; }
+        .scale-tags { font-size: 0.7rem; opacity: 0.5; margin-left: auto; }
+        .sub-sub-title { font-size: 0.75rem; color: var(--accent-primary); opacity: 0.8; margin: 12px 0 4px 60px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Lineage & Cross-Listing UI */
+        .primary-tag { color: #00ff41; font-size: 0.6rem; margin-right: 4px; filter: drop-shadow(0 0 2px #00ff41); }
+        .item-lineage { font-size: 0.6rem; opacity: 0.4; color: var(--text-muted); margin-left: 8px; font-weight: normal; }
+        .search-result-lineage { font-size: 0.65rem; color: #00ff41; opacity: 0.7; margin-top: 2px; font-family: var(--font-tech); }
+        .special-item { position: relative; }
+        .special-item .item-name { flex-grow: 1; }
+    </style>
 </head>
 <body data-theme="clean-daw">
     <!-- TOP CONTROL DECK - SIMPLIFIED -->
@@ -492,6 +705,481 @@
         </div>
     </div>
 
+    <script>
+    (function(){
+        const createEl = (tag, cls, txt) => { 
+            const el = document.createElement(tag); 
+            if(cls) el.className = cls; 
+            if(txt) el.innerHTML = txt; 
+            return el; 
+        };
+
+        window.renderScaleFamilies = function(customViewMode) {
+            const modal = document.getElementById('scale-picker-modal');
+            if (!modal) return;
+            
+            let activeView = customViewMode || (modal.querySelector('.scale-view-tab.active')?.getAttribute('data-view')) || 'tree';
+            window.lastTaxonomyViewMode = activeView;
+
+            // Lens State (Persistence)
+            if (!window.activeScaleLens) {
+                window.activeScaleLens = localStorage.getItem('music-theory-active-lens') || 'western';
+            }
+
+            const grid = modal.querySelector('.categories-grid');
+            const searchContainer = modal.querySelector('.modal-search-container');
+            if (!grid) return;
+            
+            // Add Controls if missing
+            if (searchContainer && !modal.querySelector('.taxonomy-controls')) {
+                const controls = createEl('div', 'taxonomy-controls');
+                controls.innerHTML = `
+                    <div class="lens-switcher">
+                        <div class="lens-btn ${window.activeScaleLens === 'western' ? 'active' : ''}" data-lens="western">Western</div>
+                        <div class="lens-btn ${window.activeScaleLens === 'cultural' ? 'active' : ''}" data-lens="cultural">Cultural</div>
+                        <div class="lens-btn ${window.activeScaleLens === 'structural' ? 'active' : ''}" data-lens="structural">Complexity</div>
+                    </div>
+                    <div style="flex-grow:1"></div>
+                    <button id="export-taxonomy-btn" class="control-btn" style="padding:4px 8px; font-size:0.6rem; background:rgba(0,255,65,0.1); border:1px solid rgba(0,255,65,0.3); color:#00ff41; cursor:pointer;">EXPORT JSON</button>
+                    <button id="import-taxonomy-btn" class="control-btn" style="padding:4px 8px; font-size:0.6rem; background:rgba(0,255,65,0.1); border:1px solid rgba(0,255,65,0.3); color:#00ff41; cursor:pointer;">IMPORT</button>
+                    <input type="file" id="taxonomy-import-file" style="display:none" accept=".json">
+                `;
+                
+                controls.querySelectorAll('.lens-btn').forEach(btn => {
+                    btn.onclick = () => {
+                        window.activeScaleLens = btn.dataset.lens;
+                        localStorage.setItem('music-theory-active-lens', window.activeScaleLens);
+                        window.renderScaleFamilies(activeView);
+                    };
+                });
+
+                controls.querySelector('#export-taxonomy-btn').onclick = () => {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.SCALES.meta.taxonomy, null, 2));
+                    const downloadAnchorNode = document.createElement('a');
+                    downloadAnchorNode.setAttribute("href", dataStr);
+                    downloadAnchorNode.setAttribute("download", "music_theory_taxonomy_10x.json");
+                    document.body.appendChild(downloadAnchorNode);
+                    downloadAnchorNode.click();
+                    downloadAnchorNode.remove();
+                };
+
+                const importInput = controls.querySelector('#taxonomy-import-file');
+                controls.querySelector('#import-taxonomy-btn').onclick = () => importInput.click();
+                importInput.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const importedTax = JSON.parse(event.target.result);
+                            localStorage.setItem('custom-taxonomy-overrides', JSON.stringify(importedTax));
+                            alert('Custom Taxonomy Imported! Refreshing...');
+                            location.reload();
+                        } catch(err) { alert('Invalid Taxonomy File'); }
+                    };
+                    reader.readAsText(file);
+                };
+
+                searchContainer.insertAdjacentElement('afterend', controls);
+            }
+
+            grid.innerHTML = '';
+            grid.className = 'categories-grid ' + (activeView === 'tree' ? 'pyramid-view' : 'special-view');
+
+            if (!window.SCALES || !window.SCALES.meta || !window.SCALES.meta.taxonomy) {
+                grid.innerHTML = '<div style="padding:20px;color:var(--text-muted)">Syncing 10x Database...</div>';
+                setTimeout(() => window.renderScaleFamilies(activeView), 100);
+                return;
+            }
+
+            const tax = window.SCALES.meta.taxonomy;
+            const displayNames = window.SCALES.meta.displayNames || {};
+            const layoutTree = tax.byFamily;
+            const falloutIcons = ['🗲', '🌟', '🛡️', '👁️', '💪', '🧬', '⚙️', '🔥', '☢️', '🔬', '🛡️', '👁️', '💪', '🧬', '⚙️', '🔥', '☢️', '🔬', '🗲', '🌟'];
+
+            // 1. Pyramid (Upside Down Tree) Rendering
+            if (activeView === 'tree') {
+                const rootsRow = createEl('div', 'pyramid-row');
+                
+                // Root: Major Scale (Primary)
+                const rootNode = createEl('div', 'pyramid-node root', 'MAJOR (IONIAN)');
+                rootNode.onclick = () => {
+                    if (window.scaleLibrary) window.scaleLibrary.setKeyAndScale('C', 'major');
+                    modal.style.display = 'none';
+                };
+                rootsRow.appendChild(rootNode);
+
+                // Additional Multi-Roots for 10x Depth
+                if (window.activeScaleLens !== 'western') {
+                    const ragaNode = createEl('div', 'pyramid-node root', 'RĀGA ROOT');
+                    ragaNode.style.background = "#ff910033";
+                    ragaNode.onclick = () => { if (window.scaleLibrary) window.scaleLibrary.setKeyAndScale('C', 'mela_kanakangi'); modal.style.display = 'none'; };
+                    rootsRow.appendChild(ragaNode);
+                }
+
+                grid.appendChild(rootsRow);
+
+                // Dynamically Filter Families based on Lens
+                // Show ALL families (No lens-based filtering for Tree Hubs)
+                // This ensures parity with the Special View's 100x breadth.
+                const tax = window.SCALES.meta.taxonomy;
+                const layoutTree = tax.byFamily;
+                let familyKeys = Object.keys(layoutTree).sort((a,b) => (tax.familyOrder?.indexOf(a) || 0) - (tax.familyOrder?.indexOf(b) || 0));
+
+                /*
+                familyKeys.forEach(fam => {
+                    const row = createEl('div', 'pyramid-row');
+                    const node = createEl('div', 'pyramid-node', fam);
+                    const subMenu = createEl('div', 'collapsed-content sub-menu');
+                    renderRecursive(subMenu, layoutTree[fam], fam);
+                    
+                    node.onclick = (e) => {
+                        e.stopPropagation();
+                        const isCol = subMenu.classList.toggle('collapsed-content');
+                        if (!isCol) node.appendChild(subMenu);
+                    };
+                    row.appendChild(node);
+                    grid.appendChild(row);
+                });
+                */
+                const toggleNode = (node, content) => {
+                    const isCol = content.classList.toggle('collapsed-content');
+                    const labelSpan = node.querySelector('.node-label');
+                    if (labelSpan) {
+                        const text = labelSpan.innerText.replace(/[▾▴]/g, '').trim();
+                        labelSpan.textContent = text + (isCol ? ' ▾' : ' ▴');
+                    }
+                    return !isCol; 
+                };
+
+                // Group families into rows of increasing width (Pyramid Layout)
+                let rowCount = 1;
+                let currentIdx = 0;
+                while (currentIdx < familyKeys.length) {
+                    const row = createEl('div', 'pyramid-row');
+                    for (let i = 0; i < rowCount && currentIdx < familyKeys.length; i++) {
+                        const fam = familyKeys[currentIdx++];
+                        const node = createEl('div', 'pyramid-node');
+                        const labelSpan = createEl('span', 'node-label', fam + ' ▾');
+                        node.appendChild(labelSpan);
+
+                        const subMenu = createEl('div', 'collapsed-content sub-menu');
+                        renderRecursive(subMenu, layoutTree[fam], fam);
+                        
+                        // Append immediately for search DOM-presence
+                        node.appendChild(subMenu);
+                        
+                        node.onclick = (e) => {
+                            e.stopPropagation();
+                            toggleNode(node, subMenu);
+                        };
+                        row.appendChild(node);
+                    }
+                    grid.appendChild(row);
+                    rowCount++;
+                }
+            } 
+            // 2. SPECIAL (High-Density Global Hub)
+            else {
+                const tax = window.SCALES.meta.taxonomy;
+                const layoutTree = tax.byFamily;
+                let families = Object.keys(layoutTree).sort((a,b) => {
+                    const idxA = tax.familyOrder.indexOf(a);
+                    const idxB = tax.familyOrder.indexOf(b);
+                    return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+                });
+                
+                families.forEach((fam, idx) => {
+                    const col = createEl('div', 'special-column');
+                    const header = createEl('div', 'special-header');
+                    const icon = falloutIcons[idx % falloutIcons.length];
+                    header.innerHTML = `<span>${icon}</span> ${fam}`;
+                    col.appendChild(header);
+
+                    const content = createEl('div', 'special-content');
+                    renderSpecialRecursive(content, layoutTree[fam].categories || {}, fam);
+                    col.appendChild(content);
+                    grid.appendChild(col);
+                });
+            }
+
+            function renderRecursive(container, obj, famName) {
+                if (!obj) return;
+                const items = obj.categories || obj.subcategories || obj.subSubcategories || obj;
+                if (Array.isArray(items)) {
+                    items.forEach(scaleId => {
+                        const name = window.SCALES.meta.displayNames[scaleId] || scaleId;
+                        const taxData = window.SCALES.meta.taxonomy.byScale[scaleId] || [];
+                        const myTax = taxData.find(t => t.family === famName);
+                        const otherHubs = taxData.filter(t => t.family !== famName).map(t => t.family);
+                        
+                        // Find Synonyms (Same Notes)
+                        const ivals = window.SCALES.intervals[scaleId] || [];
+                        const ivKey = ivals.join(',');
+                        const synonymsMap = window.SCALES.meta.taxonomy.synonyms || {};
+                        const synonyms = (synonymsMap[ivKey] || []).filter(sid => sid !== scaleId);
+                        const synonymNames = synonyms.map(sid => window.SCALES.meta.displayNames[sid] || sid);
+
+                        const item = createEl('div', 'scale-item-node' + (!myTax?.isPrimary ? ' is-secondary' : ''));
+                        
+                        let tooltipHTML = `<div class="special-tooltip">
+                            <div style="color:#00ff41; font-weight:bold; margin-bottom:4px;">${name}</div>
+                            <div class="tooltip-section">
+                                <span class="tooltip-label">Tradition:</span> ${myTax?.isPrimary ? 'Primary' : 'Used in'}
+                            </div>`;
+                        
+                        if (otherHubs.length > 0) {
+                            tooltipHTML += `<div class="tooltip-section">
+                                <span class="tooltip-label">Also in:</span> ${otherHubs.join(', ')}
+                            </div>`;
+                        }
+                        
+                        if (synonymNames.length > 0) {
+                            tooltipHTML += `<div class="tooltip-section">
+                                <span class="tooltip-label">Same Notes:</span> ${synonymNames.join(', ')}
+                            </div>`;
+                        }
+                        
+                        tooltipHTML += `</div>`;
+
+                        item.innerHTML = `
+                            <span class="item-name">${name}</span>
+                            ${myTax?.isPrimary ? '<span class="primary-tag" title="Primary Heritage">◈</span>' : ''}
+                            ${tooltipHTML}
+                        `;
+                        
+                        item.onclick = (e) => {
+                            e.stopPropagation();
+                            if (window.scaleLibrary) window.scaleLibrary.setKeyAndScale('C', scaleId);
+                            document.getElementById('scale-picker-modal').style.display = 'none';
+                        };
+                        container.appendChild(item);
+                    });
+                } else {
+                    const keys = Object.keys(items).sort();
+                    keys.forEach(key => {
+                        // Handle "General" or empty hubs by flattening them (staying transparent to hierarchy)
+                        if (key === "" || key === "General") {
+                            renderRecursive(container, items[key], famName);
+                            return;
+                        }
+
+                        const sub = createEl('div', 'tree-sub-node');
+                        const labelSpan = createEl('span', 'node-label', key + ' ▾');
+                        sub.appendChild(labelSpan);
+                        
+                        const subContent = createEl('div', 'collapsed-content');
+                        
+                        sub.onclick = (e) => { 
+                            e.stopPropagation(); 
+                            const isCol = subContent.classList.toggle('collapsed-content');
+                            labelSpan.textContent = key + (isCol ? ' ▾' : ' ▴');
+                        };
+                        container.appendChild(sub);
+                        container.appendChild(subContent);
+                        renderRecursive(subContent, items[key], famName);
+                    });
+                }
+            }
+
+            function renderSpecialRecursive(container, obj, famName) {
+                if (!obj || typeof obj !== 'object') return;
+
+                Object.keys(obj).forEach(key => {
+                    const node = obj[key];
+                    
+                    if (Array.isArray(node)) {
+                        if (key && key !== "General" && key !== "" && key !== "categories") {
+                            const title = createEl('div', 'special-cat-title', key);
+                            container.appendChild(title);
+                        }
+                        
+                        node.forEach(scaleId => {
+                            const name = window.SCALES.meta.displayNames[scaleId] || scaleId;
+                            const taxData = window.SCALES.meta.taxonomy.byScale[scaleId] || [];
+                            const myTax = taxData.find(t => t.family === famName);
+                            const otherHubs = taxData.filter(t => t.family !== famName).map(t => t.family);
+                            
+                            // Find Synonyms (Same Notes)
+                            const ivals = window.SCALES.intervals[scaleId] || [];
+                            const ivKey = ivals.join(',');
+                            const synonymsMap = window.SCALES.meta.taxonomy.synonyms || {};
+                            const synonyms = (synonymsMap[ivKey] || []).filter(sid => sid !== scaleId);
+                            const synonymNames = synonyms.map(sid => window.SCALES.meta.displayNames[sid] || sid);
+
+                            const item = createEl('div', 'special-item' + (!myTax?.isPrimary ? ' is-secondary' : ''));
+                            
+                            let tooltipHTML = `<div class="special-tooltip">
+                                <div style="color:#00ff41; font-weight:bold; margin-bottom:4px;">${name}</div>
+                                <div class="tooltip-section">
+                                    <span class="tooltip-label">Tradition:</span> ${myTax?.isPrimary ? 'Primary' : 'Used in'}
+                                </div>`;
+                            
+                            if (otherHubs.length > 0) {
+                                tooltipHTML += `<div class="tooltip-section">
+                                    <span class="tooltip-label">Also in:</span> ${otherHubs.join(', ')}
+                                </div>`;
+                            }
+                            
+                            if (synonymNames.length > 0) {
+                                tooltipHTML += `<div class="tooltip-section">
+                                    <span class="tooltip-label">Same Notes:</span> ${synonymNames.join(', ')}
+                                </div>`;
+                            }
+                            
+                            tooltipHTML += `</div>`;
+
+                            item.innerHTML = `
+                                <span class="item-name">${name}</span>
+                                ${myTax?.isPrimary ? '<span class="primary-tag" title="Primary Heritage">◈</span>' : ''}
+                                ${tooltipHTML}
+                            `;
+                            
+                            item.onclick = (e) => {
+                                e.stopPropagation();
+                                if (window.scaleLibrary) window.scaleLibrary.setKeyAndScale('C', scaleId);
+                                document.getElementById('scale-picker-modal').style.display = 'none';
+                            };
+                            container.appendChild(item);
+                        });
+                    } else {
+                        if (key && key !== "categories" && key !== "subcategories" && key !== "subSubcategories" && key !== "") {
+                            const title = createEl('div', 'special-cat-title', key);
+                            container.appendChild(title);
+                        }
+                        
+                        const target = node.categories || node.subcategories || node.subSubcategories || node;
+                        renderSpecialRecursive(container, target, famName);
+                    }
+                });
+            }
+
+            syncGeneralInteractiveControls(modal, grid, activeView);
+        };
+
+        function syncGeneralInteractiveControls(modal, grid, activeView) {
+            modal.querySelectorAll('.scale-view-tab').forEach(tab => {
+                const view = tab.getAttribute('data-view');
+                tab.classList.toggle('active', view === activeView);
+                if (!tab.dataset.bound) {
+                    tab.dataset.bound = "true";
+                    tab.addEventListener('click', (e) => { 
+                        e.preventDefault(); 
+                        window.renderScaleFamilies(view); 
+                    });
+                }
+            });
+
+            const searchInput = document.getElementById('scale-search-input');
+            if (searchInput && !searchInput.dataset.bound) {
+                searchInput.dataset.bound = "true";
+                searchInput.addEventListener('input', (e) => {
+                    const term = e.target.value.toLowerCase();
+                    const currentGrid = modal.querySelector('.categories-grid');
+                    if (!currentGrid) return;
+                    
+                    const isTree = currentGrid.classList.contains('pyramid-view');
+
+                    // RESET: Handle empty search term
+                    if (!term) {
+                        currentGrid.querySelectorAll('.scale-item-node, .special-item, .pyramid-node, .tree-sub-node, .special-cat-title, .pyramid-row, .special-column, .collapsed-content').forEach(el => {
+                            el.style.display = ''; // Reset to CSS default
+                            if (el.classList.contains('collapsed-content') && !el.classList.contains('sub-menu')) {
+                                el.classList.add('collapsed-content'); // Re-collapse nested items
+                            }
+                        });
+                        return;
+                    }
+
+                    // 1. Initially Hide Everything
+                    currentGrid.querySelectorAll('.scale-item-node, .special-item, .pyramid-node, .tree-sub-node, .special-cat-title, .pyramid-row, .special-column').forEach(el => {
+                        el.style.display = 'none';
+                    });
+
+                    // 2. Bottom-Up Reveal matching paths
+                    currentGrid.querySelectorAll('.scale-item-node, .special-item').forEach(item => {
+                        const name = item.querySelector('.item-name')?.textContent || item.textContent;
+                        const matches = name.toLowerCase().includes(term);
+                        
+                        if (matches) {
+                            item.style.display = 'flex';
+                            
+                            // Walk Up and Show Parents
+                            let p = item.parentElement;
+                            while (p && p !== currentGrid) {
+                                p.style.display = 'block'; 
+                                if (p.classList.contains('special-column')) p.style.display = 'flex';
+
+                                // Identify the "Toggle" element (the hub/family name)
+                                // Standard Hubs: toggle is previous sibling
+                                // Family Roots: toggle is the parent pyramid-node
+                                let toggle = p.previousElementSibling;
+                                if (!toggle && p.parentElement?.classList.contains('pyramid-node')) {
+                                    toggle = p.parentElement;
+                                }
+
+                                if (toggle) {
+                                    if (toggle.classList.contains('tree-sub-node') || 
+                                        toggle.classList.contains('pyramid-node') || 
+                                        toggle.classList.contains('special-cat-title')) {
+                                        
+                                        toggle.style.display = 'block';
+                                        
+                                        // Auto-expand tree path
+                                        if (isTree && p.classList.contains('collapsed-content')) {
+                                            p.classList.remove('collapsed-content');
+                                            // Handle arrow update via labelSpan
+                                            const labelSpan = toggle.querySelector('.node-label') || toggle;
+                                            const label = labelSpan.innerText.replace(/[▾▴]/g, '').trim();
+                                            labelSpan.textContent = label + ' ▴';
+                                        }
+                                    }
+                                }
+                                
+                                // Ensure rows and columns are shown
+                                if (p.classList.contains('pyramid-row')) p.style.display = 'block';
+
+                                p = p.parentElement;
+                            }
+                        }
+                    });
+                });
+            }
+        }
+
+        const mo = new MutationObserver((mutations) => {
+            const modal = document.getElementById('scale-picker-modal');
+            if (modal && modal.style.display !== 'none') {
+                const content = modal.querySelector('.modal-content');
+                if (content && !content.dataset.ourInteractionsAttached) {
+                    content.dataset.ourInteractionsAttached = "true";
+                    setTimeout(() => window.renderScaleFamilies(), 10);
+                }
+            }
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+        
+        setTimeout(() => {
+            const dummy = document.createElement('div');
+            document.body.appendChild(dummy); document.body.removeChild(dummy);
+        }, 500);
+    })();
+    </script>
+
+    <script id="manual-taxonomy-overrides">
+    window.MANUAL_TAXONOMY_REVIEWS = {};
+    </script>
+        <!--
+        <script>
+        (function(){
+            var s = document.createElement('script');
+            s.src = 'taxonomy_reviews/manual_taxonomy_combined.js';
+            s.async = false;
+            s.onerror = function(){};
+            document.head.appendChild(s);
+        })();
+        </script>
+        -->
     <!-- BOTTOM DECK: PIANO -->
     <div class="bottom-deck">
         <div class="bottom-deck-label">
@@ -517,7 +1205,11 @@
             #grading-key-sidebar { max-height: 48vh; overflow: auto; font-size: 0.9rem; }
             #grading-key-sidebar .module-header { font-size: 0.78rem; }
         </style>
-    <script src="music-theory-engine.js?v=3"></script>
+    <script src="music-theory-engine.js"></script>
+    <!-- Embedded scales data (CORS-safe for file:// protocol) -->
+    <script src="scales-data-embedded.js"></script>
+    <script src="scale-taxonomy.js"></script>
+    <script src="scales-loader-embedded.js"></script>
     <script src="word-database.js"></script>
     
     <!-- NEW: Comprehensive Scale Intelligence System -->
@@ -533,23 +1225,22 @@
     <script src="learn-chords.js"></script>
     <!-- <script src="generative-word-mapper.js"></script> -->
     
-    <script src="simple-word-engine.js?v=5"></script>
+    <script src="simple-word-engine.js"></script>
     <script src="sheet-music-generator.js"></script>
     <script src="number-generator.js"></script>
     <script src="scale-library.js"></script>
-    <script src="piano-visualizer.js?v=2"></script>
+    <script src="piano-visualizer.js"></script>
     <script src="guitar-fretboard-visualizer.js"></script>
     <script src="container-chord-tool.js"></script>
     <script src="scale-relationship-explorer.js"></script>
     <script src="progression-builder.js"></script>
     <script src="scale-circle-explorer.js"></script>
-    <script src="solar-system-visualizer.v2.js"></script>
-    <script src="audio-visualizer.js"></script>
+<!-- Solar System and Audio Visualizer removed as they are archived/legacy -->
     <script src="unified-chord-explorer.js"></script>
     <script src="module-selector.js"></script>
     <!-- <script src="grading-legend-help-system.js"></script> -->
     <!-- <script src="word-grading-visualization.js"></script> -->
-    <script src="bitwig-midi.js"></script>
+<!-- Bitwig MIDI removed as it is archived/legacy -->
     
     <!-- Modular components extracted from inline code -->
     <script src="chord-explorer-inline.js"></script>
@@ -563,6 +1254,7 @@
     <script src="lexical-integration.js" defer></script>
 
     <script src="modular-app.js" defer></script>
+
     <script>
 (function() {
     // Interaction log buffer
@@ -775,9 +1467,19 @@
         'steam-2000': 'Steam 2000'
     };
     
+    // Safe storage helper
+    const safeStorage = {
+        getItem: (key) => {
+            try { return localStorage.getItem(key); } catch (e) { return null; }
+        },
+        setItem: (key, val) => {
+            try { localStorage.setItem(key, val); } catch (e) { /* ignore */ }
+        }
+    };
+    
     // Load saved theme or use default
     let currentThemeIndex = 0;
-    const savedTheme = localStorage.getItem('music-theory-theme');
+    const savedTheme = safeStorage.getItem('music-theory-theme');
     if (savedTheme && themeNames.includes(savedTheme)) {
         currentThemeIndex = themeNames.indexOf(savedTheme);
         document.body.setAttribute('data-theme', savedTheme);
@@ -791,7 +1493,7 @@
         currentThemeIndex = (currentThemeIndex + 1) % themeNames.length;
         const newTheme = themeNames[currentThemeIndex];
         document.body.setAttribute('data-theme', newTheme);
-        localStorage.setItem('music-theory-theme', newTheme);
+        safeStorage.setItem('music-theory-theme', newTheme);
         themeSwitcher.textContent = `[${themeLabels[newTheme]}]`;
         console.log('Theme switched to:', newTheme);
     });
@@ -803,7 +1505,7 @@
             currentThemeIndex = (currentThemeIndex + 1) % themeNames.length;
             const newTheme = themeNames[currentThemeIndex];
             document.body.setAttribute('data-theme', newTheme);
-            localStorage.setItem('music-theory-theme', newTheme);
+            safeStorage.setItem('music-theory-theme', newTheme);
             themeSwitcher.textContent = `[${themeLabels[newTheme]}]`;
             console.log('Theme switched to:', newTheme);
         });
@@ -2769,6 +3471,21 @@
                 });
             }
         });
+    </script>
+    <script>
+    // Modular instrument learn notes button logic
+    document.addEventListener('DOMContentLoaded', function() {
+        const learnBtn = document.getElementById('launch-learn-notes-btn');
+        const instrumentSelect = document.getElementById('instrument-select');
+        if (learnBtn && instrumentSelect) {
+            learnBtn.addEventListener('click', function() {
+                const instr = instrumentSelect.value;
+                window.showLearnNotesModule(instr);
+                // attempt to mount immediately if class already loaded
+                window.mountLearnModuleIfReady(instr);
+            });
+        }
+    });
     </script>
 </body>
 </html>

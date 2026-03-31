@@ -1070,6 +1070,12 @@ class MusicTheoryEngine {
      * Get all available scales grouped by category
      */
     getScaleCategories() {
+        // Use the categories from scalesMeta if available (from scraped data)
+        if (this.scalesMeta && this.scalesMeta.categories && Object.keys(this.scalesMeta.categories).length > 0) {
+            return this.scalesMeta.categories;
+        }
+        
+        // Fallback to hardcoded categories if metadata not available
         return {
             '🎵 Major Scale & Modes': [
                 'major', 'dorian', 'phrygian', 'lydian', 'mixolydian', 'aeolian', 'locrian'

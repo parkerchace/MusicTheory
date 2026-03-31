@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>10x Taxonomy Demonstration (100 Samples)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0c;
+            --surface: #141418;
+            --accent: #6366f1;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --green: #00ff41;
+            --green-dark: #003b00;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .test-container {
+            width: 100%;
+            max-width: 1200px;
+            background: var(--surface);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        h1 { font-family: 'Outfit', sans-serif; margin-bottom: 10px; }
+        p { color: var(--text-muted); margin-bottom: 30px; }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: bold;
+            color: var(--text-muted);
+        }
+
+        .tab.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* --- Pyramid View Styles --- */
+        .pyramid-view {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .pyramid-row {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .pyramid-node {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            min-width: 160px;
+            text-align: center;
+            position: relative;
+        }
+
+        .pyramid-node:hover {
+            background: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .pyramid-node.root {
+            background: var(--accent);
+            font-weight: bold;
+            font-size: 1.1rem;
+            padding: 20px 40px;
+        }
+
+        /* --- SPECIAL View Styles --- */
+        .special-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .special-column {
+            background: #050505;
+            border: 1px solid var(--green);
+            border-radius: 4px;
+            padding: 15px;
+            position: relative;
+            box-shadow: inset 0 0 10px var(--green-dark);
+        }
+
+        .special-header {
+            color: var(--green);
+            font-family: monospace;
+            text-transform: uppercase;
+            font-weight: bold;
+            border-bottom: 2px solid var(--green);
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .special-item {
+            color: var(--green);
+            font-family: monospace;
+            padding: 5px 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+
+        .special-item:hover {
+            background: var(--green);
+            color: black;
+        }
+
+        .special-cat-title {
+            color: var(--green);
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            font-family: monospace;
+        }
+
+        /* Helpers */
+        .collapsed-content { display: none; }
+        .sub-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 100;
+            background: var(--surface);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 10px;
+            min-width: 200px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .scale-item-node {
+            padding: 8px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+        .scale-item-node:hover { color: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <div class="test-container">
+        <h1>10x Taxonomy Test (100 Samples)</h1>
+        <p>This is a localized test of the 4-level pedagogical hierarchy. Every scale belongs to a descriptive cluster.</p>
+
+        <div class="tabs">
+            <div class="tab active" data-view="tree">Pyramid (Family Tree)</div>
+            <div class="tab" data-view="special">S.P.E.C.I.A.L. (Traditions)</div>
+        </div>
+
+        <div id="view-container"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="scale-taxonomy.js"></script>
+    <script src="scales-data-embedded.js"></script>
+
+    <script>
+        const container = document.getElementById('view-container');
+        let currentView = 'tree';
+
+        function init() {
+            if (!window.EMBEDDED_SCALES_DATA || !window.ScaleTaxonomy) {
+                setTimeout(init, 100);
+                return;
+            }
+
+            // Pick 100 random scales
+            const all = window.EMBEDDED_SCALES_DATA.scales;
+            const shuffled = [...all].sort(() => 0.5 - Math.random());
+            const sample = shuffled.slice(0, 100);
+
+            // Force Major to be in the sample for root visualization
+            if (!sample.some(s => s.id === 'major')) sample.push(all.find(s => s.id === 'major'));
+
+            // Build catalog
+            const catalog = window.ScaleTaxonomy.buildScaleCatalog(sample);
+            window.SCALES = catalog;
+
+            render();
+        }
+
+        function render() {
+            container.innerHTML = '';
+            const tax = window.SCALES.meta.taxonomy;
+            const layoutTree = tax.byFamily;
+
+            if (currentView === 'tree') {
+                container.className = 'pyramid-view';
+                
+                // Root row
+                const rootRow = createEl('div', 'pyramid-row');
+                const rootNode = createEl('div', 'pyramid-node root', 'MAJOR (IONIAN)');
+                rootRow.appendChild(rootNode);
+                container.appendChild(rootRow);
+
+                // Family rows
+                Object.keys(layoutTree).forEach(famName => {
+                    const row = createEl('div', 'pyramid-row');
+                    const node = createEl('div', 'pyramid-node', famName);
+                    const subMenu = createEl('div', 'collapsed-content sub-menu');
+                    renderRecursive(subMenu, layoutTree[famName]);
+                    
+                    node.onclick = (e) => {
+                        e.stopPropagation();
+                        // Close others
+                        document.querySelectorAll('.sub-menu').forEach(sm => {
+                            if (sm !== subMenu) sm.classList.add('collapsed-content');
+                        });
+                        subMenu.classList.toggle('collapsed-content');
+                        if (!subMenu.classList.contains('collapsed-content')) {
+                            node.appendChild(subMenu);
+                        }
+                    };
+                    row.appendChild(node);
+                    container.appendChild(row);
+                });
+            } else {
+                container.className = 'special-view';
+                Object.keys(layoutTree).forEach((fam, idx) => {
+                    const col = createEl('div', 'special-column');
+                    const header = createEl('div', 'special-header', fam);
+                    col.appendChild(header);
+                    const content = createEl('div', 'special-content');
+                    renderSpecialRecursive(content, layoutTree[fam]);
+                    col.appendChild(content);
+                    container.appendChild(col);
+                });
+            }
+        }
+
+        function renderRecursive(parent, obj) {
+            const items = obj.categories || obj.subcategories || obj.subSubcategories || obj;
+            if (Array.isArray(items)) {
+                items.forEach(id => {
+                    const name = window.SCALES.meta.displayNames[id] || id;
+                    const item = createEl('div', 'scale-item-node', name);
+                    parent.appendChild(item);
+                });
+            } else {
+                Object.keys(items).forEach(key => {
+                    const node = createEl('div', 'pyramid-node', key + ' ›');
+                    const sub = createEl('div', 'collapsed-content sub-menu');
+                    node.onclick = (e) => {
+                        e.stopPropagation();
+                        sub.classList.toggle('collapsed-content');
+                        if (!sub.classList.contains('collapsed-content')) node.appendChild(sub);
+                    };
+                    parent.appendChild(node);
+                    renderRecursive(sub, items[key]);
+                });
+            }
+        }
+
+        function renderSpecialRecursive(parent, obj) {
+            const items = obj.categories || obj.subcategories || obj.subSubcategories || obj;
+            if (Array.isArray(items)) {
+                items.forEach(id => {
+                    const name = window.SCALES.meta.displayNames[id] || id;
+                    parent.appendChild(createEl('div', 'special-item', name.toUpperCase()));
+                });
+            } else {
+                Object.keys(items).forEach(key => {
+                    const title = createEl('div', 'special-cat-title', `[ ${key} ]`);
+                    parent.appendChild(title);
+                    renderSpecialRecursive(parent, items[key]);
+                });
+            }
+        }
+
+        function createEl(tag, className, text) {
+            const el = document.createElement(tag);
+            if (className) el.className = className;
+            if (text) el.textContent = text;
+            return el;
+        }
+
+        // Tab Switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.onclick = () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentView = tab.getAttribute('data-view');
+                render();
+            };
+        });
+
+        init();
+    </script>
+</body>
+</html>

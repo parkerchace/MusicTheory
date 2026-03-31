@@ -6,16 +6,35 @@
 
 class ScaleIntelligenceEngine {
     constructor(musicTheoryEngine = null) {
-        this.scaleDatabase = this._buildScaleDatabase();
+        this.musicTheoryEngine = musicTheoryEngine;
+        
+        // Wait for scales to load, then build database
+        this.scaleDatabase = null;
         this.culturalContexts = this._buildCulturalContexts();
         this.emotionalProfiles = this._buildEmotionalProfiles();
         this.semanticAssociations = this._buildSemanticAssociations();
         this.intervalCharacteristics = this._buildIntervalCharacteristics();
         
         // Enhanced grading integration
-        this.musicTheoryEngine = musicTheoryEngine;
         this.gradingInfluenceWeight = 0.3; // Default weight for grading influence (0-1)
         this.gradingExplanations = new Map(); // Store explanations for grading influence
+        
+        // Initialize scale database when scales are loaded
+        if (typeof window !== 'undefined') {
+            if (window.SCALES) {
+                this.scaleDatabase = this._buildScaleDatabase();
+            } else {
+                window.addEventListener('scalesLoaded', () => {
+                    this.scaleDatabase = this._buildScaleDatabase();
+                    console.log('ScaleIntelligenceEngine: Scale database built with', Object.keys(this.scaleDatabase).length, 'scales');
+                });
+            }
+        }
+        
+        // Fallback to hardcoded database if scales not available
+        if (!this.scaleDatabase) {
+            this.scaleDatabase = this._buildHardcodedScaleDatabase();
+        }
     }
 
     /**
@@ -442,6 +461,171 @@ class ScaleIntelligenceEngine {
      * Build comprehensive scale database with musical intelligence
      */
     _buildScaleDatabase() {
+        // Use the new centralized scale system if available
+        if (typeof window !== 'undefined' && window.SCALES && window.SCALES.raw) {
+            const database = {};
+            
+            // Build database from the 1,486 scales
+            window.SCALES.raw.forEach(scale => {
+                database[scale.id] = {
+                    intervals: scale.intervals,
+                    emotional: this._inferEmotionalProfile(scale),
+                    cultural: this._inferCulturalContext(scale),
+                    semantic: this._inferSemanticAssociations(scale),
+                    intervals: this._inferIntervalCharacteristics(scale)
+                };
+            });
+            
+            console.log(`ScaleIntelligenceEngine: Built database with ${Object.keys(database).length} scales from centralized system`);
+            return database;
+        }
+        
+        // Fallback to hardcoded database
+        return this._buildHardcodedScaleDatabase();
+    }
+    
+    /**
+     * Infer emotional profile from scale metadata
+     */
+    _inferEmotionalProfile(scale) {
+        // Use scale categories and properties to infer emotional characteristics
+        const categories = scale.categories || [];
+        const description = (scale.description || '').toLowerCase();
+        
+        let brightness = 0.5, energy = 0.5, darkness = 0.5, mystery = 0.5, tension = 0.5;
+        
+        // Adjust based on categories
+        if (categories.includes('Major')) brightness = 0.9;
+        if (categories.includes('Minor')) { brightness = 0.3; darkness = 0.7; }
+        if (categories.includes('Diminished')) { darkness = 0.9; tension = 0.9; }
+        if (categories.includes('Augmented')) { tension = 0.8; mystery = 0.7; }
+        if (categories.includes('Blues')) { darkness = 0.6; energy = 0.7; }
+        if (categories.includes('Jazz')) { mystery = 0.7; tension = 0.6; }
+        if (categories.includes('Exotic')) { mystery = 0.8; }
+        if (categories.includes('Modal')) { mystery = 0.6; }
+        
+        // Adjust based on description keywords
+        if (description.includes('bright')) brightness += 0.2;
+        if (description.includes('dark')) { darkness += 0.2; brightness -= 0.2; }
+        if (description.includes('tense')) tension += 0.2;
+        if (description.includes('mysterious')) mystery += 0.2;
+        if (description.includes('energetic')) energy += 0.2;
+        
+        return {
+            brightness: Math.max(0, Math.min(1, brightness)),
+            energy: Math.max(0, Math.min(1, energy)),
+            darkness: Math.max(0, Math.min(1, darkness)),
+            mystery: Math.max(0, Math.min(1, mystery)),
+            tension: Math.max(0, Math.min(1, tension))
+        };
+    }
+    
+    /**
+     * Infer cultural context from scale metadata
+     */
+    _inferCulturalContext(scale) {
+        const categories = scale.categories || [];
+        const description = scale.description || '';
+        
+        return {
+            origins: categories.filter(c => !['Major', 'Minor', 'Modal', 'Pentatonic', 'Blues', 'Jazz'].includes(c)),
+            period: 'Various',
+            traditions: categories,
+            characteristics: description
+        };
+    }
+    
+    /**
+     * Infer semantic associations from scale metadata
+     */
+    _inferSemanticAssociations(scale) {
+        const name = scale.name.toLowerCase();
+        const description = (scale.description || '').toLowerCase();
+        const categories = scale.categories || [];
+        
+        const keywords = [];
+        const contexts = [];
+        const categoryList = [];
+        
+        // Extract keywords from name and description
+        if (name.includes('major')) keywords.push('happy', 'bright', 'clear');
+        if (name.includes('minor')) keywords.push('sad', 'dark', 'melancholic');
+        if (name.includes('blues')) keywords.push('blues', 'soulful', 'expressive');
+        if (name.includes('jazz')) keywords.push('sophisticated', 'complex', 'modern');
+        if (name.includes('exotic')) keywords.push('exotic', 'foreign', 'mysterious');
+        if (name.includes('spanish')) keywords.push('spanish', 'flamenco', 'passionate');
+        if (name.includes('arabic')) keywords.push('middle eastern', 'arabic', 'mystical');
+        if (name.includes('japanese')) keywords.push('japanese', 'asian', 'pentatonic');
+        
+        // Add categories as contexts
+        categories.forEach(cat => {
+            contexts.push(cat.toLowerCase());
+            categoryList.push(cat.toLowerCase());
+        });
+        
+        return {
+            categories: categoryList,
+            keywords: keywords,
+            contexts: contexts
+        };
+    }
+    
+    /**
+     * Infer interval characteristics from scale intervals
+     */
+    _inferIntervalCharacteristics(scale) {
+        const intervals = scale.intervals || [];
+        
+        // Analyze intervals
+        const hasMinor2 = intervals.includes(1);
+        const hasMajor2 = intervals.includes(2);
+        const hasMinor3 = intervals.includes(3);
+        const hasMajor3 = intervals.includes(4);
+        const hasPerfect4 = intervals.includes(5);
+        const hasTritone = intervals.includes(6);
+        const hasPerfect5 = intervals.includes(7);
+        const hasMinor6 = intervals.includes(8);
+        const hasMajor6 = intervals.includes(9);
+        const hasMinor7 = intervals.includes(10);
+        const hasMajor7 = intervals.includes(11);
+        
+        let characteristic = '';
+        const tensionPoints = [];
+        let resolutionTendency = 'Moderate';
+        let harmonicFunction = 'Varied';
+        
+        if (hasMajor3 && hasPerfect5) {
+            characteristic = 'Major triad foundation';
+            resolutionTendency = 'Strong tonic';
+            harmonicFunction = 'Tonic stability';
+        } else if (hasMinor3 && hasPerfect5) {
+            characteristic = 'Minor triad foundation';
+            resolutionTendency = 'Stable minor';
+            harmonicFunction = 'Minor tonic';
+        }
+        
+        if (hasTritone) {
+            tensionPoints.push('Tritone creates tension');
+        }
+        if (hasMinor2) {
+            tensionPoints.push('Minor 2nd adds dissonance');
+        }
+        if (hasMajor7) {
+            tensionPoints.push('Major 7th creates leading tone');
+        }
+        
+        return {
+            characteristic: characteristic || 'Unique interval structure',
+            tension_points: tensionPoints,
+            resolution_tendency: resolutionTendency,
+            harmonic_function: harmonicFunction
+        };
+    }
+    
+    /**
+     * Fallback hardcoded scale database (original implementation)
+     */
+    _buildHardcodedScaleDatabase() {
         return {
             // === WESTERN MAJOR & CHURCH MODES ===
             major: {

@@ -22,7 +22,7 @@ class PianoSampleEngine {
         
         // Use a public CDN for Salamander Grand Piano samples
         // Alternative: Tonejs samples or generate our own
-        this.sampleBaseUrl = 'https://tonejs.github.io/audio/salamander/';
+        this.sampleBaseUrl = 'REMOVED';
     }
 
     async init() {
@@ -45,6 +45,19 @@ class PianoSampleEngine {
         this.loading = true;
         
         console.log('Loading piano samples...');
+        // When running from file:// the browser blocks fetch() for many local resources.
+        // Avoid noisy CORS/fetch failures by skipping sample fetches under file:// and
+        // falling back to synthesized sound instead.
+        try {
+            if (typeof location !== 'undefined' && location.protocol === 'file:') {
+                console.warn('PianoSampleEngine: running under file:// — skipping sample fetch; using synthesized fallback');
+                this.loading = false;
+                this.loaded = false;
+                return;
+            }
+        } catch (e) {
+            // ignore
+        }
         
         try {
             // Try to load Salamander samples from Tone.js CDN

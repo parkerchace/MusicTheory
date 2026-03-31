@@ -1,0 +1,28 @@
+﻿
+Filename                         LineNumber Line                                               
+--------                         ---------- ----                                               
+taxonomic_mapping_batch_10_11.md          5 ## 1. Structural Systems: Additive Hybrids (5-Note)
+taxonomic_mapping_batch_10_11.md         35 ## 2. Special View: Indian Classical (Rāgas)       
+taxonomic_mapping_batch_10_11.md         49 ## 3. Structural Foundations: Tetrachords (Set E)  
+taxonomic_mapping_batch_10_11.md         61 ## Technical Note:                                 
+taxonomic_mapping_batch_2_3.md            5 ## 1. Lydian Lineage (Major #4)                    
+taxonomic_mapping_batch_2_3.md           34 ## 2. Mixolydian Lineage (Major b7)                
+taxonomic_mapping_batch_2_3.md           43 ## 3. Aeolian Lineage (Natural Minor)              
+taxonomic_mapping_batch_2_3.md           49 ## 4. Locrian Lineage (Diminished b2 b5)           
+taxonomic_mapping_batch_2_3.md           80 ## 5. Modern & Bebop Additions                     
+taxonomic_mapping_batch_2_3.md           85 ## Observation:                                    
+taxonomic_mapping_batch_4_5.md            5 ## 1. Melodic Minor System (Minor-Major 7)         
+taxonomic_mapping_batch_4_5.md           20 ## 2. Harmonic Minor System (Minor-Major 7, b6)    
+taxonomic_mapping_batch_4_5.md           30 ## 3. Harmonic Major & Other Hybrids               
+taxonomic_mapping_batch_4_5.md           45 ## 4. Pentatonic Frameworks (The Fragmentation)    
+taxonomic_mapping_batch_4_5.md           83 ## Technical Note:                                 
+taxonomic_mapping_batch_6_7.md            5 ## 1. Structural Foundations: Trichords (3-Note)   
+taxonomic_mapping_batch_6_7.md           34 ## 2. Structural Foundations: Tetrachords (4-Note) 
+taxonomic_mapping_batch_6_7.md           55 ## 3. The Neapolitan & Enigmatic Families          
+taxonomic_mapping_batch_6_7.md           70 ## Technical Note:                                 
+taxonomic_mapping_batch_8_9.md            5 ## 1. Structural Foundations: Tetrachords (Set B)  
+taxonomic_mapping_batch_8_9.md           39 ## 2. World & Indigenous Traditions (4-Note)       
+taxonomic_mapping_batch_8_9.md           53 ## 3. Systematic Variations (The "-ic" Family)     
+taxonomic_mapping_batch_8_9.md           64 ## Observation:                                    
+
+

@@ -4161,10 +4161,9 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 
 		// Create mini piano keyboard
 		const pianoContainer = document.createElement('div');
-		pianoContainer.style.display = 'flex';
-		pianoContainer.style.gap = '0'; // Buttons should touch or depend on border
+		pianoContainer.style.display = 'block'; // Changed from flex
 		pianoContainer.style.position = 'relative';
-		pianoContainer.style.height = '86px'; // increased for chassis
+		pianoContainer.style.height = '86px';
         pianoContainer.style.background = '#111';
         pianoContainer.style.backgroundImage = 'linear-gradient(to bottom, #222, #000)';
         pianoContainer.style.borderRadius = '4px';
@@ -4220,34 +4219,64 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		const startMidi = Math.floor(minMidi / 12) * 12; // start at C
 		const endMidi = Math.ceil(maxMidi / 12) * 12 + 12;
 		const whitePcs = [0,2,4,5,7,9,11];
-		const totalOctaves = Math.max(1, Math.ceil((endMidi - startMidi) / 12));
-		const totalWhiteKeys = totalOctaves * 7;
-		pianoContainer.style.width = `${totalWhiteKeys * 20}px`;
-
+		const whiteKeyWidth = 18;
+		const blackKeyWidth = 12;
+		const blackKeyHeight = 50;
+		const whiteKeyHeight = 80;
+		
+		// Calculate total white keys and container width
+		let whiteKeyCount = 0;
+		const whiteKeyPositions = new Map(); // Map MIDI to left position
 		for (let midi = startMidi; midi < endMidi; midi++) {
 			const pc = midi % 12;
-			const isBlack = [1,3,6,8,10].includes(pc);
-			const isActive = activeSet.has(midi);
+			if (whitePcs.includes(pc)) {
+				whiteKeyPositions.set(midi, whiteKeyCount * whiteKeyWidth);
+				whiteKeyCount++;
+			}
+		}
+		
+		pianoContainer.style.width = `${whiteKeyCount * whiteKeyWidth + 8}px`;
 
+		// Create layers for white and black keys
+		const whitesLayer = document.createElement('div');
+		whitesLayer.style.position = 'absolute';
+		whitesLayer.style.left = '4px';
+		whitesLayer.style.top = '4px';
+		whitesLayer.style.width = '100%';
+		whitesLayer.style.height = '100%';
+		
+		const blacksLayer = document.createElement('div');
+		blacksLayer.style.position = 'absolute';
+		blacksLayer.style.left = '4px';
+		blacksLayer.style.top = '4px';
+		blacksLayer.style.width = '100%';
+		blacksLayer.style.height = '100%';
+
+		// Render white keys
+		for (let midi = startMidi; midi < endMidi; midi++) {
+			const pc = midi % 12;
+			if (!whitePcs.includes(pc)) continue;
+			
+			const isActive = activeSet.has(midi);
 			const key = document.createElement('div');
-			key.style.position = isBlack ? 'absolute' : 'relative';
-			key.style.width = isBlack ? '12px' : '18px';
-			key.style.height = isBlack ? '50px' : '80px';
-            if (isBlack) key.style.marginLeft = '-6px'; // Center black key on split
+			key.style.position = 'absolute';
+			key.style.left = `${whiteKeyPositions.get(midi)}px`;
+			key.style.top = '0';
+			key.style.width = `${whiteKeyWidth}px`;
+			key.style.height = `${whiteKeyHeight}px`;
 
 			const baseActiveColor = intervalColor(midi);
 			key.style.background = isActive 
-				? (isBlack ? `linear-gradient(180deg, ${baseActiveColor} 0%, ${baseActiveColor} 90%)` : `linear-gradient(180deg, ${baseActiveColor} 0%, ${baseActiveColor} 85%)`)
-				: (isBlack ? 'linear-gradient(to bottom, #333333, #000000)' : 'linear-gradient(to bottom, #ffffff, #e0e0e0)');
-			key.style.border = isBlack ? '1px solid #000' : '1px solid #ccc';
-			key.style.borderRadius = isBlack ? '0 0 2px 2px' : '0 0 3px 3px';
+				? `linear-gradient(180deg, ${baseActiveColor} 0%, ${baseActiveColor} 85%)`
+				: 'linear-gradient(to bottom, #ffffff, #e0e0e0)';
+			key.style.border = '1px solid #ccc';
+			key.style.borderRadius = '0 0 3px 3px';
 			key.style.boxShadow = isActive 
 				? `0 0 14px ${baseActiveColor}AA, inset 0 2px 4px rgba(255,255,255,0.3)`
-				: (isBlack ? 'inset 0 0 2px rgba(255,255,255,0.2), 2px 2px 4px rgba(0,0,0,0.4)' : 'inset 0 -1px 2px rgba(0,0,0,0.1)');
-			key.style.zIndex = isBlack ? '2' : '1';
+				: 'inset 0 -1px 2px rgba(0,0,0,0.1)';
 
-			// Label active white keys with interval + note
-			if (!isBlack && isActive) {
+			// Label active white keys with interval
+			if (isActive) {
 				const lab = document.createElement('div');
 				lab.style.position = 'absolute';
 				lab.style.bottom = '-16px';
@@ -4261,16 +4290,59 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 				key.appendChild(lab);
 			}
 
-			if (isBlack) {
-				// Position black key across entire keyboard, not just first octave
-				const octaveIndex = Math.floor((midi - startMidi) / 12);
-				const whiteBeforeInOctave = whitePcs.filter(n => n < pc).length;
-				const whiteIndexGlobal = octaveIndex * 7 + whiteBeforeInOctave;
-				key.style.left = `${(whiteIndexGlobal * 20) - 6}px`;
+			whitesLayer.appendChild(key);
+		}
+
+		// Render black keys
+		for (let midi = startMidi; midi < endMidi; midi++) {
+			const pc = midi % 12;
+			if (whitePcs.includes(pc)) continue; // Skip white keys
+			
+			const isActive = activeSet.has(midi);
+			const key = document.createElement('div');
+			key.style.position = 'absolute';
+			key.style.width = `${blackKeyWidth}px`;
+			key.style.height = `${blackKeyHeight}px`;
+			key.style.top = '0';
+			
+			// Find adjacent white keys to position between them
+			let prevWhitePos = null;
+			let nextWhitePos = null;
+			for (let p = midi - 1; p >= startMidi; p--) {
+				if (whitePcs.includes(p % 12)) {
+					prevWhitePos = whiteKeyPositions.get(p);
+					break;
+				}
+			}
+			for (let n = midi + 1; n < endMidi; n++) {
+				if (whitePcs.includes(n % 12)) {
+					nextWhitePos = whiteKeyPositions.get(n);
+					break;
+				}
+			}
+			
+			// Center black key between adjacent white keys
+			if (prevWhitePos !== null && nextWhitePos !== null) {
+				const prevRight = prevWhitePos + whiteKeyWidth;
+				key.style.left = `${((prevRight + nextWhitePos) / 2) - (blackKeyWidth / 2)}px`;
 			}
 
-			pianoContainer.appendChild(key);
+			const baseActiveColor = intervalColor(midi);
+			key.style.background = isActive 
+				? `linear-gradient(180deg, ${baseActiveColor} 0%, ${baseActiveColor} 90%)`
+				: 'linear-gradient(to bottom, #333333, #000000)';
+			key.style.border = '1px solid #000';
+			key.style.borderRadius = '0 0 2px 2px';
+			key.style.boxShadow = isActive 
+				? `0 0 14px ${baseActiveColor}AA, inset 0 2px 4px rgba(255,255,255,0.3)`
+				: 'inset 0 0 2px rgba(255,255,255,0.2), 2px 2px 4px rgba(0,0,0,0.4)';
+			key.style.zIndex = '10';
+
+			blacksLayer.appendChild(key);
 		}
+
+		pianoContainer.appendChild(whitesLayer);
+		pianoContainer.appendChild(blacksLayer);
 
 		popup.appendChild(pianoContainer);
 		document.body.appendChild(popup);

@@ -2,7 +2,7 @@
 
 A compact, browser-based collection of modular music-theory tools for exploration, practice, and lightweight composition. This project bundles interactive visualizers, scale and chord utilities, simple audio/MIDI helpers, and educational examples — intended for learning and experimentation rather than professional DAW production.
 
-Live demo: [Music Theory Studio Live](https://parkerchace.github.io/MusicTheory/modular-music-theory.html)
+Live demo: [Music Theory Studio Live](REMOVED
 
 What this repository is
 - A set of client-side JavaScript modules and HTML/CSS that run in a browser.
@@ -38,9 +38,9 @@ License
 - This project is provided for educational use. See the repository license file for details.
 
 Legal
-- **Common-property musical elements:** Common musical elements such as scales, arpeggios, chord charts, and short musical examples are treated as common-property elements and are not protected as copyrightable works under U.S. copyright law (see the U.S. Copyright Office guidance: https://www.copyright.gov/comp3/chap800/ch800-performing-arts.pdf).
+- **Common-property musical elements:** Common musical elements such as scales, arpeggios, chord charts, and short musical examples are treated as common-property elements and are not protected as copyrightable works under U.S. copyright law (see the U.S. Copyright Office guidance: REMOVED
 
-- **Keys, scales, and intervals:** Keys and other basic musical parameters (for example, scales and intervals) are basic building blocks of music and are not in themselves copyrightable; see: https://blogs.law.gwu.edu/mcir/2018/12/20/key/.
+- **Keys, scales, and intervals:** Keys and other basic musical parameters (for example, scales and intervals) are basic building blocks of music and are not in themselves copyrightable; see: REMOVED
 
 - **If you prefer removal:** If you would like any your material removed from this repository, please contact me at sparkerchace@gmail.com and I will remove anything you're not comfortable with me using. No questions asked — this project is intended as an educational tool, not to cause stress for any community.
 
