@@ -232,13 +232,10 @@ class PianoVisualizer {
      * Event system
      */
     on(event, callback) {
-        console.log('[PianoVisualizer.on] Called with event:', event, 'callback:', typeof callback);
         if (!this.listeners.has(event)) {
             this.listeners.set(event, new Set());
-            console.log('[PianoVisualizer.on] Created new Set for event:', event);
         }
         this.listeners.get(event).add(callback);
-        console.log('[PianoVisualizer.on] Listener added. Total listeners for', event, ':', this.listeners.get(event).size);
     }
 
     off(event, callback) {
@@ -671,11 +668,7 @@ class PianoVisualizer {
                 key.appendChild(labelContainer);
             }
 
-            // Clicks
-            key.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.handleNoteClick(baseName, midi);
-            });
+            // Remove redundant click listener. pointerdown on the container handles this.
 
             // Hovers
             key.addEventListener('mouseenter', () => {
@@ -787,10 +780,7 @@ class PianoVisualizer {
                 key.appendChild(labelContainer);
             }
 
-            key.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.handleNoteClick(baseName, midi);
-            });
+            // Remove redundant click listener. pointerdown on the container handles this.
 
             key.addEventListener('mouseenter', () => {
                 if (key.classList.contains('active')) {
@@ -822,15 +812,12 @@ class PianoVisualizer {
      * Handle note click
      */
     handleNoteClick(noteName, midiNote) {
-        console.log('[PianoVisualizer] handleNoteClick called for piano ID:', this._debugId, { noteName, midiNote });
-        
         // Enhanced grading integration: update last clicked note and apply grading feedback
         if (this.options.enableGradingIntegration && this.gradingEngine) {
             this.state.lastClickedNote = noteName;
             this.applyInteractiveGradingFeedback(noteName);
         }
         
-        console.log('[PianoVisualizer] Emitting noteClicked event for piano', this._debugId, ', listeners:', this.listeners.get('noteClicked'), ', has key?', this.listeners.has('noteClicked'));
         this.emit('noteClicked', {
             note: noteName,
             midi: midiNote,

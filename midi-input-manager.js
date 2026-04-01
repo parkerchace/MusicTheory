@@ -35,11 +35,9 @@ class MIDIInputManager {
             this.midiAccess.addEventListener('statechange', (e) => {
                 if (e.port.type === 'input') {
                     if (e.port.state === 'connected') {
-                        console.log('MIDI device connected:', e.port.name);
                         this.attachInput(e.port);
                         this.onStatusChange('connected', `Connected: ${e.port.name}`);
                     } else if (e.port.state === 'disconnected') {
-                        console.log('MIDI device disconnected:', e.port.name);
                         this.detachInput(e.port.id);
                         this.onStatusChange('disconnected', `Disconnected: ${e.port.name}`);
                     }
@@ -51,10 +49,8 @@ class MIDIInputManager {
             
             if (inputCount > 0) {
                 this.onStatusChange('ready', `${inputCount} MIDI device(s) ready`);
-                console.log(`Initialized ${inputCount} MIDI input(s)`);
             } else {
                 this.onStatusChange('waiting', 'Waiting for MIDI device...');
-                console.log('No MIDI inputs detected, waiting for connection...');
             }
 
             return true;

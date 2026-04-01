@@ -79,10 +79,19 @@ window.mountLearnModuleIfReady = function(instrument) {
                 this.audioEngine = typeof PianoSampleEngine !== 'undefined' 
                     ? new PianoSampleEngine() 
                     : new SimpleAudioEngine();
+                
                 // Create a separate guitar engine (plucked/triangle tone) to avoid using sampled piano for guitar
                 try {
                     this.guitarEngine = typeof EnhancedAudioEngine !== 'undefined'
-                        ? new EnhancedAudioEngine({ masterVolume: 0.22, oscillatorType: 'triangle', useReverb: true, reverbAmount: 0.08 })
+                        ? new EnhancedAudioEngine({ 
+                            masterVolume: 0.25, 
+                            oscillatorType: 'triangle', 
+                            useReverb: true, 
+                            reverbAmount: 0.1,
+                            attackTime: 0.01,
+                            sustainTime: 0.1,
+                            releaseTime: 0.8
+                        })
                         : null;
                     if (this.guitarEngine && typeof this.guitarEngine.init === 'function') this.guitarEngine.init();
                 } catch (e) {
@@ -90,7 +99,7 @@ window.mountLearnModuleIfReady = function(instrument) {
                     this.guitarEngine = null;
                 }
                 
-                // Initialize MIDI input manager
+                // Initialize MIDI input manager (defaulted to Piano Engine)
                 this.midiManager = typeof MIDIInputManager !== 'undefined'
                     ? new MIDIInputManager(this.audioEngine)
                     : null;
@@ -99,8 +108,11 @@ window.mountLearnModuleIfReady = function(instrument) {
                 this.numberGenerator = new NumberGenerator();
                 this.numberGenerator.connectMusicTheory(this.musicTheory); // Connect for intelligent generation
                 this.scaleLibrary = new ScaleLibrary(this.musicTheory);
+                
+                // Inject Piano Engine into Piano Visualizer
                 this.pianoVisualizer = new PianoVisualizer({
                     container: '#piano-container',
+                    audioEngine: this.audioEngine,
                     startMidi: 21,
                     octaves: 7,
                     whiteKeyWidth: 30,
@@ -113,7 +125,15 @@ window.mountLearnModuleIfReady = function(instrument) {
                     showTooltips: false,
                     showGradingTooltips: false
                 });
-                this.guitarFretboard = new GuitarFretboardVisualizer({ frets: 22, showNoteLabels: true });
+                
+                // Inject Guitar Engine into Guitar Fretboard
+                this.guitarFretboard = new GuitarFretboardVisualizer({ 
+                    container: '#guitar-container',
+                    audioEngine: this.guitarEngine,
+                    frets: 22, 
+                    showNoteLabels: true 
+                });
+                
                 this.containerChordTool = new ContainerChordTool(this.musicTheory);
                 this.scaleRelationshipExplorer = new ScaleRelationshipExplorer(this.musicTheory);
                 this.progressionBuilder = new ProgressionBuilder(this.musicTheory);
@@ -864,6 +884,22 @@ window.mountLearnModuleIfReady = function(instrument) {
                         }
                         if (this.guitarFretboard && this.guitarFretboard.highlightMidi) {
                             this.guitarFretboard.highlightMidi(data.midi);
+                        }
+                    });
+                }
+
+                if (this.guitarFretboard && this.guitarFretboard.on) {
+                    this.guitarFretboard.on('noteClicked', (data) => {
+                        // Use MIDI-style overlay for instrument cross-sync to avoid clearing 
+                        // the theoretical state (the scale) that might be visible on the piano.
+                        if (this.pianoVisualizer && this.pianoVisualizer.midiNoteOn) {
+                            this.pianoVisualizer.midiNoteOn(data.midi);
+                            // Auto-clear highlight after 450ms for visual feedback
+                            setTimeout(() => {
+                                if (this.pianoVisualizer.midiNoteOff) {
+                                    this.pianoVisualizer.midiNoteOff(data.midi);
+                                }
+                            }, 450);
                         }
                     });
                 }

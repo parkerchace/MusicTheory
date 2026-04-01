@@ -13,6 +13,7 @@ class EnhancedAudioEngine {
         this.dryGain = null;
         this.wetGain = null;
         this.convolver = null;
+        this.activeVoices = new Map();
         
         // Configuration
         this.config = {
@@ -109,7 +110,8 @@ class EnhancedAudioEngine {
             releaseTime = this.config.releaseTime,
             isDry = false,
             time = 0,
-            type = this.config.oscillatorType
+            type = this.config.oscillatorType,
+            velocity = 1.0
         } = typeof options === 'number' ? { duration: options } : options;
         
         // Create oscillator and gain
@@ -132,18 +134,55 @@ class EnhancedAudioEngine {
         // Envelope: Attack -> Sustain -> Release
         const now = this.ctx.currentTime + time;
         const attackEnd = now + attackTime;
-        const sustainEnd = attackEnd + sustainTime;
-        const releaseEnd = sustainEnd + releaseTime;
         
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(1, attackEnd);
-        gain.gain.setValueAtTime(1, sustainEnd);
-        gain.gain.exponentialRampToValueAtTime(0.001, releaseEnd);
+        gain.gain.linearRampToValueAtTime(velocity, attackEnd);
         
-        osc.start(now);
-        osc.stop(releaseEnd + 0.05);
+        // If duration is effectively infinite (like MIDI), don't schedule the release yet
+        if (duration < 5.0) {
+            const sustainEnd = attackEnd + sustainTime;
+            const releaseEnd = sustainEnd + releaseTime;
+            gain.gain.setValueAtTime(velocity, sustainEnd);
+            gain.gain.exponentialRampToValueAtTime(0.001, releaseEnd);
+            osc.start(now);
+            osc.stop(releaseEnd + 0.05);
+        } else {
+            // MIDI mode: hold volume until stopNote(midi) is called
+            osc.start(now);
+        }
+
+        // Track active voice
+        const voiceKey = `${midi}`;
+        if (!this.activeVoices.has(voiceKey)) {
+            this.activeVoices.set(voiceKey, []);
+        }
+        this.activeVoices.get(voiceKey).push({
+            osc,
+            gain,
+            startTime: now,
+            midi
+        });
+
+        return { osc, gain };
+    }
+
+    /**
+     * Stop a note immediately (for MIDI note-off)
+     */
+    stopNote(midi) {
+        const voiceKey = `${midi}`;
+        const voices = this.activeVoices.get(voiceKey);
+        if (!voices || voices.length === 0) return;
+
+        const voice = voices.pop();
+        const now = this.ctx.currentTime;
+        const releaseTime = this.config.releaseTime || 0.3;
+
+        voice.gain.gain.cancelScheduledValues(now);
+        voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+        voice.gain.gain.exponentialRampToValueAtTime(0.001, now + releaseTime);
         
-        return { osc, gain, releaseEnd };
+        voice.osc.stop(now + releaseTime + 0.05);
     }
 
     /**

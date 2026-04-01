@@ -1,49 +1,43 @@
-# Music Theory Studio: A Modular Harmonic Laboratory
+# Music Theory Studio
 
-A professional-grade, browser-based ecosystem of modular music theory tools designed for deep exploration, pedagogical practice, and creative composition. This project transcends traditional reference tools by offering an interactive, event-driven environment where harmonic discovery meets visual excellence.
+A browser-based collection of modular music theory tools for exploration, practice, and composition. This project provides an interactive, event-driven environment where harmonic discovery is linked across multiple visualizers and engines.
 
-## 🚀 Key Value Propositions
+## Features
 
-### 🎼 The Pedagogical Track (Interactive Course)
-The Studio contains a suite of structured, interactive learning modules designed to take users from basic note identification to advanced harmonic substitutions:
-- **Learn Notes (Piano/Guitar)**: Interactive drills for mastering intervals and fretboard/keyboard positions.
-- **Learn Scales & Chords**: Hands-on exploration of intervals, triad construction, and standard extensions.
-- **Learn Inversions**: A dedicated module for visualizing and practicing chord voicings and smooth voice leading.
+### Educational Modules
+A suite of structured learning tools for music fundamentals:
+- **Learn Notes (Piano/Guitar)**: Drills for mastering intervals and positions.
+- **Learn Scales & Chords**: Interactive exploration of triad construction and scale degrees.
+- **Learn Inversions**: Tools for visualizing chord voicings and practicing voice leading.
 
-### 🔍 Advanced Exploration Engines
-- **Global Scale Taxonomy (1,486+ Scales)**: A massive database across many traditions. Includes "Primary Heritage" sorting and synonym discovery. The organization of these many scales will be a long work in progress and an ethnomusicological challenge.
-- **Unified Chord Explorer**: A high-end radial menu orchestration that generates complex reharmonization tiers:
-    - Diatonic Subsitutions
-    - Secondary Dominants & Backdoor ii-Vs
-    - Modal Interchange & Morphing
-    - Chromatic Mediants & Emotional Color.
-- **Container Chord Tool**: Reverse-lookup engine to find scales containing any combination of specific notes or chords.
+### MIDI Integration
+- **Plug-and-Play**: Connect any class-compliant MIDI controller (keyboard, pads, breath controller) and the studio will automatically detect and route it to the active piano engine.
+- **Hardware Feedback**: MIDI input synchronizes with the Piano Visualizer and Guitar Fretboard in real-time, allowing you to see exactly which scale degrees or chord extensions you are triggering on your hardware.
 
-### 🌌 Visual Distribution Framework
-- **Planetary Harmonic Orbit (Solar Visualizer)**: A mathematical mapping of music theory concepts (keys, scales, functions) to a visual solar system, emphasizing the "gravity" of the tonic.
-- **Piano & Guitar Fretboard Visualizers**: Professional-grade, responsive instrument views that highlight scale tones, root positions, and specific chord voicings.
-- **Dynamic Notation**: Real-time generation of sheet music with functional analysis and MIDI export capabilities.
+### Exploration Engines
+    - Modal interchange and chromatic variants.
+- **Container Chord Tool**: Finds scales that contain a specific set of notes or chords.
 
-## 🛠️ Architecture & UX
+### Visualizers
+- **Solar System Visualizer**: Maps music theory concepts to orbital mechanics to visually emphasize the tonic (center of the system).
+- **Piano & Guitar Fretboard**: Synced views that highlight scale tones, root positions, and chord voicings across instruments.
+- **Sheet Music Generation**: Renders notation in real-time with functional analysis.
 
-- **Modular & Client-Side**: No-build, zero-dependency architecture. Runs entirely in the browser using Vanilla JS, HTML5, and CSS3.
-- **Interactive Layout Engine**: Features a unique "select-click-drag" workspace. Users can resize sidebars via splitters, rearrange modules, and customize their "Studio" layout with persistent local state.
-- **Multi-Theme System**: Includes curated High-Contrast and Aesthetic modes:
-    - `Clean DAW`: Logic/Cubase-inspired clarity.
-    - `Channel Strip`: Dark blue pro-audio aesthetic.
-    - `Matrix FX`: High-glow terminal theme.
-    - `Steam 2000`: Retro-industrial olive/green.
+## Workspace & UI
 
-## 🚀 Quick Start
+- **Modular Architecture**: Built with Vanilla JS, HTML5, and CSS3. No build steps or external dependencies required.
+- **Interactive Layout**: A resizable workspace where users can drag splitters to adjust column widths and drag-and-drop modules to reorder the interface.
+- **Theme System**: Multiple aesthetic modes (Clean DAW, Channel Strip, Matrix FX, Steam 2000) that adjust the visual style of the Entire Studio.
 
-1.  **Open** `modular-music-theory.html` in a modern browser.
-2.  **Toggle Modules** via the "Settings" (⚙️) menu at the top.
-3.  **Explore** the "Global Scale Taxonomy" by clicking the Scale name in the library.
-4.  **Practice** in the "Pedagogical Track" via the Landing Page or "Help" menu.
+## Quick Start
 
-## ⚖️ Legal & Copyright
-- **Public Domain Elements**: Common musical parameters (scales, intervals, triads) are treated as common-property building blocks under U.S. Copyright law.
-- **Educational Intent**: This project is private/educational. If you would like your specific pedagogical material removed, please contact `sparkerchace@gmail.com`.
+1. Open `modular-music-theory.html` in a modern browser.
+2. Use the **Module Selector** (⚙️) at the top to toggle specific tools.
+3. Select scales from the **Scale Library** to update all visualizers simultaneously.
+
+## Legal & Copyright
+- **Public Domain Elements**: Common musical parameters (scales, intervals, triads) are building blocks of music and are treated as common-property.
+- **Educational Intent**: This project is for personal and educational use. For requests regarding the removal of specific pedagogical material, contact `sparkerchace@gmail.com`.
 
 ---
-*Created by Parker Chace — Designed for the curious, the student, and the composer.*
+*Created by Parker Chace*

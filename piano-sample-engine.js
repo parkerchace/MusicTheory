@@ -206,6 +206,13 @@ class PianoSampleEngine {
         const masterGain = this.ctx.createGain();
         masterGain.connect(this.masterGain);
         
+        const voiceKey = `${midi}`;
+        if (!this.activeVoices.has(voiceKey)) {
+            this.activeVoices.set(voiceKey, []);
+        }
+
+        const oscillators = [];
+
         partials.forEach(({ ratio, gain: partialGain }) => {
             const osc = this.ctx.createOscillator();
             const oscGain = this.ctx.createGain();
@@ -224,8 +231,18 @@ class PianoSampleEngine {
             
             osc.start(now);
             osc.stop(now + duration + 0.1);
+            oscillators.push(osc);
         });
         
+        // Store the master gain for this voice for manual termination
+        this.activeVoices.get(voiceKey).push({
+            source: oscillators[0], // Reference fundamental for tracking
+            oscillators: oscillators,
+            gainNode: masterGain,
+            startTime: now,
+            midi
+        });
+
         // Add attack transient (percussive click)
         const noise = this.ctx.createBufferSource();
         const noiseBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.05, this.ctx.sampleRate);
