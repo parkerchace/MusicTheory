@@ -1417,7 +1417,7 @@
                 },
                 {
                     title: 'Jazz Voicings',
-                    desc: 'ii-V-I with professional spacing',
+                    desc: 'ii-V-I with standard voice leading',
                     category: 'jazz',
                     action: () => this.playExample_JazzVoicings()
                 },

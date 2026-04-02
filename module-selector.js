@@ -60,7 +60,7 @@ class ModuleSelector {
                 {
                     id: 'sheet-music',
                     name: 'Sheet Music Generator',
-                    description: 'Generate and print professional-looking sheet music with custom notation.',
+                    description: 'Generate and print sheet music with custom notation.',
                     icon: '📄',
                     category: 'Output',
                     keywords: ['notation', 'sheet music', 'print', 'score'],

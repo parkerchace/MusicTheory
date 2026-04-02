@@ -1,5 +1,7 @@
 # Music Theory Studio
 
+[Live Demo](https://parkerchace.github.io/MusicTheory/)
+
 A browser-based collection of modular music theory tools for exploration, practice, and composition. This project provides an interactive, event-driven environment where harmonic discovery is linked across multiple visualizers and engines.
 
 ## Features

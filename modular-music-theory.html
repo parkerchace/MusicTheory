@@ -798,8 +798,7 @@
 
             const tax = window.SCALES.meta.taxonomy;
             const displayNames = window.SCALES.meta.displayNames || {};
-            const layoutTree = tax.byFamily;
-            const falloutIcons = ['🗲', '🌟', '🛡️', '👁️', '💪', '🧬', '⚙️', '🔥', '☢️', '🔬', '🛡️', '👁️', '💪', '🧬', '⚙️', '🔥', '☢️', '🔬', '🗲', '🌟'];
+            const layoutTree = (tax && tax.byFamily) ? tax.byFamily : {};
 
             // 1. Pyramid (Upside Down Tree) Rendering
             if (activeView === 'tree') {
@@ -896,8 +895,7 @@
                 families.forEach((fam, idx) => {
                     const col = createEl('div', 'special-column');
                     const header = createEl('div', 'special-header');
-                    const icon = falloutIcons[idx % falloutIcons.length];
-                    header.innerHTML = `<span>${icon}</span> ${fam}`;
+                    header.textContent = fam;
                     col.appendChild(header);
 
                     const content = createEl('div', 'special-content');
