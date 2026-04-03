@@ -45,6 +45,36 @@
         }
     }
 
+    function setDockModeClass(mode) {
+        const root = $('instrument-dock-root');
+        if (!root) return;
+        root.classList.remove('dock-mode-piano', 'dock-mode-guitar', 'dock-mode-both');
+        root.classList.add(`dock-mode-${mode}`);
+    }
+
+    function nudgeVisualizersToResize(mode) {
+        // Some visualizers rely on layout settling before measuring.
+        // Schedule after the DOM/styles have applied.
+        const dockGuitarContainer = $('guitar-dock-container');
+
+        const syncOnce = () => {
+            try {
+                const app = window.modularApp;
+                if (app && app.piano && typeof app.piano.render === 'function') {
+                    app.piano.render();
+                }
+                if (mode !== 'piano' && app && app.guitarFretboard && typeof app.guitarFretboard._applyFitToHost === 'function' && dockGuitarContainer) {
+                    app.guitarFretboard._applyFitToHost(dockGuitarContainer);
+                }
+            } catch (_) {}
+
+            // Broad fallback for any listeners
+            try { window.dispatchEvent(new Event('resize')); } catch (_) {}
+        };
+
+        requestAnimationFrame(() => requestAnimationFrame(syncOnce));
+    }
+
     function applyDockMode(mode) {
         const dockGrid = $('instrument-dock');
         const panePiano = $('instrument-pane-piano');
@@ -54,8 +84,13 @@
 
         const sidebarGuitarModule = safeClosestModule(sidebarGuitarContainer);
 
+        setDockModeClass(mode);
+
         if (mode === 'piano') {
-            if (dockGrid) dockGrid.style.gridTemplateColumns = '1fr';
+            if (dockGrid) {
+                dockGrid.style.gridTemplateColumns = '1fr';
+                dockGrid.style.gap = '0px';
+            }
             ensureVisible(panePiano, true);
             ensureVisible(paneGuitar, false);
             // Put guitar back in the sidebar (if the sidebar container exists)
@@ -63,20 +98,29 @@
                 ensureVisible(sidebarGuitarModule, true);
                 moveGuitarMount('guitar-fretboard-container');
             }
+            nudgeVisualizersToResize('piano');
         } else if (mode === 'guitar') {
-            if (dockGrid) dockGrid.style.gridTemplateColumns = '1fr';
+            if (dockGrid) {
+                dockGrid.style.gridTemplateColumns = '1fr';
+                dockGrid.style.gap = '0px';
+            }
             ensureVisible(panePiano, false);
             ensureVisible(paneGuitar, true);
             // Dock guitar to the bottom deck and hide sidebar module to prevent duplicates
             ensureVisible(sidebarGuitarModule, false);
             if (dockGuitarContainer) moveGuitarMount('guitar-dock-container');
+            nudgeVisualizersToResize('guitar');
         } else {
             // both
-            if (dockGrid) dockGrid.style.gridTemplateColumns = '1fr 1fr';
+            if (dockGrid) {
+                dockGrid.style.gridTemplateColumns = '1fr 1fr';
+                dockGrid.style.gap = '';
+            }
             ensureVisible(panePiano, true);
             ensureVisible(paneGuitar, true);
             ensureVisible(sidebarGuitarModule, false);
             if (dockGuitarContainer) moveGuitarMount('guitar-dock-container');
+            nudgeVisualizersToResize('both');
         }
     }
 

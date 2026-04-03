@@ -1086,6 +1086,7 @@
             max-height: 0;
             overflow: hidden;
             opacity: 0;
+            pointer-events: none;
             transition: all 0.2s ease;
             z-index: 1000;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
@@ -1096,6 +1097,7 @@
         #help-dropdown-panel.open {
             max-height: 400px;
             opacity: 1;
+            pointer-events: auto;
         }
         
         .module-toggle-item {

@@ -571,8 +571,8 @@ class PianoVisualizer {
                         this._pv_lastAutoWhiteHeight = desiredWhite;
                         this.options.whiteKeyHeight = desiredWhite;
                         // Keep black keys proportionate when auto-fitting height (dock).
-                        // 0.60 matches the default ratio (120/200) and looks less “too long”.
-                        this.options.blackKeyHeight = Math.round(desiredWhite * 0.60);
+                        // Slightly shorter than the default 0.60 ratio to avoid overly long blacks.
+                        this.options.blackKeyHeight = Math.round(desiredWhite * 0.55);
                     }
                 }
             }

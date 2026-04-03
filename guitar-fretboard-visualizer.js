@@ -197,7 +197,9 @@ class GuitarFretboardVisualizer {
             nutWidth = clamp(Math.round(targetW * 0.014), 8, 12);
 
             fretWidth = (targetW - openZoneWidth - nutWidth - 20) / frets;
-            fretWidth = clamp(fretWidth, 26, 72);
+            // Let the dock board grow to fill wide containers.
+            // The previous max cap caused a big empty strip on the right.
+            fretWidth = clamp(fretWidth, 18, 160);
 
             totalWidth = Math.floor(openZoneWidth + nutWidth + (frets * fretWidth) + 20);
             totalHeight = Math.floor(topPad * 2 + (stringGap * 5) + 18);

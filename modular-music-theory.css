@@ -283,6 +283,18 @@ body {
     grid-template-columns: 1fr 1fr;
 }
 
+/* Dock mode: ensure the remaining instrument fills the dock width (no “blank column” on the right) */
+#instrument-dock-root.dock-mode-piano #instrument-dock,
+#instrument-dock-root.dock-mode-guitar #instrument-dock {
+    grid-template-columns: 1fr !important;
+    gap: 0px !important;
+}
+
+#instrument-dock-root.dock-mode-piano #instrument-pane-piano,
+#instrument-dock-root.dock-mode-guitar #instrument-pane-guitar {
+    grid-column: 1 / -1;
+}
+
 .instrument-dock-settings {
     position: absolute;
     top: 6px;
@@ -1174,6 +1186,7 @@ input:focus, select:focus {
     max-height: 0;
     overflow: hidden;
     opacity: 0;
+    pointer-events: none;
     transition: all 0.2s ease;
     z-index: 1000;
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
@@ -1184,6 +1197,7 @@ input:focus, select:focus {
 #help-dropdown-panel.open {
     max-height: 400px;
     opacity: 1;
+    pointer-events: auto;
 }
 
 .module-toggle-item {
