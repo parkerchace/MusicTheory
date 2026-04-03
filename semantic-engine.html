@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Semantic Engine – Music Theory Studio</title>
+
+  <link rel="stylesheet" href="modular-styles.css" />
+  <link rel="stylesheet" href="modular-music-theory.css" />
+
+  <style>
+    /* This page reuses the studio CSS, but the studio sets:
+       body { height:100vh; overflow:hidden; display:flex; }
+       That breaks long-page scrolling here (it feels like you must zoom out).
+       Override to a normal document flow for this standalone page. */
+    body {
+      height: auto;
+      min-height: 100vh;
+      overflow: auto;
+      display: block;
+    }
+
+    .semantic-page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .semantic-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    @media (min-width: 900px) {
+      .semantic-grid {
+        grid-template-columns: 1.1fr 0.9fr;
+        align-items: start;
+      }
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      padding: 12px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .row > * { flex: 0 0 auto; }
+
+    .grow { flex: 1 1 auto; }
+
+    textarea.form-input {
+      width: 100%;
+      min-height: 120px;
+      resize: vertical;
+      line-height: 1.35;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th, td {
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 8px 6px;
+      vertical-align: top;
+    }
+
+    th {
+      text-align: left;
+      color: var(--text-muted);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    code.inline {
+      font-family: var(--font-tech);
+      font-size: 0.82rem;
+      color: var(--text-highlight);
+    }
+
+    details summary {
+      cursor: pointer;
+      user-select: none;
+      color: var(--accent-primary);
+      font-weight: 700;
+      margin: 6px 0;
+    }
+
+    pre {
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px;
+      padding: 10px;
+      overflow: auto;
+      max-height: 55vh;
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    .status {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.03);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .metric {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 6px;
+      align-items: center;
+      margin: 6px 0;
+    }
+
+    .bar {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .bar > div {
+      height: 100%;
+      background: var(--accent-primary);
+      width: 50%;
+      opacity: 0.75;
+    }
+
+    .muted {
+      color: var(--text-muted);
+    }
+
+    .semantic-music-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    @media (min-width: 900px) {
+      .semantic-music-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .semantic-chord-pill {
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-main);
+      border-radius: 999px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      user-select: none;
+    }
+
+    .semantic-chord-pill.active {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+  </style>
+</head>
+
+<body data-theme="clean-daw">
+  <div class="semantic-page">
+    <div class="panel">
+      <div class="row" style="justify-content: space-between;">
+        <div style="font-family: var(--font-tech); font-weight: 800; letter-spacing: 0.04em;">
+          SEMANTIC_ENGINE
+        </div>
+        <div class="row">
+          <a class="btn" href="modular-music-theory.html" style="text-decoration:none;">Back to Studio</a>
+        </div>
+      </div>
+      <div class="status" id="semantic-status">Ready.</div>
+    </div>
+
+    <div class="semantic-grid">
+      <div class="panel">
+        <div class="row" style="margin-bottom: 8px;">
+          <div class="pill">Input</div>
+          <div class="pill">Words → phonetics → definitions → context</div>
+        </div>
+
+        <textarea id="semantic-input" class="form-input" placeholder="Type a sentence or a few words (e.g., chase woods dark)..."></textarea>
+
+        <div class="row" style="margin-top: 10px;">
+          <button id="semantic-analyze" class="btn-primary">Analyze</button>
+          <button id="semantic-clear" class="btn">Clear</button>
+          <label class="pill" style="cursor:pointer;">
+            <input id="semantic-use-live-dictionary" type="checkbox" checked />
+            <span>Use live dictionary</span>
+          </label>
+          <div class="grow"></div>
+          <button id="semantic-fill-example" class="btn">Example</button>
+        </div>
+
+        <div style="margin-top: 12px;" id="semantic-summary"></div>
+      </div>
+
+      <div class="panel">
+        <div class="row" style="margin-bottom: 8px;">
+          <div class="pill">Explainability</div>
+          <div class="pill">Expandable</div>
+        </div>
+
+        <details id="semantic-explain" open>
+          <summary>Show analysis details</summary>
+          <div class="muted" style="margin: 6px 0 8px;">
+            This is meant to be inspectable: per-word signals, dictionary hits, and fallbacks.
+          </div>
+          <pre id="semantic-explain-pre">(run an analysis)</pre>
+        </details>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="margin-bottom: 8px;">
+        <div class="pill">Per-word breakdown</div>
+      </div>
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th style="min-width:140px;">Word</th>
+              <th>Normalization</th>
+              <th>Phonetic signals</th>
+              <th>Local DB</th>
+              <th>Dictionary</th>
+            </tr>
+          </thead>
+          <tbody id="semantic-words-tbody">
+            <tr><td colspan="5" class="muted">No analysis yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="margin-bottom: 8px;">
+        <div class="pill">Musical output</div>
+        <div class="pill" id="semantic-music-context">(run an analysis)</div>
+        <label class="pill" style="cursor:pointer;">
+          <span style="margin-right:6px;">Phrase</span>
+          <select id="semantic-phrase-preset" class="form-input" style="font-size:0.75rem; padding:2px 6px;">
+            <option value="auto" selected>Auto (sentences/words)</option>
+            <option value="4">4 bars</option>
+            <option value="8">8 bars</option>
+            <option value="12">12 bars</option>
+            <option value="16">16 bars</option>
+          </select>
+        </label>
+        <label class="pill" style="cursor:pointer;">
+          <span style="margin-right:6px;">Mode</span>
+          <select id="semantic-music-mode" class="form-input" style="font-size:0.75rem; padding:2px 6px;">
+            <option value="chords">Chords (voices)</option>
+            <option value="melody">Melody (implied harmony)</option>
+          </select>
+        </label>
+        <label class="pill" id="semantic-voices-toggle" style="cursor:pointer;">
+          <input id="semantic-use-voiceleading" type="checkbox" checked />
+          <span>Voice-leading</span>
+        </label>
+        <div class="grow"></div>
+        <div class="pill muted">Click a chord to focus</div>
+      </div>
+
+      <div class="row" id="semantic-progression" style="gap:8px; flex-wrap:wrap; margin-bottom:10px;"></div>
+
+      <div class="panel" id="semantic-voices-panel" style="padding: 10px; margin-bottom: 10px; display:none;">
+        <div class="pill" style="margin-bottom:8px;">Voices / Melody</div>
+        <div id="semantic-voices-body" class="muted">(run an analysis)</div>
+      </div>
+
+      <div class="panel" style="padding: 10px;">
+        <div class="pill" style="margin-bottom:8px;">Sheet music</div>
+        <div id="sheet-music-container"></div>
+      </div>
+
+      <div class="semantic-music-grid" style="margin-top:12px;">
+        <div class="panel" style="padding: 10px;">
+          <div class="pill" style="margin-bottom:8px;">Piano</div>
+          <div id="semantic-piano-container"></div>
+        </div>
+        <div class="panel" style="padding: 10px;">
+          <div class="pill" style="margin-bottom:8px;">Guitar</div>
+          <div id="semantic-guitar-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modules used by this page -->
+  <!-- Scales dataset (enables minor/modes without network fetch) -->
+  <script src="scales-data-embedded.js"></script>
+  <script src="scale-taxonomy.js"></script>
+  <script src="scales-loader-embedded.js"></script>
+
+  <!-- Music output visualizers -->
+  <script src="music-theory-engine.js"></script>
+  <script src="voice-leading-engine.js"></script>
+  <script src="sheet-music-generator.js"></script>
+  <script src="piano-visualizer.js"></script>
+  <script src="guitar-fretboard-visualizer.js"></script>
+
+  <script src="word-database.js"></script>
+  <script src="semantic-api-engine.js"></script>
+  <script src="semantic-engine-ui.js" defer></script>
+</body>
+</html>

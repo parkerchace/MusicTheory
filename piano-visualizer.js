@@ -21,6 +21,9 @@ class PianoVisualizer {
             whiteKeyWidth: options.whiteKeyWidth || 80, // Increased from 60 for better visibility
             whiteKeyHeight: options.whiteKeyHeight || 200, // Increased from 140
             blackKeyHeight: options.blackKeyHeight || 120, // Increased from 90
+            // If true, expand key height to fill the available container height.
+            // This is useful in the instrument dock so we don't leave dead space under the keys.
+            autoFitHeight: options.autoFitHeight || false,
             fitToContainer: options.fitToContainer !== false, // scale keys to container width
             showFingering: options.showFingering !== false, // Show fingering by default
             showLeftHandFingering: options.showLeftHandFingering !== false, // Show left hand fingering by default
@@ -58,6 +61,8 @@ class PianoVisualizer {
         this.listeners = new Map();
         this.pianoElement = null;
         this.keysInner = null; // inner scrollable content
+        this._pv_fingeringRow = null;
+        this._pv_lastAutoWhiteHeight = null;
     this._melodyTimers = [];
     this._melodyCancel = null;
         // Container for vertically stacked chord note display (traditional chord stack)
@@ -465,21 +470,10 @@ class PianoVisualizer {
             document.head.appendChild(styleEl);
         }
 
-        // Adaptive fit/scroll logic: observe container size and toggle fitToContainer
+        // Responsive rerender: observe container size and re-render (keeps audio + layout in sync)
         try {
             const observeTarget = this.pianoElement.parentElement || document.body;
-            const updateFitMode = () => {
-                const w = (observeTarget.clientWidth && observeTarget.clientWidth > 0) ? observeTarget.clientWidth : window.innerWidth;
-                // Mobile threshold 480px
-                const mobile = w <= 480;
-                this.options.fitToContainer = !mobile;
-                // If mobile, allow scrolling on the parent container
-                if (mobile && this.pianoElement.parentElement) {
-                    this.pianoElement.parentElement.style.overflowX = 'auto';
-                    this.pianoElement.parentElement.style.webkitOverflowScrolling = 'touch';
-                } else if (this.pianoElement.parentElement) {
-                    this.pianoElement.parentElement.style.overflowX = 'hidden';
-                }
+            const updateLayout = () => {
                 // Trigger a render to apply new fit behavior
                 this.render();
             };
@@ -489,17 +483,17 @@ class PianoVisualizer {
             if (typeof ResizeObserver !== 'undefined') {
                 this._pv_ro = new ResizeObserver(() => {
                     clearTimeout(resizeTimer);
-                    resizeTimer = setTimeout(updateFitMode, 120);
+                    resizeTimer = setTimeout(updateLayout, 120);
                 });
                 this._pv_ro.observe(observeTarget);
             } else {
                 window.addEventListener('resize', () => {
                     clearTimeout(resizeTimer);
-                    resizeTimer = setTimeout(updateFitMode, 120);
+                    resizeTimer = setTimeout(updateLayout, 120);
                 });
             }
             // Initial run
-            updateFitMode();
+            updateLayout();
         } catch (e) {
             // Non-fatal
         }
@@ -553,6 +547,37 @@ class PianoVisualizer {
     render() {
         if (!this.pianoElement) this.createPianoElement();
 
+        // Auto-fit vertical key height to the available host container height.
+        // This makes the keyboard expand in the dock (instead of leaving dead space under the keys).
+        try {
+            if (this.options.autoFitHeight && this.pianoElement.parentElement) {
+                const host = this.pianoElement.parentElement;
+                const hostHeight = host.clientHeight;
+                if (hostHeight && hostHeight > 0) {
+                    const rowH = (this._pv_fingeringRow && this._pv_fingeringRow.parentElement === host)
+                        ? this._pv_fingeringRow.offsetHeight
+                        : 0;
+
+                    const topPadding = 28; // must match keysInner.paddingTop
+                    const chrome = 10; // a little breathing room
+                    const usable = hostHeight - rowH - chrome;
+
+                    const minWhite = 110;
+                    // Keep the dock keyboard comfortable; don't let it balloon.
+                    const maxWhite = 170;
+                    const desiredWhite = Math.max(minWhite, Math.min(maxWhite, Math.round(usable - topPadding)));
+
+                    if (desiredWhite > 0 && this._pv_lastAutoWhiteHeight !== desiredWhite) {
+                        this._pv_lastAutoWhiteHeight = desiredWhite;
+                        this.options.whiteKeyHeight = desiredWhite;
+                        // Keep black keys proportionate when auto-fitting height (dock).
+                        // 0.60 matches the default ratio (120/200) and looks less “too long”.
+                        this.options.blackKeyHeight = Math.round(desiredWhite * 0.60);
+                    }
+                }
+            }
+        } catch (_) {}
+
         this.whitesLayer.innerHTML = '';
         this.blacksLayer.innerHTML = '';
 
@@ -580,19 +605,35 @@ class PianoVisualizer {
         this.keysInner.style.height = `${totalHeight}px`;
 
         // Fit-to-container scaling
+        // NOTE: allow scaling UP as well as down so the keyboard fills the host width
+        // (prevents “dead space” to the right when the key range is narrower than the container).
         let scale = 1;
         if (this.options.fitToContainer && this.pianoElement) {
             // Ensure the element is in DOM to measure
-            const containerWidth = this.pianoElement.clientWidth || (this.pianoElement.parentElement ? this.pianoElement.parentElement.clientWidth : totalWidth);
-            if (containerWidth && totalWidth) {
-                scale = Math.min(1, containerWidth / totalWidth);
-            }
+            const host = this.pianoElement.parentElement || this.pianoElement;
+            const containerWidth = host.clientWidth || totalWidth;
+            const containerHeight = host.clientHeight || 0;
+
+            const scaleW = (containerWidth && totalWidth) ? (containerWidth / totalWidth) : 1;
+            const scaleH = (containerHeight && totalHeight) ? (containerHeight / totalHeight) : Infinity;
+
+            scale = Math.min(scaleW, scaleH);
+
+            // Keep within a sane range so a tiny range doesn't become comically huge.
+            const minScale = 0.08;
+            const maxScale = 1.65;
+            scale = Math.max(minScale, Math.min(maxScale, scale));
+
             this.keysInner.style.transformOrigin = 'left top';
             this.keysInner.style.transform = `scale(${scale})`;
             this.pianoElement.style.height = `${totalHeight * scale}px`;
+
+            // Prevent the element itself from forcing horizontal scroll on its parent
+            this.pianoElement.style.minWidth = '0';
         } else {
             this.keysInner.style.transform = '';
             this.pianoElement.style.height = `${totalHeight}px`;
+            this.pianoElement.style.minWidth = 'max-content';
         }
 
         // Render white keys
@@ -1389,6 +1430,13 @@ class PianoVisualizer {
             if (pill) pill.textContent = this.state.currentKey;
         } catch(_){}
         this.renderAnnotations();
+
+        // Center the working octave
+        if (this.options.highlightMode === 'octave') {
+            requestAnimationFrame(() => {
+                this._centerScrollOnMidiRange(this.state.centerLowMidi, this.state.centerHighMidi);
+            });
+        }
     }
 
     /**
@@ -1952,6 +2000,7 @@ class PianoVisualizer {
         
         // Fingering controls moved above piano to sit left of keyboard
         const fingeringRow = document.createElement('div');
+        this._pv_fingeringRow = fingeringRow;
         fingeringRow.style.display = 'flex';
         fingeringRow.style.flexDirection = 'row';
         fingeringRow.style.alignItems = 'center';
@@ -2100,26 +2149,35 @@ class PianoVisualizer {
         // Add sections to fingering row (scale info on top, buttons below)
         fingeringRow.appendChild(scaleInfoContainer);
 
-        // Move scale library container here if it exists
-        const scaleLibraryContainer = document.getElementById('scale-library-container');
-        if (scaleLibraryContainer) {
-            // Ensure it displays as flex row
-            scaleLibraryContainer.style.display = 'flex';
-            scaleLibraryContainer.style.alignItems = 'center';
-            scaleLibraryContainer.style.gap = '8px';
-            fingeringRow.appendChild(scaleLibraryContainer);
-            
-            // Hide the original header container if it's now empty
-            const headerContainer = document.getElementById('header-scale-controls');
-            if (headerContainer) {
-                headerContainer.style.display = 'none';
-            }
-        }
-
         fingeringRow.appendChild(buttonSection);
         
         // Insert fingering row before piano
         container.insertBefore(fingeringRow, this.pianoElement);
+    }
+
+    _centerScrollOnMidiRange(lowMidi, highMidi) {
+        try {
+            if (!this.pianoElement) return;
+            const scrollHost = this.pianoElement.parentElement;
+            if (!scrollHost) return;
+            if (!scrollHost.scrollWidth || scrollHost.clientWidth >= scrollHost.scrollWidth) return;
+
+            const low = (typeof lowMidi === 'number') ? lowMidi : this.options.startMidi;
+            const high = (typeof highMidi === 'number') ? highMidi : (low + 12);
+            const midMidi = Math.round((low + high) / 2);
+
+            const keyEl = this.pianoElement.querySelector(`[data-midi="${midMidi}"]`) || this.pianoElement.querySelector(`[data-midi="${low}"]`);
+            if (!keyEl) return;
+
+            const hostRect = scrollHost.getBoundingClientRect();
+            const keyRect = keyEl.getBoundingClientRect();
+            const keyCenterX = keyRect.left + (keyRect.width / 2);
+            const hostCenterX = hostRect.left + (hostRect.width / 2);
+            const delta = keyCenterX - hostCenterX;
+
+            const next = Math.max(0, Math.min(scrollHost.scrollLeft + delta, scrollHost.scrollWidth - scrollHost.clientWidth));
+            scrollHost.scrollLeft = next;
+        } catch (_) {}
     }
 
     /**
@@ -2277,6 +2335,14 @@ class PianoVisualizer {
         // Re-render annotations and visual state
         this.applyState();
         this.renderAnnotations();
+
+        if (mode === 'octave') {
+            requestAnimationFrame(() => {
+                const lowMidi = typeof this.state.centerLowMidi === 'number' ? this.state.centerLowMidi : this.options.startMidi;
+                const highMidi = typeof this.state.centerHighMidi === 'number' ? this.state.centerHighMidi : (lowMidi + 12);
+                this._centerScrollOnMidiRange(lowMidi, highMidi);
+            });
+        }
     }
 }
 

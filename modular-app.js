@@ -114,13 +114,17 @@ window.mountLearnModuleIfReady = function(instrument) {
                     container: '#piano-container',
                     audioEngine: this.audioEngine,
                     startMidi: 21,
-                    octaves: 7,
-                    whiteKeyWidth: 30,
-                    whiteKeyHeight: 120,
-                    blackKeyHeight: 80,
+                    // Focused view: show 1 octave + a small buffer around it
+                    // Show a wider window so the keyboard doesn't feel tiny,
+                    // while keeping the scale octave centered in the displayed range.
+                    octaves: 3,
+                    whiteKeyWidth: 34,
+                    whiteKeyHeight: 140,
+                    blackKeyHeight: 95,
+                    autoFitHeight: true,
                     showFingering: true,
                     showRomanNumerals: true,
-                    fitToContainer: false,
+                    fitToContainer: true,
                     showNoteLabels: false,
                     showTooltips: false,
                     showGradingTooltips: false
@@ -855,211 +859,257 @@ window.mountLearnModuleIfReady = function(instrument) {
             }
 
             setupEventHandlers() {
+                const safe = (label, fn) => {
+                    try { fn(); }
+                    catch (e) { console.warn(`[ModularApp] ${label} failed`, e); }
+                };
+
                 // Sync fretboard to ScaleLibrary changes
-                if (this.scaleLibrary && this.scaleLibrary.on) {
-                    this.scaleLibrary.on('scaleChanged', ({ key, scale, notes }) => {
-                        if (this.guitarFretboard && this.guitarFretboard.renderScale) {
-                            this.guitarFretboard.renderScale({ key, scale, notes });
-                        }
-                    });
-                    this.scaleLibrary.on('degreeHighlighted', ({ note }) => {
-                        if (this.guitarFretboard && this.guitarFretboard.highlightNote) {
-                            this.guitarFretboard.highlightNote(note);
-                        }
-                    });
-                    this.scaleLibrary.on('highlightingCleared', () => {
-                        if (this.guitarFretboard && this.guitarFretboard.renderScale) {
-                            const key = this.scaleLibrary.getCurrentKey();
-                            const scale = this.scaleLibrary.getCurrentScale();
-                            const notes = this.scaleLibrary.getCurrentScaleNotes();
-                            this.guitarFretboard.renderScale({ key, scale, notes });
-                        }
-                    });
-                }
+                safe('ScaleLibrary.events', () => {
+                    if (this.scaleLibrary && typeof this.scaleLibrary.on === 'function') {
+                        this.scaleLibrary.on('scaleChanged', ({ key, scale, notes }) => {
+                            if (this.guitarFretboard && this.guitarFretboard.renderScale) {
+                                this.guitarFretboard.renderScale({ key, scale, notes });
+                            }
+                        });
+                        this.scaleLibrary.on('degreeHighlighted', ({ note }) => {
+                            if (this.guitarFretboard && this.guitarFretboard.highlightNote) {
+                                this.guitarFretboard.highlightNote(note);
+                            }
+                        });
+                        this.scaleLibrary.on('highlightingCleared', () => {
+                            if (this.guitarFretboard && this.guitarFretboard.renderScale) {
+                                const key = this.scaleLibrary.getCurrentKey();
+                                const scale = this.scaleLibrary.getCurrentScale();
+                                const notes = this.scaleLibrary.getCurrentScaleNotes();
+                                this.guitarFretboard.renderScale({ key, scale, notes });
+                            }
+                        });
+                    }
+                });
+
                 // Audio Engine Listeners + propagate to guitar
-                if (this.pianoVisualizer && this.pianoVisualizer.on) {
-                    this.pianoVisualizer.on('noteClicked', (data) => {
-                        if (this.audioEngine) {
-                            this.audioEngine.playNote(data.midi);
-                        }
-                        if (this.guitarFretboard && this.guitarFretboard.highlightMidi) {
-                            this.guitarFretboard.highlightMidi(data.midi);
-                        }
-                    });
-                }
+                safe('PianoVisualizer.events', () => {
+                    if (this.pianoVisualizer && typeof this.pianoVisualizer.on === 'function') {
+                        this.pianoVisualizer.on('noteClicked', (data) => {
+                            if (this.audioEngine) {
+                                this.audioEngine.playNote(data.midi);
+                            }
+                            if (this.guitarFretboard && this.guitarFretboard.highlightMidi) {
+                                this.guitarFretboard.highlightMidi(data.midi);
+                            }
+                        });
+                    }
+                });
 
-                if (this.guitarFretboard && this.guitarFretboard.on) {
-                    this.guitarFretboard.on('noteClicked', (data) => {
-                        // Use MIDI-style overlay for instrument cross-sync to avoid clearing 
-                        // the theoretical state (the scale) that might be visible on the piano.
-                        if (this.pianoVisualizer && this.pianoVisualizer.midiNoteOn) {
-                            this.pianoVisualizer.midiNoteOn(data.midi);
-                            // Auto-clear highlight after 450ms for visual feedback
-                            setTimeout(() => {
-                                if (this.pianoVisualizer.midiNoteOff) {
-                                    this.pianoVisualizer.midiNoteOff(data.midi);
-                                }
-                            }, 450);
-                        }
-                    });
-                }
+                safe('GuitarFretboard.events', () => {
+                    if (this.guitarFretboard && typeof this.guitarFretboard.on === 'function') {
+                        this.guitarFretboard.on('noteClicked', (data) => {
+                            // Use MIDI-style overlay for instrument cross-sync to avoid clearing
+                            // the theoretical state (the scale) that might be visible on the piano.
+                            if (this.pianoVisualizer && this.pianoVisualizer.midiNoteOn) {
+                                this.pianoVisualizer.midiNoteOn(data.midi);
+                                // Auto-clear highlight after 450ms for visual feedback
+                                setTimeout(() => {
+                                    if (this.pianoVisualizer.midiNoteOff) {
+                                        this.pianoVisualizer.midiNoteOff(data.midi);
+                                    }
+                                }, 450);
+                            }
+                        });
+                    }
+                });
 
-                if (this.chordExplorer && this.chordExplorer.on) {
-                    this.chordExplorer.on('radialMenuOpened', (data) => {
-                        if (this.audioEngine && data.chord && data.chord.chordNotes) {
-                            this.audioEngine.playChord(data.chord.chordNotes);
-                        }
-                    });
-                }
+                safe('ChordExplorer.events', () => {
+                    if (this.chordExplorer && typeof this.chordExplorer.on === 'function') {
+                        this.chordExplorer.on('radialMenuOpened', (data) => {
+                            if (this.audioEngine && data.chord && data.chord.chordNotes) {
+                                this.audioEngine.playChord(data.chord.chordNotes);
+                            }
+                        });
+                    }
+                });
 
-                try {
                     // Mount number generator
-                    if (this.numberGenerator && this.numberGenerator.mount) {
-                        this.numberGenerator.mount('#number-generator-container');
-                    }
-                    // Mount scale library
-                    if (this.scaleLibrary && this.scaleLibrary.mount) {
-                        this.scaleLibrary.mount('#scale-library-container');
-                        // debugLog('ScaleLibrary mounted');
-                    } else {
-                        // debugLog('ERROR: ScaleLibrary missing or invalid');
-                    }
-                    // Mount main piano visualizer
-                    if (this.pianoVisualizer && this.pianoVisualizer.mount) {
-                        this.pianoVisualizer.mount('#piano-container');
-                        
-                        // Trigger connector drawing after piano renders
-                        if (this.pianoVisualizer.on) {
-                            this.pianoVisualizer.on('rendered', () => {
-                                console.log('[PianoConnectors] Piano rendered, drawing connectors...');
-                                if (this._drawConnectorsAfterPiano) {
-                                    this._drawConnectorsAfterPiano();
-                                }
-                            });
+                    safe('NumberGenerator.mount', () => {
+                        if (this.numberGenerator && this.numberGenerator.mount) {
+                            this.numberGenerator.mount('#number-generator-container');
                         }
-                    }
+                    });
+
+                    // Mount scale library
+                    safe('ScaleLibrary.mount', () => {
+                        if (this.scaleLibrary && this.scaleLibrary.mount) {
+                            this.scaleLibrary.mount('#scale-library-container');
+
+                            // Place key/scale controls in the top control deck center slot
+                            try {
+                                const centerSlot = document.getElementById('control-deck-keyscale-center');
+                                const el = document.getElementById('scale-library-container');
+                                if (centerSlot && el && el.parentElement !== centerSlot) {
+                                    // Ensure the controls stay compact in the top bar
+                                    el.style.display = 'flex';
+                                    el.style.alignItems = 'center';
+                                    el.style.justifyContent = 'center';
+                                    el.style.gap = '10px';
+                                    el.style.margin = '0';
+                                    centerSlot.appendChild(el);
+                                }
+                            } catch (_) {}
+                        }
+                    });
+
+                    // Mount main piano visualizer
+                    safe('PianoVisualizer.mount', () => {
+                        if (this.pianoVisualizer && this.pianoVisualizer.mount) {
+                            this.pianoVisualizer.mount('#piano-container');
+
+                            // Trigger connector drawing after piano renders
+                            if (this.pianoVisualizer.on) {
+                                this.pianoVisualizer.on('rendered', () => {
+                                    console.log('[PianoConnectors] Piano rendered, drawing connectors...');
+                                    if (this._drawConnectorsAfterPiano) {
+                                        this._drawConnectorsAfterPiano();
+                                    }
+                                });
+                            }
+                        }
+                    });
+
                     // Mount guitar fretboard visualizer
-                    if (this.guitarFretboard && this.guitarFretboard.mount) {
-                        this.guitarFretboard.mount('#guitar-fretboard-container');
-                        try {
-                            const key = this.scaleLibrary.getCurrentKey();
-                            const scale = this.scaleLibrary.getCurrentScale();
-                            const notes = this.scaleLibrary.getCurrentScaleNotes();
-                            this.guitarFretboard.renderScale({ key, scale, notes });
-                        } catch(_) {}
-                    }
+                    safe('GuitarFretboard.mount', () => {
+                        if (this.guitarFretboard && this.guitarFretboard.mount) {
+                            this.guitarFretboard.mount('#guitar-fretboard-container');
+                            try {
+                                const key = this.scaleLibrary.getCurrentKey();
+                                const scale = this.scaleLibrary.getCurrentScale();
+                                const notes = this.scaleLibrary.getCurrentScaleNotes();
+                                this.guitarFretboard.renderScale({ key, scale, notes });
+                            } catch(_) {}
+                        }
+                    });
+
                     // Mount container chord tool
-                    if (this.containerChordTool && this.containerChordTool.mount) {
-                        this.containerChordTool.mount('#container-chord-container');
-                        // debugLog('ContainerChordTool mounted');
-                    } else {
-                        // debugLog('ERROR: ContainerChordTool missing or invalid');
-                    }
+                    safe('ContainerChordTool.mount', () => {
+                        if (this.containerChordTool && this.containerChordTool.mount) {
+                            this.containerChordTool.mount('#container-chord-container');
+                        }
+                    });
+
                     // Mount scale relationship explorer
-                    if (this.scaleRelationshipExplorer && this.scaleRelationshipExplorer.mount) {
-                        this.scaleRelationshipExplorer.mount('#scale-relationship-container');
-                    }
+                    safe('ScaleRelationshipExplorer.mount', () => {
+                        if (this.scaleRelationshipExplorer && this.scaleRelationshipExplorer.mount) {
+                            this.scaleRelationshipExplorer.mount('#scale-relationship-container');
+                        }
+                    });
+
                     // Mount progression builder
-                    if (this.progressionBuilder && this.progressionBuilder.mount) {
-                        this.progressionBuilder.mount('#progression-builder-container');
-                        // debugLog('ProgressionBuilder mounted');
-                    } else {
-                        // debugLog('ERROR: ProgressionBuilder missing or invalid');
-                    }
+                    safe('ProgressionBuilder.mount', () => {
+                        if (this.progressionBuilder && this.progressionBuilder.mount) {
+                            this.progressionBuilder.mount('#progression-builder-container');
+                        }
+                    });
+
                     // Mount scale circle explorer
-                    if (this.scaleCircleExplorer && this.scaleCircleExplorer.mount) {
-                        this.scaleCircleExplorer.mount('#scale-circle-container');
-                        // debugLog('ScaleCircleExplorer mounted');
-                    } else {
-                        // debugLog('ERROR: ScaleCircleExplorer missing or invalid');
-                    }
+                    safe('ScaleCircleExplorer.mount', () => {
+                        if (this.scaleCircleExplorer && this.scaleCircleExplorer.mount) {
+                            this.scaleCircleExplorer.mount('#scale-circle-container');
+                        }
+                    });
+
                     // Mount chord explorer
-                    if (this.chordExplorer && this.chordExplorer.mount) {
-                        this.chordExplorer.mount('#chord-explorer-container');
-                    }
+                    safe('UnifiedChordExplorer.mount', () => {
+                        if (this.chordExplorer && this.chordExplorer.mount) {
+                            this.chordExplorer.mount('#chord-explorer-container');
+                        }
+                    });
+
                     // Mount sheet music generator under chord explorer
-                    if (this.sheetMusicGenerator && this.sheetMusicGenerator.mount) {
-                        this.sheetMusicGenerator.mount('#sheet-music-container');
-                    }
+                    safe('SheetMusicGenerator.mount', () => {
+                        if (this.sheetMusicGenerator && this.sheetMusicGenerator.mount) {
+                            this.sheetMusicGenerator.mount('#sheet-music-container');
+                        }
+                    });
+
                     // Mount solar system visualizer (docked by default)
-                    if (this.solarSystem && this.solarSystem.mount) {
-                        const mountTarget = '#solar-dock-viewport';
-                        this.solarSystem.mount(mountTarget);
-                    }
+                    safe('SolarSystem.mount', () => {
+                        if (this.solarSystem && this.solarSystem.mount) {
+                            const mountTarget = '#solar-dock-viewport';
+                            this.solarSystem.mount(mountTarget);
+                        }
+                    });
                     // (condensed sidebar solar removed)
                     // Mobile autodetect: add class and slightly reduce solar size scale
-                    const applyMobileClass = () => {
-                        const isMobile = window.matchMedia('(max-width: 768px)').matches || /Mobi|Android/i.test(navigator.userAgent);
-                        document.body.classList.toggle('is-mobile', !!isMobile);
-                        if (this.solarSystem && typeof this.solarSystem.setSizeScale === 'function') {
-                            this.solarSystem.setSizeScale(isMobile ? 0.9 : 1.0);
-                        }
-                    };
-                    applyMobileClass();
-                    window.addEventListener('resize', () => {
+                    safe('SolarSystem.ui', () => {
+                        // Mobile autodetect: add class and slightly reduce solar size scale
+                        const applyMobileClass = () => {
+                            const isMobile = window.matchMedia('(max-width: 768px)').matches || /Mobi|Android/i.test(navigator.userAgent);
+                            document.body.classList.toggle('is-mobile', !!isMobile);
+                            if (this.solarSystem && typeof this.solarSystem.setSizeScale === 'function') {
+                                this.solarSystem.setSizeScale(isMobile ? 0.9 : 1.0);
+                            }
+                        };
                         applyMobileClass();
-                        if (this.solarSystem && typeof this.solarSystem.handleResize === 'function') {
-                            this.solarSystem.handleResize();
+                        window.addEventListener('resize', () => {
+                            applyMobileClass();
+                            if (this.solarSystem && typeof this.solarSystem.handleResize === 'function') {
+                                this.solarSystem.handleResize();
+                            }
+                        });
+                        const avBtn = document.getElementById('open-audio-visualizer');
+                        if (avBtn && this.audioVisualizer) {
+                            avBtn.addEventListener('click', () => this.audioVisualizer.open());
+                        }
+                        // Auto-play solar system if possible
+                        if (this.solarSystem && typeof this.solarSystem.start === 'function') {
+                            try { this.solarSystem.start(); } catch(e) { /* ignore */ }
+                        }
+
+                        // Dock/Undock control
+                        const dockBtn = document.getElementById('dock-solar');
+                        if (dockBtn) {
+                            // Initially docked
+                            dockBtn.setAttribute('data-docked', 'true');
+                            dockBtn.textContent = '[UNDOCK]';
+
+                            dockBtn.addEventListener('click', () => {
+                                const dockModule = document.getElementById('solar-docked-module');
+                                const isDocked = dockModule ? !dockModule.classList.contains('hidden') : false;
+                                try {
+                                    this.solarSystem.unmount();
+                                    if (!isDocked) {
+                                        // Dock into grid
+                                        if (dockModule) dockModule.classList.remove('hidden');
+                                        const sunEl = document.querySelector('.sun');
+                                        if (sunEl) sunEl.style.display = 'none';
+                                        this.solarSystem.mount('#solar-dock-viewport');
+                                        dockBtn.textContent = '[UNDOCK]';
+                                        // keep alternate dock button in sync
+                                        const dockAlt = document.getElementById('dock-solar-alt');
+                                        if (dockAlt) dockAlt.setAttribute('data-docked', 'true');
+                                        dockBtn.setAttribute('data-docked', 'true');
+                                    } else {
+                                        // Undock back to sun
+                                        if (dockModule) dockModule.classList.add('hidden');
+                                        const sunEl = document.querySelector('.sun');
+                                        if (sunEl) sunEl.style.display = 'flex';
+                                        this.solarSystem.mount('#sun-viewport');
+                                        dockBtn.textContent = '[DOCK]';
+                                        const dockAlt = document.getElementById('dock-solar-alt');
+                                        if (dockAlt) dockAlt.setAttribute('data-docked', 'false');
+                                        dockBtn.setAttribute('data-docked', 'false');
+                                    }
+                                } catch (e) { console.error(e); }
+                            });
+                            // Also add alternate dock/undock listener if present in controls
+                            const dockAlt = document.getElementById('dock-solar-alt');
+                            if (dockAlt) {
+                                dockAlt.addEventListener('click', () => dockBtn.click());
+                                // Initially docked
+                                dockAlt.setAttribute('data-docked', 'true');
+                            }
                         }
                     });
-                    const avBtn = document.getElementById('open-audio-visualizer');
-                    if (avBtn && this.audioVisualizer) {
-                        avBtn.addEventListener('click', () => this.audioVisualizer.open());
-                    }
-                    // Auto-play solar system if possible
-                    if (this.solarSystem && typeof this.solarSystem.start === 'function') {
-                        try { this.solarSystem.start(); } catch(e) { /* ignore */ }
-                    }
-                    // Dock/Undock control
-                    const dockBtn = document.getElementById('dock-solar');
-                    if (dockBtn) {
-                        // Initially docked
-                        dockBtn.setAttribute('data-docked', 'true');
-                        dockBtn.textContent = '[UNDOCK]';
-
-                        dockBtn.addEventListener('click', () => {
-                            const dockModule = document.getElementById('solar-docked-module');
-                            const dockViewport = document.getElementById('solar-dock-viewport');
-                            const sunViewport = document.getElementById('sun-viewport');
-                            const isDocked = !dockModule.classList.contains('hidden');
-                            try {
-                                this.solarSystem.unmount();
-                                if (!isDocked) {
-                                    // Dock into grid
-                                    dockModule.classList.remove('hidden');
-                                    const sunEl = document.querySelector('.sun');
-                                    if (sunEl) sunEl.style.display = 'none';
-                                    this.solarSystem.mount('#solar-dock-viewport');
-                                    dockBtn.textContent = '[UNDOCK]';
-                                    // keep alternate dock button in sync
-                                    const dockAlt = document.getElementById('dock-solar-alt');
-                                    if (dockAlt) dockAlt.setAttribute('data-docked', 'true');
-                                    dockBtn.setAttribute('data-docked', 'true');
-                                } else {
-                                    // Undock back to sun
-                                    dockModule.classList.add('hidden');
-                                    const sunEl = document.querySelector('.sun');
-                                    if (sunEl) sunEl.style.display = 'flex';
-                                    this.solarSystem.mount('#sun-viewport');
-                                    dockBtn.textContent = '[DOCK]';
-                                    const dockAlt = document.getElementById('dock-solar-alt');
-                                    if (dockAlt) dockAlt.setAttribute('data-docked', 'false');
-                                    dockBtn.setAttribute('data-docked', 'false');
-                                }
-                            } catch (e) { console.error(e); }
-                        });
-                        // Also add alternate dock/undock listener if present in controls
-                        const dockAlt = document.getElementById('dock-solar-alt');
-                        if (dockAlt) {
-                            dockAlt.addEventListener('click', () => dockBtn.click());
-                            // Initially docked
-                            dockAlt.setAttribute('data-docked', 'true');
-                        }
-                    }
-                } catch (error) {
-                    // debugLog(`FATAL ERROR: ${error.message}`);
-                    console.error(error);
-                }
             }
 
             renderInitialState() {
@@ -1814,6 +1864,10 @@ window.mountLearnModuleIfReady = function(instrument) {
                         <div style="padding:10px;">
                             <div style="margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:0.68rem; color:var(--text-secondary);">
                                 Chord Grading (${mode})
+                            </div>
+                            <div style="font-size:0.72rem; opacity:0.72; line-height:1.35; margin-bottom:10px;">
+                                Grades are relative to the current key/scale context. Higher tiers generally mean "more stable / more inside"; lower tiers mean "more tension / more outside".
+                                Use this as a guide for color and motion—not a hard rule.
                             </div>
                             ${items.join('')}
                         </div>

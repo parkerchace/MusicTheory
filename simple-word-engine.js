@@ -83,7 +83,8 @@ class SimpleWordEngine {
         this._log('=== SIMPLE WORD ENGINE TRANSLATING ===', wordsString);
         this._log('Options received:', options);
         
-        const words = wordsString.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+        const rawText = String(wordsString || '');
+        const words = rawText.toLowerCase().split(/\s+/).filter(w => w.length > 0);
         if (words.length === 0) {
             return this._emptyResult('No words provided');
         }
@@ -101,7 +102,10 @@ class SimpleWordEngine {
         this._log('Selected scale:', scale);
 
         // Step 4: Build diatonic progression that reflects the words
-        const progression = this._buildProgression(character, scale, words);
+        const progression = this._buildProgression(character, scale, words, {
+            rawText,
+            phrasePreset: options.phrasePreset
+        });
         this._log('Built progression:', progression);
 
         // Step 5: Calculate complexity and compile reasoning
@@ -135,6 +139,56 @@ class SimpleWordEngine {
         result._latestLogEntry = entry;
 
         return result;
+    }
+
+    _parseDegreeFormula(rawText) {
+        const raw = String(rawText || '');
+
+        const numeric = raw.match(/\b[1-7]\b/g);
+        if (numeric && numeric.length >= 2) {
+            const out = numeric
+                .map(d => parseInt(d, 10))
+                .filter(n => n >= 1 && n <= 7);
+            return out.length >= 2 ? out : null;
+        }
+
+        const roman = raw.match(/\b(i{1,3}|iv|v|vi|vii)\b/gi);
+        if (roman && roman.length >= 2) {
+            const map = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7 };
+            const out = roman
+                .map(r => map[String(r).toLowerCase()])
+                .filter(n => typeof n === 'number');
+            if (out.length >= 2 && out.some(n => n !== 1)) return out;
+            return null;
+        }
+
+        return null;
+    }
+
+    _computeSentenceCount(rawText) {
+        const raw = String(rawText || '');
+        const parts = raw.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+        return parts.length;
+    }
+
+    _computeTargetLength(rawText, words, phrasePreset, degreesOverrideLen) {
+        if (degreesOverrideLen && degreesOverrideLen >= 2) {
+            return Math.max(2, Math.min(32, degreesOverrideLen));
+        }
+
+        const preset = phrasePreset == null ? 'auto' : String(phrasePreset);
+        const asInt = parseInt(preset, 10);
+        if (Number.isFinite(asInt) && String(asInt) === preset) {
+            return Math.max(2, Math.min(32, asInt));
+        }
+
+        const wordCount = Array.isArray(words) ? words.length : 0;
+        const sentenceCount = this._computeSentenceCount(rawText);
+
+        // Auto heuristic: sentences drive bars; fallback to word density.
+        if (sentenceCount >= 2) return Math.max(4, Math.min(16, sentenceCount * 4));
+        if (wordCount > 0) return Math.max(4, Math.min(16, Math.ceil(wordCount / 3) * 4));
+        return 4;
     }
 
     /**
@@ -650,12 +704,17 @@ class SimpleWordEngine {
     /**
      * Build diatonic progression that reflects the words - ENHANCED WITH GRADING TIER WEIGHTING
      */
-    _buildProgression(character, scale, words) {
+    _buildProgression(character, scale, words, options = {}) {
         const progression = [];
-        const length = Math.min(6, Math.max(3, words.length + 1));
+
+        const rawText = options.rawText || '';
+        const degreesOverride = this._parseDegreeFormula(rawText);
+        const length = this._computeTargetLength(rawText, words, options.phrasePreset, degreesOverride ? degreesOverride.length : 0);
 
         // Choose progression pattern based on character and grading mode
-        let pattern = this._selectGradingAwarePattern(character, scale, length);
+        let pattern = degreesOverride && degreesOverride.length
+            ? degreesOverride.slice(0, length)
+            : this._selectGradingAwarePattern(character, scale, length);
 
         // Build chords with grading tier information
         for (let i = 0; i < length; i++) {

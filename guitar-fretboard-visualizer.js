@@ -29,6 +29,11 @@ class GuitarFretboardVisualizer {
         this.listeners = new Map();
         this.element = null;
         this.gridEl = null;
+        this._layoutMode = 'full';
+        this._gf_fit = null;
+        this._gf_ro = null;
+        this._dockHostSize = null;
+        this._dockRerenderRaf = 0;
 
         // Simple note <-> semitone mapping
         this.NOTE_TO_SEMITONE = {
@@ -58,35 +63,155 @@ class GuitarFretboardVisualizer {
     mount(selectorOrElement) {
         const host = typeof selectorOrElement === 'string' ? document.querySelector(selectorOrElement) : selectorOrElement;
         if (!host) return;
+
+        // Switch to a compact layout when docked in the bottom deck
+        try {
+            const nextMode = (host.id === 'guitar-dock-container') ? 'dock' : 'full';
+            if (nextMode !== this._layoutMode) {
+                this._layoutMode = nextMode;
+                if (nextMode === 'dock') {
+                    this._dockHostSize = { w: host.clientWidth || 0, h: host.clientHeight || 0 };
+                } else {
+                    this._dockHostSize = null;
+                }
+                this.element = null;
+                this.gridEl = null;
+                this.createElement();
+                this.render();
+            }
+        } catch (_) {}
+
+        // Cache current dock size (used to build a fill-to-container dock layout)
+        if (this._layoutMode === 'dock') {
+            this._dockHostSize = { w: host.clientWidth || 0, h: host.clientHeight || 0 };
+        }
+
         host.innerHTML = '';
         host.appendChild(this.element);
         // Initial apply state
         this.applyState();
+
+        // Dock-fit: re-render geometry to fill the dock (no transform scaling / no creeping)
+        try {
+            this._installFitObserver(host);
+            this._applyFitToHost(host);
+        } catch (_) {}
+    }
+
+    _installFitObserver(host) {
+        if (!host || typeof ResizeObserver === 'undefined') return;
+        try {
+            if (this._gf_ro) {
+                try { this._gf_ro.disconnect(); } catch (_) {}
+                this._gf_ro = null;
+            }
+            let t = null;
+            this._gf_ro = new ResizeObserver(() => {
+                clearTimeout(t);
+                t = setTimeout(() => {
+                    try { this._applyFitToHost(host); } catch (_) {}
+                }, 80);
+            });
+            this._gf_ro.observe(host);
+        } catch (_) {}
+    }
+
+    _applyFitToHost(host) {
+        if (!this.options.fitToContainer) return;
+        if (this._layoutMode !== 'dock') return;
+        const hostW = host.clientWidth || 0;
+        const hostH = host.clientHeight || 0;
+        if (!hostW || !hostH) return;
+
+        const prev = this._dockHostSize || { w: 0, h: 0 };
+        const next = { w: hostW, h: hostH };
+        // Ignore tiny jitter that can cause reflow loops
+        if (Math.abs(prev.w - next.w) < 2 && Math.abs(prev.h - next.h) < 2) return;
+        this._dockHostSize = next;
+
+        if (this._dockRerenderRaf) return;
+        this._dockRerenderRaf = requestAnimationFrame(() => {
+            this._dockRerenderRaf = 0;
+            try {
+                // Rebuild element with new geometry sized to the dock
+                this.element = null;
+                this.gridEl = null;
+                this._gf_fit = null;
+                this.createElement();
+                host.innerHTML = '';
+                host.appendChild(this.element);
+                this.applyState();
+            } catch (_) {}
+        });
     }
 
     createElement() {
         if (this.element) return;
+        const compact = this._layoutMode === 'dock';
+
         const wrap = document.createElement('div');
         wrap.className = 'guitar-fretboard';
         wrap.style.position = 'relative';
         wrap.style.width = '100%';
-        wrap.style.overflowX = 'auto';
+        wrap.style.overflowX = (compact && this.options.fitToContainer) ? 'hidden' : 'auto';
         wrap.style.overflowY = 'hidden';
         wrap.style.scrollBehavior = 'smooth';
         wrap.style.background = 'linear-gradient(180deg, #1a1410 0%, #0f0a08 100%)';
         wrap.style.border = '2px solid #3d2817';
         wrap.style.borderRadius = '8px';
         wrap.style.boxShadow = 'inset 0 4px 12px rgba(0,0,0,0.6), 0 6px 20px rgba(0,0,0,0.4)';
-        wrap.style.padding = '20px 10px';
+        wrap.style.padding = compact ? '6px 6px' : '20px 10px';
+        if (compact) {
+            wrap.style.height = '100%';
+            wrap.style.boxSizing = 'border-box';
+        }
 
         // Geometry (single source of truth so frets/notes/labels align)
-        const fretWidth = 58;
-        const openZoneWidth = 44; // space for open-string markers to the left of the nut
-        const nutWidth = 10;
-        const topPad = 20;
-        const stringGap = 40;
-        const dotSize = 28;
-        const totalWidth = openZoneWidth + nutWidth + (this.options.frets * fretWidth) + 20;
+        const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+        const frets = this.options.frets;
+
+        let fretWidth;
+        let openZoneWidth;
+        let nutWidth;
+        let topPad;
+        let stringGap;
+        let dotSize;
+        let totalWidth;
+        let totalHeight;
+
+        if (compact && this.options.fitToContainer && this._dockHostSize && this._dockHostSize.w && this._dockHostSize.h) {
+            // Fill the dock: compute geometry from the host size (no transform scaling)
+            const hostW = this._dockHostSize.w;
+            const hostH = this._dockHostSize.h;
+            // Account for wrap padding (6+6) and border (2+2)
+            const chromeX = 16;
+            const chromeY = 16;
+            const targetW = Math.max(240, hostW - chromeX);
+            const targetH = Math.max(120, hostH - chromeY);
+
+            topPad = clamp(Math.round(targetH * 0.06), 8, 14);
+            stringGap = Math.max(16, (targetH - (topPad * 2) - 18) / 5);
+            dotSize = clamp(Math.round(stringGap * 0.78), 14, 26);
+
+            openZoneWidth = clamp(dotSize + 18, 34, 58);
+            nutWidth = clamp(Math.round(targetW * 0.014), 8, 12);
+
+            fretWidth = (targetW - openZoneWidth - nutWidth - 20) / frets;
+            fretWidth = clamp(fretWidth, 26, 72);
+
+            totalWidth = Math.floor(openZoneWidth + nutWidth + (frets * fretWidth) + 20);
+            totalHeight = Math.floor(topPad * 2 + (stringGap * 5) + 18);
+        } else {
+            // Default geometry
+            fretWidth = compact ? 50 : 58;
+            openZoneWidth = 44; // space for open-string markers to the left of the nut
+            nutWidth = 10;
+            topPad = compact ? 12 : 20;
+            stringGap = compact ? 28 : 40;
+            dotSize = compact ? 22 : 28;
+            totalWidth = openZoneWidth + nutWidth + (frets * fretWidth) + 20;
+            totalHeight = topPad * 2 + (stringGap * 5) + 18;
+        }
 
         // Fretboard container with realistic wood texture
         const fretboard = document.createElement('div');
@@ -95,7 +220,7 @@ class GuitarFretboardVisualizer {
         fretboard.style.background = 'linear-gradient(90deg, #4a3728 0%, #6b4f3d 50%, #4a3728 100%)';
         fretboard.style.backgroundSize = '100% 100%';
         fretboard.style.width = `${totalWidth}px`;
-        fretboard.style.height = `${topPad * 2 + (stringGap * 5) + 18}px`;
+        fretboard.style.height = `${totalHeight}px`;
         fretboard.style.boxShadow = 'inset 0 2px 8px rgba(0,0,0,0.4)';
         fretboard.style.borderRadius = '4px';
         fretboard.style.position = 'relative';
@@ -239,8 +364,13 @@ class GuitarFretboardVisualizer {
                 cell.appendChild(label);
 
                 // Click -> highlight + audio
-                cell.addEventListener('click', (e) => {
-                    e.preventDefault();
+                let lastPickAt = 0;
+                const onPick = (e) => {
+                    const now = Date.now();
+                    if (now - lastPickAt < 180) return;
+                    lastPickAt = now;
+
+                    try { e.preventDefault(); } catch (_) {}
                     const midiNum = parseInt(cell.dataset.midi, 10);
                     this.state.highlightedNote = cell.dataset.note;
                     this.state.focusMidi = midiNum;
@@ -248,10 +378,12 @@ class GuitarFretboardVisualizer {
                     
                     const audio = this.options.audioEngine;
                     if (audio && typeof audio.playNote === 'function') {
-                        audio.playNote(midiNum, { duration: 1.2 }); // Reset to shorter duration for UI clicks
+                        audio.playNote(midiNum, { duration: 1.2 });
                     }
                     this.emit('noteClicked', { note: cell.dataset.note, midi: midiNum });
-                });
+                };
+                cell.addEventListener('pointerdown', onPick, { passive: false });
+                cell.addEventListener('click', onPick);
 
                 // Hover styling
                 cell.addEventListener('mouseenter', () => {
@@ -338,49 +470,67 @@ class GuitarFretboardVisualizer {
         }
 
         fretboard.appendChild(cellLayer);
-        wrap.appendChild(fretboard);
 
-        // Fret number labels below fretboard (scrolls with the board)
-        const fretNumbers = document.createElement('div');
-        fretNumbers.style.display = 'flex';
-        fretNumbers.style.marginTop = '8px';
-        fretNumbers.style.marginLeft = '10px';
-        fretNumbers.style.fontSize = '10px';
-        fretNumbers.style.color = 'var(--text-muted)';
-        fretNumbers.style.fontFamily = 'monospace';
-        fretNumbers.style.width = `${totalWidth}px`;
-        // Open label zone
-        const openLabel = document.createElement('div');
-        openLabel.textContent = 'OPEN';
-        openLabel.style.width = `${openZoneWidth + nutWidth}px`;
-        openLabel.style.textAlign = 'center';
-        openLabel.style.opacity = '0.75';
-        fretNumbers.appendChild(openLabel);
-        for (let f = 1; f <= this.options.frets; f++) {
-            const num = document.createElement('div');
-            num.textContent = String(f);
-            num.style.width = `${fretWidth}px`;
-            num.style.textAlign = 'center';
-            fretNumbers.appendChild(num);
+        const fitWrap = document.createElement('div');
+        fitWrap.className = 'fretboard-fitwrap';
+        fitWrap.style.position = 'relative';
+        fitWrap.style.flex = compact ? '1 1 auto' : '0 0 auto';
+        fitWrap.style.width = `${totalWidth}px`;
+        fitWrap.style.height = `${totalHeight}px`;
+        fitWrap.appendChild(fretboard);
+        wrap.appendChild(fitWrap);
+
+        if (!compact) {
+            // Fret number labels below fretboard (scrolls with the board)
+            const fretNumbers = document.createElement('div');
+            fretNumbers.style.display = 'flex';
+            fretNumbers.style.marginTop = '8px';
+            fretNumbers.style.marginLeft = '10px';
+            fretNumbers.style.fontSize = '10px';
+            fretNumbers.style.color = 'var(--text-muted)';
+            fretNumbers.style.fontFamily = 'monospace';
+            fretNumbers.style.width = `${totalWidth}px`;
+            // Open label zone
+            const openLabel = document.createElement('div');
+            openLabel.textContent = 'OPEN';
+            openLabel.style.width = `${openZoneWidth + nutWidth}px`;
+            openLabel.style.textAlign = 'center';
+            openLabel.style.opacity = '0.75';
+            fretNumbers.appendChild(openLabel);
+            for (let f = 1; f <= this.options.frets; f++) {
+                const num = document.createElement('div');
+                num.textContent = String(f);
+                num.style.width = `${fretWidth}px`;
+                num.style.textAlign = 'center';
+                fretNumbers.appendChild(num);
+            }
+            wrap.appendChild(fretNumbers);
+
+            // Legend
+            const legend = document.createElement('div');
+            legend.style.display = 'flex';
+            legend.style.gap = '12px';
+            legend.style.marginTop = '12px';
+            legend.style.fontSize = '0.75rem';
+            legend.style.color = 'var(--text-main)';
+            legend.innerHTML = `
+                <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#10b981; display:inline-block; border-radius:50%;"></span><span>Scale Tone</span></div>
+                <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#f59e0b; display:inline-block; border-radius:50%;"></span><span>Root</span></div>
+                <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#60a5fa; display:inline-block; border-radius:50%;"></span><span>Focused</span></div>
+            `;
+            wrap.appendChild(legend);
         }
-        wrap.appendChild(fretNumbers);
-
-        // Legend
-        const legend = document.createElement('div');
-        legend.style.display = 'flex';
-        legend.style.gap = '12px';
-        legend.style.marginTop = '12px';
-        legend.style.fontSize = '0.75rem';
-        legend.style.color = 'var(--text-main)';
-        legend.innerHTML = `
-            <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#10b981; display:inline-block; border-radius:50%;"></span><span>Scale Tone</span></div>
-            <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#f59e0b; display:inline-block; border-radius:50%;"></span><span>Root</span></div>
-            <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#60a5fa; display:inline-block; border-radius:50%;"></span><span>Focused</span></div>
-        `;
-        wrap.appendChild(legend);
 
         this.element = wrap;
         this.gridEl = cellLayer;
+
+        this._gf_fit = {
+            wrap,
+            fitWrap,
+            surface: fretboard,
+            surfaceWidth: totalWidth,
+            surfaceHeight: totalHeight
+        };
     }
 
     render() {

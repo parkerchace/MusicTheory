@@ -10,199 +10,12 @@
     <style>
         /* Taxonomy View Polish */
         .taxonomy-view-wrapper { height: 75vh; overflow-y: auto; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; scrollbar-width: thin; }
-        
-        /* --- 10X TAXONOMY EXPANSION POLISH --- */
-    .taxonomy-controls {
-        display: flex;
-        gap: 12px;
-        padding: 12px 20px;
-        background: radial-gradient(circle at center, rgba(0, 40, 0, 0.4), rgba(0, 0, 0, 0.7));
-        border-bottom: 2px solid rgba(0, 255, 65, 0.2);
-        align-items: center;
-        flex-wrap: wrap;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    }
-
-    .lens-switcher {
-        display: flex;
-        background: rgba(0, 20, 0, 0.8);
-        border: 2px solid rgba(0, 255, 65, 0.4);
-        border-radius: 6px;
-        overflow: hidden;
-        box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
-    }
-
-    .lens-btn {
-        padding: 8px 16px;
-        font-size: 0.7rem;
-        color: rgba(0, 255, 65, 0.6);
-        cursor: pointer;
-        text-transform: uppercase;
-        font-family: var(--font-tech);
-        border-right: 1px solid rgba(0, 255, 65, 0.3);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        font-weight: 700;
-        letter-spacing: 1px;
-    }
-
-    .lens-btn:last-child { border-right: none; }
-    .lens-btn:hover { background: rgba(0, 255, 65, 0.1); color: #00ff41; }
-    .lens-btn.active {
-        background: linear-gradient(to bottom, rgba(0, 255, 65, 0.3), rgba(0, 60, 0, 0.5));
-        color: #00ff41;
-        text-shadow: 0 0 10px #00ff41, 0 0 20px #00ff41;
-        box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.3);
-    }
-
-    .special-view {
-        display: flex !important;
-        flex-direction: row !important;
-        overflow-x: auto !important;
-        padding: 25px;
-        gap: 25px;
-        height: 65vh;
-        scrollbar-width: thin;
-        scrollbar-color: #00ff41 rgba(0, 20, 0, 0.8);
-        background: linear-gradient(135deg, rgba(0,10,0,0.4) 0%, rgba(0,0,0,0.8) 100%);
-    }
-
-    .special-view::-webkit-scrollbar { height: 8px; }
-    .special-view::-webkit-scrollbar-track { background: rgba(0, 20, 0, 0.8); }
-    .special-view::-webkit-scrollbar-thumb { background: #00ff41; border-radius: 10px; border: 2px solid rgba(0,20,0,0.8); }
-
-    .special-column {
-        min-width: 280px;
-        flex-shrink: 0;
-        background: rgba(0, 20, 0, 0.7);
-        border: 2px solid rgba(0, 255, 65, 0.15);
-        display: flex;
-        flex-direction: column;
-        border-radius: 8px;
-        transition: all 0.4s ease;
-        backdrop-filter: blur(5px);
-        overflow: hidden;
-    }
-
-    .special-column:hover {
-        border-color: #00ff41;
-        box-shadow: 0 0 30px rgba(0, 255, 65, 0.15), inset 0 0 20px rgba(0, 255, 65, 0.05);
-        transform: translateY(-5px) scale(1.02);
-        z-index: 10;
-    }
-
-    .special-header {
-        font-size: 0.85rem;
-        color: #00ff41;
-        padding: 15px;
-        background: linear-gradient(to bottom, rgba(0, 50, 0, 0.6), rgba(0, 20, 0, 0.8));
-        border-bottom: 2px solid rgba(0, 255, 65, 0.2);
-        text-transform: uppercase;
-        font-weight: 800;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-family: var(--font-tech);
-        letter-spacing: 1.5px;
-        text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
-    }
-
-    .special-header span { font-size: 1.2rem; }
-
-    .special-content {
-        padding: 15px;
-        overflow-y: auto;
-        flex-grow: 1;
-        scrollbar-width: thin;
-    }
-
-    .special-cat-title {
-        color: #00ff41;
-        font-size: 0.7rem;
-        opacity: 0.9;
-        margin-top: 18px;
-        margin-bottom: 8px;
-        text-transform: uppercase;
-        border-left: 3px solid #00ff41;
-        background: rgba(0, 255, 65, 0.05);
-        padding: 4px 8px;
-        font-family: var(--font-tech);
-        font-weight: 600;
-        letter-spacing: 0.5px;
-    }
-
-    .special-cat-title:first-child { margin-top: 0; }
-
-    .special-item {
-        padding: 6px 12px;
-        font-size: 0.75rem;
-        color: rgba(255, 255, 255, 0.7);
-        cursor: pointer;
-        border-radius: 4px;
-        margin: 2px 0;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        border: 1px solid transparent;
-        position: relative;
-    }
-
-    .tree-sub-node { position: relative; }
-
-    .special-item.is-secondary {
-        opacity: 0.5;
-        font-style: italic;
-    }
-
-    .special-tooltip {
-        position: absolute;
-        bottom: 100%;
-        left: 0;
-        background: rgba(0, 30, 0, 0.95);
-        border: 1px solid #00ff41;
-        padding: 8px 12px;
-        border-radius: 4px;
-        z-index: 1000;
-        display: none;
-        pointer-events: none;
-        width: max-content;
-        max-width: 250px;
-        box-shadow: 0 4px 15px rgba(0, 255, 65, 0.3);
-        backdrop-filter: blur(8px);
-        font-family: var(--font-tech);
-        font-size: 0.65rem;
-    }
-
-    .special-item:hover .special-tooltip {
-        display: block;
-    }
-
-    /* Tooltip automatic flip for top elements to prevent clipping */
-    .special-item:nth-child(-n+5) .special-tooltip {
-        bottom: auto;
-        top: 100%;
-        margin-top: 5px;
-    }
-
-    .tooltip-section { margin-top: 4px; border-top: 1px solid rgba(0, 255, 65, 0.1); padding-top: 4px; }
-    .tooltip-label { color: #00ff41; opacity: 0.6; text-transform: uppercase; margin-right: 4px; }
-
-    .special-item:hover {
-        background: rgba(0, 255, 65, 0.15);
-        color: #00ff41;
-        border-color: rgba(0, 255, 65, 0.3);
-        padding-left: 18px;
-        text-shadow: 0 0 8px rgba(0, 255, 65, 0.3);
-    }
-
-    .tree-family-wrapper { margin-bottom: 30px; border-left: 2px solid var(--accent-primary); padding-left: 15px; }
+        .tree-family-wrapper { margin-bottom: 30px; border-left: 2px solid var(--accent-primary); padding-left: 15px; }
         .tree-family-root { font-family: var(--font-tech); color: var(--accent-primary); font-size: 1.1rem; cursor: pointer; margin-bottom: 15px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
         .tree-category-node { margin: 10px 0 10px 20px; color: var(--text-highlight); cursor: pointer; font-weight: 600; }
         .tree-sub-node { margin: 5px 0 5px 40px; color: var(--text-main); font-size: 0.9rem; font-style: italic; cursor: pointer; }
-        .scale-item-node { margin: 4px 0 4px 60px; display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(255,255,255,0.03); border-radius: 4px; cursor: pointer; transition: all 0.2s; position: relative; }
+        .scale-item-node { margin: 4px 0 4px 60px; display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(255,255,255,0.03); border-radius: 4px; cursor: pointer; transition: all 0.2s; }
         .scale-item-node:hover { background: rgba(255,255,255,0.08); transform: translateX(5px); }
-        .scale-item-node:hover .special-tooltip { display: block; }
-        .scale-item-node.is-secondary { opacity: 0.5; font-style: italic; }
 
         /* Pyramid (Upside Down Tree) Styles */
         .categories-grid.pyramid-view { display: flex; flex-direction: column; align-items: center; gap: 40px; padding: 40px 20px; }
@@ -227,13 +40,6 @@
         .collapsed-content { display: none !important; }
         .scale-tags { font-size: 0.7rem; opacity: 0.5; margin-left: auto; }
         .sub-sub-title { font-size: 0.75rem; color: var(--accent-primary); opacity: 0.8; margin: 12px 0 4px 60px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-        /* Lineage & Cross-Listing UI */
-        .primary-tag { color: #00ff41; font-size: 0.6rem; margin-right: 4px; filter: drop-shadow(0 0 2px #00ff41); }
-        .item-lineage { font-size: 0.6rem; opacity: 0.4; color: var(--text-muted); margin-left: 8px; font-weight: normal; }
-        .search-result-lineage { font-size: 0.65rem; color: #00ff41; opacity: 0.7; margin-top: 2px; font-family: var(--font-tech); }
-        .special-item { position: relative; }
-        .special-item .item-name { flex-grow: 1; }
     </style>
 </head>
 <body data-theme="clean-daw">
@@ -284,7 +90,8 @@
             </select>
         </div>
         
-        <div style="flex: 1;"></div> <!-- Spacer -->
+        <!-- Center slot: Key/Scale selector -->
+        <div id="control-deck-keyscale-center" style="flex: 1; display:flex; align-items:center; justify-content:center; min-width: 0;"></div>
         
         <!-- Secondary Controls -->
         <div class="secondary-controls" style="display:flex; align-items:center; gap:8px;">
@@ -476,6 +283,16 @@
                 <div class="setting-group">
                     <label><input type="checkbox" id="weight-auto-send" checked> Auto-send to sheet music (immediate playback)</label>
                 </div>
+                <div class="setting-group">
+                    <label>Phrase Length</label>
+                    <select id="phrase-preset" class="form-input" style="width:100%;">
+                        <option value="auto" selected>Auto (sentences/words)</option>
+                        <option value="4">4 bars</option>
+                        <option value="8">8 bars</option>
+                        <option value="12">12 bars</option>
+                        <option value="16">16 bars</option>
+                    </select>
+                </div>
                 <div class="setting-group" style="font-size: 0.7rem; opacity: 0.7; line-height: 1.3;">
                     <strong>Weight Guide:</strong><br>
                     • <strong>Emotional</strong>: Valence/arousal drive mode & key brightness<br>
@@ -633,8 +450,6 @@
                 <!-- LearnPianoNotes module removed - connectors now integrated into main piano -->
         </div>
 
-        <div class="splitter" id="splitter-left"></div>
-
         <!-- CENTER STAGE: COMPOSITION -->
         <div class="workspace-column center-stage">
             <!-- Mini Chord Strip (Sticky) -->
@@ -685,8 +500,6 @@
             </div>
         </div>
 
-        <div class="splitter" id="splitter-right"></div>
-
         <!-- RIGHT SIDEBAR: TOOLS -->
         <div class="workspace-column right-sidebar">
             <div class="studio-module mod-ref">
@@ -725,429 +538,156 @@
             let activeView = customViewMode || (modal.querySelector('.scale-view-tab.active')?.getAttribute('data-view')) || 'tree';
             window.lastTaxonomyViewMode = activeView;
 
-            // Lens State (Persistence)
-            if (!window.activeScaleLens) {
-                window.activeScaleLens = localStorage.getItem('music-theory-active-lens') || 'western';
-            }
-
             const grid = modal.querySelector('.categories-grid');
-            const searchContainer = modal.querySelector('.modal-search-container');
             if (!grid) return;
             
-            // Add Controls if missing
-            if (searchContainer && !modal.querySelector('.taxonomy-controls')) {
-                const controls = createEl('div', 'taxonomy-controls');
-                controls.innerHTML = `
-                    <div class="lens-switcher">
-                        <div class="lens-btn ${window.activeScaleLens === 'western' ? 'active' : ''}" data-lens="western">Western</div>
-                        <div class="lens-btn ${window.activeScaleLens === 'cultural' ? 'active' : ''}" data-lens="cultural">Cultural</div>
-                        <div class="lens-btn ${window.activeScaleLens === 'structural' ? 'active' : ''}" data-lens="structural">Complexity</div>
-                    </div>
-                    <div style="flex-grow:1"></div>
-                    <button id="export-taxonomy-btn" class="control-btn" style="padding:4px 8px; font-size:0.6rem; background:rgba(0,255,65,0.1); border:1px solid rgba(0,255,65,0.3); color:#00ff41; cursor:pointer;">EXPORT JSON</button>
-                    <button id="import-taxonomy-btn" class="control-btn" style="padding:4px 8px; font-size:0.6rem; background:rgba(0,255,65,0.1); border:1px solid rgba(0,255,65,0.3); color:#00ff41; cursor:pointer;">IMPORT</button>
-                    <input type="file" id="taxonomy-import-file" style="display:none" accept=".json">
-                `;
-                
-                controls.querySelectorAll('.lens-btn').forEach(btn => {
-                    btn.onclick = () => {
-                        window.activeScaleLens = btn.dataset.lens;
-                        localStorage.setItem('music-theory-active-lens', window.activeScaleLens);
-                        window.renderScaleFamilies(activeView);
-                    };
-                });
-
-                controls.querySelector('#export-taxonomy-btn').onclick = () => {
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.SCALES.meta.taxonomy, null, 2));
-                    const downloadAnchorNode = document.createElement('a');
-                    downloadAnchorNode.setAttribute("href", dataStr);
-                    downloadAnchorNode.setAttribute("download", "music_theory_taxonomy_10x.json");
-                    document.body.appendChild(downloadAnchorNode);
-                    downloadAnchorNode.click();
-                    downloadAnchorNode.remove();
-                };
-
-                const importInput = controls.querySelector('#taxonomy-import-file');
-                controls.querySelector('#import-taxonomy-btn').onclick = () => importInput.click();
-                importInput.onchange = (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        try {
-                            const importedTax = JSON.parse(event.target.result);
-                            localStorage.setItem('custom-taxonomy-overrides', JSON.stringify(importedTax));
-                            alert('Custom Taxonomy Imported! Refreshing...');
-                            location.reload();
-                        } catch(err) { alert('Invalid Taxonomy File'); }
-                    };
-                    reader.readAsText(file);
-                };
-
-                searchContainer.insertAdjacentElement('afterend', controls);
-            }
-
             grid.innerHTML = '';
             grid.className = 'categories-grid ' + (activeView === 'tree' ? 'pyramid-view' : 'special-view');
 
             if (!window.SCALES || !window.SCALES.meta || !window.SCALES.meta.taxonomy) {
-                grid.innerHTML = '<div style="padding:20px;color:var(--text-muted)">Syncing 10x Database...</div>';
+                grid.innerHTML = '<div style="padding:20px;color:var(--text-muted)">Syncing local database...</div>';
                 setTimeout(() => window.renderScaleFamilies(activeView), 100);
                 return;
             }
 
             const tax = window.SCALES.meta.taxonomy;
             const displayNames = window.SCALES.meta.displayNames || {};
-            const layoutTree = (tax && tax.byFamily) ? tax.byFamily : {};
+            const layoutTree = tax.byFamily;
+            const falloutIcons = ['🗲', '🌟', '🛡️', '👁️', '💪', '🧬', '⚙️', '🔥', '☢️', '🔬'];
 
-            // 1. Pyramid (Upside Down Tree) Rendering
             if (activeView === 'tree') {
-                const rootsRow = createEl('div', 'pyramid-row');
-                
-                // Root: Major Scale (Primary)
+                const pyramidContainer = createEl('div', 'pyramid-container');
+                const rootRow = createEl('div', 'pyramid-row');
                 const rootNode = createEl('div', 'pyramid-node root', 'MAJOR (IONIAN)');
                 rootNode.onclick = () => {
                     if (window.scaleLibrary) window.scaleLibrary.setKeyAndScale('C', 'major');
                     modal.style.display = 'none';
                 };
-                rootsRow.appendChild(rootNode);
+                rootRow.appendChild(rootNode);
+                grid.appendChild(rootRow);
 
-                // Additional Multi-Roots for 10x Depth
-                if (window.activeScaleLens !== 'western') {
-                    const ragaNode = createEl('div', 'pyramid-node root', 'RĀGA ROOT');
-                    ragaNode.style.background = "#ff910033";
-                    ragaNode.onclick = () => { if (window.scaleLibrary) window.scaleLibrary.setKeyAndScale('C', 'mela_kanakangi'); modal.style.display = 'none'; };
-                    rootsRow.appendChild(ragaNode);
-                }
-
-                grid.appendChild(rootsRow);
-
-                // Dynamically Filter Families based on Lens
-                // Show ALL families (No lens-based filtering for Tree Hubs)
-                // This ensures parity with the Special View's 100x breadth.
-                const tax = window.SCALES.meta.taxonomy;
-                const layoutTree = tax.byFamily;
-                let familyKeys = Object.keys(layoutTree).sort((a,b) => (tax.familyOrder?.indexOf(a) || 0) - (tax.familyOrder?.indexOf(b) || 0));
-
-                /*
-                familyKeys.forEach(fam => {
-                    const row = createEl('div', 'pyramid-row');
-                    const node = createEl('div', 'pyramid-node', fam);
+                const branches = layoutTree['1. The Family Tree']?.categories || {};
+                const branchKeys = Object.keys(branches).sort();
+                const branchRow = createEl('div', 'pyramid-row');
+                branchKeys.forEach(key => {
+                    const node = createEl('div', 'pyramid-node', key);
                     const subMenu = createEl('div', 'collapsed-content sub-menu');
-                    renderRecursive(subMenu, layoutTree[fam], fam);
-                    
+                    renderRecursive(subMenu, branches[key], 1);
                     node.onclick = (e) => {
                         e.stopPropagation();
                         const isCol = subMenu.classList.toggle('collapsed-content');
                         if (!isCol) node.appendChild(subMenu);
                     };
-                    row.appendChild(node);
-                    grid.appendChild(row);
+                    branchRow.appendChild(node);
                 });
-                */
-                const toggleNode = (node, content) => {
-                    const isCol = content.classList.toggle('collapsed-content');
-                    const labelSpan = node.querySelector('.node-label');
-                    if (labelSpan) {
-                        const text = labelSpan.innerText.replace(/[▾▴]/g, '').trim();
-                        labelSpan.textContent = text + (isCol ? ' ▾' : ' ▴');
-                    }
-                    return !isCol; 
-                };
+                grid.appendChild(branchRow);
 
-                // Group families into rows of increasing width (Pyramid Layout)
-                let rowCount = 1;
-                let currentIdx = 0;
-                while (currentIdx < familyKeys.length) {
-                    const row = createEl('div', 'pyramid-row');
-                    for (let i = 0; i < rowCount && currentIdx < familyKeys.length; i++) {
-                        const fam = familyKeys[currentIdx++];
-                        const node = createEl('div', 'pyramid-node');
-                        const labelSpan = createEl('span', 'node-label', fam + ' ▾');
-                        node.appendChild(labelSpan);
-
-                        const subMenu = createEl('div', 'collapsed-content sub-menu');
-                        renderRecursive(subMenu, layoutTree[fam], fam);
-                        
-                        // Append immediately for search DOM-presence
-                        node.appendChild(subMenu);
-                        
-                        node.onclick = (e) => {
-                            e.stopPropagation();
-                            toggleNode(node, subMenu);
-                        };
-                        row.appendChild(node);
-                    }
-                    grid.appendChild(row);
-                    rowCount++;
-                }
-            } 
-            // 2. SPECIAL (High-Density Global Hub)
-            else {
-                const tax = window.SCALES.meta.taxonomy;
-                const layoutTree = tax.byFamily;
-                let families = Object.keys(layoutTree).sort((a,b) => {
-                    const idxA = tax.familyOrder.indexOf(a);
-                    const idxB = tax.familyOrder.indexOf(b);
-                    return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+                const otherFamilies = Object.keys(layoutTree).filter(f => f !== '1. The Family Tree' && !f.includes('Special'));
+                const otherRow = createEl('div', 'pyramid-row');
+                otherFamilies.forEach(fam => {
+                    const node = createEl('div', 'pyramid-node', fam);
+                    const subMenu = createEl('div', 'collapsed-content sub-menu');
+                    renderRecursive(subMenu, layoutTree[fam], 0);
+                    node.onclick = (e) => {
+                        e.stopPropagation();
+                        const isCol = subMenu.classList.toggle('collapsed-content');
+                        if (!isCol) node.appendChild(subMenu);
+                    };
+                    otherRow.appendChild(node);
                 });
-                
+                grid.appendChild(otherRow);
+            } else {
+                const families = Object.keys(layoutTree).sort((a,b) => (tax.familyOrder?.indexOf(a) || 0) - (tax.familyOrder?.indexOf(b) || 0));
                 families.forEach((fam, idx) => {
                     const col = createEl('div', 'special-column');
                     const header = createEl('div', 'special-header');
-                    header.textContent = fam;
+                    const icon = falloutIcons[idx % falloutIcons.length];
+                    header.innerHTML = `<span class="special-header-icon">${icon}</span> ${fam}`;
                     col.appendChild(header);
-
                     const content = createEl('div', 'special-content');
-                    renderSpecialRecursive(content, layoutTree[fam].categories || {}, fam);
+                    renderSpecialRecursive(content, layoutTree[fam]);
                     col.appendChild(content);
                     grid.appendChild(col);
                 });
             }
 
-            function renderRecursive(container, obj, famName) {
+            function renderRecursive(container, obj, level) {
                 if (!obj) return;
                 const items = obj.categories || obj.subcategories || obj.subSubcategories || obj;
-                if (Array.isArray(items)) {
-                    items.forEach(scaleId => {
-                        const name = window.SCALES.meta.displayNames[scaleId] || scaleId;
-                        const taxData = window.SCALES.meta.taxonomy.byScale[scaleId] || [];
-                        const myTax = taxData.find(t => t.family === famName);
-                        const otherHubs = taxData.filter(t => t.family !== famName).map(t => t.family);
-                        
-                        // Find Synonyms (Same Notes)
-                        const ivals = window.SCALES.intervals[scaleId] || [];
-                        const ivKey = ivals.join(',');
-                        const synonymsMap = window.SCALES.meta.taxonomy.synonyms || {};
-                        const synonyms = (synonymsMap[ivKey] || []).filter(sid => sid !== scaleId);
-                        const synonymNames = synonyms.map(sid => window.SCALES.meta.displayNames[sid] || sid);
-
-                        const item = createEl('div', 'scale-item-node' + (!myTax?.isPrimary ? ' is-secondary' : ''));
-                        
-                        let tooltipHTML = `<div class="special-tooltip">
-                            <div style="color:#00ff41; font-weight:bold; margin-bottom:4px;">${name}</div>
-                            <div class="tooltip-section">
-                                <span class="tooltip-label">Tradition:</span> ${myTax?.isPrimary ? 'Primary' : 'Used in'}
-                            </div>`;
-                        
-                        if (otherHubs.length > 0) {
-                            tooltipHTML += `<div class="tooltip-section">
-                                <span class="tooltip-label">Also in:</span> ${otherHubs.join(', ')}
-                            </div>`;
-                        }
-                        
-                        if (synonymNames.length > 0) {
-                            tooltipHTML += `<div class="tooltip-section">
-                                <span class="tooltip-label">Same Notes:</span> ${synonymNames.join(', ')}
-                            </div>`;
-                        }
-                        
-                        tooltipHTML += `</div>`;
-
-                        item.innerHTML = `
-                            <span class="item-name">${name}</span>
-                            ${myTax?.isPrimary ? '<span class="primary-tag" title="Primary Heritage">◈</span>' : ''}
-                            ${tooltipHTML}
-                        `;
-                        
-                        item.onclick = (e) => {
-                            e.stopPropagation();
-                            if (window.scaleLibrary) window.scaleLibrary.setKeyAndScale('C', scaleId);
-                            document.getElementById('scale-picker-modal').style.display = 'none';
-                        };
-                        container.appendChild(item);
-                    });
-                } else {
-                    const keys = Object.keys(items).sort();
-                    keys.forEach(key => {
-                        // Handle "General" or empty hubs by flattening them (staying transparent to hierarchy)
-                        if (key === "" || key === "General") {
-                            renderRecursive(container, items[key], famName);
-                            return;
-                        }
-
-                        const sub = createEl('div', 'tree-sub-node');
-                        const labelSpan = createEl('span', 'node-label', key + ' ▾');
-                        sub.appendChild(labelSpan);
-                        
-                        const subContent = createEl('div', 'collapsed-content');
-                        
-                        sub.onclick = (e) => { 
-                            e.stopPropagation(); 
-                            const isCol = subContent.classList.toggle('collapsed-content');
-                            labelSpan.textContent = key + (isCol ? ' ▾' : ' ▴');
-                        };
-                        container.appendChild(sub);
-                        container.appendChild(subContent);
-                        renderRecursive(subContent, items[key], famName);
-                    });
-                }
-            }
-
-            function renderSpecialRecursive(container, obj, famName) {
-                if (!obj || typeof obj !== 'object') return;
-
-                Object.keys(obj).forEach(key => {
-                    const node = obj[key];
-                    
-                    if (Array.isArray(node)) {
-                        if (key && key !== "General" && key !== "" && key !== "categories") {
-                            const title = createEl('div', 'special-cat-title', key);
-                            container.appendChild(title);
-                        }
-                        
-                        node.forEach(scaleId => {
-                            const name = window.SCALES.meta.displayNames[scaleId] || scaleId;
-                            const taxData = window.SCALES.meta.taxonomy.byScale[scaleId] || [];
-                            const myTax = taxData.find(t => t.family === famName);
-                            const otherHubs = taxData.filter(t => t.family !== famName).map(t => t.family);
-                            
-                            // Find Synonyms (Same Notes)
-                            const ivals = window.SCALES.intervals[scaleId] || [];
-                            const ivKey = ivals.join(',');
-                            const synonymsMap = window.SCALES.meta.taxonomy.synonyms || {};
-                            const synonyms = (synonymsMap[ivKey] || []).filter(sid => sid !== scaleId);
-                            const synonymNames = synonyms.map(sid => window.SCALES.meta.displayNames[sid] || sid);
-
-                            const item = createEl('div', 'special-item' + (!myTax?.isPrimary ? ' is-secondary' : ''));
-                            
-                            let tooltipHTML = `<div class="special-tooltip">
-                                <div style="color:#00ff41; font-weight:bold; margin-bottom:4px;">${name}</div>
-                                <div class="tooltip-section">
-                                    <span class="tooltip-label">Tradition:</span> ${myTax?.isPrimary ? 'Primary' : 'Used in'}
-                                </div>`;
-                            
-                            if (otherHubs.length > 0) {
-                                tooltipHTML += `<div class="tooltip-section">
-                                    <span class="tooltip-label">Also in:</span> ${otherHubs.join(', ')}
-                                </div>`;
-                            }
-                            
-                            if (synonymNames.length > 0) {
-                                tooltipHTML += `<div class="tooltip-section">
-                                    <span class="tooltip-label">Same Notes:</span> ${synonymNames.join(', ')}
-                                </div>`;
-                            }
-                            
-                            tooltipHTML += `</div>`;
-
-                            item.innerHTML = `
-                                <span class="item-name">${name}</span>
-                                ${myTax?.isPrimary ? '<span class="primary-tag" title="Primary Heritage">◈</span>' : ''}
-                                ${tooltipHTML}
-                            `;
-                            
+                const keys = Object.keys(items).sort();
+                keys.forEach(key => {
+                    const val = items[key];
+                    if (Array.isArray(val)) {
+                        val.forEach(id => {
+                            const name = displayNames[id] || id;
+                            const item = createEl('div', 'scale-item-node', name);
                             item.onclick = (e) => {
                                 e.stopPropagation();
-                                if (window.scaleLibrary) window.scaleLibrary.setKeyAndScale('C', scaleId);
-                                document.getElementById('scale-picker-modal').style.display = 'none';
+                                if (window.scaleLibrary) window.scaleLibrary.setKeyAndScale('C', id);
+                                modal.style.display = 'none';
                             };
                             container.appendChild(item);
                         });
                     } else {
-                        if (key && key !== "categories" && key !== "subcategories" && key !== "subSubcategories" && key !== "") {
-                            const title = createEl('div', 'special-cat-title', key);
-                            container.appendChild(title);
-                        }
-                        
-                        const target = node.categories || node.subcategories || node.subSubcategories || node;
-                        renderSpecialRecursive(container, target, famName);
+                        const sub = createEl('div', 'tree-sub-node', key + ' ▾');
+                        const subContent = createEl('div', 'collapsed-content');
+                        sub.onclick = (e) => { 
+                            e.stopPropagation(); 
+                            const isCol = subContent.classList.toggle('collapsed-content');
+                            sub.innerHTML = isCol ? key + ' ▾' : key + ' ▴';
+                        };
+                        container.appendChild(sub);
+                        container.appendChild(subContent);
+                        renderRecursive(subContent, val, level + 1);
                     }
                 });
             }
 
-            syncGeneralInteractiveControls(modal, grid, activeView);
-        };
+            function renderSpecialRecursive(container, obj) {
+                if (!obj) return;
+                const items = obj.categories || obj.subcategories || obj.subSubcategories || obj;
+                const keys = Object.keys(items).sort();
+                keys.forEach(key => {
+                    const val = items[key];
+                    if (Array.isArray(val)) {
+                        val.forEach(id => {
+                            const name = displayNames[id] || id;
+                            const item = createEl('div', 'special-item', name.toUpperCase());
+                            item.onclick = (e) => {
+                                e.stopPropagation();
+                                if (window.scaleLibrary) window.scaleLibrary.setKeyAndScale('C', id);
+                                modal.style.display = 'none';
+                            };
+                            container.appendChild(item);
+                        });
+                    } else {
+                        const head = createEl('div', 'special-cat-title', `[ ${key} ]`);
+                        head.style.cssText = "color:#00ff41; padding:8px; font-weight:bold; opacity:0.8; font-size:0.75rem; border-bottom: 1px solid rgba(0,255,0,0.1);";
+                        container.appendChild(head);
+                        renderSpecialRecursive(container, val);
+                    }
+                });
+            }
 
-        function syncGeneralInteractiveControls(modal, grid, activeView) {
             modal.querySelectorAll('.scale-view-tab').forEach(tab => {
                 const view = tab.getAttribute('data-view');
                 tab.classList.toggle('active', view === activeView);
                 if (!tab.dataset.bound) {
                     tab.dataset.bound = "true";
-                    tab.addEventListener('click', (e) => { 
-                        e.preventDefault(); 
-                        window.renderScaleFamilies(view); 
-                    });
+                    tab.addEventListener('click', (e) => { e.preventDefault(); window.renderScaleFamilies(view); });
                 }
             });
-
             const searchInput = document.getElementById('scale-search-input');
             if (searchInput && !searchInput.dataset.bound) {
                 searchInput.dataset.bound = "true";
                 searchInput.addEventListener('input', (e) => {
                     const term = e.target.value.toLowerCase();
-                    const currentGrid = modal.querySelector('.categories-grid');
-                    if (!currentGrid) return;
-                    
-                    const isTree = currentGrid.classList.contains('pyramid-view');
-
-                    // RESET: Handle empty search term
-                    if (!term) {
-                        currentGrid.querySelectorAll('.scale-item-node, .special-item, .pyramid-node, .tree-sub-node, .special-cat-title, .pyramid-row, .special-column, .collapsed-content').forEach(el => {
-                            el.style.display = ''; // Reset to CSS default
-                            if (el.classList.contains('collapsed-content') && !el.classList.contains('sub-menu')) {
-                                el.classList.add('collapsed-content'); // Re-collapse nested items
-                            }
-                        });
-                        return;
-                    }
-
-                    // 1. Initially Hide Everything
-                    currentGrid.querySelectorAll('.scale-item-node, .special-item, .pyramid-node, .tree-sub-node, .special-cat-title, .pyramid-row, .special-column').forEach(el => {
-                        el.style.display = 'none';
-                    });
-
-                    // 2. Bottom-Up Reveal matching paths
-                    currentGrid.querySelectorAll('.scale-item-node, .special-item').forEach(item => {
-                        const name = item.querySelector('.item-name')?.textContent || item.textContent;
-                        const matches = name.toLowerCase().includes(term);
-                        
-                        if (matches) {
-                            item.style.display = 'flex';
-                            
-                            // Walk Up and Show Parents
-                            let p = item.parentElement;
-                            while (p && p !== currentGrid) {
-                                p.style.display = 'block'; 
-                                if (p.classList.contains('special-column')) p.style.display = 'flex';
-
-                                // Identify the "Toggle" element (the hub/family name)
-                                // Standard Hubs: toggle is previous sibling
-                                // Family Roots: toggle is the parent pyramid-node
-                                let toggle = p.previousElementSibling;
-                                if (!toggle && p.parentElement?.classList.contains('pyramid-node')) {
-                                    toggle = p.parentElement;
-                                }
-
-                                if (toggle) {
-                                    if (toggle.classList.contains('tree-sub-node') || 
-                                        toggle.classList.contains('pyramid-node') || 
-                                        toggle.classList.contains('special-cat-title')) {
-                                        
-                                        toggle.style.display = 'block';
-                                        
-                                        // Auto-expand tree path
-                                        if (isTree && p.classList.contains('collapsed-content')) {
-                                            p.classList.remove('collapsed-content');
-                                            // Handle arrow update via labelSpan
-                                            const labelSpan = toggle.querySelector('.node-label') || toggle;
-                                            const label = labelSpan.innerText.replace(/[▾▴]/g, '').trim();
-                                            labelSpan.textContent = label + ' ▴';
-                                        }
-                                    }
-                                }
-                                
-                                // Ensure rows and columns are shown
-                                if (p.classList.contains('pyramid-row')) p.style.display = 'block';
-
-                                p = p.parentElement;
-                            }
-                        }
+                    grid.querySelectorAll('.scale-item-node, .special-item').forEach(item => {
+                        item.style.display = item.textContent.toLowerCase().includes(term) ? 'flex' : 'none';
                     });
                 });
             }
-        }
+        };
 
         const mo = new MutationObserver((mutations) => {
             const modal = document.getElementById('scale-picker-modal');
@@ -1169,8 +709,1098 @@
     </script>
 
     <script id="manual-taxonomy-overrides">
-    window.MANUAL_TAXONOMY_REVIEWS = {};
-    </script>
+    window.MANUAL_TAXONOMY_REVIEWS = {
+  "major": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Ionian-type lineage",
+    "tags": [
+      "modal",
+      "ionian",
+      "major"
+    ]
+  },
+  "dorian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Dorian-type lineage",
+    "tags": [
+      "modal",
+      "dorian",
+      "minor"
+    ]
+  },
+  "dorian_2": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Dorian-type",
+    "tags": [
+      "modal",
+      "dorian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "dorian_24": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Dorian-type",
+    "tags": [
+      "modal",
+      "dorian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "dorian_4": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Dorian-type",
+    "tags": [
+      "modal",
+      "dorian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "dorian_5": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Dorian-type",
+    "tags": [
+      "modal",
+      "dorian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "dorian_augmented": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Dorian-type lineage",
+    "tags": [
+      "modal",
+      "dorian",
+      "minor",
+      "augmented"
+    ]
+  },
+  "blues_phrygian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Phrygian-type",
+    "tags": [
+      "modal",
+      "phrygian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones",
+      "blues"
+    ]
+  },
+  "chromatic_phrygian_inverse": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Phrygian-type",
+    "tags": [
+      "modal",
+      "phrygian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "phrygian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Phrygian-type lineage",
+    "tags": [
+      "modal",
+      "phrygian",
+      "minor"
+    ]
+  },
+  "phrygian_347": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Phrygian-type",
+    "tags": [
+      "modal",
+      "phrygian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "phrygian_hungarian_minor": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Phrygian-type lineage",
+    "tags": [
+      "modal",
+      "phrygian",
+      "minor"
+    ]
+  },
+  "chromatic_lydian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "chromatic_lydian_inverse": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "chromatic_mixolydian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Mixolydian-type",
+    "tags": [
+      "modal",
+      "mixolydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Lydian-type lineage",
+    "tags": [
+      "modal",
+      "lydian",
+      "major"
+    ]
+  },
+  "lydian_23": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_32": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_236": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_2367": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_3": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_36": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_7_2": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_7_23": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_7_3": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_7_32": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_72": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_723": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_7263": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_73": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_732": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_7623": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_7632": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "lydian_diminished": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Lydian-type lineage",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "diminished"
+    ]
+  },
+  "lydian_harmonic_major": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Lydian-type lineage",
+    "tags": [
+      "modal",
+      "lydian",
+      "major"
+    ]
+  },
+  "lydian_minor": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Lydian-type lineage",
+    "tags": [
+      "modal",
+      "lydian",
+      "major"
+    ]
+  },
+  "lydian_minor_3": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Lydian-type",
+    "tags": [
+      "modal",
+      "lydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "mixolydian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Mixolydian-type lineage",
+    "tags": [
+      "modal",
+      "mixolydian",
+      "major"
+    ]
+  },
+  "mixolydian_5": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Mixolydian-type",
+    "tags": [
+      "modal",
+      "mixolydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "mixolydian_6": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Mixolydian-type",
+    "tags": [
+      "modal",
+      "mixolydian",
+      "major",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "mixolydian_augmented": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Mixolydian-type lineage",
+    "tags": [
+      "modal",
+      "mixolydian",
+      "major",
+      "augmented"
+    ]
+  },
+  "aeolian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Aeolian-type lineage",
+    "tags": [
+      "modal",
+      "aeolian",
+      "minor"
+    ]
+  },
+  "locrian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Locrian-type lineage",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor"
+    ]
+  },
+  "locrian_267": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "locrian_3": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "locrian_36": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "locrian_367": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "locrian_37": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "locrian_6": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "locrian_63": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "locrian_67": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "locrian_7": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "locrian_dominant": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Locrian-type lineage",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor"
+    ]
+  },
+  "major_locrian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Locrian-type lineage",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor"
+    ]
+  },
+  "major_locrian_2": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "major_locrian_267": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "major_locrian_27": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "major_locrian_6": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "major_locrian_67": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "major_locrian_7": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "midlocrian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Locrian-type lineage",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor"
+    ]
+  },
+  "mixolocrian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Locrian-type lineage",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor"
+    ]
+  },
+  "ultralocrian": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Locrian-type lineage",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor"
+    ]
+  },
+  "ultralocrian_3": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "ultralocrian_5": {
+    "family": "Diatonic / Modal systems",
+    "category": "Modal scales",
+    "subcategoryDetail": "Chromatically altered Locrian-type",
+    "tags": [
+      "modal",
+      "locrian",
+      "minor",
+      "chromatic",
+      "altered scale",
+      "passing tones"
+    ]
+  },
+  "bebop_melodic_minor": {
+    "family": "Bebop / Jazz systems",
+    "category": "8-note / Bebop scales",
+    "subcategoryDetail": "Bebop lineage",
+    "tags": [
+      "bebop",
+      "jazz",
+      "8-note",
+      "passing tones"
+    ]
+  },
+  "melodic_minor": {
+    "family": "Melodic Minor systems",
+    "category": "Modal scales (Melodic Minor derived)",
+    "subcategoryDetail": "Minor-type",
+    "tags": [
+      "minor"
+    ]
+  },
+  "lydian_augmented": {
+    "family": "Melodic Minor systems",
+    "category": "Modal scales (Melodic Minor derived)",
+    "subcategoryDetail": "Lydian-type (Lydian Augmented lineage)",
+    "tags": [
+      "lydian",
+      "augmented",
+      "major",
+      "augmented"
+    ]
+  },
+  "lydian_augmented_2": {
+    "family": "Melodic Minor systems",
+    "category": "Modal scales (Melodic Minor derived)",
+    "subcategoryDetail": "Chromatically altered modes",
+    "tags": [
+      "lydian",
+      "augmented",
+      "major",
+      "altered",
+      "chromatic",
+      "augmented"
+    ]
+  },
+  "lydian_augmented_23": {
+    "family": "Melodic Minor systems",
+    "category": "Modal scales (Melodic Minor derived)",
+    "subcategoryDetail": "Chromatically altered modes",
+    "tags": [
+      "lydian",
+      "augmented",
+      "major",
+      "altered",
+      "chromatic",
+      "augmented"
+    ]
+  },
+  "lydian_augmented_3": {
+    "family": "Melodic Minor systems",
+    "category": "Modal scales (Melodic Minor derived)",
+    "subcategoryDetail": "Chromatically altered modes",
+    "tags": [
+      "lydian",
+      "augmented",
+      "major",
+      "altered",
+      "chromatic",
+      "augmented"
+    ]
+  },
+  "lydian_augmented_pentatonic": {
+    "family": "Pentatonic / 5-Note systems",
+    "category": "Pentatonic scales",
+    "subcategoryDetail": "Standard pentatonics",
+    "tags": [
+      "pentatonic",
+      "5-note",
+      "augmented"
+    ]
+  },
+  "acoustic": {
+    "family": "Melodic Minor systems",
+    "category": "Modal scales (Melodic Minor derived)",
+    "subcategoryDetail": "Minor-type",
+    "tags": [
+      "minor"
+    ]
+  },
+  "altered_major_pentatonic": {
+    "family": "Pentatonic / 5-Note systems",
+    "category": "Pentatonic scales",
+    "subcategoryDetail": "Altered pentatonics",
+    "tags": [
+      "pentatonic",
+      "5-note",
+      "altered"
+    ]
+  },
+  "altered_pentatonic": {
+    "family": "Pentatonic / 5-Note systems",
+    "category": "Pentatonic scales",
+    "subcategoryDetail": "Altered pentatonics",
+    "tags": [
+      "pentatonic",
+      "5-note",
+      "altered"
+    ]
+  },
+  "altered_pentatonic_ii": {
+    "family": "Pentatonic / 5-Note systems",
+    "category": "Pentatonic scales",
+    "subcategoryDetail": "Altered pentatonics",
+    "tags": [
+      "pentatonic",
+      "5-note",
+      "altered"
+    ]
+  }
+};
+</script>
+<script id="manual-taxonomy-overrides-batch2">
+(function(){
+    const overrides = 
+    {
+    "harmonic_minor": {
+        "family": "Harmonic Minor systems",
+        "category": "Modal scales (Harmonic Minor derived)",
+        "subcategoryDetail": "Harmonic Minor lineage",
+        "tags": [
+            "harmonic minor"
+        ]
+    },
+    "harmonic_minor_4": {
+        "family": "Harmonic Minor systems",
+        "category": "Modal scales (Harmonic Minor derived)",
+        "subcategoryDetail": "Harmonic Minor lineage",
+        "tags": [
+            "harmonic minor"
+        ]
+    },
+    "harmonic_minor_5": {
+        "family": "Harmonic Minor systems",
+        "category": "Modal scales (Harmonic Minor derived)",
+        "subcategoryDetail": "Harmonic Minor lineage",
+        "tags": [
+            "harmonic minor"
+        ]
+    },
+    "harmonic_minor_tetrachord": {
+        "family": "Harmonic Minor systems",
+        "category": "Modal scales (Harmonic Minor derived)",
+        "subcategoryDetail": "Harmonic Minor lineage",
+        "tags": [
+            "harmonic minor"
+        ]
+    },
+    "ionian_augmented_2": {
+        "family": "Symmetric / Limited Transposition systems",
+        "category": "Symmetric scales",
+        "subcategoryDetail": "Symmetric structures",
+        "tags": [
+            "symmetric",
+            "augmented"
+        ]
+    },
+    "phrygian_dominant": {
+        "family": "Diatonic / Modal systems",
+        "category": "Modal scales",
+        "subcategoryDetail": "Phrygian-type lineage",
+        "tags": [
+            "modal",
+            "phrygian",
+            "minor"
+        ]
+    },
+    "harmonic_major": {
+        "family": "Harmonic Major / Double Harmonic systems",
+        "category": "Modal scales (Harmonic Major derived)",
+        "subcategoryDetail": "Harmonic Major lineage",
+        "tags": [
+            "harmonic major"
+        ]
+    },
+    "harmonic_major_5": {
+        "family": "Harmonic Major / Double Harmonic systems",
+        "category": "Modal scales (Harmonic Major derived)",
+        "subcategoryDetail": "Harmonic Major lineage",
+        "tags": [
+            "harmonic major"
+        ]
+    },
+    "byzantine": {
+        "family": "Synthetic / Experimental systems",
+        "category": "Uncommon experimental variants",
+        "subcategoryDetail": "Synthetic variants",
+        "tags": []
+    },
+    "byzantine_minor": {
+        "family": "Synthetic / Experimental systems",
+        "category": "Uncommon experimental variants",
+        "subcategoryDetail": "Synthetic variants",
+        "tags": []
+    },
+    "double_harmonic": {
+        "family": "Harmonic Minor systems",
+        "category": "Modal scales (Harmonic Minor derived)",
+        "subcategoryDetail": "Harmonic Minor lineage",
+        "tags": [
+            "harmonic minor"
+        ]
+    },
+    "double_harmonic_minor": {
+        "family": "Harmonic Minor systems",
+        "category": "Modal scales (Harmonic Minor derived)",
+        "subcategoryDetail": "Harmonic Minor lineage",
+        "tags": [
+            "harmonic minor"
+        ]
+    },
+    "hungarian_minor_2": {
+        "family": "Bebop / Jazz systems",
+        "category": "8-note / Bebop scales",
+        "subcategoryDetail": "Bebop lineage",
+        "tags": [
+            "bebop",
+            "jazz",
+            "8-note",
+            "passing tones"
+        ]
+    },
+    "major_pentatonic": {
+        "family": "Pentatonic / 5-Note systems",
+        "category": "Pentatonic scales",
+        "subcategoryDetail": "Standard pentatonics",
+        "tags": [
+            "pentatonic",
+            "5-note"
+        ]
+    },
+    "major_pentatonic_2": {
+        "family": "Pentatonic / 5-Note systems",
+        "category": "Pentatonic scales",
+        "subcategoryDetail": "Standard pentatonics",
+        "tags": [
+            "pentatonic",
+            "5-note"
+        ]
+    },
+    "major_pentatonic_3": {
+        "family": "Pentatonic / 5-Note systems",
+        "category": "Pentatonic scales",
+        "subcategoryDetail": "Standard pentatonics",
+        "tags": [
+            "pentatonic",
+            "5-note"
+        ]
+    },
+    "major_pentatonic_79": {
+        "family": "Pentatonic / 5-Note systems",
+        "category": "Pentatonic scales",
+        "subcategoryDetail": "Standard pentatonics",
+        "tags": [
+            "pentatonic",
+            "5-note"
+        ]
+    },
+    "phrygian_major_pentatonic": {
+        "family": "Pentatonic / 5-Note systems",
+        "category": "Pentatonic scales",
+        "subcategoryDetail": "Standard pentatonics",
+        "tags": [
+            "pentatonic",
+            "5-note"
+        ]
+    },
+    "common_minor_pentatonic_7": {
+        "family": "Pentatonic / 5-Note systems",
+        "category": "Pentatonic scales",
+        "subcategoryDetail": "Standard pentatonics",
+        "tags": [
+            "pentatonic",
+            "5-note"
+        ]
+    },
+    "minor_pentatonic": {
+        "family": "Pentatonic / 5-Note systems",
+        "category": "Pentatonic scales",
+        "subcategoryDetail": "Standard pentatonics",
+        "tags": [
+            "pentatonic",
+            "5-note"
+        ]
+    }
+    };
+    window.MANUAL_TAXONOMY_REVIEWS = Object.assign(window.MANUAL_TAXONOMY_REVIEWS || {}, overrides);
+})();
+</script>
         <!--
         <script>
         (function(){
@@ -1182,16 +1812,36 @@
         })();
         </script>
         -->
-    <!-- BOTTOM DECK: PIANO -->
-    <div class="bottom-deck">
-        <div class="bottom-deck-label">
-            <span class="deck-icon">🎹</span>
-            <span class="deck-title">PIANO VISUALIZER</span>
-            <span class="deck-status" id="piano-deck-status">READY</span>
+    <!-- BOTTOM DECK: INSTRUMENT DOCK -->
+    <div class="bottom-deck" id="instrument-dock-root">
+        <div class="instrument-dock-settings" aria-label="Instrument Dock Settings">
+            <div class="instrument-dock-settings-anchor">
+                <button id="instrument-dock-settings-btn" class="btn-icon" title="Instrument Dock Settings">⚙️</button>
+                <div id="instrument-dock-settings-panel" class="tools-dropdown-panel">
+                    <div style="padding:8px; border-bottom:1px solid var(--border-light); margin-bottom:8px;">
+                        <div style="font-size:0.7rem; color:var(--text-muted);">INSTRUMENTS</div>
+                    </div>
+                    <div class="module-toggle-item">
+                        <input type="checkbox" id="instrument-dock-show-piano" checked>
+                        <label for="instrument-dock-show-piano">Piano</label>
+                    </div>
+                    <div class="module-toggle-item">
+                        <input type="checkbox" id="instrument-dock-show-guitar" checked>
+                        <label for="instrument-dock-show-guitar">Guitar</label>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div id="piano-wrapper" style="position: relative; display: flex; flex-direction: column; gap: 4px;">
-            <!-- Piano Container -->
-            <div id="piano-container"></div>
+
+        <div class="instrument-dock" id="instrument-dock">
+            <div class="instrument-pane" id="instrument-pane-piano" style="min-width: 0;">
+                <div id="piano-wrapper">
+                    <div id="piano-container"></div>
+                </div>
+            </div>
+            <div class="instrument-pane" id="instrument-pane-guitar" style="min-width: 0;">
+                <div id="guitar-dock-container"></div>
+            </div>
         </div>
     </div>
 
@@ -1240,6 +1890,7 @@
     <script src="solar-system-visualizer.v2.js"></script>
     <script src="unified-chord-explorer.js"></script>
     <script src="module-selector.js"></script>
+    <script src="instrument-dock.js" defer></script>
     <!-- <script src="grading-legend-help-system.js"></script> -->
     <!-- <script src="word-grading-visualization.js"></script> -->
 <!-- Bitwig MIDI removed as it is archived/legacy -->
@@ -1255,7 +1906,6 @@
     <script src="tutorial-system.js" defer></script>
     <script src="lexical-integration.js" defer></script>
 
-    <script src="layout-engine.js" defer></script>
     <script src="modular-app.js" defer></script>
 
     <script>

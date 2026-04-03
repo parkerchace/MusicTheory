@@ -2,44 +2,63 @@
 
 [Live Demo](https://parkerchace.github.io/MusicTheory/modular-music-theory.html)
 
-A browser-based collection of modular music theory tools for exploration, practice, and composition. This project provides an interactive, event-driven environment where harmonic discovery is linked across multiple visualizers and engines.
+A single-page, browser-based set of music theory tools (scales, chords, progressions, and a couple visualizers). It’s mostly vanilla JS + HTML + CSS and runs without a build step.
 
-## Features
+## Quick start
 
-### Educational Modules
-A suite of structured learning tools for music fundamentals:
-- **Learn Notes (Piano/Guitar)**: Drills for mastering intervals and positions.
-- **Learn Scales & Chords**: Interactive exploration of triad construction and scale degrees.
-- **Learn Inversions**: Tools for visualizing chord voicings and practicing voice leading.
+- Open `modular-music-theory.html` in a modern browser.
+- MIDI often works as-is, but browser security rules vary. If your browser blocks Web MIDI when opened from disk, run a local server:
+    - `python -m http.server 8000` then open `http://localhost:8000/modular-music-theory.html`
 
-### MIDI Integration
-- **Plug-and-Play**: Connect any class-compliant MIDI controller (keyboard, pads, breath controller) and the studio will automatically detect and route it to the active piano engine.
-- **Hardware Feedback**: MIDI input synchronizes with the Piano Visualizer and Guitar Fretboard in real-time, allowing you to see exactly which scale degrees or chord extensions you are triggering on your hardware.
+## What’s actually in the app
 
-### Exploration Engines
-    - Modal interchange and chromatic variants.
-- **Container Chord Tool**: Finds scales that contain a specific set of notes or chords.
+### Learning pages
 
-### Visualizers
-- **Solar System Visualizer**: Maps music theory concepts to orbital mechanics to visually emphasize the tonic (center of the system).
-- **Piano & Guitar Fretboard**: Synced views that highlight scale tones, root positions, and chord voicings across instruments.
-- **Sheet Music Generation**: Renders notation in real-time with functional analysis.
+- **Learn Notes (Piano / Guitar)**: note-name drills with an instrument view.
+- **Learn Scales**: lesson-style exploration of scale degrees and patterns.
+- **Learn Chords**: chord building / recognition exercises.
+- **Learn Inversions**: basic inversion + voicing practice.
 
-## Workspace & UI
+These live behind the landing page in `modular-music-theory.html` and are loaded on demand by `modular-app.js`.
 
-- **Modular Architecture**: Built with Vanilla JS, HTML5, and CSS3. No build steps or external dependencies required.
-- **Interactive Layout**: A resizable workspace where users can drag splitters to adjust column widths and drag-and-drop modules to reorder the interface.
-- **Theme System**: Multiple aesthetic modes (Clean DAW, Channel Strip, Matrix FX, Steam 2000) that adjust the visual style of the Entire Studio.
+### Studio tools (the main workspace)
 
-## Quick Start
+- **Scale library**: browse a large embedded scale catalog (categories + taxonomy) and push the selection to other modules.
+- **Circle of fifths / scale circle explorer**: a reference view tied to the current key/scale.
+- **Chord explorer**: a diatonic chord grid (I–VII) with a substitution menu (includes diatonic options and some chromatic substitutions).
+- **Container chord tool**: find scales and/or chords that contain a chosen note set.
+- **Scale relationship explorer**: compare related scales and chord/scale overlap.
+- **Progression builder**: build a chord sequence and feed it into other views.
+- **Number generator**: generate/transform scale-degree sequences (with undo/redo + a few generation modes).
 
-1. Open `modular-music-theory.html` in a modern browser.
-2. Use the **Module Selector** (⚙️) at the top to toggle specific tools.
-3. Select scales from the **Scale Library** to update all visualizers simultaneously.
+### Visual + audio
 
-## Legal & Copyright
-- **Public Domain Elements**: Common musical parameters (scales, intervals, triads) are building blocks of music and are treated as common-property.
-- **Educational Intent**: This project is for personal and educational use. For requests regarding the removal of specific pedagogical material, contact `sparkerchace@gmail.com`.
+- **Piano visualizer**: clickable keyboard with scale-degree highlighting, optional fingering overlays, and MIDI note “key lighting”.
+- **Guitar fretboard visualizer**: show scale/chord positions on a fretboard and optionally audition notes.
+- **Sheet music generator**: lightweight SVG notation view that tracks key/scale + selected chords (and can follow generated progressions).
+- **Audio engines**:
+    - `simple-audio-engine.js` (basic synth)
+    - `enhanced-audio-engine.js` (envelope + optional reverb)
+    - `piano-sample-engine.js` (sampled piano when available)
+
+### Input modes
+
+- **Numbers mode**: type scale degrees / Roman-ish tokens and see the chord/progression views update.
+- **Words mode**: a “word → music” pipeline that logs analysis and exposes weight sliders (see the Word Analysis panel).
+
+## UI / workflow
+
+- Landing page with skill level + intent search that routes into the learn pages / studio (`module-selector.js`).
+- Collapsible modules in the studio layout (the `[-]` buttons on some module headers).
+- Module enable/disable toggles in the settings dropdown (⚙️).
+- Theme cycling with persistence (`theme-switcher.js`).
+- A small tutorial/overlay system wired to the “?” menu (`tutorial-system.js`).
+
+## Notes / current limitations
+
+- **Solar system visualizer**: it’s included by default and is still a bit experimental (it’s easy for it to feel “busy” depending on the scale/key state).
+- **Semantic API engine**: `semantic-api-engine.js` is present, but the API endpoints are placeholders (`REMOVED`), so live API-based word enrichment won’t work without re-adding endpoints.
+- **Tests**: `package.json` includes Jest, but this repo doesn’t currently ship any `*.test.js` files.
 
 ---
-*Created by Parker Chace*
+Created by Parker Chace

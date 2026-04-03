@@ -49,6 +49,8 @@ class SheetMusicGenerator {
 			doubleRoot: false, // double the root note
 			// Harmonization mode (from Progression Builder)
 			harmonizationMode: 'root', // 'root' | 'melody' | 'harmony'
+			// Melody mode option: if true, draw ONLY the melody note (top voice)
+			melodyOnly: false,
 			/**
 			 * When true, draw traditional key signature symbols; when false, hide the
 			 * key signature and instead show per-note accidentals next to noteheads.
@@ -366,6 +368,15 @@ class SheetMusicGenerator {
 			this.previousVoicing = null;
 			this._scheduleRender();
 		}
+	}
+
+	/**
+	 * Melody mode option: when enabled, render only the top voice so the
+	 * notation reads like a melody with implied harmony (chord labels).
+	 */
+	setMelodyOnly(only) {
+		this.state.melodyOnly = !!only;
+		this._scheduleRender();
 	}
 
 	// ------------------------- Internal render ------------------------
@@ -982,6 +993,20 @@ class SheetMusicGenerator {
 			}
 		);
 		voicingPanel.appendChild(vlCombosWrap);
+
+		// Melody-only checkbox (only meaningful in melody harmonization mode)
+		const melodyOnlyWrap = this._createVoicingCheckbox(
+			'melody-only',
+			'Melody Only',
+			!!this.state.melodyOnly,
+			'Melody mode: draw only the top voice (keeps chord names as harmony)',
+			(checked) => {
+				this.state.melodyOnly = !!checked;
+				this._scheduleRender();
+			}
+		);
+		melodyOnlyWrap.style.display = (this.state.harmonizationMode === 'melody') ? 'flex' : 'none';
+		voicingPanel.appendChild(melodyOnlyWrap);
 
 		// Voice Leading Intensity slider (spectrum from loose to ultra-smooth)
 		const vlIntWrap = document.createElement('div');
@@ -2737,6 +2762,9 @@ class SheetMusicGenerator {
 			if (this.state.harmonizationMode === 'melody' && Array.isArray(this.state.barDegrees)) {
 				const deg = this.state.barDegrees[barIndex];
 				if (deg != null) voiced = enforceMelodyTop(voiced, deg);
+				if (this.state.melodyOnly && Array.isArray(voiced) && voiced.length) {
+					voiced = [voiced[voiced.length - 1]];
+				}
 			}
 
 			// Partition by middle C (MIDI 60). Lower -> bass, Higher/Equal -> treble
@@ -3104,6 +3132,9 @@ class SheetMusicGenerator {
 			if (this.state.harmonizationMode === 'melody' && Array.isArray(this.state.barDegrees)) {
 				const deg = this.state.barDegrees[barIndex];
 				if (deg != null) notes = enforceMelodyTop(notes, deg);
+				if (this.state.melodyOnly && Array.isArray(notes) && notes.length) {
+					notes = [notes[notes.length - 1]];
+				}
 			}
             
 			const xCenter = staffLeft + (barIndex + 0.5) * barWidth;

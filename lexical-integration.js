@@ -17,7 +17,8 @@
     let lexicalSettings = {
         aggressiveMapping: false,
         keyVariety: true,
-        autoSend: true
+        autoSend: true,
+        phrasePreset: 'auto'
     };
     
     // Global undo/redo history
@@ -212,6 +213,17 @@
         });
     }
 
+    // Phrase length preset
+    const phrasePresetSelect = document.getElementById('phrase-preset');
+    if (phrasePresetSelect) {
+        phrasePresetSelect.addEventListener('change', (e) => {
+            lexicalSettings.phrasePreset = e && e.target ? String(e.target.value || 'auto') : 'auto';
+            if (globalWordInput && globalWordInput.value.trim()) {
+                processWordsInput(globalWordInput.value.trim());
+            }
+        });
+    }
+
     // Regenerate button
     const regenerateBtn = document.getElementById('word-regenerate-btn');
     if (regenerateBtn) {
@@ -348,6 +360,12 @@
             
             if (state.settings) {
                 Object.assign(lexicalSettings, state.settings);
+
+                // Sync settings UI
+                if (aggressiveCheckbox) aggressiveCheckbox.checked = !!lexicalSettings.aggressiveMapping;
+                if (keyVarietyCheckbox) keyVarietyCheckbox.checked = !!lexicalSettings.keyVariety;
+                if (autoSendCheckbox) autoSendCheckbox.checked = !!lexicalSettings.autoSend;
+                if (phrasePresetSelect) phrasePresetSelect.value = String(lexicalSettings.phrasePreset || 'auto');
             }
             
             if (state.lexicalResult) {
@@ -704,7 +722,8 @@
             const result = await lexicalEngine.translateWords(words, { 
                 weights: lexicalWeights, 
                 aggressive: lexicalSettings.aggressiveMapping,
-                dynamicKeys: lexicalSettings.keyVariety 
+                dynamicKeys: lexicalSettings.keyVariety,
+                phrasePreset: lexicalSettings.phrasePreset
             });
 
             try { window.__lastLexicalResult = result; } catch(_) {}

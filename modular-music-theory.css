@@ -255,8 +255,10 @@ body {
 
 /* ==================== BOTTOM DECK (PIANO) ==================== */
 .bottom-deck {
-    min-height: auto;
-    height: auto;
+    --dock-header-h: 0px;
+    /* ~25% of the screen, but not rigid: keeps the dock usable on mobile */
+    height: clamp(160px, 25vh, 320px);
+    overflow: hidden;
     background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
     border-top: 2px solid var(--accent-primary);
     padding: 0;
@@ -267,6 +269,40 @@ body {
         0 -4px 20px rgba(0,0,0,0.8),
         0 -1px 0 var(--accent-primary),
         inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* Dock grid takes the full deck height; visualizers scale to fit (no internal scrolling) */
+#instrument-dock-root #instrument-dock {
+    margin-top: 0;
+    height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding: 6px 10px 8px 10px;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr 1fr;
+}
+
+.instrument-dock-settings {
+    position: absolute;
+    top: 6px;
+    right: 12px;
+    z-index: 110;
+    pointer-events: auto;
+}
+
+.instrument-dock-settings-anchor {
+    position: relative;
+    display: inline-block;
+}
+
+#instrument-dock-settings-btn {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+}
+
+#instrument-dock-settings-panel {
+    min-width: 180px;
 }
 
 /* Decorative corner accents for bottom deck */
@@ -308,6 +344,20 @@ body {
     letter-spacing: 1.5px;
     z-index: 10;
     pointer-events: none;
+}
+
+#instrument-dock-root #instrument-pane-piano,
+#instrument-dock-root #instrument-pane-guitar {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+}
+
+#instrument-dock-root .instrument-pane > * {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
 }
 
 .deck-icon {
@@ -592,9 +642,19 @@ body[data-theme="matrix-fx"] .mod-tool:hover {
     min-height: 180px;
     max-height: none;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
+    align-items: flex-start;
     padding: 20px;
     filter: invert(1) hue-rotate(180deg);
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+}
+
+/* Keep embedded sheet renderers from overflowing the center stage */
+#sheet-music-container svg,
+#sheet-music-container canvas {
+    max-width: 100%;
 }
 
 #chord-explorer-container {
@@ -896,21 +956,69 @@ body[data-theme="matrix-fx"] .mod-tool:hover {
 }
 
 /* Piano overrides */
-#piano-container {
-    height: auto;
-    min-height: auto;
+#instrument-dock-root #piano-wrapper {
+    position: relative;
     width: 100%;
-    overflow-x: auto;
-    overflow-y: visible;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#instrument-dock-root #piano-container {
+    height: 100%;
+    min-height: 0;
+    width: 100%;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    align-items: flex-start;
-    padding: 10px 6px 0 6px;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
     background: 
         radial-gradient(ellipse at center top, rgba(0, 243, 255, 0.03) 0%, transparent 50%),
         linear-gradient(180deg, rgba(0,0,0,0.5) 0%, #000000 100%);
     position: relative;
+}
+
+/* Stack any extra UI above the keyboard */
+#instrument-dock-root #piano-container > * {
+    flex: 0 0 auto;
+}
+
+/* Let the keyboard consume remaining dock height */
+#instrument-dock-root #piano-container > .piano-visualizer {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Center the keyboard when it fits; keep scroll behavior when it doesn't */
+#instrument-dock-root #piano-container .piano-visualizer {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+#instrument-dock-root #guitar-dock-container {
+    height: 100%;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+}
+
+/* Make the docked guitar fill its container like the piano */
+#instrument-dock-root #guitar-dock-container .guitar-fretboard {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
 }
 
 /* Add subtle grid pattern to piano container */
@@ -962,7 +1070,7 @@ body[data-theme="matrix-fx"] .mod-tool:hover {
     .bottom-deck {
         position: sticky;
         bottom: 0;
-        height: 120px;
+        height: clamp(170px, 32vh, 360px);
     }
 }
 

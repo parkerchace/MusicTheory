@@ -173,14 +173,31 @@ class ModuleSelector {
 
     wrapOrphanModuleContainers() {
         try {
+            // Containers that should NEVER get a generated "module" wrapper/header.
+            // (They are layout primitives used by the instrument dock + visualizers.)
+            const SKIP_CONTAINER_IDS = new Set([
+                'piano-container',
+                'piano-wrapper',
+                'guitar-dock-container',
+                'guitar-fretboard-container',
+                'instrument-dock',
+                'instrument-dock-root'
+            ]);
+
             // First, unwrap any existing studio-module wrappers that contain mini or hidden containers
             Array.from(document.querySelectorAll('.studio-module')).forEach(wrapper => {
                 try {
                     const inner = wrapper.querySelector('.module-content > div');
                     if (!inner) return;
                     const id = inner.id || '';
-                    const style = window.getComputedStyle(inner);
-                    if (id.startsWith('mini-') || style.display === 'none') {
+                    if (id.startsWith('mini-')) {
+                        const parent = wrapper.parentElement;
+                        if (!parent) return;
+                        parent.replaceChild(inner, wrapper);
+                    }
+
+                    // Also unwrap instrument-dock primitives if they were wrapped previously
+                    if (id && SKIP_CONTAINER_IDS.has(id) && wrapper.closest('#instrument-dock-root')) {
                         const parent = wrapper.parentElement;
                         if (!parent) return;
                         parent.replaceChild(inner, wrapper);
@@ -194,6 +211,11 @@ class ModuleSelector {
             containers.forEach(el => {
                 // Skip mini helpers and hidden containers — they should not get their own module header
                 if ((el.id && el.id.startsWith && el.id.startsWith('mini-')) || window.getComputedStyle(el).display === 'none') {
+                    return;
+                }
+
+                // Skip instrument-dock primitives entirely (prevents "GUITAR DOCK CONTAINER" etc.)
+                if ((el.id && SKIP_CONTAINER_IDS.has(el.id)) || el.closest('#instrument-dock-root')) {
                     return;
                 }
 

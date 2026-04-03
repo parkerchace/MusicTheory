@@ -34,6 +34,31 @@ class ScaleCircleExplorer {
 
         this.listeners = new Map();
         this.containerElement = null;
+
+        // Simple responsive canvas sizing
+        this._onWindowResize = null;
+    }
+
+    _resizeCircleCanvasToContainer() {
+        if (!this.containerElement) return;
+        const canvas = this.containerElement.querySelector('#circle-canvas');
+        if (!canvas) return;
+
+        // Measure available width inside the visualization container
+        const viz = this.containerElement.querySelector('.circle-visualization-container') || this.containerElement;
+        const rect = viz.getBoundingClientRect();
+        const available = Math.floor((rect && rect.width ? rect.width : 460) - 16);
+
+        // Keep it reasonable for sidebars
+        const size = Math.max(240, Math.min(available, 360));
+
+        // Only touch the backing store if we actually changed size
+        if (canvas.width !== size || canvas.height !== size) {
+            canvas.width = size;
+            canvas.height = size;
+            canvas.style.width = size + 'px';
+            canvas.style.height = size + 'px';
+        }
     }
 
     /**
@@ -948,9 +973,25 @@ class ScaleCircleExplorer {
 
         // Setup event listeners with modern approach
         this.setupModernEventListeners();
+
+        // Resize canvas to fit the container before drawing
+        this._resizeCircleCanvasToContainer();
         
         // Render circle
         this.renderCircleCanvas();
+
+        // Keep responsive on window resize
+        try {
+            if (!this._onWindowResize) {
+                this._onWindowResize = () => {
+                    try {
+                        this._resizeCircleCanvasToContainer();
+                        this.renderCircleCanvas();
+                    } catch (_) {}
+                };
+                window.addEventListener('resize', this._onWindowResize);
+            }
+        } catch (_) {}
     }
 
     getCurrentScaleInfo() {
