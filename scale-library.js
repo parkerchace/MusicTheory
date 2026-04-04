@@ -248,6 +248,47 @@ class ScaleLibrary {
     }
 
     renderRecursiveTaxonomy(node, byScale, currentScale) {
+        const unwrapContainerNode = (n) => {
+            if (!n || typeof n !== 'object' || Array.isArray(n)) return n;
+            // If a node is just a container wrapper (common in taxonomy buckets), unwrap it.
+            // This prevents UI headers like "subSubcategories" and empty hubs.
+            const keys = Object.keys(n);
+            if (keys.length === 1) {
+                if (n.subSubcategories) return n.subSubcategories;
+                if (n.subcategories) return n.subcategories;
+                if (n.categories) return n.categories;
+            }
+            return n;
+        };
+
+        const isWrapperLabel = (label) => {
+            const s = (label == null) ? '' : String(label).trim();
+            if (!s) return true;
+            const lower = s.toLowerCase();
+            // Labels that usually indicate a structural wrapper rather than a meaningful category
+            if (lower === 'subsubcategories' || lower === 'subcategories' || lower === 'categories') return true;
+            // Treat "Other" as a wrapper when it's the only child (avoids Other->Other click chains)
+            if (lower === 'other') return true;
+            return false;
+        };
+
+        const collapseSingleWrapper = (n) => {
+            // Repeatedly collapse single-entry wrapper objects.
+            let cur = n;
+            for (let i = 0; i < 6; i++) {
+                cur = unwrapContainerNode(cur);
+                if (!cur || typeof cur !== 'object' || Array.isArray(cur)) break;
+                const entries = Object.entries(cur);
+                if (entries.length !== 1) break;
+                const [label, next] = entries[0];
+                if (!isWrapperLabel(label)) break;
+                cur = next;
+            }
+            return unwrapContainerNode(cur);
+        };
+
+        node = collapseSingleWrapper(node);
+
         if (Array.isArray(node)) {
             const grouped = this.getVariationGroups(node, byScale);
             return grouped.roots.map(scaleId => {
@@ -276,12 +317,20 @@ class ScaleLibrary {
             }).join('');
         }
 
-        return Object.entries(node).map(([label, nextNode]) => {
-            const subId = `nested-${label.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Math.floor(Math.random() * 1000)}`;
+        return Object.entries(node || {}).map(([label, nextNode]) => {
+            nextNode = collapseSingleWrapper(nextNode);
+
+            // If this entry is a wrapper key, inline it (no extra click layer)
+            if (isWrapperLabel(label)) {
+                return this.renderRecursiveTaxonomy(nextNode, byScale, currentScale);
+            }
+
+            const safeLabel = String(label).trim();
+            const subId = `nested-${safeLabel.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Math.floor(Math.random() * 1000)}`;
             return `
                 <div class="nested-category-box">
                     <div class="nested-category-header" data-category-header="${subId}">
-                        <span>${label}</span>
+                        <span>${safeLabel}</span>
                         <span class="picker-icon">▼</span>
                     </div>
                     <div class="nested-category-content" id="${subId}" style="display:none;">
@@ -835,6 +884,158 @@ class ScaleLibrary {
                     gap: 14px;
                     align-items: start;
                 }
+
+                /* Pyramid (Upside Down Tree) Styles — used by the Family Tree tab */
+                .categories-grid.pyramid-view {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 22px;
+                    padding: 22px 18px;
+                }
+
+                /* Fallout-style Special View (horizontal columns) */
+                .categories-grid.special-view {
+                    padding: 18px;
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: row;
+                    gap: 14px;
+                    align-items: stretch;
+                }
+
+                #scale-special-view {
+                    display: none;
+                    flex-direction: row;
+                    gap: 14px;
+                    width: 100%;
+                    height: 100%;
+                    overflow-x: auto;
+                    overflow-y: hidden;
+                    padding-bottom: 6px;
+                }
+
+                .special-column {
+                    flex: 0 0 260px;
+                    min-width: 240px;
+                    max-width: 320px;
+                    background: var(--bg-panel);
+                    border: 1px solid var(--border-light);
+                    border-radius: 10px;
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .special-header {
+                    padding: 10px 12px;
+                    background: var(--bg-app);
+                    border-bottom: 1px solid var(--border-light);
+                    font-weight: 700;
+                    font-size: 0.85rem;
+                    display: flex;
+                    gap: 8px;
+                    align-items: center;
+                    text-transform: uppercase;
+                    letter-spacing: 0.4px;
+                }
+
+                .special-header-icon {
+                    opacity: 0.9;
+                }
+
+                .special-content {
+                    padding: 10px 10px 12px 10px;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                }
+
+                .special-cat {
+                    border: 1px solid var(--border-light);
+                    border-radius: 8px;
+                    margin-bottom: 10px;
+                    overflow: hidden;
+                    background: rgba(255,255,255,0.01);
+                }
+
+                .special-cat-title {
+                    padding: 8px 10px;
+                    cursor: pointer;
+                    font-weight: 700;
+                    font-size: 0.76rem;
+                    opacity: 0.9;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: var(--bg-app);
+                    border-bottom: 1px solid var(--border-light);
+                }
+
+                .special-cat-title:hover {
+                    background: var(--bg-hover);
+                }
+
+                .special-cat-items {
+                    display: none;
+                }
+
+                .special-item.scale-item {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    text-transform: uppercase;
+                    letter-spacing: 0.4px;
+                }
+
+                .pyramid-container {
+                    width: 100%;
+                }
+
+                .pyramid-row {
+                    display: flex;
+                    justify-content: center;
+                    align-items: flex-start;
+                    flex-wrap: wrap;
+                    gap: 12px;
+                    width: 100%;
+                }
+
+                .pyramid-node {
+                    background: var(--bg-panel);
+                    border: 1px solid var(--border-light);
+                    padding: 10px 14px;
+                    border-radius: 8px;
+                    text-align: center;
+                    min-width: 140px;
+                    cursor: pointer;
+                    transition: background 0.15s ease, border-color 0.15s ease;
+                    position: relative;
+                    user-select: none;
+                }
+
+                .pyramid-node:hover {
+                    background: var(--bg-hover);
+                    border-color: var(--accent-primary);
+                }
+
+                .pyramid-node.root {
+                    border-width: 2px;
+                    border-color: var(--accent-primary);
+                    font-weight: 800;
+                    letter-spacing: 0.5px;
+                }
+
+                .pyramid-submenu {
+                    margin-top: 10px;
+                    text-align: left;
+                    background: var(--bg-app);
+                    border: 1px solid var(--border-light);
+                    border-radius: 8px;
+                    overflow: hidden;
+                    max-height: 32vh;
+                    overflow-y: auto;
+                    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+                }
                 
                 .category-box {
                     background: var(--bg-panel);
@@ -1247,26 +1448,64 @@ class ScaleLibrary {
             });
         }
 
+        const applyScalePickerView = (view) => {
+            const grid = document.querySelector('#scale-picker-modal .categories-grid');
+            const pyramid = document.getElementById('scale-pyramid-tree');
+            const special = document.getElementById('scale-special-view');
+
+            // Default: list view (category boxes)
+            if (grid) grid.classList.remove('pyramid-view');
+            if (grid) grid.classList.remove('special-view');
+            if (pyramid) pyramid.style.display = 'none';
+            if (special) special.style.display = 'none';
+
+            // Toggle category boxes for the requested view
+            document.querySelectorAll('.category-box').forEach(box => {
+                const visible = box.dataset.view === view;
+                box.style.display = visible ? 'block' : 'none';
+                if (!visible) return;
+                const categoryId = box.dataset.category;
+                const scalesDiv = document.getElementById(`scales-${categoryId}`);
+                if (scalesDiv) {
+                    scalesDiv.style.display = (view === 'common') ? 'block' : 'none';
+                }
+                box.classList.toggle('expanded', view === 'common');
+
+                // Special View should never auto-expand by default
+                if (view === 'special') {
+                    box.classList.remove('expanded');
+                    if (scalesDiv) scalesDiv.style.display = 'none';
+                    box.querySelectorAll('.nested-category-content').forEach(el => { el.style.display = 'none'; });
+                    box.querySelectorAll('.variation-group').forEach(group => group.classList.remove('expanded'));
+                }
+            });
+
+            // Family Tree: render pyramid view instead of category boxes
+            if (view === 'tree') {
+                this._ensurePyramidFamilyTreeRendered(currentScale);
+                if (grid) grid.classList.add('pyramid-view');
+                // Hide boxes so the pyramid owns the view
+                document.querySelectorAll('.category-box').forEach(box => { box.style.display = 'none'; });
+                const pyramidNow = document.getElementById('scale-pyramid-tree');
+                if (pyramidNow) pyramidNow.style.display = 'block';
+            }
+
+            // Special View: Fallout-style columns (owned by a dedicated container)
+            if (view === 'special') {
+                this._ensureFalloutSpecialViewRendered(currentScale);
+                if (grid) grid.classList.add('special-view');
+                document.querySelectorAll('.category-box').forEach(box => { box.style.display = 'none'; });
+                const specialNow = document.getElementById('scale-special-view');
+                if (specialNow) specialNow.style.display = 'flex';
+            }
+        };
+
         document.querySelectorAll('.scale-view-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.scale-view-tab').forEach(other => other.classList.remove('active'));
                 tab.classList.add('active');
                 const view = tab.dataset.view;
-                document.querySelectorAll('.category-box').forEach(box => {
-                    const visible = box.dataset.view === view;
-                    box.style.display = visible ? 'block' : 'none';
-                    if (!visible) return;
-                    const categoryId = box.dataset.category;
-                    const scalesDiv = document.getElementById(`scales-${categoryId}`);
-                    if (scalesDiv) {
-                        scalesDiv.style.display = view === 'common' ? 'block' : 'none';
-                    }
-                    if (view === 'families') {
-                        box.classList.remove('expanded');
-                    } else {
-                        box.classList.add('expanded');
-                    }
-                });
+                applyScalePickerView(view);
             });
         });
         
@@ -1372,6 +1611,350 @@ class ScaleLibrary {
         });
 
         this.attachModalInteractions();
+
+        // Sync initial tab state (Family Tree should start in pyramid mode)
+        try {
+            const initialView = document.querySelector('.scale-view-tab.active')?.dataset.view || 'tree';
+            applyScalePickerView(initialView);
+        } catch (_) {}
+    }
+
+    _ensurePyramidFamilyTreeRendered(currentScale) {
+        const grid = document.querySelector('#scale-picker-modal .categories-grid');
+        if (!grid) return;
+
+        // Create-once; re-render contents each time to reflect current scale selection
+        let root = document.getElementById('scale-pyramid-tree');
+        if (!root) {
+            root = document.createElement('div');
+            root.id = 'scale-pyramid-tree';
+            root.className = 'pyramid-container';
+            root.style.width = '100%';
+            root.style.display = 'none';
+            grid.appendChild(root);
+
+            // Event delegation for dynamically rendered pyramid content
+            root.addEventListener('click', (e) => {
+                const modal = document.getElementById('scale-picker-modal');
+                const searchInput = document.getElementById('scale-search-input');
+
+                const nestedHeader = e.target.closest('.nested-category-header');
+                if (nestedHeader && root.contains(nestedHeader)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const content = nestedHeader.nextElementSibling;
+                    if (content && content.classList.contains('nested-category-content')) {
+                        const isHidden = content.style.display === 'none';
+                        content.style.display = isHidden ? 'block' : 'none';
+                        const icon = nestedHeader.querySelector('.picker-icon');
+                        if (icon) icon.textContent = isHidden ? '▲' : '▼';
+                    }
+                    return;
+                }
+
+                const variationToggle = e.target.closest('.variation-toggle');
+                if (variationToggle && root.contains(variationToggle)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const group = variationToggle.closest('.variation-group');
+                    if (group) group.classList.toggle('expanded');
+                    const scaleId = variationToggle.dataset.scale;
+                    if (scaleId) {
+                        const key = document.getElementById('key-select').value;
+                        this.setKeyAndScale(key, scaleId);
+                    }
+                    return;
+                }
+
+                const scaleItem = e.target.closest('.scale-item');
+                if (scaleItem && root.contains(scaleItem) && !scaleItem.closest('.variation-toggle')) {
+                    const scaleId = scaleItem.dataset.scale;
+                    if (!scaleId) return;
+                    const key = document.getElementById('key-select').value;
+                    this.setKeyAndScale(key, scaleId);
+                    if (modal) {
+                        modal.style.display = 'none';
+                        if (searchInput) {
+                            searchInput.value = '';
+                            this.filterScales('');
+                        }
+                    }
+                    return;
+                }
+            });
+        }
+
+        const taxonomy = this.getTaxonomyMeta();
+        const byFamily = taxonomy.byFamily || {};
+        const byScale = taxonomy.byScale || {};
+
+        // Prefer the explicitly named tree family; fall back to the first family.
+        const treeFamily = byFamily['1. The Family Tree'] || byFamily['The Family Tree'] || byFamily[Object.keys(byFamily)[0]];
+        const branches = treeFamily && treeFamily.categories ? treeFamily.categories : {};
+
+        const familyKeys = Object.keys(byFamily || {});
+        const otherFamilies = familyKeys
+            .filter(name => name !== '1. The Family Tree' && name !== 'The Family Tree')
+            .filter(name => !/special/i.test(name))
+            .sort((a, b) => a.localeCompare(b));
+
+        const toTreeObj = (familyBucket) => {
+            const result = {};
+            const cats = familyBucket?.categories || {};
+            Object.entries(cats).forEach(([catName, catBucket]) => {
+                const subcats = catBucket?.subcategories || {};
+                Object.entries(subcats).forEach(([subName, subBucket]) => {
+                    // Keep structure similar to buildCategoriesHTML: subName -> subSubcategories
+                    result[`${catName} :: ${subName}`] = (subBucket && subBucket.subSubcategories) ? subBucket.subSubcategories : {};
+                });
+            });
+            if (Object.keys(result).length) return result;
+
+            // Fallback: some taxonomies don't use "categories" at the family level
+            const subcats = familyBucket?.subcategories || {};
+            Object.entries(subcats).forEach(([subName, subBucket]) => {
+                result[subName] = (subBucket && subBucket.subSubcategories) ? subBucket.subSubcategories : {};
+            });
+            return result;
+        };
+
+        // Build pyramid DOM
+        root.innerHTML = '';
+
+        const createEl = (tag, className, text) => {
+            const el = document.createElement(tag);
+            if (className) el.className = className;
+            if (typeof text === 'string') el.textContent = text;
+            return el;
+        };
+
+        const normalizeTaxonomyNode = (bucket) => {
+            if (!bucket) return {};
+            if (Array.isArray(bucket)) return bucket;
+            // Prefer the most meaningful container first
+            if (bucket.subSubcategories) return bucket.subSubcategories;
+            if (bucket.subcategories) return bucket.subcategories;
+            if (bucket.categories) return bucket.categories;
+            return bucket;
+        };
+
+        const rootRow = createEl('div', 'pyramid-row');
+        const rootNode = createEl('div', 'pyramid-node root', this.getScaleDisplayName('major').toUpperCase());
+        rootNode.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const key = document.getElementById('key-select').value;
+            this.setKeyAndScale(key, 'major');
+            const modal = document.getElementById('scale-picker-modal');
+            const searchInput = document.getElementById('scale-search-input');
+            if (modal) {
+                modal.style.display = 'none';
+                if (searchInput) {
+                    searchInput.value = '';
+                    this.filterScales('');
+                }
+            }
+        });
+        rootRow.appendChild(rootNode);
+        root.appendChild(rootRow);
+
+        const keys = Object.keys(branches || {});
+        keys.sort((a, b) => a.localeCompare(b));
+
+        const branchRow = createEl('div', 'pyramid-row');
+        keys.forEach(label => {
+            const node = createEl('div', 'pyramid-node', label);
+            const submenu = createEl('div', 'pyramid-submenu');
+            submenu.style.display = 'none';
+
+            // Render whatever taxonomy shape exists for this hub.
+            // (Earlier versions assumed subcategories->subSubcategories and often produced an empty menu.)
+            const bucket = branches[label] || {};
+            const normalized = normalizeTaxonomyNode(bucket);
+            submenu.innerHTML = this.renderRecursiveTaxonomy(normalized, byScale, currentScale);
+
+            node.addEventListener('click', (e) => {
+                e.preventDefault();
+                // If the click happened inside the open submenu, do not toggle the hub.
+                // This allows nested dropdown headers + scale clicks to work.
+                if (submenu.contains(e.target)) return;
+
+                e.stopPropagation();
+                submenu.style.display = (submenu.style.display === 'none') ? 'block' : 'none';
+            });
+
+            node.appendChild(submenu);
+            branchRow.appendChild(node);
+        });
+        root.appendChild(branchRow);
+
+        // Extra pyramid row: other families for broader navigation (kept collapsed)
+        if (otherFamilies.length) {
+            const otherRow = createEl('div', 'pyramid-row');
+            otherFamilies.forEach(famName => {
+                const famNode = createEl('div', 'pyramid-node', famName);
+                const famMenu = createEl('div', 'pyramid-submenu');
+                famMenu.style.display = 'none';
+
+                try {
+                    const treeObj = toTreeObj(byFamily[famName]);
+                    famMenu.innerHTML = this.renderRecursiveTaxonomy(treeObj, byScale, currentScale);
+                } catch (_) {
+                    famMenu.innerHTML = '';
+                }
+
+                famNode.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (famMenu.contains(e.target)) return;
+
+                    e.stopPropagation();
+                    famMenu.style.display = (famMenu.style.display === 'none') ? 'block' : 'none';
+                });
+
+                famNode.appendChild(famMenu);
+                otherRow.appendChild(famNode);
+            });
+            root.appendChild(otherRow);
+        }
+    }
+
+    _ensureFalloutSpecialViewRendered(currentScale) {
+        const grid = document.querySelector('#scale-picker-modal .categories-grid');
+        if (!grid) return;
+
+        let root = document.getElementById('scale-special-view');
+        if (!root) {
+            root = document.createElement('div');
+            root.id = 'scale-special-view';
+            root.style.display = 'none';
+            grid.appendChild(root);
+
+            // Event delegation for special view
+            root.addEventListener('click', (e) => {
+                const modal = document.getElementById('scale-picker-modal');
+                const searchInput = document.getElementById('scale-search-input');
+
+                const catTitle = e.target.closest('.special-cat-title');
+                if (catTitle && root.contains(catTitle)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const cat = catTitle.closest('.special-cat');
+                    const items = cat ? cat.querySelector('.special-cat-items') : null;
+                    if (items) {
+                        const isHidden = items.style.display === 'none' || !items.style.display;
+                        items.style.display = isHidden ? 'block' : 'none';
+                        const icon = catTitle.querySelector('.picker-icon');
+                        if (icon) icon.textContent = isHidden ? '▲' : '▼';
+                    }
+                    return;
+                }
+
+                const scaleItem = e.target.closest('.scale-item');
+                if (scaleItem && root.contains(scaleItem) && !scaleItem.closest('.variation-toggle')) {
+                    const scaleId = scaleItem.dataset.scale;
+                    if (!scaleId) return;
+                    const key = document.getElementById('key-select').value;
+                    this.setKeyAndScale(key, scaleId);
+                    if (modal) {
+                        modal.style.display = 'none';
+                        if (searchInput) {
+                            searchInput.value = '';
+                            this.filterScales('');
+                        }
+                    }
+                }
+            });
+        }
+
+        const taxonomy = this.getTaxonomyMeta();
+        const byFamily = taxonomy.byFamily || {};
+        const byScale = taxonomy.byScale || {};
+        const familyOrder = taxonomy.familyOrder || Object.keys(byFamily);
+
+        // No emoji icons
+        const falloutIcons = ['', '', '', '', '', '', '', '', '', ''];
+
+        const createId = (prefix, label) => {
+            const safe = String(label).replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            return `${prefix}-${safe}-${Math.floor(Math.random() * 100000)}`;
+        };
+
+        const renderScaleItems = (ids) => {
+            return ids.map(id => {
+                const displayName = this.getScaleDisplayName(id);
+                const isActive = id === currentScale ? 'active' : '';
+                return `<div class="scale-item special-item ${isActive}" data-scale="${id}">${String(displayName).toUpperCase()}</div>`;
+            }).join('');
+        };
+
+        const renderDeep = (obj) => {
+            if (!obj) return '';
+            const items = obj.categories || obj.subcategories || obj.subSubcategories || obj;
+            const keys = Object.keys(items).sort((a, b) => a.localeCompare(b));
+            let html = '';
+            keys.forEach((k) => {
+                const v = items[k];
+                if (Array.isArray(v)) {
+                    html += renderScaleItems(v);
+                } else {
+                    html += `<div class="subcategory-title">${k}</div>`;
+                    html += `<div class="sub-sub-block">${renderDeep(v)}</div>`;
+                }
+            });
+            return html;
+        };
+
+        const renderSectionsCollapsed = (obj) => {
+            if (!obj) return '';
+            const items = obj.categories || obj.subcategories || obj.subSubcategories || obj;
+            const keys = Object.keys(items).sort((a, b) => a.localeCompare(b));
+            return keys.map((k) => {
+                const v = items[k];
+                const sectionId = createId('specialcat', k);
+                const body = Array.isArray(v) ? renderScaleItems(v) : renderDeep(v);
+                return `
+                    <div class="special-cat" data-special-cat="${sectionId}">
+                        <div class="special-cat-title" data-special-cat-title="${sectionId}">
+                            <span>[ ${k} ]</span>
+                            <span class="picker-icon">▼</span>
+                        </div>
+                        <div class="special-cat-items" id="special-items-${sectionId}" style="display:none;">
+                            ${body}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        // Render columns
+        root.innerHTML = '';
+        familyOrder.forEach((familyName, idx) => {
+            const bucket = byFamily[familyName];
+            if (!bucket) return;
+
+            const icon = falloutIcons[idx % falloutIcons.length];
+            const column = document.createElement('div');
+            column.className = 'special-column';
+
+            const header = document.createElement('div');
+            header.className = 'special-header';
+            header.innerHTML = `${icon ? `<span class="special-header-icon">${icon}</span> ` : ''}${String(familyName)}`;
+            column.appendChild(header);
+
+            const content = document.createElement('div');
+            content.className = 'special-content';
+
+            // Prefer richer category layout if present, otherwise fall back to whatever the bucket provides
+            try {
+                const catObj = bucket.categories ? bucket.categories : bucket;
+                content.innerHTML = renderSectionsCollapsed(catObj);
+            } catch (_) {
+                content.innerHTML = '';
+            }
+
+            column.appendChild(content);
+            root.appendChild(column);
+        });
     }
     
     filterScales(query) {

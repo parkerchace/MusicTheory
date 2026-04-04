@@ -8,6 +8,77 @@
     'use strict';
     
     console.log('ScalesLoader: Loading 1,486 scales...');
+
+    // Running under file:// blocks fetch() for local JSON in most browsers.
+    // If embedded scale data is available, prefer it automatically so the app
+    // does not require a local server.
+    try {
+        const isFile = (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:');
+        if (isFile) {
+            // If another loader already populated scales, don't redo work.
+            if (window.SCALES && window.SCALES.intervals && window.SCALES.meta) {
+                return;
+            }
+
+            const buildFromEmbedded = () => {
+                const data = window.EMBEDDED_SCALES_DATA || null;
+                if (!data || !Array.isArray(data.scales)) return false;
+                const taxonomyUtils = window.ScaleTaxonomy;
+                if (!taxonomyUtils || typeof taxonomyUtils.buildScaleCatalog !== 'function') return false;
+
+                window.SCALES = taxonomyUtils.buildScaleCatalog(data.scales, data.categories || null);
+                console.log('ScalesLoader: ✓ Scales loaded from embedded data (file:// mode)');
+                console.log(`  - ${Object.keys(window.SCALES.intervals).length} scales`);
+                const familyCount = window.SCALES.meta && window.SCALES.meta.categories ? Object.keys(window.SCALES.meta.categories).length : 0;
+                console.log(`  - ${familyCount} families`);
+                console.log(`  - ${window.SCALES.meta.essentialScales.length} essential scales`);
+
+                window.dispatchEvent(new CustomEvent('scalesLoaded', {
+                    detail: {
+                        scaleCount: data.scales.length,
+                        categories: window.SCALES.meta ? Object.keys(window.SCALES.meta.categories) : [],
+                        essentialCount: window.SCALES.meta.essentialScales.length
+                    }
+                }));
+                return true;
+            };
+
+            // If embedded data is already present, build immediately.
+            if (buildFromEmbedded()) return;
+
+            // Otherwise, dynamically load embedded scripts (still works under file://).
+            const ensureScript = (src) => new Promise((resolve, reject) => {
+                const existing = document.querySelector(`script[src="${src}"]`);
+                if (existing) return resolve();
+                const s = document.createElement('script');
+                s.src = src;
+                s.async = false;
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error(`Failed to load ${src}`));
+                document.head.appendChild(s);
+            });
+
+            Promise.resolve()
+                .then(() => ensureScript('scales-data-embedded.js'))
+                .then(() => ensureScript('scale-taxonomy.js'))
+                .then(() => {
+                    // After dependencies are present, try the embedded build again.
+                    if (!buildFromEmbedded()) {
+                        throw new Error('Embedded scales data not available after script load');
+                    }
+                })
+                .catch((err) => {
+                    console.error('ScalesLoader: Embedded fallback failed (file:// mode):', err);
+                    // Proceed to the existing minimal fallback below
+                    throw err;
+                });
+
+            // Prevent the fetch-based loader from running in file:// mode.
+            return;
+        }
+    } catch (_) {
+        // If anything goes wrong here, continue into the fetch-based path.
+    }
     
     // Load scales catalog, categories, and optional taxonomy (separate files)
     Promise.all([

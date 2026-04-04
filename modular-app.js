@@ -963,16 +963,6 @@ window.mountLearnModuleIfReady = function(instrument) {
                     safe('PianoVisualizer.mount', () => {
                         if (this.pianoVisualizer && this.pianoVisualizer.mount) {
                             this.pianoVisualizer.mount('#piano-container');
-
-                            // Trigger connector drawing after piano renders
-                            if (this.pianoVisualizer.on) {
-                                this.pianoVisualizer.on('rendered', () => {
-                                    console.log('[PianoConnectors] Piano rendered, drawing connectors...');
-                                    if (this._drawConnectorsAfterPiano) {
-                                        this._drawConnectorsAfterPiano();
-                                    }
-                                });
-                            }
                         }
                     });
 
@@ -1178,37 +1168,50 @@ window.mountLearnModuleIfReady = function(instrument) {
             
             // Piano connector system methods
             setupPianoConnectors() {
+                if (this._pianoConnectorsSetupDone) return;
+                this._pianoConnectorsSetupDone = true;
+
                 this.connectorRetryAttempts = 0;
                 const maxRetries = 24; // ~7.2s total with 300ms spacing
 
-                // Main drawing function with retries until elements are ready
-                this.drawConnectors = () => {
-                    const tryDraw = () => {
-                        this.updateScaleFormula();
-                        this.renderPianoSheetMusic();
-                        const ok = this.drawPianoConnectors();
-                        if (!ok && this.connectorRetryAttempts < maxRetries) {
-                            this.connectorRetryAttempts += 1;
-                            setTimeout(tryDraw, 300);
-                        } else {
-                            this.connectorRetryAttempts = 0;
-                        }
-                    };
-                    requestAnimationFrame(tryDraw);
+                // Dedup connector redraw requests (the piano can emit many 'rendered' events)
+                this._connectorDrawScheduled = false;
+                this._scheduleConnectorDraw = () => {
+                    if (this._connectorDrawScheduled) return;
+                    this._connectorDrawScheduled = true;
+                    requestAnimationFrame(() => {
+                        this._connectorDrawScheduled = false;
+                        this._drawConnectorsOnce();
+                    });
                 };
+
+                this._drawConnectorsOnce = () => {
+                    this.updateScaleFormula();
+                    this.renderPianoSheetMusic();
+                    const ok = this.drawPianoConnectors();
+                    if (!ok && this.connectorRetryAttempts < maxRetries) {
+                        this.connectorRetryAttempts += 1;
+                        setTimeout(() => this._scheduleConnectorDraw(), 300);
+                    } else {
+                        this.connectorRetryAttempts = 0;
+                    }
+                };
+
+                // Public method kept for any existing call sites
+                this.drawConnectors = () => this._scheduleConnectorDraw();
 
                 // Subscribe to scale changes
                 if (this.scaleLibrary && this.scaleLibrary.on) {
-                    this.scaleLibrary.on('scaleChanged', () => this.drawConnectors());
+                    this.scaleLibrary.on('scaleChanged', () => this._scheduleConnectorDraw());
                 }
                 
                 // Listen for piano render events
                 if (this.pianoVisualizer && this.pianoVisualizer.on) {
-                    this.pianoVisualizer.on('rendered', () => this.drawConnectors());
+                    this.pianoVisualizer.on('rendered', () => this._scheduleConnectorDraw());
                 }
 
                 // Initial draw shortly after load
-                setTimeout(() => this.drawConnectors(), 600);
+                setTimeout(() => this._scheduleConnectorDraw(), 600);
             }
             
             updateScaleFormula() {

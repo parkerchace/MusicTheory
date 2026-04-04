@@ -524,6 +524,17 @@
 
     <script>
     (function(){
+        // NOTE: This file historically included a legacy scale taxonomy renderer that
+        // takes over the ScaleLibrary modal ("Family Tree" / "Special View").
+        // The modern app's ScaleLibrary (scale-library.js) now owns that modal.
+        // Keeping both active causes regressions (missing pyramid structure, auto-expanding
+        // Special View categories, flicker, duplicate event handlers).
+        //
+        // If you ever want to temporarily re-enable the legacy renderer for debugging,
+        // set `window.__USE_LEGACY_SCALE_PICKER__ = true` in the console before opening
+        // the scale picker.
+        if (window.__USE_LEGACY_SCALE_PICKER__ !== true) return;
+
         const createEl = (tag, cls, txt) => { 
             const el = document.createElement(tag); 
             if(cls) el.className = cls; 
@@ -544,16 +555,44 @@
             grid.innerHTML = '';
             grid.className = 'categories-grid ' + (activeView === 'tree' ? 'pyramid-view' : 'special-view');
 
-            if (!window.SCALES || !window.SCALES.meta || !window.SCALES.meta.taxonomy) {
+            // Taxonomy source:
+            // - Legacy: window.SCALES.meta.taxonomy
+            // - Current app: window.scaleLibrary.getTaxonomyMeta() / musicTheory.scalesMeta
+            let tax = null;
+            let displayNames = {};
+            const getDisplayName = (id) => {
+                try {
+                    if (window.scaleLibrary && typeof window.scaleLibrary.getScaleDisplayName === 'function') {
+                        return window.scaleLibrary.getScaleDisplayName(id);
+                    }
+                } catch (_) {}
+                return (displayNames && displayNames[id]) ? displayNames[id] : id;
+            };
+
+            try {
+                if (window.SCALES && window.SCALES.meta && window.SCALES.meta.taxonomy) {
+                    tax = window.SCALES.meta.taxonomy;
+                    displayNames = window.SCALES.meta.displayNames || {};
+                }
+            } catch (_) {}
+
+            try {
+                if (!tax && window.scaleLibrary && typeof window.scaleLibrary.getTaxonomyMeta === 'function') {
+                    tax = window.scaleLibrary.getTaxonomyMeta();
+                }
+                if ((!displayNames || !Object.keys(displayNames).length) && window.scaleLibrary && window.scaleLibrary.musicTheory && window.scaleLibrary.musicTheory.scalesMeta && window.scaleLibrary.musicTheory.scalesMeta.displayNames) {
+                    displayNames = window.scaleLibrary.musicTheory.scalesMeta.displayNames;
+                }
+            } catch (_) {}
+
+            if (!tax || !tax.byFamily) {
                 grid.innerHTML = '<div style="padding:20px;color:var(--text-muted)">Syncing local database...</div>';
-                setTimeout(() => window.renderScaleFamilies(activeView), 100);
+                setTimeout(() => window.renderScaleFamilies(activeView), 120);
                 return;
             }
 
-            const tax = window.SCALES.meta.taxonomy;
-            const displayNames = window.SCALES.meta.displayNames || {};
             const layoutTree = tax.byFamily;
-            const falloutIcons = ['🗲', '🌟', '🛡️', '👁️', '💪', '🧬', '⚙️', '🔥', '☢️', '🔬'];
+            const falloutIcons = ['', '', '', '', '', '', '', '', '', ''];
 
             if (activeView === 'tree') {
                 const pyramidContainer = createEl('div', 'pyramid-container');
@@ -619,7 +658,7 @@
                     const val = items[key];
                     if (Array.isArray(val)) {
                         val.forEach(id => {
-                            const name = displayNames[id] || id;
+                            const name = getDisplayName(id);
                             const item = createEl('div', 'scale-item-node', name);
                             item.onclick = (e) => {
                                 e.stopPropagation();
@@ -651,7 +690,7 @@
                     const val = items[key];
                     if (Array.isArray(val)) {
                         val.forEach(id => {
-                            const name = displayNames[id] || id;
+                            const name = getDisplayName(id);
                             const item = createEl('div', 'special-item', name.toUpperCase());
                             item.onclick = (e) => {
                                 e.stopPropagation();
