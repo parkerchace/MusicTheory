@@ -649,24 +649,11 @@ body[data-theme="matrix-fx"] .mod-tool:hover {
 
 /* Specific Module Tweaks */
 #sheet-music-container {
-    background: #e0e0e0;
-    border: 2px solid var(--border-light);
     min-height: 180px;
     max-height: none;
-    display: flex;
-    justify-content: flex-start;
-    align-items: flex-start;
-    padding: 20px;
-    filter: invert(1) hue-rotate(180deg);
     width: 100%;
     box-sizing: border-box;
     overflow-x: auto;
-}
-
-/* Keep embedded sheet renderers from overflowing the center stage */
-#sheet-music-container svg,
-#sheet-music-container canvas {
-    max-width: 100%;
 }
 
 #chord-explorer-container {

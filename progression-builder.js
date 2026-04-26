@@ -720,19 +720,37 @@ class ProgressionBuilder {
                     return true;
                 });
 
-                // 3) Prefer exact diatonic seventh match immediately when available
+        // 3) Prefer exact diatonic seventh match immediately when available
+                // For exotic scales, we want to BE DIATONIC by default.
                 const exact = candidates.find(c => (c.chordType || '').toLowerCase() === (baseChord.chordType || '').toLowerCase());
-                if (exact) {
+                
+                // If we are in Root mode and it's a small or exotic scale, 
+                // OR if the complexity is set to triad/seventh, just return the base chord.
+                if (exact && (isSmallScale || this.state.complexity < 70)) {
                     let ct = exact.chordType;
                     if (manualFullDim) ct = 'dim7';
                     else if (manualHalfDim) ct = 'm7b5';
-                    return { root: exact.root, chordType: ct, fullName: exact.root + ct, __grade: 4, __isSubstitution: false, functions: exact.functions, scaleMatchPercent: exact.scaleMatchPercent };
+                    return { 
+                        root: exact.root, 
+                        chordType: ct, 
+                        fullName: exact.root + ct, 
+                        __grade: 4, 
+                        __isSubstitution: false, 
+                        functions: exact.functions || ['Diatonic'], 
+                        scaleMatchPercent: exact.scaleMatchPercent || 100 
+                    };
                 }
+
                 if (!candidates || candidates.length === 0) {
-                    // Synthesize a chord based on baseChord and complexity if no candidates
-                    const synthType = this.applyChordComplexity(baseChord.chordType, root, degree);
-                    const adv = this.applyHarmonicAdventure(root, synthType, degree, position) || { root, chordType: synthType };
-                    return { root: adv.root, chordType: adv.chordType, fullName: adv.root + adv.chordType };
+                    return {
+                        root: baseChord.root,
+                        chordType: baseChord.chordType,
+                        fullName: baseChord.fullName,
+                        __grade: 4,
+                        __isSubstitution: false,
+                        functions: ['Diatonic'],
+                        scaleMatchPercent: 100
+                    };
                 }
 
                 // Score candidates by grade relative to baseChord

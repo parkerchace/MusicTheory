@@ -55,6 +55,13 @@ class PianoSampleEngine {
                 this.loaded = false;
                 return;
             }
+
+            if (!this.sampleBaseUrl || /REMOVED/i.test(this.sampleBaseUrl)) {
+                console.warn('PianoSampleEngine: sample CDN URL is not configured; using synthesized fallback');
+                this.loading = false;
+                this.loaded = false;
+                return;
+            }
         } catch (e) {
             // ignore
         }
@@ -149,16 +156,20 @@ class PianoSampleEngine {
         
         // Apply velocity
         const initialGain = velocity * 0.8;
-        gainNode.gain.setValueAtTime(0, now);
-        gainNode.gain.linearRampToValueAtTime(initialGain, now + 0.005);
+        // Improved envelope for better sustain
+        const sustainLevel = 0.4;
+        const releaseTime = 0.2;
         
-        // Natural decay envelope
-        const decayTime = Math.min(duration, 2.0);
-        gainNode.gain.exponentialRampToValueAtTime(initialGain * 0.3, now + decayTime * 0.3);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, now + decayTime);
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(initialGain, now + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(initialGain * sustainLevel, now + 0.1);
+        
+        // Hold the sustain level until the end of duration
+        gainNode.gain.setValueAtTime(initialGain * sustainLevel, now + Math.max(0.1, duration - releaseTime));
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
         
         source.start(now);
-        source.stop(now + decayTime + 0.1);
+        source.stop(now + duration + 0.5);
         
         // Track active voice for note-off
         const voiceKey = `${midi}`;
@@ -224,13 +235,19 @@ class PianoSampleEngine {
             oscGain.connect(masterGain);
             
             const gain = partialGain * velocity * 0.2;
+            const sustainLevel = 0.3;
+            const releaseTime = 0.15;
+            
             oscGain.gain.setValueAtTime(0, now);
-            oscGain.gain.linearRampToValueAtTime(gain, now + 0.005);
-            oscGain.gain.exponentialRampToValueAtTime(gain * 0.3, now + duration * 0.3);
+            oscGain.gain.linearRampToValueAtTime(gain, now + 0.01);
+            oscGain.gain.exponentialRampToValueAtTime(gain * sustainLevel, now + 0.1);
+            
+            // Hold sustain
+            oscGain.gain.setValueAtTime(gain * sustainLevel, now + Math.max(0.1, duration - releaseTime));
             oscGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
             
             osc.start(now);
-            osc.stop(now + duration + 0.1);
+            osc.stop(now + duration + 0.5);
             oscillators.push(osc);
         });
         

@@ -6,6 +6,7 @@
     "jest": "^30.2.0"
   },
   "scripts": {
+    "start": "node dev-server.js",
     "test": "jest"
   }
 }

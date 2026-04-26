@@ -58,6 +58,36 @@
     }
 
     /**
+     * Calculates "Distance from Minor" (Sadness Baseline).
+     * Compares intervals to standard Natural Minor [0,2,3,5,7,8,10].
+     */
+    function getDistanceFromMinor(intervals) {
+        if (!Array.isArray(intervals) || intervals.length === 0) return 999;
+        const minor = [0, 2, 3, 5, 7, 8, 10];
+        let score = 0;
+        intervals.slice(0, 7).forEach((note, i) => {
+            if (minor[i] !== undefined) score += Math.abs(note - minor[i]);
+            else score += 2;
+        });
+        score += Math.abs(intervals.length - 7) * 5;
+        return score;
+    }
+
+    /**
+     * Maps raw intervals to their "Harmonic Physics" property.
+     * This defines the 'Force' applied to the major/minor baseline.
+     */
+    const PHYSICS_MAP = {
+        1: { attr: 'Compression', desc: 'Inward pressure, threat, severe intimacy' }, // b2
+        3: { attr: 'Melancholy', desc: 'The baseline weight of sad/minor physics' }, // b3
+        4: { attr: 'Stability', desc: 'The baseline lift of happy/major physics' }, // M3
+        6: { attr: 'Expansion', desc: 'Ethereal lift, otherworldly, longing' }, // #4
+        8: { attr: 'Shadow', desc: 'Romantic sorrow, darkening the major frame' }, // b6
+        10: { attr: 'Release', desc: 'Openness, bluesy freedom, informal' }, // b7
+        11: { attr: 'Pull', desc: 'Intense leading-tone drive toward home' } // M7
+    };
+
+    /**
      * Signature Matchers for Cross-Listing
      */
     const Signature = {
@@ -342,7 +372,9 @@
     return {
         buildScaleCatalog,
         deriveTaxonomiesForScale,
-        getDistanceScore: getDistanceFromMajor
+        getDistanceScore: getDistanceFromMajor,
+        getDistanceFromMinor: getDistanceFromMinor,
+        PHYSICS_MAP: PHYSICS_MAP
     };
 });
 

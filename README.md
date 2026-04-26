@@ -10,6 +10,17 @@ A single-page, browser-based set of music theory tools (scales, chords, progress
 - MIDI often works as-is, but browser security rules vary. If your browser blocks Web MIDI when opened from disk, run a local server:
     - `python -m http.server 8000` then open `http://localhost:8000/modular-music-theory.html`
 
+### Live semantic APIs (ConceptNet / Dictionary)
+
+If you want live word enrichment to work reliably, do not run from `file://`.
+Use the built-in local server so browser CORS restrictions are bypassed through a same-origin proxy.
+
+- Start server: `npm start`
+- Open: `http://localhost:8000/modular-music-theory.html`
+- The app will show a badge:
+    - `SEMANTIC API: LIVE (local proxy)` on localhost
+    - `SEMANTIC API: OFFLINE (file://)` when opened from disk
+
 ## What’s actually in the app
 
 ### Learning pages

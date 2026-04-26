@@ -212,8 +212,14 @@ class NumberGenerator {
         const { min, max } = typeInfo;
         const numbers = [];
         
+        // Use the current scale length as the limit for degrees
+        const scaleLength = (this.currentScaleNotes && this.currentScaleNotes.length > 0) 
+            ? this.currentScaleNotes.length 
+            : 7;
+
         // Common harmonic patterns (scale degrees)
-        const patterns = [
+        // We will validate these against the actual scale length
+        const basePatterns = [
             [1, 4, 5, 1],      // I-IV-V-I
             [1, 6, 4, 5],      // I-vi-IV-V
             [1, 5, 6, 4],      // I-V-vi-IV (pop)
@@ -224,13 +230,24 @@ class NumberGenerator {
             [4, 5, 3, 6]       // IV-V-iii-vi
         ];
         
-        const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+        // Filter patterns to only include those where all degrees exist in the current scale
+        const validPatterns = basePatterns.filter(p => p.every(d => d <= scaleLength));
+        
+        // If no patterns are valid for this scale size (e.g. pentatonic), generate a simple one
+        let pattern;
+        if (validPatterns.length > 0) {
+            pattern = validPatterns[Math.floor(Math.random() * validPatterns.length)];
+        } else {
+            // Generate a simple progression for small/exotic scales: 1, 3, 4, 5 equivalent
+            pattern = [1, Math.min(3, scaleLength), Math.min(4, scaleLength), Math.min(2, scaleLength)];
+        }
         
         // Repeat/extend pattern to match length
         for (let i = 0; i < length; i++) {
             let degree = pattern[i % pattern.length];
-            // Ensure within bounds
+            // Clamp to type bounds (min-max)
             while (degree > max) degree -= (max - min + 1);
+            while (degree < min) degree += (max - min + 1);
             numbers.push(degree);
         }
         
@@ -285,10 +302,37 @@ class NumberGenerator {
         const { min, max } = typeInfo;
         const numbers = [];
         
-        // Functional harmony: Tonic (I, vi, iii), Subdominant (IV, ii), Dominant (V, vii)
-        const tonic = [1, 6, 3].filter(d => d <= max);
-        const subdominant = [4, 2].filter(d => d <= max);
-        const dominant = [5, 7].filter(d => d <= max);
+        const scaleLength = (this.currentScaleNotes && this.currentScaleNotes.length > 0) 
+            ? this.currentScaleNotes.length 
+            : 7;
+
+        // Dynamically determine functional roles for the current scale
+        const tonic = [];
+        const subdominant = [];
+        const dominant = [];
+
+        if (this.musicTheory) {
+            for (let d = 1; d <= scaleLength; d++) {
+                try {
+                    const chord = this.musicTheory.getDiatonicChord(d, this.currentKey, this.currentScale);
+                    const type = (chord.chordType || '').toLowerCase();
+                    
+                    // Assign functional roles based on chord quality
+                    if (d === 1 || type === 'maj' || type === 'maj7' || type === 'm' || type === 'm7') {
+                        if (d === 1 || d === 6 || d === 3) tonic.push(d);
+                    }
+                    if (d === 4 || d === 2) subdominant.push(d);
+                    if (d === 5 || type === '7' || type.includes('dim') || type.includes('°')) dominant.push(d);
+                } catch (_) {
+                    // Fallback to defaults if theory fails
+                }
+            }
+        }
+
+        // Fallback to defaults if dynamic analysis yielded nothing
+        if (tonic.length === 0) tonic.push(1);
+        if (subdominant.length === 0) subdominant.push(Math.min(4, scaleLength));
+        if (dominant.length === 0) dominant.push(Math.min(5, scaleLength));
         
         // Start with tonic
         numbers.push(tonic[Math.floor(Math.random() * tonic.length)]);
@@ -323,12 +367,19 @@ class NumberGenerator {
                     numbers.push(dominant[Math.floor(Math.random() * dominant.length)]);
                 }
             } else {
-                // Fallback
-                numbers.push(Math.floor(Math.random() * (max - min + 1)) + min);
+                // Fallback for degrees that didn't get a functional assignment
+                const next = Math.floor(Math.random() * scaleLength) + 1;
+                numbers.push(next);
             }
         }
         
-        return numbers;
+        // Coerce to type bounds
+        return numbers.map(n => {
+            let degree = n;
+            while (degree > max) degree -= (max - min + 1);
+            while (degree < min) degree += (max - min + 1);
+            return degree;
+        });
     }
 
     /**
@@ -827,7 +878,23 @@ class NumberGenerator {
     getCommonProgressionsForScale(scale) {
         const allProgressions = this.getCommonProgressions();
         const scaleKey = scale.toLowerCase().replace(/\s+/g, '_');
-        return allProgressions[scaleKey] || allProgressions['major'];
+        
+        if (allProgressions[scaleKey]) {
+            return allProgressions[scaleKey];
+        }
+
+        // DYNAMIC FALLBACK: If scale is unknown, generate a diatonic discovery progression
+        // that uses the core degrees of the scale.
+        const scaleLength = (this.currentScaleNotes && this.currentScaleNotes.length > 0) 
+            ? this.currentScaleNotes.length 
+            : 7;
+        
+        // Generate 3 variations of discovery progressions
+        return [
+            [1, Math.min(4, scaleLength), Math.min(5, scaleLength), 1],
+            [1, Math.min(6, scaleLength), Math.min(4, scaleLength), Math.min(5, scaleLength)],
+            [Math.min(2, scaleLength), Math.min(5, scaleLength), 1, 1]
+        ];
     }
 
     /**

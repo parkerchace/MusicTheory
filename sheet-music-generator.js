@@ -56,6 +56,7 @@ class SheetMusicGenerator {
 			 * key signature and instead show per-note accidentals next to noteheads.
 			 */
 			showKeySignature: true,
+			showArcGuide: true,
 			/**
 			 * When true, modal key signatures use parallel major/minor as base (e.g., C Locrian shows
 			 * C minor signature + extra flats). When false, use relative major (more complex).
@@ -379,6 +380,128 @@ class SheetMusicGenerator {
 		this._scheduleRender();
 	}
 
+	/**
+	 * Accept a rich musical phrase from the Semantic Narrative Engine.
+	 * Format: { bars: [{ barNumber, key, beats: [{ beat, chord?, melody?, duration, texture }] }],
+	 *           timeSignature, startKey, endKey, keyEvents }
+	 *
+	 * For now, this extracts chord events into the existing barChords pipeline
+	 * and stores the full phrase data for future beat-level rendering.
+	 */
+	setMusicalPhrase(phrase) {
+		console.log('[Sheet] setMusicalPhrase called with JSON:\n' + safeJson(phrase));
+		
+		if (!phrase) {
+			console.warn('[Sheet] setMusicalPhrase: phrase is null/undefined');
+			return;
+		}
+		
+		if (!phrase.bars) {
+			console.warn('[Sheet] setMusicalPhrase: phrase.bars is null/undefined', Object.keys(phrase));
+			return;
+		}
+
+		console.log('[Sheet] setMusicalPhrase: OK - phrase has', phrase.bars.length, 'bars');
+		
+		// Check first bar structure
+		if (phrase.bars.length > 0) {
+			const firstBar = phrase.bars[0];
+			console.log('[Sheet] First bar structure:', {
+				hasBeats: !!firstBar.beats,
+				beatCount: firstBar.beats ? firstBar.beats.length : 0,
+				firstBeatKeys: firstBar.beats && firstBar.beats.length > 0 ? Object.keys(firstBar.beats[0]) : []
+			});
+		}
+
+		// Store full phrase data for future beat-level rendering
+		this.state.musicalPhrase = phrase;
+		this.state.__lastTraceId = phrase && phrase.__traceId ? phrase.__traceId : this.state.__lastTraceId;
+
+		// Update state with key/time signature metadata
+		// Extract scale from phrase or fallback to current
+		const startKey = phrase.startKey || this.state.key;
+		const startScale = (phrase.bars && phrase.bars[0] && phrase.bars[0].scale) || this.state.scale;
+		
+		// Force immediate update of theory engine state to prevent degree mismatch
+		this.setKeyAndScale(startKey, startScale);
+
+		// Extract chord events into flat barChords array for the existing renderer
+		const barChords = [];
+		const barDegrees = [];
+		const barMelodies = []; // Store melody objects { noteName, syllable }
+		const barDurations = [];
+		const barBeatEvents = [];
+
+		for (const bar of phrase.bars) {
+			const chordBeats = (bar.beats || []).filter(b => b.chord && b.chordObj);
+			const melodyBeats = (bar.beats || []).filter(b => b.melody);
+
+			if (chordBeats.length > 0) {
+				const first = chordBeats[0];
+				
+				// ✅ FIX: Properly populate chordNotes with fallback to getChordNotes()
+				let chordNotes = first.chordObj.diatonicNotes || [];
+				if ((!chordNotes || chordNotes.length === 0) && this.musicTheory && typeof this.musicTheory.getChordNotes === 'function') {
+					try {
+						chordNotes = this.musicTheory.getChordNotes(first.chordObj.root, first.chordObj.chordType) || [];
+					} catch(e) {
+						chordNotes = [];
+					}
+				}
+				
+				barChords.push({
+					root: first.chordObj.root,
+					chordType: first.chordObj.chordType,
+					chordNotes: chordNotes,
+					fullName: first.chord
+				});
+			} else if (barChords.length > 0) {
+				// Sustain: repeat previous chord (visual continuity)
+				barChords.push({ ...barChords[barChords.length - 1] });
+			}
+
+			barDegrees.push(null);
+			// Capture rich melody objects from beats
+			barMelodies.push((bar.beats || [])
+				.filter(b => b.melody)
+				.map(b => ({
+					noteName: b.melody,
+					syllable: (b.melodySequence && b.melodySequence[0] && b.melodySequence[0].syllable) || null
+				}))
+			);
+			
+			barDurations.push((bar.beats || []).map(b => b.duration || 'quarter'));
+			barBeatEvents.push(bar.beats || []);
+		}
+
+		this.state.barMelodies = barMelodies;
+		this.state.barDurations = barDurations;  // NEW: Store durations for renderer
+		this.state.barBeatEvents = barBeatEvents; // NEW: Store beat events
+		this.state.barMode = 'per-bar';
+
+		// Use the existing setBarChords pipeline for rendering
+		this.setBarChords(barChords);
+
+		// Log the enriched phrase data
+		try {
+			if (!window.__interactionLog) window.__interactionLog = [];
+			window.__interactionLog.push({
+				type: 'setMusicalPhrase',
+				details: {
+					barCount: phrase.bars.length,
+					timeSignature: phrase.timeSignature,
+					startKey: phrase.startKey,
+					endKey: phrase.endKey,
+					keyEvents: phrase.keyEvents,
+					chordCount: barChords.length,
+					hasMelody: barMelodies.some(m => m.length > 0),
+					hasDurations: barDurations.some(d => d && d.length > 0)  // NEW
+				},
+				timestamp: new Date().toISOString()
+			});
+		} catch (_) {}
+	}
+
 	// ------------------------- Internal render ------------------------
 
 	_renderShell() {
@@ -389,6 +512,8 @@ class SheetMusicGenerator {
 		outerContainer.style.display = 'flex';
 		outerContainer.style.gap = '8px';
 		outerContainer.style.position = 'relative';
+		outerContainer.style.width = '100%';
+		outerContainer.style.minWidth = '0';
 
 		const wrapper = document.createElement('div');
 		wrapper.className = 'sheet-music-module';
@@ -396,6 +521,7 @@ class SheetMusicGenerator {
 		wrapper.style.flexDirection = 'column';
 		wrapper.style.gap = '8px';
 		wrapper.style.flex = '1';
+		wrapper.style.minWidth = '0';
 		wrapper.style.background = 'var(--bg-panel, #27272a)';
 		wrapper.style.padding = '12px';
 		wrapper.style.borderRadius = '4px';
@@ -473,6 +599,27 @@ class SheetMusicGenerator {
 		followWrap.appendChild(followCb);
 		followWrap.appendChild(followLabelText);
 		controls.appendChild(followWrap);
+
+		// Arc guide overlay toggle (aligns Arc line with bar/beat sheet grid)
+		const arcGuideWrap = document.createElement('label');
+		arcGuideWrap.style.fontSize = '0.8rem';
+		arcGuideWrap.style.display = 'flex';
+		arcGuideWrap.style.alignItems = 'center';
+		arcGuideWrap.style.gap = '6px';
+		const arcGuideCb = document.createElement('input');
+		arcGuideCb.type = 'checkbox';
+		arcGuideCb.id = 'show-arc-guide-checkbox';
+		arcGuideCb.checked = this.state.showArcGuide !== false;
+		arcGuideCb.addEventListener('change', () => {
+			this.state.showArcGuide = !!arcGuideCb.checked;
+			this._scheduleRender();
+		});
+		const arcGuideLabel = document.createElement('span');
+		arcGuideLabel.textContent = 'Show Arc Guide';
+		arcGuideLabel.style.color = '#f9fafb';
+		arcGuideWrap.appendChild(arcGuideCb);
+		arcGuideWrap.appendChild(arcGuideLabel);
+		controls.appendChild(arcGuideWrap);
 
 		// Inversion select
 		const invLabel = document.createElement('label');
@@ -890,13 +1037,14 @@ class SheetMusicGenerator {
         // SVG host
         const svgHost = document.createElement('div');
         svgHost.className = 'sheet-music-svg-host';
-        svgHost.style.background = 'var(--bg-panel, #1a1a1a)';
+        svgHost.style.background = '#1a1a2e';
         svgHost.style.border = '2px solid #8b7355';
         svgHost.style.borderRadius = '4px';
         svgHost.style.padding = '12px';
         svgHost.style.minHeight = '120px';
         svgHost.style.overflowX = 'auto';
         svgHost.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+        svgHost.style.filter = 'invert(1) hue-rotate(180deg)';
 
         wrapper.appendChild(svgHost);
 
@@ -1206,6 +1354,17 @@ class SheetMusicGenerator {
 			const roman = degree ? toRomanGuess(degree, c && c.chordType) : '';
 			const name = (c && c.fullName) ? c.fullName : `${c.root||''}${c.chordType||''}`;
 			lines.push(`${idx+1}. deg:${degree||'?'}  ${roman?roman+'  ':''}${name}  notes:[${notes.join(' ')}]${classified?`  class:${classified}`:''}`);
+			
+			// Add melody info if available
+			const melodyNotes = (this.state.barMelodies && this.state.barMelodies[idx]) || [];
+			if (melodyNotes.length > 0) {
+				const melStr = melodyNotes.map(m => {
+					const note = typeof m === 'string' ? m : (m.noteName || '?');
+					const syl = (m && m.syllable) ? `(${m.syllable})` : '';
+					return `${note}${syl}`;
+				}).join(', ');
+				lines.push(`   melody: ${melStr}`);
+			}
 		});
 		return lines.join('\n');
 	}
@@ -1294,16 +1453,551 @@ class SheetMusicGenerator {
 		return wrap;
 	}
 
-	render() {
-		if (!this.svgContainer) return;
-			// Hard guard: if VL Combos checkbox was toggled but state failed to propagate,
-			// respect a remembered flag to force multi-mode during this render.
-			try {
-				if (this._forceVLCombos === true) {
-					this.state.voiceLeadingMode = 'multi';
-					this.state.voiceLeading = true;
+	/**
+	 * Play a specific note using the modular app's audio engine
+     * @param {string} noteName e.g. "C4", "Eb3"
+	 */
+	_playNote(noteName) {
+		try {
+			const app = window.modularApp;
+			if (app && app.audioEngine) {
+				const engine = app.audioEngine;
+                
+                // Convert noteName to MIDI if needed (engines expect MIDI numbers usually)
+                let midi = noteName;
+                if (typeof noteName === 'string') {
+                    if (typeof engine.noteToMidi === 'function') {
+                        midi = engine.noteToMidi(noteName);
+                    } else if (this._noteNameToMidi) {
+                        midi = this._noteNameToMidi(noteName);
+                    }
+                }
+
+                if (midi === null || isNaN(midi)) {
+                    console.warn('[SheetMusic] Invalid note for playback:', noteName);
+                    return;
+                }
+
+				// Play the note. If it's a piano sampler, use triggerNote.
+                if (typeof engine.triggerNote === 'function') {
+                    engine.triggerNote(midi, 0.5, 0.5); 
+                } else if (typeof engine.playNote === 'function') {
+                    engine.playNote(midi);
+                }
+                
+                console.log(`[SheetMusic] Played note: ${noteName} (${midi})`);
+			}
+		} catch (e) {
+			console.warn('[SheetMusic] Failed to play note:', e);
+		}
+	}
+
+
+    /**
+     * Convert duration string to numeric value for backward compatibility
+     */
+    _durationToNumber(durStr) {
+        const durationMap = {
+            'whole': 4,
+            'whole_dotted': 6,
+            'half': 2,
+            'half_dotted': 3,
+            'quarter': 1,
+            'quarter_dotted': 1.5,
+            'eighth': 0.5,
+            'eighth_dotted': 0.75,
+            'sixteenth': 0.25,
+            'sixteenth_dotted': 0.375
+        };
+        if (typeof durStr === 'string') {
+            const clean = durStr.toLowerCase().replace(/-/g, '_');
+            return durationMap[clean] || 1;
+        }
+        return durStr || 1;
+    }
+
+    /**
+     * Helper: Draw a rhythmic note with stem and flag
+     */
+    _drawRhythmicNote(svg, x, y, duration, options = {}) {
+        const svgNS = 'http://www.w3.org/2000/svg';
+		const color = options.color || '#f3f4f6';
+        const direction = options.direction || 'up'; // 'up' or 'down'
+        const isChord = options.isChord || false;
+        
+        // Convert string duration to numeric if needed
+        const numDuration = this._durationToNumber(duration);
+        
+		// 1. Choose Notehead based on duration
+        let notehead = '\u{1D158}'; // Quarter default
+        let noteheadFill = 'black';
+        
+        if (numDuration >= 4) {
+            notehead = '\u{1D15D}'; // Whole - hollow
+            noteheadFill = 'white';
+        } else if (numDuration >= 2) {
+            notehead = '\u{1D157}'; // Half - hollow
+            noteheadFill = 'white';
+        } else {
+            // Quarter, eighth, sixteenth - filled
+            noteheadFill = 'black';
+        }
+        
+        const head = document.createElementNS(svgNS, 'text');
+        head.setAttribute('x', String(x));
+        // Bravura noteheads are slightly offset in their em-box; +0.8px y-shift improves staff line centering
+        head.setAttribute('y', String(y + 0.8));
+		head.setAttribute('font-size', '30'); // Slightly larger for better readability
+        head.setAttribute('font-family', 'Bravura, "Noto Music", "Segoe UI Symbol", Georgia, serif');
+        head.setAttribute('fill', noteheadFill === 'white' ? 'white' : color);
+        head.setAttribute('stroke', color);
+		head.setAttribute('stroke-width', noteheadFill === 'white' ? '1.5' : '0.5');
+        head.setAttribute('text-anchor', 'middle');
+        head.setAttribute('dominant-baseline', 'middle');
+		head.setAttribute('opacity', '0.98');
+        head.style.cursor = 'pointer';
+        head.style.pointerEvents = 'all';
+        head.textContent = notehead;
+        
+        if (options.noteName) {
+            head.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._playNote(options.noteName);
+            });
+            head.setAttribute('title', `Play ${options.noteName}`);
+        }
+        
+        svg.appendChild(head);
+
+        // 1a. Draw Accidental if sigData provided
+        if (options.sigData && options.noteName) {
+            this._drawAccidentalForNote(svg, x, y, options.noteName, options.sigData);
+        }
+
+ 
+ 		// 1b. Augmentation dot for dotted durations
+ 		try {
+ 			const rawDur = String(duration || '').toLowerCase().replace(/-/g, '_');
+ 			const isDotted = rawDur.includes('dotted') || Math.abs(numDuration - 6) < 0.01 || Math.abs(numDuration - 3) < 0.01 || Math.abs(numDuration - 1.5) < 0.02 || Math.abs(numDuration - 0.75) < 0.02;
+ 			if (isDotted) {
+ 				const augDot = document.createElementNS(svgNS, 'circle');
+ 				augDot.setAttribute('cx', String(x + 14));
+ 				augDot.setAttribute('cy', String(y));
+ 				augDot.setAttribute('r', '2.1');
+ 				augDot.setAttribute('fill', color);
+ 				augDot.setAttribute('opacity', '0.95');
+ 				svg.appendChild(augDot);
+ 			}
+ 		} catch (_) {}
+ 
+         // 1c. Articulations (Staccato, Accent)
+         try {
+             const articulateX = x;
+             const isUp = direction === 'up';
+             const articulationY = isUp ? y + 14 : y - 14; // Place on opposite side of stem if possible
+
+             if (options.articulation === 'staccato') {
+                 const dot = document.createElementNS(svgNS, 'circle');
+                 dot.setAttribute('cx', String(articulateX));
+                 dot.setAttribute('cy', String(articulationY));
+                 dot.setAttribute('r', '2');
+                 dot.setAttribute('fill', color);
+                 svg.appendChild(dot);
+             }
+
+             if (options.accent) {
+                 const accent = document.createElementNS(svgNS, 'text');
+                 accent.setAttribute('x', String(articulateX));
+                 accent.setAttribute('y', String(articulationY));
+                 accent.setAttribute('font-size', '20');
+                 accent.setAttribute('font-family', 'Bravura, serif');
+                 accent.setAttribute('fill', color);
+                 accent.setAttribute('text-anchor', 'middle');
+                 accent.setAttribute('dominant-baseline', 'middle');
+                 accent.textContent = '\u{1D18B}'; // Standard accent wedge >
+                 svg.appendChild(accent);
+             }
+         } catch (_) {}
+
+         // 2. Draw Stem (if not whole note)
+        if (numDuration < 4) {
+            const stemLength = 28;
+            const stemX = (direction === 'up') ? x + 6.5 : x - 6.5;
+            const yEnd = (direction === 'up') ? y - stemLength : y + stemLength;
+            
+            const stem = document.createElementNS(svgNS, 'line');
+            stem.setAttribute('x1', String(stemX));
+            stem.setAttribute('y1', String(y));
+            stem.setAttribute('x2', String(stemX));
+            stem.setAttribute('y2', String(yEnd));
+            stem.setAttribute('stroke', color);
+			stem.setAttribute('stroke-width', '1.9');
+            svg.appendChild(stem);
+
+            // 3. Draw Flags (if eighth or smaller)
+            if (numDuration <= 0.5) {
+                const flagX = stemX;
+                const flagY = yEnd;
+                const flagCount = numDuration <= 0.25 ? 2 : 1;
+                const flagChar = (direction === 'up') ? 
+                    (flagCount === 2 ? '\u{1D170}' : '\u{1D16E}') : 
+                    (flagCount === 2 ? '\u{1D171}' : '\u{1D16F}');
+                
+                const flag = document.createElementNS(svgNS, 'text');
+                flag.setAttribute('x', String(flagX));
+                flag.setAttribute('y', String(flagY));
+				flag.setAttribute('font-size', '26');
+                flag.setAttribute('font-family', 'Bravura, Georgia, serif');
+                flag.setAttribute('fill', color);
+                flag.setAttribute('text-anchor', 'start');
+                flag.setAttribute('dominant-baseline', 'middle');
+                flag.textContent = flagChar;
+                svg.appendChild(flag);
+            }
+        }
+    }
+
+    /**
+     * Diagnostic helper for staff positions
+     */
+    __posLabel(pos) {
+        const labels = ['line1','space1','line2','space2','line3','space3','line4','space4','line5'];
+        if (pos < 0) return `ledger-below`;
+        if (pos > 4) return `ledger-above`;
+        return labels[Math.round(pos * 2)] || `pos${pos}`;
+    }
+
+    /**
+     * Draw an accidental (sharp, flat, natural) next to a notehead
+     * @param {SVGElement} svg - SVG container
+     * @param {number} noteX - X coordinate of notehead center
+     * @param {number} noteY - Y coordinate of notehead center
+     * @param {string} noteName - Note name (e.g., "F#4")
+     * @param {object} sigData - Key signature data from getKeySignatureForScale()
+     */
+    _drawAccidentalForNote(svg, noteX, noteY, noteName, sigData) {
+        if (!noteName || !sigData) return;
+        const svgNS = 'http://www.w3.org/2000/svg';
+        
+        // 1. Extract spelling details
+        const letter = noteName.charAt(0).toUpperCase();
+        const hasSharp = noteName.includes('#');
+        const hasFlat = noteName.includes('b');
+        
+        // 2. Determine what's in the key signature for this letter
+        const baseAccidentals = (sigData.baseSignature && sigData.baseSignature.accidentals) || [];
+        const scaleAccidentals = sigData.scaleAccidentals || [];
+        const allSigAccs = [...baseAccidentals, ...scaleAccidentals];
+        
+        const sigAcc = allSigAccs.find(acc => acc.startsWith(letter));
+        const sigSharp = sigAcc && sigAcc.includes('#');
+        const sigFlat = sigAcc && sigAcc.includes('b');
+        
+        // 3. Determine if we need to draw a symbol
+        let symbol = null;
+        if (hasSharp && !sigSharp) symbol = '\u266F'; // Needs sharp, not in sig
+        else if (hasFlat && !sigFlat) symbol = '\u266D';  // Needs flat, not in sig
+        else if (!hasSharp && !hasFlat && (sigSharp || sigFlat)) symbol = '\u266E'; // Is natural, but sig has sharp/flat
+        
+        if (!symbol) return;
+
+        const t = document.createElementNS(svgNS, 'text');
+        const x = noteX - 16; // Offset to the left of notehead
+        t.setAttribute('x', String(x));
+        t.setAttribute('y', String(noteY));
+        t.setAttribute('fill', '#d1d5db');
+        t.setAttribute('font-size', '22');
+        t.setAttribute('font-family', 'Georgia, serif');
+        t.setAttribute('text-anchor', 'end');
+        t.setAttribute('dominant-baseline', 'middle');
+        t.textContent = symbol;
+        svg.appendChild(t);
+    }
+
+    /**
+     * Helper: Draw a stacked chord with rhythm
+     */
+    _drawRhythmicChord(svg, x, yNotes, duration, options = {}) {
+        const sortedY = yNotes.slice().sort((a, b) => a - b);
+        const color = options.color || '#d1d5db';
+        const direction = 'down'; // Chords usually stem down to stay out of melody way
+        
+        // Draw noteheads
+        sortedY.forEach(y => {
+            this._drawRhythmicNote(svg, x, y, duration, { ...options, direction, isChord: true });
+        });
+
+        // Optimization: one stem for the whole chord if we wanted, 
+        // but _drawRhythmicNote currently draws the notehead too.
+        // For Layer 1, overlapping stems is fine as they align perfectly.
+
+    }
+
+	_getDurationStyle(duration) {
+		// Convert duration name to visual rendering properties
+        const durationStyles = {
+            'whole': { fill: 'white', stroke: 'black', strokeWidth: 2, hasStem: false, noteClass: 'note-whole' },
+            'whole_dotted': { fill: 'white', stroke: 'black', strokeWidth: 2, hasStem: false, noteClass: 'note-whole' },
+            'half': { fill: 'white', stroke: 'black', strokeWidth: 2, hasStem: true, noteClass: 'note-half' },
+            'half_dotted': { fill: 'white', stroke: 'black', strokeWidth: 2, hasStem: true, noteClass: 'note-half' },
+            'quarter': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, noteClass: 'note-quarter' },
+            'quarter_dotted': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, noteClass: 'note-quarter' },
+            'eighth': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, flags: 1, noteClass: 'note-eighth' },
+            'eighth_dotted': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, flags: 1, noteClass: 'note-eighth' },
+            'sixteenth': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, flags: 2, noteClass: 'note-sixteenth' }
+        };
+        const clean = (duration || '').toLowerCase().replace(/-/g, '_');
+        return durationStyles[clean] || durationStyles['quarter'];
+    }
+
+    /**
+     * Draw REST symbol for silence based on duration
+     */
+    _drawRest(svg, x, y, duration, options = {}) {
+        const svgNS = 'http://www.w3.org/2000/svg';
+		const color = options.color || '#f3f4f6';
+        const numDuration = this._durationToNumber(duration);
+        
+        // Use Unicode rest symbols: whole, half, quarter, eighth/sixteenth
+        let restChar = '𝄩'; // quarter rest - fallback
+        if (numDuration >= 4) restChar = '𝄶'; // whole rest
+        else if (numDuration >= 2) restChar = '𝄷'; // half rest
+        else if (numDuration <= 0.5) restChar = '𝄬'; // eighth/sixteenth rest
+        
+        const rest = document.createElementNS(svgNS, 'text');
+        rest.setAttribute('x', String(x));
+        rest.setAttribute('y', String(y + 2));
+		rest.setAttribute('font-size', '37');
+        rest.setAttribute('font-family', 'Bravura, Georgia, serif');
+        rest.setAttribute('fill', color);
+        rest.setAttribute('text-anchor', 'middle');
+        rest.setAttribute('dominant-baseline', 'middle');
+		rest.setAttribute('opacity', '0.98');
+        rest.textContent = restChar;
+        svg.appendChild(rest);
+    }
+
+    /**
+     * Create a smooth SVG path curve through points using Catmull-Rom interpolation
+     * @param {Array} points - Array of {x, y} coordinates
+     * @returns {String} SVG path data
+     */
+    _createSmoothCurve(points) {
+        if (points.length < 2) return '';
+        if (points.length === 2) {
+            // Simple line for 2 points
+            return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+        }
+        
+        // Use quadratic Bezier for smooth curve
+        let path = `M ${points[0].x} ${points[0].y}`;
+        
+        for (let i = 1; i < points.length; i++) {
+            const curr = points[i];
+            const prev = points[i - 1];
+            const next = points[i + 1];
+            
+            // Control point calculations for smooth Bezier
+            const cp1x = prev.x + (curr.x - prev.x) / 3;
+            const cp1y = prev.y + (curr.y - prev.y) / 3;
+            
+            // If this is not the last point, use next point for control
+            if (next) {
+                const cp2x = curr.x - (next.x - curr.x) / 3;
+                const cp2y = curr.y - (next.y - curr.y) / 3;
+                path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+            } else {
+                // Last point - use current point twice
+                path += ` C ${cp1x} ${cp1y}, ${curr.x} ${curr.y}, ${curr.x} ${curr.y}`;
+            }
+        }
+        
+        return path;
+    }
+
+	/**
+	 * Draw arc-energy guide directly from phrase beat energies.
+	 * This aligns Arc timing to the exact bar/beat coordinates used by sheet rendering.
+	 */
+	_drawArcEnergyGuide(svg, phrase, layout = {}) {
+		if (!svg || !phrase || !Array.isArray(phrase.bars) || phrase.bars.length === 0) return;
+		if (this.state.showArcGuide === false) return;
+
+		const svgNS = 'http://www.w3.org/2000/svg';
+		const staffLeft = Number(layout.staffLeft) || 60;
+		const barWidth = Number(layout.barWidth) || 120;
+		const staffMeta = layout.staffMeta;
+		if (!staffMeta || !Number.isFinite(staffMeta.topY) || !Number.isFinite(staffMeta.spacing)) return;
+
+		const laneTop = staffMeta.topY - 18;
+		const laneBottom = staffMeta.topY + (4 * staffMeta.spacing) + 4;
+		const laneHeight = Math.max(8, laneBottom - laneTop);
+		const points = [];
+
+		phrase.bars.forEach((bar, barIndex) => {
+			const beats = Array.isArray(bar && bar.beats) ? bar.beats : [];
+			if (!beats.length) return;
+
+			const barX = staffLeft + (barIndex * barWidth);
+			const beatWidth = barWidth / beats.length;
+			beats.forEach((beat, beatIndex) => {
+				let energy = Number(beat && beat.energy);
+				if (!Number.isFinite(energy)) {
+					// Fallbacks keep guide available even when future phrase emitters omit energy.
+					energy = beat && beat.accent ? 0.72 : 0.46;
 				}
-			} catch(_) {}
+				energy = Math.max(0, Math.min(1, energy));
+
+				const x = barX + (beatIndex * beatWidth) + (beatWidth / 2);
+				const y = laneBottom - (energy * laneHeight);
+				points.push({ x, y });
+			});
+		});
+
+		if (points.length < 2) return;
+
+		const guidePath = document.createElementNS(svgNS, 'path');
+		guidePath.setAttribute('d', this._createSmoothCurve(points));
+		guidePath.setAttribute('stroke', '#38bdf8');
+		guidePath.setAttribute('stroke-width', '1.8');
+		guidePath.setAttribute('fill', 'none');
+		guidePath.setAttribute('opacity', '0.72');
+		guidePath.setAttribute('stroke-linecap', 'round');
+		guidePath.setAttribute('stroke-linejoin', 'round');
+		svg.appendChild(guidePath);
+
+		// Light checkpoints make beat-alignment visible without overwhelming notation.
+		for (let i = 0; i < points.length; i += Math.max(1, Math.floor(points.length / 24))) {
+			const p = points[i];
+			const dot = document.createElementNS(svgNS, 'circle');
+			dot.setAttribute('cx', String(p.x));
+			dot.setAttribute('cy', String(p.y));
+			dot.setAttribute('r', '1.6');
+			dot.setAttribute('fill', '#7dd3fc');
+			dot.setAttribute('opacity', '0.75');
+			svg.appendChild(dot);
+		}
+
+		const label = document.createElementNS(svgNS, 'text');
+		label.setAttribute('x', String(Math.max(8, staffLeft - 42)));
+		label.setAttribute('y', String(laneTop + 3));
+		label.setAttribute('fill', '#7dd3fc');
+		label.setAttribute('font-size', '8');
+		label.setAttribute('font-family', 'var(--font-tech, monospace)');
+		label.textContent = 'ARC';
+		svg.appendChild(label);
+	}
+
+    /**
+     * Draw melody sequence as small notes on the staff
+     */
+    _drawMelodySequence(svg, x, melodySequence, staffMeta, clef = 'treble', options = {}) {
+        if (!melodySequence || !Array.isArray(melodySequence) || melodySequence.length === 0) return;
+        
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const melodyColor = options.melodyColor || '#f97316'; // orange
+		const noteRadius = 3.6;
+        
+        // Helper: note name to staff position
+        const noteToStaffPos = (noteName) => {
+            const match = noteName.match(/^([A-G][#b]?)(\\d+)?$/);
+            if (!match) return 0;
+            const letter = match[1].charAt(0).toUpperCase();
+            const octave = match[2] ? parseInt(match[2]) : (clef === 'bass' ? 3 : 4);
+            const noteOrder = { 'C': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'A': 5, 'B': 6 };
+            const noteIndex = noteOrder[letter] || 0;
+            
+            if (clef === 'treble') {
+                const octaveOffset = octave - 4;
+                const relativeIndex = noteIndex - 2; // E in octave 4
+                const totalOffset = relativeIndex + (octaveOffset * 7);
+                return totalOffset * 0.5;
+            } else {
+                const octaveOffset = octave - 2;
+                const relativeIndex = noteIndex - 4; // G in octave 2
+                const totalOffset = relativeIndex + (octaveOffset * 7);
+                return totalOffset * 0.5;
+            }
+        };
+        
+        const staffPositionToY = (staffPosition) => {
+            if (!staffMeta) return 0;
+            return staffMeta.topY + 4 * staffMeta.spacing - staffPosition * staffMeta.spacing;
+        };
+        
+        // Draw each note in melody
+        const xSpacing = 3;
+        melodySequence.forEach((noteObj, idx) => {
+            if (!noteObj || !noteObj.noteName) return;
+            
+            const staffPos = noteToStaffPos(noteObj.noteName);
+            const yPos = staffPositionToY(staffPos);
+            const xPos = x + (idx * xSpacing);
+            
+            // Draw small filled circle
+            const circle = document.createElementNS(svgNS, 'circle');
+            circle.setAttribute('cx', String(xPos));
+            circle.setAttribute('cy', String(yPos));
+            circle.setAttribute('r', String(noteRadius));
+            circle.setAttribute('fill', melodyColor);
+			circle.setAttribute('stroke', '#fff7ed');
+			circle.setAttribute('stroke-width', '0.8');
+			circle.setAttribute('opacity', '0.95');
+            svg.appendChild(circle);
+        });
+    }
+
+    /**
+     * Draw a beat event with duration, chord, and optional melody
+     */
+    _drawBeatEvent(svg, x, beatEvent, staffMeta, clef = 'treble', options = {}) {
+        if (!beatEvent) return;
+        
+        const svgNS = 'http://www.w3.org/2000/svg';
+		const chordColor = options.chordColor || '#f3f4f6';
+        const duration = beatEvent.duration || 'quarter';
+        const centerY = staffMeta.topY + 2 * staffMeta.spacing;
+        
+        // If this is a rest, draw rest symbol and return
+        if (beatEvent.isRest || beatEvent.texture === 'rest') {
+            this._drawRest(svg, x, centerY, duration, { color: chordColor });
+            return;
+        }
+        
+        // Draw chord notes if present
+        if (beatEvent.chordObj && beatEvent.chordObj.diatonicNotes && beatEvent.chordObj.diatonicNotes.length > 0) {
+            const noteToStaffPos = (noteName) => {
+                const match = noteName.match(/^([A-G][#b]?)(\\d+)?$/);
+                if (!match) return 0;
+                const letter = match[1].charAt(0).toUpperCase();
+                const octave = match[2] ? parseInt(match[2]) : 4;
+                const noteOrder = { 'C': 0, 'D': 1, 'E': 2, 'F': 3, 'G': 4, 'A': 5, 'B': 6 };
+                const noteIndex = noteOrder[letter] || 0;
+                const octaveOffset = octave - 4;
+                const relativeIndex = noteIndex - 2;
+                const totalOffset = relativeIndex + (octaveOffset * 7);
+                return totalOffset * 0.5;
+            };
+            
+            const staffPositionToY = (staffPosition) => {
+                return staffMeta.topY + 4 * staffMeta.spacing - staffPosition * staffMeta.spacing;
+            };
+            
+            const yPositions = beatEvent.chordObj.diatonicNotes.map(note => 
+                staffPositionToY(noteToStaffPos(note))
+            );
+            
+            this._drawRhythmicChord(svg, x, yPositions, duration, { color: chordColor });
+        }
+        
+        // Draw melody if present
+        if (beatEvent.melodySequence && Array.isArray(beatEvent.melodySequence)) {
+            this._drawMelodySequence(svg, x + 2, beatEvent.melodySequence, staffMeta, clef, { melodyColor: '#f97316' });
+        }
+    }
+
+    render() {
+        if (!this.svgContainer) return;
         this.svgContainer.innerHTML = '';
 			// Reset captured voiced chords for MIDI export/playback
 			this.state.lastRenderedChords = [];
@@ -1359,11 +2053,11 @@ class SheetMusicGenerator {
 
 		// Pre-calculate maximum chord label offset needed across all chords
 		// to ensure SVG height accommodates the highest labels
-		let maxLabelOffset = 8; // minimum default offset
-		const noteRadius = 6;
-		const staffSpacing = 8;
+		let maxLabelOffset = 14; 
+		const noteRadius = 7;
+		const staffSpacing = 10;
 		
-		// Helper function to calculate staff position (needed for pre-calculation)
+		// Helper function to calculate staff position (pre-pass only)
 		const noteToStaffPositionPreCalc = (noteName, clef = 'treble') => {
 			const match = noteName.match(/^([A-G][#b]?)(\d+)?$/);
 			if (!match) return 0;
@@ -1389,8 +2083,16 @@ class SheetMusicGenerator {
 			}
 		};
 
-		// Helper for MIDI value (needed for voicing simulation in pre-calc)
-		const noteToMidiPreCalc = (noteName) => {
+		// Helper to convert staff position to SVG Y-coordinate (pre-pass only)
+		const staffPositionToYPreCalc = (staffPosition, staffMeta) => {
+			if (!staffMeta) return 0;
+			// staffPosition 0 is the bottom line (E4 for treble)
+			// Each 1.0 step is a line to a line (third). 0.5 is line to space.
+			return staffMeta.topY + 4 * staffMeta.spacing - staffPosition * staffMeta.spacing;
+		};
+
+		// Helper for MIDI value
+		const noteToMidi = (noteName) => {
 			const noteMap = { 'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11 };
 			const letter = noteName.charAt(0).toUpperCase();
 			let octave = 4;
@@ -1426,13 +2128,13 @@ class SheetMusicGenerator {
 			invNotes.forEach((note) => {
 				let oct = baseOct;
 				let currentNote = note + oct;
-				let midi = noteToMidiPreCalc(currentNote);
+				let midi = noteToMidi(currentNote);
 				
 				// Raise octave until strictly above previous note (standard close voicing)
 				while (prevMidi != null && midi <= prevMidi) {
 					oct += 1;
 					currentNote = note + oct;
-					midi = noteToMidiPreCalc(currentNote);
+					midi = noteToMidi(currentNote);
 				}
 				prevMidi = midi;
 				
@@ -1451,17 +2153,19 @@ class SheetMusicGenerator {
 
 		// ================= Dynamic layout sizing =================
 		// In per-bar mode, expand width to accommodate all chords (one chord per measure).
-		// Keep a minimum of 4 bars (classic 4-measure phrase) and horizontal scroll enabled via CSS overflow.
-		const baseBarWidth = 120; // fixed width per measure for consistent spacing
+		const baseBarWidth = 150;
 		const minBars = 4;
 		const dynamicBarCount = this.state.barMode === 'per-bar'
 			? Math.max(minBars, this.state.barChords.length)
 			: minBars; // single mode still reserves 4 bars for consistent look
-		const staffLeft = 60; // left margin allowing clef + key signature
-		const staffRight = staffLeft + dynamicBarCount * baseBarWidth;
+		const barWidth = baseBarWidth;
+		const staffLeft = 20; // left edge of staff lines and header
+		const headerWidth = 130; // reserved for clef + key signature + time signature
+		const firstBarX = staffLeft + headerWidth; // where bar 0 starts
+		const staffRight = firstBarX + dynamicBarCount * barWidth;
 		const width = staffRight + 20; // right margin
-		const heightSingle = 100; // single staff height (increased for more traditional look)
-		const gapBetweenStaves = 40;
+		const heightSingle = 150; // single staff height
+		const gapBetweenStaves = 60;
 		const heightGrand = heightSingle * 2 + gapBetweenStaves;
 		
 		// Add extra vertical space at the top for chord labels that extend above staff
@@ -1478,7 +2182,6 @@ class SheetMusicGenerator {
 		svg.style.background = 'var(--bg-panel, #1a1a1a)'; // dark background for modern theme
 
 		const barCount = dynamicBarCount;
-		const barWidth = baseBarWidth;
 		const addLine = (x1, y1, x2, y2, opts = {}) => {
 			const line = document.createElementNS(svgNS, 'line');
 			line.setAttribute('x1', x1);
@@ -1493,15 +2196,15 @@ class SheetMusicGenerator {
 
 		// Helper to draw a 5‑line staff at a vertical offset
 		const drawStaff = (topY, clef = 'treble') => {
-			const spacing = 8; // distance between lines (increased for readability)
+			const spacing = 10; // refined for standard look
 			for (let i = 0; i < 5; i++) {
 				const y = topY + i * spacing;
 				addLine(staffLeft, y, staffRight, y, { 'stroke-width': '1.2' });
 			}
 
-			// Bar lines F‑A‑C‑E vertically (4 bars)
+			// Bar lines — start at firstBarX (after the header region)
 			for (let b = 0; b <= barCount; b++) {
-				const x = staffLeft + b * barWidth;
+				const x = firstBarX + b * barWidth;
 				const weight = (b === 0 || b === barCount) ? '2.5' : '1.2';
 				addLine(x, topY, x, topY + 4 * spacing, { 'stroke-width': weight });
 			}
@@ -1515,7 +2218,7 @@ class SheetMusicGenerator {
 				clefSymbol.setAttribute('x', String(clefX));
 				clefSymbol.setAttribute('y', String(gLineY - 2)); // slightly higher to center swirl on G line
 				clefSymbol.setAttribute('font-size', '50');
-				clefSymbol.setAttribute('font-family', 'Bravura, Georgia, serif');
+				clefSymbol.setAttribute('font-family', "'Bravura', 'Segoe UI Symbol', 'Noto Music', Georgia, serif");
 				clefSymbol.setAttribute('fill', '#d1d5db');
 				clefSymbol.setAttribute('text-anchor', 'start');
 				clefSymbol.setAttribute('dominant-baseline', 'middle');
@@ -1528,7 +2231,7 @@ class SheetMusicGenerator {
 				clefSymbol.setAttribute('x', String(clefX - 2));
 				clefSymbol.setAttribute('y', String(fLineY)); // center on F line
 				clefSymbol.setAttribute('font-size', '40');
-				clefSymbol.setAttribute('font-family', 'Bravura, Georgia, serif');
+				clefSymbol.setAttribute('font-family', "'Bravura', 'Segoe UI Symbol', 'Noto Music', Georgia, serif");
 				clefSymbol.setAttribute('fill', '#d1d5db');
 				clefSymbol.setAttribute('text-anchor', 'start');
 				clefSymbol.setAttribute('dominant-baseline', 'middle');
@@ -1538,6 +2241,205 @@ class SheetMusicGenerator {
 
 			return { topY, spacing, clef };
 		};
+
+	// Determine the key signature AND scale-specific accidentals using
+	// parent/relative major logic (so modes show the correct key signature)
+	// and the same scaleNotes used by the Scale Circle Explorer.
+	const getKeySignatureForScale = () => {
+		if (!this.musicTheory || !this.musicTheory.keySignatures) return null;
+
+		const key = this.state.key;
+		const scaleId = this.state.scale;
+		let scaleNotes = Array.isArray(this.state.scaleNotes) ? this.state.scaleNotes.slice() : [];
+
+		// --- Fallback: compute scale notes if missing or too short ---
+		// Prefer key-signature-aware spellings (flats in flat contexts, sharps in sharp contexts)
+		if (scaleNotes.length < 5) {
+			try {
+				if (this.musicTheory.getScaleNotesWithKeySignature) {
+					const computedKs = this.musicTheory.getScaleNotesWithKeySignature(key, scaleId);
+					if (Array.isArray(computedKs) && computedKs.length >= 5) {
+						scaleNotes = computedKs.slice();
+					}
+				}
+				if (scaleNotes.length < 5 && this.musicTheory.getScaleNotes) {
+					const computed = this.musicTheory.getScaleNotes(key, scaleId);
+					if (Array.isArray(computed) && computed.length >= 5) {
+						scaleNotes = computed.slice();
+					}
+				}
+			} catch (e) { /* ignore */ }
+		}
+
+		// --- 1. Determine parent major key for the given tonic+scale ---
+
+		// Helper: relative major (for natural minor / aeolian)
+		const getRelativeMajor = (minorKey) => {
+			const nv = this.musicTheory.noteValues || {};
+			const val = nv[minorKey];
+			if (val == null) return minorKey;
+			const targetPc = (val + 3) % 12; // up a minor 3rd
+			const majorKeysOrder = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
+			for (const k of majorKeysOrder) {
+				if (nv[k] != null && (nv[k] % 12) === targetPc) return k;
+			}
+			return minorKey;
+		};
+
+		// Helper: parent major for church modes (Ionian parent = tonic,
+		// Dorian parent = a whole step below, etc.)
+		const getParentMajorForMode = (tonic, modeId) => {
+			const majorKeys = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
+			const nv = this.musicTheory.noteValues || {};
+			const tonicVal = nv[tonic];
+			if (tonicVal == null) return null;
+
+			// Major scale degree semitone distances from the parent tonic
+			const majorDegSemis = [0, 2, 4, 5, 7, 9, 11];
+			const modeIndex = {
+				ionian: 0, major: 0,
+				dorian: 1,
+				phrygian: 2,
+				lydian: 3,
+				mixolydian: 4,
+				aeolian: 5,
+				locrian: 6
+			}[modeId];
+			if (modeIndex == null) return null;
+
+			// tonic = parent + majorDegSemis[modeIndex]
+			const parentPc = (tonicVal - majorDegSemis[modeIndex] + 12) % 12;
+
+			for (const k of majorKeys) {
+				if (nv[k] != null && (nv[k] % 12) === parentPc) {
+					if (this.musicTheory.keySignatures[k]) return k;
+				}
+			}
+			return null;
+		};
+
+		let parentKey = key; // default: tonic major
+
+		// --- Simplify modal signatures: use parallel major/minor instead of relative major ---
+		if (this.state.simplifyModalSignatures) {
+			// For "dark" modes (minor-like), use parallel minor (relative major of tonic)
+			// For "bright" modes, use parallel major (tonic major)
+			if (scaleId === 'major' || scaleId === 'ionian') {
+				parentKey = key;
+			} else if (scaleId === 'minor' || scaleId === 'aeolian' || scaleId === 'harmonic' || scaleId === 'melodic') {
+				parentKey = getRelativeMajor(key);
+			} else if (['dorian', 'phrygian', 'locrian'].includes(scaleId)) {
+				// Use parallel minor signature (e.g., C Locrian → C minor = Eb major signature)
+				parentKey = getRelativeMajor(key);
+			} else if (['lydian', 'mixolydian'].includes(scaleId)) {
+				// Use parallel major signature (e.g., C Lydian → C major)
+				parentKey = key;
+			} else {
+				// Other scales: default to tonic major
+				parentKey = key;
+			}
+		} else {
+			// Original relative-major logic (more complex for modes)
+			if (scaleId === 'major' || scaleId === 'ionian') {
+				parentKey = key;
+			} else if (scaleId === 'minor' || scaleId === 'aeolian' || scaleId === 'harmonic' || scaleId === 'melodic') {
+				parentKey = getRelativeMajor(key);
+			} else if (['dorian', 'phrygian', 'lydian', 'mixolydian', 'locrian'].includes(scaleId)) {
+				parentKey = getParentMajorForMode(key, scaleId) || key;
+			} else {
+				parentKey = key;
+			}
+		}
+
+		const baseSignature = this.musicTheory.keySignatures[parentKey] || { accidentals: [], type: 'natural' };
+
+		// If we don't have explicit scale notes, return just the base signature
+		if (!scaleNotes.length) {
+			return {
+				baseSignature,
+				scaleAccidentals: []
+			};
+		}
+
+		// --- 2. Compute colored accidentals by comparing parent key signature vs scaleNotes ---
+
+		const enharmonics = {
+			'C': ['C', 'B#', 'Dbb'],
+			'C#': ['C#', 'Db', 'B##'],
+			'Db': ['Db', 'C#', 'B##'],
+			'D': ['D', 'C##', 'Ebb'],
+			'D#': ['D#', 'Eb', 'Fbb'],
+			'Eb': ['Eb', 'D#', 'Fbb'],
+			'E': ['E', 'Fb', 'D##'],
+			'Fb': ['Fb', 'E'],
+			'F': ['F', 'E#', 'Gbb'],
+			'F#': ['F#', 'Gb', 'E##'],
+			'Gb': ['Gb', 'F#', 'E##'],
+			'G': ['G', 'F##', 'Abb'],
+			'G#': ['G#', 'Ab'],
+			'Ab': ['Ab', 'G#'],
+			'A': ['A', 'G##', 'Bbb'],
+			'A#': ['A#', 'Bb', 'Cbb'],
+			'Bb': ['Bb', 'A#', 'Cbb'],
+			'B': ['B', 'Cb', 'A##'],
+			'Cb': ['Cb', 'B', 'A##']
+		};
+
+		const getLetter = (note) => (note && note[0]) || '';
+		const baseAccidentals = baseSignature.accidentals || [];
+		const scaleAccidentals = [];
+
+		['C', 'D', 'E', 'F', 'G', 'A', 'B'].forEach(letter => {
+			const scaleNote = scaleNotes.find(n => getLetter(n) === letter);
+			if (!scaleNote) return;
+
+			const sigNote = baseAccidentals.find(acc => getLetter(acc) === letter) || letter;
+			const sigOptions = enharmonics[sigNote] || [sigNote];
+
+			if (sigOptions.includes(scaleNote)) return; // already covered by key signature
+
+			if (!scaleAccidentals.includes(scaleNote)) {
+				scaleAccidentals.push(scaleNote);
+			}
+		});
+
+		// --- 3. Compute characteristic differences vs parallel major/minor ---
+		const minorFamily = ['aeolian', 'minor', 'dorian', 'phrygian', 'locrian', 'harmonic', 'melodic'];
+		const majorFamily = ['ionian', 'major', 'lydian', 'mixolydian'];
+
+		let parallelBaseline = { accidentals: [], type: 'natural' };
+		if (minorFamily.includes(scaleId)) {
+			const relMaj = getRelativeMajor(key);
+			parallelBaseline = this.musicTheory.keySignatures[relMaj] || parallelBaseline;
+		} else if (majorFamily.includes(scaleId)) {
+			parallelBaseline = this.musicTheory.keySignatures[key] || parallelBaseline;
+		}
+
+		const baseAccs = baseSignature.accidentals || [];
+		const parAccs = parallelBaseline.accidentals || [];
+		const setOf = (arr) => new Set(arr || []);
+		const baseSet = setOf(baseAccs);
+		const parSet = setOf(parAccs);
+
+		const characteristicRecolors = baseAccs.filter(a => !parSet.has(a));
+		const letterOf = (a) => (a && a[0]) || '';
+		const characteristicNaturals = parAccs
+			.filter(a => !baseSet.has(a))
+			.map(letterOf)
+			.filter((v, i, arr) => v && arr.indexOf(v) === i);
+
+		return {
+			baseSignature,
+			scaleAccidentals,
+			characteristic: {
+				recolors: characteristicRecolors,
+				naturals: characteristicNaturals
+			}
+		};
+	};
+
+	// Capture sigData once for the whole render
+	const sigData = getKeySignatureForScale();
 
 	// Draw staff(s) based on staffType
 	let treble = null;
@@ -1555,201 +2457,8 @@ class SheetMusicGenerator {
 		treble = drawStaff(baseStaffTopY, 'treble');
 	}
 
-		// Determine the key signature AND scale-specific accidentals using
-		// parent/relative major logic (so modes show the correct key signature)
-		// and the same scaleNotes used by the Scale Circle Explorer.
-		const getKeySignatureForScale = () => {
-			if (!this.musicTheory || !this.musicTheory.keySignatures) return null;
 
-			const key = this.state.key;
-			const scaleId = this.state.scale;
-			let scaleNotes = Array.isArray(this.state.scaleNotes) ? this.state.scaleNotes.slice() : [];
 
-			// --- Fallback: compute scale notes if missing or too short ---
-			// Prefer key-signature-aware spellings (flats in flat contexts, sharps in sharp contexts)
-			if (scaleNotes.length < 5) {
-				try {
-					if (this.musicTheory.getScaleNotesWithKeySignature) {
-						const computedKs = this.musicTheory.getScaleNotesWithKeySignature(key, scaleId);
-						if (Array.isArray(computedKs) && computedKs.length >= 5) {
-							scaleNotes = computedKs.slice();
-						}
-					}
-					if (scaleNotes.length < 5 && this.musicTheory.getScaleNotes) {
-						const computed = this.musicTheory.getScaleNotes(key, scaleId);
-						if (Array.isArray(computed) && computed.length >= 5) {
-							scaleNotes = computed.slice();
-						}
-					}
-				} catch (e) { /* ignore */ }
-			}
-
-			// --- 1. Determine parent major key for the given tonic+scale ---
-
-			// Helper: relative major (for natural minor / aeolian)
-			const getRelativeMajor = (minorKey) => {
-				const nv = this.musicTheory.noteValues || {};
-				const val = nv[minorKey];
-				if (val == null) return minorKey;
-				const targetPc = (val + 3) % 12; // up a minor 3rd
-				const majorKeysOrder = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
-				for (const k of majorKeysOrder) {
-					if (nv[k] != null && (nv[k] % 12) === targetPc) return k;
-				}
-				return minorKey;
-			};
-
-			// Helper: parent major for church modes (Ionian parent = tonic,
-			// Dorian parent = a whole step below, etc.)
-			const getParentMajorForMode = (tonic, modeId) => {
-				const majorKeys = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
-				const nv = this.musicTheory.noteValues || {};
-				const tonicVal = nv[tonic];
-				if (tonicVal == null) return null;
-
-				// Major scale degree semitone distances from the parent tonic
-				const majorDegSemis = [0, 2, 4, 5, 7, 9, 11];
-				const modeIndex = {
-					ionian: 0, major: 0,
-					dorian: 1,
-					phrygian: 2,
-					lydian: 3,
-					mixolydian: 4,
-					aeolian: 5,
-					locrian: 6
-				}[modeId];
-				if (modeIndex == null) return null;
-
-				// tonic = parent + majorDegSemis[modeIndex]
-				const parentPc = (tonicVal - majorDegSemis[modeIndex] + 12) % 12;
-
-				for (const k of majorKeys) {
-					if (nv[k] != null && (nv[k] % 12) === parentPc) {
-						if (this.musicTheory.keySignatures[k]) return k;
-					}
-				}
-				return null;
-			};
-
-			let parentKey = key; // default: tonic major
-
-			// --- Simplify modal signatures: use parallel major/minor instead of relative major ---
-			if (this.state.simplifyModalSignatures) {
-				// For "dark" modes (minor-like), use parallel minor (relative major of tonic)
-				// For "bright" modes, use parallel major (tonic major)
-				if (scaleId === 'major' || scaleId === 'ionian') {
-					parentKey = key;
-				} else if (scaleId === 'minor' || scaleId === 'aeolian' || scaleId === 'harmonic' || scaleId === 'melodic') {
-					parentKey = getRelativeMajor(key);
-				} else if (['dorian', 'phrygian', 'locrian'].includes(scaleId)) {
-					// Use parallel minor signature (e.g., C Locrian → C minor = Eb major signature)
-					parentKey = getRelativeMajor(key);
-				} else if (['lydian', 'mixolydian'].includes(scaleId)) {
-					// Use parallel major signature (e.g., C Lydian → C major)
-					parentKey = key;
-				} else {
-					// Other scales: default to tonic major
-					parentKey = key;
-				}
-			} else {
-				// Original relative-major logic (more complex for modes)
-				if (scaleId === 'major' || scaleId === 'ionian') {
-					parentKey = key;
-				} else if (scaleId === 'minor' || scaleId === 'aeolian' || scaleId === 'harmonic' || scaleId === 'melodic') {
-					parentKey = getRelativeMajor(key);
-				} else if (['dorian', 'phrygian', 'lydian', 'mixolydian', 'locrian'].includes(scaleId)) {
-					parentKey = getParentMajorForMode(key, scaleId) || key;
-				} else {
-					parentKey = key;
-				}
-			}
-
-			const baseSignature = this.musicTheory.keySignatures[parentKey] || { accidentals: [], type: 'natural' };
-
-			// If we don't have explicit scale notes, return just the base signature
-			if (!scaleNotes.length) {
-				return {
-					baseSignature,
-					scaleAccidentals: []
-				};
-			}
-
-			// --- 2. Compute colored accidentals by comparing parent key signature vs scaleNotes ---
-
-			const enharmonics = {
-				'C': ['C', 'B#', 'Dbb'],
-				'C#': ['C#', 'Db', 'B##'],
-				'Db': ['Db', 'C#', 'B##'],
-				'D': ['D', 'C##', 'Ebb'],
-				'D#': ['D#', 'Eb', 'Fbb'],
-				'Eb': ['Eb', 'D#', 'Fbb'],
-				'E': ['E', 'Fb', 'D##'],
-				'Fb': ['Fb', 'E'],
-				'F': ['F', 'E#', 'Gbb'],
-				'F#': ['F#', 'Gb', 'E##'],
-				'Gb': ['Gb', 'F#', 'E##'],
-				'G': ['G', 'F##', 'Abb'],
-				'G#': ['G#', 'Ab'],
-				'Ab': ['Ab', 'G#'],
-				'A': ['A', 'G##', 'Bbb'],
-				'A#': ['A#', 'Bb', 'Cbb'],
-				'Bb': ['Bb', 'A#', 'Cbb'],
-				'B': ['B', 'Cb', 'A##'],
-				'Cb': ['Cb', 'B', 'A##']
-			};
-
-			const getLetter = (note) => (note && note[0]) || '';
-			const baseAccidentals = baseSignature.accidentals || [];
-			const scaleAccidentals = [];
-
-			['C', 'D', 'E', 'F', 'G', 'A', 'B'].forEach(letter => {
-				const scaleNote = scaleNotes.find(n => getLetter(n) === letter);
-				if (!scaleNote) return;
-
-				const sigNote = baseAccidentals.find(acc => getLetter(acc) === letter) || letter;
-				const sigOptions = enharmonics[sigNote] || [sigNote];
-
-				if (sigOptions.includes(scaleNote)) return; // already covered by key signature
-
-				if (!scaleAccidentals.includes(scaleNote)) {
-					scaleAccidentals.push(scaleNote);
-				}
-			});
-
-			// --- 3. Compute characteristic differences vs parallel major/minor ---
-			const minorFamily = ['aeolian', 'minor', 'dorian', 'phrygian', 'locrian', 'harmonic', 'melodic'];
-			const majorFamily = ['ionian', 'major', 'lydian', 'mixolydian'];
-
-			let parallelBaseline = { accidentals: [], type: 'natural' };
-			if (minorFamily.includes(scaleId)) {
-				const relMaj = getRelativeMajor(key);
-				parallelBaseline = this.musicTheory.keySignatures[relMaj] || parallelBaseline;
-			} else if (majorFamily.includes(scaleId)) {
-				parallelBaseline = this.musicTheory.keySignatures[key] || parallelBaseline;
-			}
-
-			const baseAccs = baseSignature.accidentals || [];
-			const parAccs = parallelBaseline.accidentals || [];
-			const setOf = (arr) => new Set(arr || []);
-			const baseSet = setOf(baseAccs);
-			const parSet = setOf(parAccs);
-
-			const characteristicRecolors = baseAccs.filter(a => !parSet.has(a));
-			const letterOf = (a) => (a && a[0]) || '';
-			const characteristicNaturals = parAccs
-				.filter(a => !baseSet.has(a))
-				.map(letterOf)
-				.filter((v, i, arr) => v && arr.indexOf(v) === i);
-
-			return {
-				baseSignature,
-				scaleAccidentals,
-				characteristic: {
-					recolors: characteristicRecolors,
-					naturals: characteristicNaturals
-				}
-			};
-		};
 
         // Traditional key signature accidentals (per staff)
         const drawKeySignature = (staffMeta, clef = 'treble') => {
@@ -1766,7 +2475,7 @@ class SheetMusicGenerator {
             const flatChar = '\u266D';  // ♭
             const naturalChar = '\u266E'; // ♮
             const accSpacing = 7;
-            const startX = staffLeft + 35; // Start key signature to the right of clef symbol
+            const startX = staffLeft + 45; // Start key signature after the clef
 
             // Staff step (0 = bottom line, 1 = first space, etc.) -> Y coordinate
             const yForStep = (step) => staffMeta.topY + 4 * staffMeta.spacing - step * (staffMeta.spacing / 2);
@@ -1884,11 +2593,34 @@ class SheetMusicGenerator {
 					svg.appendChild(t);
 				});
 			}
-		};		// Draw key signatures
+		};
+		// Draw key signatures
 		if (this.state.showKeySignature) {
 			if (treble) drawKeySignature(treble, 'treble');
 			if (bass) drawKeySignature(bass, 'bass');
 		}
+
+		// Draw time signature (4/4 or phrase-derived)
+		const drawTimeSignature = (staffMeta) => {
+			const beats = (this.state.musicalPhrase && this.state.musicalPhrase.beatsPerBar) || 4;
+			const unit = (this.state.musicalPhrase && this.state.musicalPhrase.beatUnit) || 4;
+			const tsX = staffLeft + 97;
+			const midY = staffMeta.topY + 2 * staffMeta.spacing;
+			for (const [num, yOff] of [[beats, -staffMeta.spacing * 1.5], [unit, staffMeta.spacing * 1.5]]) {
+				const t = document.createElementNS(svgNS, 'text');
+				t.setAttribute('x', String(tsX));
+				t.setAttribute('y', String(midY + yOff));
+				t.setAttribute('fill', '#d1d5db');
+				t.setAttribute('font-size', '18');
+				t.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
+				t.setAttribute('text-anchor', 'middle');
+				t.setAttribute('dominant-baseline', 'middle');
+				t.textContent = String(num);
+				svg.appendChild(t);
+			}
+		};
+		if (treble) drawTimeSignature(treble);
+		if (bass && !treble) drawTimeSignature(bass);
 
         // Small key/scale text label (for context)
 		const keyText = document.createElementNS(svgNS, 'text');
@@ -2776,7 +3508,7 @@ class SheetMusicGenerator {
 			// Do not force a note onto each staff. If all notes sit comfortably in one clef
 			// (e.g., after large octave offsets), render them only on that clef to avoid excessive ledger lines.
 
-			const xCenter = staffLeft + (barIndex + 0.5) * barWidth;
+			const xCenter = firstBarX + (barIndex + 0.5) * barWidth;
 			// Slightly larger noteheads so internal letter labels fit legibly
 			const radius = 6;
 
@@ -2968,7 +3700,17 @@ class SheetMusicGenerator {
 				notesArr.forEach((note, idx) => {
 					const staffPosition = noteToStaffPosition(note, staffMeta.clef);
 					const y = staffPositionToY(staffPosition, staffMeta);
-				const x = xCenter + (idx - (notesArr.length - 1) / 2) * (radius * 2.2);
+				const x = xCenter;
+
+                // Note Group
+                const noteG = document.createElementNS(svgNS, 'g');
+                noteG.style.cursor = 'pointer';
+                noteG.setAttribute('class', 'interactive-note');
+                noteG.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this._playNote(note);
+                });
+
 				const circle = document.createElementNS(svgNS, 'circle');
 				circle.setAttribute('cx', String(x));
 				circle.setAttribute('cy', String(y));
@@ -2976,7 +3718,7 @@ class SheetMusicGenerator {
 				circle.setAttribute('fill', '#e5e7eb');
 				circle.setAttribute('stroke', '#e5e7eb');
 				circle.setAttribute('stroke-width', '1');
-				svg.appendChild(circle); 					// Draw the note letter (include accidental if present) inside the notehead
+				noteG.appendChild(circle); 					// Draw the note letter (include accidental if present) inside the notehead
 					// Prefer the chord root's enharmonic spelling when possible so small-note
 					// labels agree with the chord title (e.g., 'Db' vs 'C#').
 					let noteLabel = null;
@@ -3009,8 +3751,12 @@ class SheetMusicGenerator {
 					t.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
 					t.setAttribute('text-anchor', 'middle');
 					t.setAttribute('dominant-baseline', 'middle');
+                    t.style.pointerEvents = 'none'; // click the group/circle
 					t.textContent = noteLabel;
-					svg.appendChild(t);
+					noteG.appendChild(t);
+                    
+                    svg.appendChild(noteG);
+
 					try { smallNoteTexts.push(String(noteLabel)); } catch(_){}
 					if (staffPosition < -0.5 || staffPosition > 4.5) {
 						drawLedgerLines(svg, x, y, staffPosition, staffMeta, radius);
@@ -3137,7 +3883,7 @@ class SheetMusicGenerator {
 				}
 			}
             
-			const xCenter = staffLeft + (barIndex + 0.5) * barWidth;
+			const xCenter = firstBarX + (barIndex + 0.5) * barWidth;
 			// Slightly larger noteheads to accommodate internal labels
 			const radius = 6;
 
@@ -3317,8 +4063,17 @@ class SheetMusicGenerator {
 				// Use staff-aware positioning (note already has octave number)
 				const staffPosition = noteToStaffPosition(note, staffMeta.clef);
 				const y = staffPositionToY(staffPosition, staffMeta);
-				const x = xCenter + (idx - (notes.length - 1) / 2) * (radius * 2.2);
+				const x = xCenter;
                 
+                // Interactive Note Group
+                const noteG = document.createElementNS(svgNS, 'g');
+                noteG.style.cursor = 'pointer';
+                noteG.setAttribute('class', 'interactive-note');
+                noteG.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this._playNote(note);
+                });
+
 				const circle = document.createElementNS(svgNS, 'circle');
 				circle.setAttribute('cx', String(x));
 				circle.setAttribute('cy', String(y));
@@ -3326,7 +4081,7 @@ class SheetMusicGenerator {
 				circle.setAttribute('fill', '#d1d5db');
 				circle.setAttribute('stroke', '#d1d5db');
 				circle.setAttribute('stroke-width', '1.2');
-				svg.appendChild(circle);
+				noteG.appendChild(circle);
 
 				// Draw the note label inside head (letter + accidental if present)
 				let noteLabel = null;
@@ -3358,8 +4113,12 @@ class SheetMusicGenerator {
 				t.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
 				t.setAttribute('text-anchor', 'middle');
 				t.setAttribute('dominant-baseline', 'middle');
+                t.style.pointerEvents = 'none';
 				t.textContent = noteLabel;
-				svg.appendChild(t);
+				noteG.appendChild(t);
+                
+                svg.appendChild(noteG);
+
 				try { _smallNoteTexts_local.push(String(noteLabel)); } catch(_){}
                 
 				// Add ledger lines if needed (notes above/below staff)
@@ -3375,7 +4134,7 @@ class SheetMusicGenerator {
 			} catch (_) { /* non-fatal */ }
         };		if (chordsToShow.length === 0) {
 			const empty = document.createElementNS(svgNS, 'text');
-			empty.setAttribute('x', String((staffLeft + staffRight) / 2));
+			empty.setAttribute('x', String((firstBarX + staffRight) / 2));
 			const emptyY = (treble ? treble.topY : bass.topY) + (treble ? treble.spacing : bass.spacing) * 2;
 			empty.setAttribute('y', String(emptyY));
 			empty.setAttribute('fill', '#999');
@@ -3386,23 +4145,225 @@ class SheetMusicGenerator {
 			empty.textContent = 'Select a chord to see it on the staff';
 			svg.appendChild(empty);
 		} else {
+
 			if (this.state.barMode === 'single') {
 				if (this.state.staffType === 'grand' && treble && bass && this.state.splitAcrossGrand) {
-					drawChordSplitAcrossGrand(chordsToShow[0], 1, treble, bass);
+					drawChordSplitAcrossGrand(chordsToShow[0], 0, treble, bass);
 				} else {
-					if (treble) drawChordInBar(chordsToShow[0], 1, treble);
-					if (bass) drawChordInBar(chordsToShow[0], 1, bass);
+					if (treble) drawChordInBar(chordsToShow[0], 0, treble);
+					if (bass) drawChordInBar(chordsToShow[0], 0, bass);
 				}
 			} else {
-					chordsToShow.forEach((chord, idx) => {
-						const barIndex = idx; // direct positional mapping
-					if (this.state.staffType === 'grand' && treble && bass && this.state.splitAcrossGrand) {
-						drawChordSplitAcrossGrand(chord, barIndex, treble, bass);
-					} else {
-						if (treble) drawChordInBar(chord, barIndex, treble);
-						if (bass) drawChordInBar(chord, barIndex, bass);
-					}
-				});
+                // RHYTHMIC RENDER LOOP
+                const phrase = this.state.musicalPhrase;
+                
+                console.log('[Sheet] Render - Phrase check JSON:\n' + safeJson({
+                    hasPhrase: !!phrase,
+                    hasBars: phrase && Array.isArray(phrase.bars),
+                    barCount: phrase && phrase.bars ? phrase.bars.length : 0
+                }));
+                
+                if (phrase && Array.isArray(phrase.bars)) {
+                    const traceId = phrase.__traceId || this.state.__lastTraceId || null;
+                    const renderAudit = { chordsIntended: 0, chordsDrawn: 0, melodiesDrawn: 0, restsDrawn: 0, chordSkips: [] };
+                    pushSheetTrace(traceId, 'render.phraseMode.start', {
+                        bars: phrase.bars.length,
+                        beatsPerBar: phrase.beatsPerBar || 4,
+                        staffType: this.state.staffType
+                    });
+                    // PHRASE ENGINE MODE: Full rhythmic rendering
+                    console.log('[Sheet] ** PHRASE RENDERING MODE ** - rendering', phrase.bars.length, 'bars');
+                    
+                    const phraseBeatsPerBar = phrase.beatsPerBar || 4;
+                    phrase.bars.forEach((bar, barIndex) => {
+                        const barX = firstBarX + barIndex * barWidth;
+                        // Space notes by musical time, not array index — quarter note = 1/beatsPerBar of bar width.
+                        const beatSlotWidth = barWidth / phraseBeatsPerBar;
+                        const __barEVals = bar.beats.map(b => b.energy || 0);
+                        const __barEMin = Math.min(...__barEVals).toFixed(3);
+                        const __barEMax = Math.max(...__barEVals).toFixed(3);
+
+                        console.log(`[Sheet] ━━━ Bar ${barIndex + 1} | key=${bar.key||phrase.startKey||'?'} scale=${bar.scale||'?'} | ${phraseBeatsPerBar}/${phrase.beatUnit||4} | events=${bar.beats.length} | energy=${__barEMin}→${__barEMax}`);
+
+                        bar.beats.forEach((event, beatIndex) => {
+                            // Position by musical time (fractional beat within bar), not by array index.
+                            // This ensures eighth-note off-beats land at the correct visual position.
+                            const fracInBar = event.arcStage
+                                ? (event.arcStage.absoluteBeat - barIndex * phraseBeatsPerBar)
+                                : beatIndex;
+                            const x = barX + fracInBar * beatSlotWidth + (beatSlotWidth * 0.15); // Consistent start position
+                            
+                            const chordName = event.chordObj ? `${event.chordObj.root}${event.chordObj.chordType}` : 'none';
+                            const melodyInfo = event.melodySequence && event.melodySequence.length > 0 
+                                ? `(${event.melodySequence.length}): ${event.melodySequence.map(m => m.noteName).join(',')}`
+                                : '(0)';
+                                
+                            console.log(`[Sheet]   Event ${beatIndex + 1}: X=${x.toFixed(0)} frac=${(event.arcStage ? event.arcStage.absoluteBeat - barIndex * phraseBeatsPerBar : beatIndex * 0.5).toFixed(1)} | dur=${event.duration} | chord=${chordName} | melody${melodyInfo} | isRest=${event.isRest || false}`);
+                            if (typeof window !== 'undefined' && window.__sheetDiagnostics && window.__sheetDiagnostics.verbose) {
+                                pushSheetTrace(traceId, 'render.event', {
+                                    bar: barIndex + 1,
+                                    eventIndex: beatIndex + 1,
+                                    x: Number(x.toFixed(2)),
+                                    duration: event.duration,
+                                    chord: chordName,
+                                    melody: melodyInfo,
+                                    isRest: !!event.isRest
+                                });
+                            }
+                            
+                            // Skip if this is a rest event
+                            if (event.isRest) {
+                                const centerY = (treble || bass).topY + 2 * (treble || bass).spacing;
+                                this._drawRest(svg, x, centerY, event.duration || 'quarter', { color: '#d1d5db' });
+                                renderAudit.restsDrawn += 1;
+                                console.log(`[Sheet]   REST | beat=${fracInBar.toFixed(1)} dur=${event.duration||'quarter'} accent=${event.accent||false}`);
+                                return;
+                            }
+                            
+                            const clef = (treble ? 'treble' : 'bass');
+                            const staffMeta = treble || bass;
+                            // Chord uses its own duration (e.g. whole note for a 4-beat chord);
+                            // melody notes carry individual durations.
+                            const chordDuration = event.chordDuration || event.duration || 'whole';
+                            const beatDuration = event.duration || 'quarter';
+
+                            // 1. Draw Chord notes if present (with rhythm notation)
+                            if (event.chordObj) renderAudit.chordsIntended += 1;
+                            if (event.chordObj && event.chordObj.diatonicNotes && event.chordObj.diatonicNotes.length > 0) {
+                                console.log(`[Sheet]     Drawing chord: ${event.chordObj.root}${event.chordObj.chordType} with ${event.chordObj.diatonicNotes.length} notes`);
+                                renderAudit.chordsDrawn += 1;
+								const defaultOct = (clef === 'bass') ? 3 : 4;
+                                const __chordToneDetail = event.chordObj.diatonicNotes.map(n => {
+                                    const pn = /\d/.test(String(n)) ? String(n) : (String(n) + defaultOct);
+                                    return `${pn}[${this.__posLabel(noteToStaffPosition(pn, clef))}]`;
+                                }).join(' ');
+                                console.log(`[Sheet]     Chord tones: ${__chordToneDetail} | role=${event.harmonyRole||'?'} | chordDur=${chordDuration} | energy=${(event.energy||0).toFixed(3)}`);
+								event.chordObj.diatonicNotes.forEach((noteName) => {
+									const spelledName = (typeof convertToKeySignatureSpelling === 'function') ? convertToKeySignatureSpelling(noteName) : noteName;
+									const pos = noteToStaffPosition(spelledName, clef);
+									const y = staffPositionToY(pos, staffMeta);
+									const playableName = /\d/.test(String(spelledName)) ? String(spelledName) : (String(spelledName) + String(defaultOct));
+									this._drawRhythmicNote(svg, x, y, chordDuration, {
+										direction: 'down',
+										color: '#d1d5db',
+										isChord: true,
+										noteName: playableName,
+										sigData: sigData
+									});
+								});
+                            } else if (event.chordObj) {
+                                const skip = {
+                                    bar: barIndex + 1,
+                                    event: beatIndex + 1,
+                                    chord: `${event.chordObj.root || ''}${event.chordObj.chordType || ''}`,
+                                    reason: 'missing_diatonic_notes'
+                                };
+                                renderAudit.chordSkips.push(skip);
+                                console.warn('[Sheet]     Skipping chord draw (no notes)', skip);
+                            }
+                            
+                            // 2. Draw Melody sequence if present (orange stems UP)
+                            if (event.melodySequence && Array.isArray(event.melodySequence) && event.melodySequence.length > 0) {
+                                console.log(`[Sheet]     Drawing melody: ${event.melodySequence.length} notes`);
+                                renderAudit.melodiesDrawn += event.melodySequence.length;
+                                event.melodySequence.forEach((mn, __mi) => {
+                                    const __mPos = noteToStaffPosition(mn.noteName, clef);
+                                    console.log(`[Sheet]     Melody[${__mi}]: ${mn.noteName}[${this.__posLabel(__mPos)}] dur=${mn.duration||beatDuration} beat=${fracInBar.toFixed(1)} accent=${event.accent||false}`);
+                                });
+                                // Draw each note in the melody with visual rhythm
+                                // MELODIC SPACING: Distribute notes across beat duration proportionally
+                                const melodyNoteCount = event.melodySequence.length || 1;
+                                const spacingPerNote = (beatSlotWidth * 0.95) / Math.max(1, melodyNoteCount);
+                                
+                                event.melodySequence.forEach((melodyNote, idx) => {
+                                    if (!melodyNote || !melodyNote.noteName) return;
+                                    
+                                    const spelledMelodyName = (typeof convertToKeySignatureSpelling === 'function') ? convertToKeySignatureSpelling(melodyNote.noteName) : melodyNote.noteName;
+                                    const melodyPos = noteToStaffPosition(spelledMelodyName, clef);
+                                    const melodyY = staffPositionToY(melodyPos, staffMeta);
+                                    
+                                    // Distribute melody notes across beat duration with proper spacing
+                                    // Start melody at same X as chord but use internal spacing
+                                    const melodyX = x + (idx * spacingPerNote);
+                                    
+                                    // Use rhythm duration from melody note if available, else beat duration
+                                    const noteDuration = melodyNote.duration || event.duration || 'quarter';
+									const playableName = /\d/.test(String(spelledMelodyName)) ? String(spelledMelodyName) : (String(spelledMelodyName) + String(clef === 'bass' ? 3 : 4));
+                                    
+                                    // Draw melody with up stems (opposite of chord which stems down)
+                                    this._drawRhythmicNote(svg, melodyX, melodyY, noteDuration, {
+                                        direction: 'up',
+                                        color: '#f97316', // Orange for melody
+										noteName: playableName,
+										sigData: sigData
+                                    });
+
+                                    // Draw Syllable Label below staff
+                                    if (melodyNote.syllable) {
+                                        const syl = document.createElementNS(svgNS, 'text');
+                                        syl.setAttribute('x', String(melodyX));
+                                        syl.setAttribute('y', String(staffMeta.topY + 5 * staffMeta.spacing + 15));
+                                        syl.setAttribute('fill', '#94a3b8');
+                                        syl.setAttribute('font-size', '14');
+                                        syl.setAttribute('font-family', 'Georgia, serif');
+                                        syl.setAttribute('font-style', 'italic');
+                                        syl.setAttribute('text-anchor', 'middle');
+                                        syl.textContent = melodyNote.syllable;
+                                        svg.appendChild(syl);
+                                    }
+                                });
+                            }
+                            
+                            // 3. Draw chord label when a chord is present
+                            if (event.chord) {
+                                const lbl = document.createElementNS(svgNS, 'text');
+                                lbl.setAttribute('x', String(x));
+                                lbl.setAttribute('y', String(staffMeta.topY - 10));
+                                lbl.setAttribute('fill', '#f59e0b');
+                                lbl.setAttribute('font-size', '14');
+                                lbl.setAttribute('font-family', 'var(--font-tech, monospace)');
+                                lbl.setAttribute('text-anchor', 'middle');
+                                lbl.textContent = event.chord;
+                                svg.appendChild(lbl);
+                            }
+                        });
+                        
+                        // Main Label for the Bar (First chord or summary)
+                        if (bar.beats[0] && bar.beats[0].chord) {
+                            const mainLabel = document.createElementNS(svgNS, 'text');
+                            mainLabel.setAttribute('x', String(barX + barWidth/2));
+                            mainLabel.setAttribute('y', String((treble || bass).topY - 25));
+                            mainLabel.setAttribute('fill', '#fff');
+                            mainLabel.setAttribute('font-size', '12');
+                            mainLabel.setAttribute('font-weight', 'bold');
+                            mainLabel.setAttribute('text-anchor', 'middle');
+                            mainLabel.textContent = bar.beats[0].chord;
+                            svg.appendChild(mainLabel);
+                        }
+                    });
+                    
+					this._drawArcEnergyGuide(svg, phrase, {
+						staffLeft: firstBarX,
+						barWidth,
+						staffMeta: treble || bass
+					});
+                    console.log('[Sheet] Render audit JSON:\n' + safeJson(renderAudit));
+                    pushSheetTrace(traceId, 'render.audit', renderAudit);
+                    pushSheetTrace(traceId, 'render.phraseMode.complete', {
+                        barsRendered: phrase.bars.length
+                    });
+                } else {
+                    // LEGACY MODE: One chord per bar
+                    chordsToShow.forEach((chord, idx) => {
+                        const barIndex = idx;
+                        if (this.state.staffType === 'grand' && treble && bass && this.state.splitAcrossGrand) {
+                            drawChordSplitAcrossGrand(chord, barIndex, treble, bass);
+                        } else {
+                            if (treble) drawChordInBar(chord, barIndex, treble);
+                            if (bass) drawChordInBar(chord, barIndex, bass);
+                        }
+                    });
+                }
 			}
 		}
 
@@ -3485,6 +4446,11 @@ class SheetMusicGenerator {
 			ksCb.checked = !!this.state.showKeySignature;
 		}
 
+		const arcGuideCb = this.controlsContainer && this.controlsContainer.querySelector('#show-arc-guide-checkbox');
+		if (arcGuideCb) {
+			arcGuideCb.checked = this.state.showArcGuide !== false;
+		}
+
 		// Update simplify modal signatures checkbox
 		const simplifyCb = this.controlsContainer && this.controlsContainer.querySelector('#simplify-modal-signatures-checkbox');
 		if (simplifyCb) {
@@ -3517,6 +4483,582 @@ class SheetMusicGenerator {
 	}
 }
 
+// ==================== MUSIC GENERATION INTEGRATION ====================
+function parseTimeSignatureSpec(timeSignature, fallbackBeatsPerBar = 4) {
+	const raw = String(timeSignature || '').trim();
+	const match = raw.match(/^(\d+)\s*\/\s*(\d+)$/);
+	if (!match) {
+		const beats = Math.max(1, parseInt(fallbackBeatsPerBar, 10) || 4);
+		return { timeSignature: `${beats}/4`, beatsPerBar: beats, beatUnit: 4 };
+	}
+
+	const beatsPerBar = Math.max(1, parseInt(match[1], 10) || fallbackBeatsPerBar || 4);
+	const beatUnit = Math.max(1, parseInt(match[2], 10) || 4);
+	return {
+		timeSignature: `${beatsPerBar}/${beatUnit}`,
+		beatsPerBar,
+		beatUnit
+	};
+}
+
+function normalizeDurationName(duration, fallback = 'quarter') {
+	if (typeof duration === 'number' && Number.isFinite(duration)) {
+		if (duration >= 4) return 'whole';
+		if (duration >= 2) return 'half';
+		if (duration >= 1.5) return 'dotted-quarter';
+		if (duration >= 1) return 'quarter';
+		if (duration >= 0.75) return 'dotted-eighth';
+		if (duration >= 0.5) return 'eighth';
+		return 'sixteenth';
+	}
+
+	const value = String(duration || '').toLowerCase();
+	if (value === 'whole' || value === 'half' || value === 'quarter' || value === 'eighth' || value === 'sixteenth' || value === 'dotted-quarter' || value === 'dotted-eighth') {
+		return value;
+	}
+	return fallback;
+}
+
+function parseChordSymbolForPhrase(chordText, musicTheory) {
+	const raw = String(chordText || 'C').trim();
+	const match = raw.match(/^([A-G](?:#|b)?)(.*)$/);
+	const root = match ? match[1] : 'C';
+	const chordType = match ? (match[2] || '') : '';
+	let chordNotes = [];
+	try {
+		if (musicTheory && typeof musicTheory.getChordNotes === 'function') {
+			chordNotes = musicTheory.getChordNotes(root, chordType) || [];
+		}
+	} catch (_) {
+		chordNotes = [];
+	}
+
+	// Normalize enharmonic spellings: minor chords and flat-root chords prefer flats
+	if (Array.isArray(chordNotes) && chordNotes.length) {
+		const _lower = String(chordType || '').toLowerCase();
+		const _isMinor = _lower.startsWith('m') || _lower.includes('min') || _lower.includes('dim');
+		const _hasFlatRoot = root.includes('b') || ['F','Bb','Eb','Ab','Db','Gb','Cb'].includes(root);
+		if (_isMinor || _hasFlatRoot) {
+			const _s2f = { 'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab', 'A#': 'Bb' };
+			chordNotes = chordNotes.map(n => {
+				const b = String(n).replace(/\d+$/, '');
+				const oct = (String(n).match(/\d+$/) || [''])[0];
+				return (_s2f[b] || b) + oct;
+			});
+		}
+	}
+
+	// Safety fallback: if theory lookup fails, derive a basic triad so the chord can still render.
+	if (!Array.isArray(chordNotes) || chordNotes.length === 0) {
+		const pcMap = {
+			C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5,
+			'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11
+		};
+		const nameFromPc = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+		const rootPc = pcMap[root];
+		if (Number.isFinite(rootPc)) {
+			const lower = String(chordType || '').toLowerCase();
+			const isDim = lower.includes('dim') || lower.includes('o');
+			const isAug = lower.includes('aug') || lower.includes('+');
+			const isMinor = !isDim && !isAug && (lower.startsWith('m') || lower.includes('min'));
+			const third = isDim ? 3 : isAug ? 4 : isMinor ? 3 : 4;
+			const fifth = isDim ? 6 : isAug ? 8 : 7;
+			chordNotes = [
+				nameFromPc[rootPc % 12],
+				nameFromPc[(rootPc + third) % 12],
+				nameFromPc[(rootPc + fifth) % 12]
+			];
+			try {
+				console.warn('[Sheet] parseChordSymbolForPhrase fallback triad used', { raw, root, chordType, chordNotes });
+			} catch (_) {}
+		}
+	}
+
+	return {
+		root,
+		chordType,
+		chordNotes,
+		diatonicNotes: chordNotes.slice(),
+		fullName: raw
+	};
+}
+
+function getSheetGeneratorInstance() {
+	if (typeof window === 'undefined') return null;
+	if (window.modularApp && window.modularApp.sheetMusicGenerator) {
+		return window.modularApp.sheetMusicGenerator;
+	}
+	if (window.sheetMusicGenerator) {
+		return window.sheetMusicGenerator;
+	}
+	return null;
+}
+
+function ensureSheetDiagnostics() {
+	if (typeof window === 'undefined') return null;
+	if (!window.__sheetDiagnostics) {
+		window.__sheetDiagnostics = {
+			enabled: true,
+			verbose: false,
+			maxTraces: 40,
+			traces: [],
+			lastTraceId: null
+		};
+	}
+	return window.__sheetDiagnostics;
+}
+
+function createSheetTraceId(seed) {
+	const ts = Date.now().toString(36);
+	const rnd = Math.random().toString(36).slice(2, 8);
+	return `sheet-${ts}-${seed || rnd}`;
+}
+
+function safeJson(value) {
+	try {
+		return JSON.stringify(value, null, 2);
+	} catch (_) {
+		return String(value);
+	}
+}
+
+function pushSheetTrace(traceId, stage, payload) {
+	if (typeof window === 'undefined') return;
+	const diag = ensureSheetDiagnostics();
+	if (!diag || !diag.enabled) return;
+	if (!traceId) traceId = createSheetTraceId();
+
+	let trace = diag.traces.find((t) => t.id === traceId);
+	if (!trace) {
+		trace = { id: traceId, startedAt: new Date().toISOString(), events: [] };
+		diag.traces.push(trace);
+		if (diag.traces.length > (diag.maxTraces || 40)) diag.traces.shift();
+	}
+	trace.events.push({
+		t: new Date().toISOString(),
+		stage,
+		payload: payload || null
+	});
+	trace.lastStage = stage;
+	trace.updatedAt = new Date().toISOString();
+	diag.lastTraceId = traceId;
+	try {
+		window.__lastSheetTrace = trace;
+		window.__lastSheetTraceId = traceId;
+		window.__lastSheetTraceJson = safeJson(trace);
+	} catch (_) {}
+
+	if (diag.verbose) {
+		try { console.log(`[SheetTrace:${traceId}] ${stage}`, payload || ''); } catch (_) {}
+	}
+}
+
+function buildPhraseFromGeneratedMusic(detail, sheetGen) {
+	if (!detail || !detail.harmony || !detail.melody) return null;
+	const traceId = detail.traceId || detail.__traceId || createSheetTraceId(detail && detail.seed);
+	pushSheetTrace(traceId, 'buildPhrase.start', {
+		hasHarmony: !!detail.harmony,
+		hasMelody: !!detail.melody,
+		input: detail.input || null,
+		seed: detail.seed
+	});
+
+	const harmony = detail.harmony;
+	const melody = detail.melody;
+	const context = detail.context || {};
+	const arc = detail.arc || {};
+	const harmonicProfile = context.harmonicProfile || {};
+	const semanticContract = detail.semanticContract ||
+		((typeof window !== 'undefined' && window.semanticNotationContractEngine && typeof window.semanticNotationContractEngine.build === 'function')
+			? window.semanticNotationContractEngine.build(detail)
+			: null);
+	const notationDirectives = semanticContract && semanticContract.notation ? semanticContract.notation : null;
+
+	const chordSequence = Array.isArray(harmony.chordSequence) ? harmony.chordSequence : [];
+	if (!chordSequence.length) return null;
+	pushSheetTrace(traceId, 'buildPhrase.inputs', {
+		chordEvents: chordSequence.length,
+		melodyEvents: Array.isArray(melody.notes) ? melody.notes.length : 0,
+		timeSignature: context.timeSignature || arc.timeSignature || null,
+		hasSemanticContract: !!semanticContract,
+		primaryMood: notationDirectives && notationDirectives.primaryMood ? notationDirectives.primaryMood : null
+	});
+
+	const parsedSignature = parseTimeSignatureSpec(context.timeSignature || arc.timeSignature, arc.beatsPerBar || 4);
+	const beatsPerBar = Math.max(1, parseInt(arc.beatsPerBar, 10) || parsedSignature.beatsPerBar || 4);
+	const beatUnit = parsedSignature.beatUnit || 4;
+	const timeSignature = `${beatsPerBar}/${beatUnit}`;
+	const barCount = Math.max(1, parseInt(arc.bars, 10) || chordSequence.length || 4);
+	const defaultBeatDuration = beatUnit === 8 ? 'eighth' : (beatUnit === 2 ? 'half' : 'quarter');
+
+	const melodySequenceByBeat = new Map();
+	const rhythmByBeat = new Map();
+	const accentByBeat = new Map();
+	const chordByBeat = new Map();
+	const musicTheory = sheetGen ? sheetGen.musicTheory : null;
+
+	const durationBeatsToName = (durationBeats, fallback) => {
+		const x = Number(durationBeats);
+		if (!Number.isFinite(x) || x <= 0) return fallback;
+		// generateMelody durations are in quarter-note beats (1=quarter, 0.5=eighth)
+		const table = [
+			{ beats: 4, name: 'whole' },
+			{ beats: 2, name: 'half' },
+			{ beats: 1.5, name: 'dotted-quarter' },
+			{ beats: 1, name: 'quarter' },
+			{ beats: 0.75, name: 'dotted-eighth' },
+			{ beats: 0.5, name: 'eighth' },
+			{ beats: 0.25, name: 'sixteenth' }
+		];
+		let best = table[0];
+		let bestDist = Math.abs(x - best.beats);
+		for (let i = 1; i < table.length; i++) {
+			const d = Math.abs(x - table[i].beats);
+			if (d < bestDist) {
+				best = table[i];
+				bestDist = d;
+			}
+		}
+		return best && best.name ? best.name : fallback;
+	};
+
+	const toAbsoluteBeat = (noteEvent) => {
+		if (!noteEvent) return null;
+		if (Number.isFinite(noteEvent.absoluteBeat)) return noteEvent.absoluteBeat;
+		// Preferred: bar + beat (generateMelody format). Beat is 0-based and may be fractional.
+		if (Number.isFinite(noteEvent.bar) && Number.isFinite(noteEvent.beat)) {
+			return (noteEvent.bar * beatsPerBar) + noteEvent.beat;
+		}
+		// Fallback: some engines store a global beat index in `beat`.
+		if (Number.isFinite(noteEvent.beat)) return noteEvent.beat;
+		return null;
+	};
+
+	// Map chord events (generateHarmony format) onto beat grid.
+	chordSequence.forEach((chordEvent, idx) => {
+		if (!chordEvent) return;
+		const rawChord = chordEvent.chord;
+		if (!rawChord) return;
+		const bar = Number.isFinite(chordEvent.bar) ? chordEvent.bar : idx;
+		let beatOffset = 0;
+		if (Number.isFinite(chordEvent.beat)) {
+			// In generateHarmony(), beat is typically 0-based (evt.sub). Still handle 1-based defensively.
+			if (chordEvent.beat === 0) beatOffset = 0;
+			else if (chordEvent.beat >= 1 && chordEvent.beat <= beatsPerBar) beatOffset = Math.max(0, Math.floor(chordEvent.beat - 1));
+			else beatOffset = Math.max(0, Math.floor(chordEvent.beat));
+		}
+		const absoluteBeat = (bar * beatsPerBar) + beatOffset;
+		const chordObj = parseChordSymbolForPhrase(rawChord, musicTheory);
+		if (chordObj) {
+			chordByBeat.set(absoluteBeat, { chordObj, chordEvent });
+		}
+	});
+	pushSheetTrace(traceId, 'buildPhrase.chordGridMapped', { mappedChordBeats: chordByBeat.size });
+
+	// Map melody note events (generateMelody format) onto beat grid.
+	(melody.notes || []).forEach((noteEvent) => {
+		const abs = toAbsoluteBeat(noteEvent);
+		if (!Number.isFinite(abs)) return;
+		// Snap to 0.5-beat grid so eighth-note off-beats land in their own slot
+		const beatIndex = Math.max(0, Math.round(abs * 2) / 2);
+		const rawName = (noteEvent && (noteEvent.noteName || noteEvent.note)) ? String(noteEvent.noteName || noteEvent.note).trim() : '';
+		if (!rawName || noteEvent.isRest) return;
+
+		const durName = durationBeatsToName(noteEvent.duration, defaultBeatDuration);
+		const seq = melodySequenceByBeat.get(beatIndex) || [];
+		seq.push({
+			noteName: rawName,
+			duration: durName,
+			syllable: noteEvent.syllable || null
+		});
+		melodySequenceByBeat.set(beatIndex, seq);
+
+		// Mark accents when generator signals peaks (helps arc feel punchier)
+		if (!accentByBeat.has(beatIndex) && (noteEvent.isPeak || (Number.isFinite(noteEvent.intensity) && noteEvent.intensity > 0.82))) {
+			accentByBeat.set(beatIndex, true);
+		}
+	});
+	pushSheetTrace(traceId, 'buildPhrase.melodyGridMapped', {
+		mappedMelodyBeats: melodySequenceByBeat.size,
+		mappedAccentBeats: accentByBeat.size
+	});
+
+	// Optional explicit rhythm track support (if a future engine provides it)
+	(melody.rhythm || []).forEach((rhythmEvent) => {
+		if (!rhythmEvent || !Number.isFinite(rhythmEvent.beat)) return;
+		rhythmByBeat.set(rhythmEvent.beat, normalizeDurationName(rhythmEvent.duration, defaultBeatDuration));
+		accentByBeat.set(rhythmEvent.beat, !!rhythmEvent.accent);
+	});
+
+	const energyProfile = Array.isArray(arc.energyProfile) ? arc.energyProfile : [];
+	const bars = [];
+
+	for (let barIndex = 0; barIndex < barCount; barIndex++) {
+		const chordEvent = chordSequence[barIndex] || chordSequence[chordSequence.length - 1];
+		const fallbackChordObj = parseChordSymbolForPhrase(chordEvent && chordEvent.chord, musicTheory);
+		const beats = [];
+		const accentBeats = [];
+
+		// Iterate at eighth-note (0.5 beat) resolution so off-beat melody notes
+		// land in their own slot rather than being stacked onto the prior beat.
+        let melodyTimeRemaining = 0;
+        let chordTimeRemaining = 0;
+
+		for (let frac = 0; frac < beatsPerBar; frac += 0.5) {
+			const beat = Math.floor(frac) + 1; // 1-based beat number for display
+			const absoluteBeat = (barIndex * beatsPerBar) + frac;
+			const melodySequence = melodySequenceByBeat.get(absoluteBeat) || [];
+			const melodyNote = (melodySequence && melodySequence.length && melodySequence[0] && melodySequence[0].noteName)
+				? melodySequence[0].noteName
+				: null;
+            
+            // Update sustain timers
+            if (melodyNote) {
+                const firstMel = melodySequence[0];
+                const durBeats = (typeof sheetGen._durationToNumber === 'function') 
+                    ? sheetGen._durationToNumber(firstMel.duration || defaultBeatDuration)
+                    : 1;
+                melodyTimeRemaining = durBeats;
+            } else {
+                melodyTimeRemaining = Math.max(0, melodyTimeRemaining - 0.5);
+            }
+
+			const duration = (melodySequence.length && melodySequence[0] && melodySequence[0].duration)
+				? melodySequence[0].duration
+				: (rhythmByBeat.get(absoluteBeat) || defaultBeatDuration);
+
+			const meterAccentBase = (notationDirectives && Array.isArray(notationDirectives.accentPattern))
+				? (notationDirectives.accentPattern[Math.floor(frac) % notationDirectives.accentPattern.length] || 0)
+				: (frac === 0 ? 1 : 0.35);
+			const syncTarget = notationDirectives && Number.isFinite(notationDirectives.syncopationTarget)
+				? notationDirectives.syncopationTarget
+				: 0.25;
+			const syncBoost = frac % 1 !== 0 ? syncTarget * 0.35 : 0;
+			const accentScore = Math.max(meterAccentBase, syncBoost);
+			const accent = accentByBeat.has(absoluteBeat)
+				? accentByBeat.get(absoluteBeat)
+				: accentScore >= 0.5;
+
+			const beatEvent = {
+				beat,
+				duration,
+				accent,
+				accentScore: Number(accentScore.toFixed(3)),
+				energy: Number.isFinite(energyProfile[Math.floor(absoluteBeat)]) ? energyProfile[Math.floor(absoluteBeat)] : 0,
+				texture: melodyNote ? 'melodic' : (frac === 0 ? 'harmonic' : 'rest'),
+				arcStage: {
+					bar: barIndex,
+					beatInBar: beat,
+					absoluteBeat
+				}
+			};
+
+			if (melodyNote) {
+				beatEvent.melody = melodyNote;
+				beatEvent.melodySequence = melodySequence.slice();
+			}
+			if (semanticContract) {
+				beatEvent.semantic = {
+					primaryMood: notationDirectives && notationDirectives.primaryMood ? notationDirectives.primaryMood : null,
+					contourFreedom: notationDirectives && Number.isFinite(notationDirectives.contourFreedom) ? notationDirectives.contourFreedom : null,
+					harmonicSurpriseTarget: notationDirectives && Number.isFinite(notationDirectives.harmonicSurpriseTarget) ? notationDirectives.harmonicSurpriseTarget : null
+				};
+			}
+
+			// Chords: check scheduled beat, then fall back to bar start (frac===0).
+			const scheduled = chordByBeat.get(absoluteBeat) || null;
+			if (scheduled && scheduled.chordObj) {
+				beatEvent.chord = scheduled.chordObj.fullName;
+				beatEvent.chordObj = { ...scheduled.chordObj };
+				beatEvent.harmonyRole = (scheduled.chordEvent && scheduled.chordEvent.roman) || null;
+				beatEvent.chordDuration = durationBeatsToName(
+					scheduled.chordEvent && scheduled.chordEvent.duration, defaultBeatDuration);
+                
+                const chordDurBeats = scheduled.chordEvent && scheduled.chordEvent.duration ? scheduled.chordEvent.duration : 1;
+                chordTimeRemaining = chordDurBeats;
+			} else if (frac === 0 && fallbackChordObj) {
+				beatEvent.chord = fallbackChordObj.fullName;
+				beatEvent.chordObj = { ...fallbackChordObj };
+				beatEvent.harmonyRole = (chordEvent && chordEvent.roman) || null;
+				beatEvent.chordDuration = durationBeatsToName(
+					chordEvent && chordEvent.duration, defaultBeatDuration);
+                
+                const chordDurBeats = chordEvent && chordEvent.duration ? chordEvent.duration : 1;
+                chordTimeRemaining = chordDurBeats;
+			} else {
+                chordTimeRemaining = Math.max(0, chordTimeRemaining - 0.5);
+            }
+
+			// Skip empty off-beat spacer events
+			const hasMelody = !!(beatEvent.melodySequence && beatEvent.melodySequence.length);
+			const hasChord = !!beatEvent.chordObj;
+			if (frac % 1 !== 0 && !hasMelody && !hasChord) {
+				continue;
+			}
+
+			if (accent) accentBeats.push(beat);
+			
+            // Only mark rests if neither melody nor chord is sustaining
+			if (!melodyNote && !hasChord && melodyTimeRemaining <= 0 && chordTimeRemaining <= 0) {
+                if (frac % 1 === 0) beatEvent.isRest = true;
+                else continue; // Skip off-beat rests entirely
+			}
+
+			beats.push(beatEvent);
+			pushSheetTrace(traceId, 'buildPhrase.beatEvent', {
+				bar: barIndex + 1,
+				absBeat: absoluteBeat,
+				duration: beatEvent.duration,
+				chord: beatEvent.chord || null,
+				harmonyRole: beatEvent.harmonyRole || null,
+				melody: Array.isArray(beatEvent.melodySequence) ? beatEvent.melodySequence.map(m => m.noteName).join('+') : null,
+				melodyCount: Array.isArray(beatEvent.melodySequence) ? beatEvent.melodySequence.length : 0,
+				energy: Number((beatEvent.energy || 0).toFixed(3)),
+				accent: beatEvent.accent || false,
+				isRest: !!beatEvent.isRest
+			});
+		}
+
+		bars.push({
+			barNumber: barIndex + 1,
+			key: harmonicProfile.root || 'C',
+			scale: harmonicProfile.recommendedScale || context.emotionalTone || 'major',
+			beats,
+			rhythmRoadmap: {
+				accentBeats,
+				suggestedSubdivision: beatUnit === 8 ? 'eighth-grid' : 'quarter-grid',
+				syncopationHint: Math.max(0, accentBeats.filter((n) => n !== 1).length - 1)
+			}
+		});
+	}
+
+	const built = {
+		bars,
+		timeSignature,
+		beatsPerBar,
+		beatUnit,
+		startKey: harmonicProfile.root || 'C',
+		endKey: harmonicProfile.root || 'C',
+		keyEvents: [],
+		phaseStaging: {
+			rhythm: {
+				ready: true,
+				source: 'arc-energy-melody-fusion',
+				nextPhase: 'beat-level-rhythm-rendering',
+				availableData: ['bars[].beats[]', 'beats[].duration', 'beats[].accent', 'bars[].rhythmRoadmap']
+			}
+		},
+		semanticContract: semanticContract || null
+	};
+	built.__traceId = traceId;
+	pushSheetTrace(traceId, 'buildPhrase.complete', {
+		barCount: bars.length,
+		totalBeatEvents: bars.reduce((acc, b) => acc + ((b && b.beats) ? b.beats.length : 0), 0),
+		startKey: built.startKey,
+		timeSignature: built.timeSignature
+	});
+	try {
+		const __tl = [`[Sheet:Phrase] ╔═ ${built.timeSignature} | key=${built.startKey} | ${bars.length} bar(s) | scale=${bars[0]&&bars[0].scale||'?'}`];
+		bars.forEach((bar) => {
+			const chordBeats = bar.beats.filter(b => b.chordObj);
+			const harmonyStr = chordBeats.map(b => `${b.chord}(${b.harmonyRole||'?'})`).join(' → ');
+			const melBeats = bar.beats.filter(b => b.melodySequence && b.melodySequence.length);
+			const melStr = melBeats.map(b => `b${(b.arcStage&&b.arcStage.beatInBar)||'?'}:${b.melodySequence.map(m=>m.noteName).join('+')}`).join(' ');
+			const restCount = bar.beats.filter(b => b.isRest).length;
+			const accs = bar.rhythmRoadmap && bar.rhythmRoadmap.accentBeats ? bar.rhythmRoadmap.accentBeats.join(',') : '';
+			__tl.push(`[Sheet:Phrase] ║ Bar ${bar.barNumber} | harmony: ${harmonyStr||'—'} | melody: ${melStr||'—'} | rests: ${restCount} | accents:[${accs}]`);
+		});
+		__tl.push(`[Sheet:Phrase] ╚═ ${bars.reduce((a,b)=>a+(b.beats?b.beats.length:0),0)} total beat-events`);
+		console.log(__tl.join('\n'));
+	} catch(_) {}
+	return built;
+}
+
+function applyGeneratedMusicToSheet(detail) {
+	const traceId = (detail && (detail.traceId || detail.__traceId)) || createSheetTraceId(detail && detail.seed);
+	if (detail && !detail.traceId) detail.traceId = traceId;
+	pushSheetTrace(traceId, 'applyGeneratedMusic.start', {
+		input: detail && detail.input ? detail.input : null,
+		seed: detail && detail.seed,
+		hasContext: !!(detail && detail.context),
+		hasHarmony: !!(detail && detail.harmony),
+		hasMelody: !!(detail && detail.melody)
+	});
+
+	const sheetGen = getSheetGeneratorInstance();
+	if (!sheetGen) {
+		console.warn('[Sheet] SheetMusicGenerator instance not found for Arc integration');
+		pushSheetTrace(traceId, 'applyGeneratedMusic.noSheetGen', {});
+		return false;
+	}
+	if (sheetGen.state && sheetGen.state.followGenerated === false) {
+		console.log('[Sheet] followGenerated disabled - skipping Arc auto-apply');
+		pushSheetTrace(traceId, 'applyGeneratedMusic.followDisabled', {});
+		return false;
+	}
+
+	let phrase = null;
+	try {
+		phrase = buildPhraseFromGeneratedMusic(detail, sheetGen);
+	} catch (err) {
+		console.error('[Sheet] Error while building phrase from generated music:', err);
+		pushSheetTrace(traceId, 'applyGeneratedMusic.buildError', {
+			message: err && err.message ? err.message : String(err)
+		});
+		return false;
+	}
+	if (!phrase) {
+		console.warn('[Sheet] Could not build phrase from generated Arc music');
+		pushSheetTrace(traceId, 'applyGeneratedMusic.noPhrase', {});
+		return false;
+	}
+
+	if (typeof sheetGen.setMusicalPhrase === 'function') {
+		sheetGen.setMusicalPhrase(phrase);
+		if (typeof sheetGen.render === 'function') sheetGen.render();
+		try {
+			window.__lastArcSheetPhrase = phrase;
+		} catch (_) {}
+		pushSheetTrace(traceId, 'applyGeneratedMusic.rendered', {
+			barCount: Array.isArray(phrase.bars) ? phrase.bars.length : 0
+		});
+		try {
+			const d = ensureSheetDiagnostics();
+			const latest = d && d.traces ? d.traces.find((t) => t.id === traceId) : null;
+			if (latest) {
+				const latestJson = safeJson(latest);
+				console.log(`[SheetTrace] ready: ${traceId}`);
+				console.log('[SheetTrace] JSON:\n' + latestJson);
+				try {
+					window.__lastSheetTraceJson = latestJson;
+				} catch (_) {}
+				// Attempt auto-copy so user does not need to run copy(...)
+				try {
+					if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+						navigator.clipboard.writeText(latestJson).then(() => {
+							try { window.__lastSheetTraceCopiedAt = new Date().toISOString(); } catch (_) {}
+							console.log('[SheetTrace] auto-copied latest trace JSON to clipboard');
+						}).catch(() => {
+							console.log('[SheetTrace] clipboard auto-copy unavailable; use window.__lastSheetTraceJson');
+						});
+					} else {
+						console.log('[SheetTrace] clipboard API unavailable; use window.__lastSheetTraceJson');
+					}
+				} catch (_) {
+					console.log('[SheetTrace] clipboard auto-copy failed; use window.__lastSheetTraceJson');
+				}
+			}
+		} catch (_) {}
+		return true;
+	}
+
+	pushSheetTrace(traceId, 'applyGeneratedMusic.noSetMusicalPhrase', {});
+	return false;
+}
+
+// musicGenerated is now handled by WordSheetGenerator (word-sheet-generator.js).
+// The bridge functions below remain available for manual/programmatic use.
+
 // Export for module usage
 if (typeof module !== 'undefined' && module.exports) {
 	module.exports = SheetMusicGenerator;
@@ -3525,6 +5067,40 @@ if (typeof module !== 'undefined' && module.exports) {
 // Make available globally in browser
 if (typeof window !== 'undefined') {
 	window.SheetMusicGenerator = SheetMusicGenerator;
+	window.applyGeneratedMusicToSheet = applyGeneratedMusicToSheet;
+	window.buildPhraseFromGeneratedMusic = buildPhraseFromGeneratedMusic;
+	window.enableSheetDiagnostics = function(enableVerbose = false) {
+		const d = ensureSheetDiagnostics();
+		if (!d) return null;
+		d.enabled = true;
+		d.verbose = !!enableVerbose;
+		console.log(`[SheetTrace] enabled (verbose=${d.verbose})`);
+		return d;
+	};
+	window.disableSheetDiagnostics = function() {
+		const d = ensureSheetDiagnostics();
+		if (!d) return null;
+		d.enabled = false;
+		d.verbose = false;
+		console.log('[SheetTrace] disabled');
+		return d;
+	};
+	window.dumpLastSheetTrace = function() {
+		const d = ensureSheetDiagnostics();
+		if (!d || !d.lastTraceId) return null;
+		return d.traces.find((t) => t.id === d.lastTraceId) || null;
+	};
+	window.copyLastSheetTrace = function() {
+		try {
+			const trace = window.dumpLastSheetTrace ? window.dumpLastSheetTrace() : null;
+			if (!trace) return false;
+			const txt = JSON.stringify(trace, null, 2);
+			if (typeof copy === 'function') copy(txt);
+			return true;
+		} catch (_) {
+			return false;
+		}
+	};
 }
 
 // Debug helper: analyze voicing results in console or return structured info
@@ -3756,9 +5332,19 @@ if (typeof window !== 'undefined') {
 if (typeof SheetMusicGenerator !== 'undefined') {
 	SheetMusicGenerator.prototype.playMidiFromRendered = function(options = {}) {
 		const tempo = options.tempo || 120; // BPM
-		const ppq = 480;
+		
+		// If we have a rich musical phrase, use the beat-aware playback engine instead of the flat chord list
+		if (this.state.musicalPhrase && this.state.barMode === 'per-bar') {
+			const phrase = this.state.musicalPhrase;
+			const hasBeats = !!(phrase && Array.isArray(phrase.bars) && phrase.bars.some((b) => b && Array.isArray(b.beats) && b.beats.length));
+			if (hasBeats && typeof this.playMusicalPhrase === 'function') {
+				return this.playMusicalPhrase(phrase, options);
+			}
+		}
+
 		const chords = Array.isArray(this.state.lastRenderedChords) ? this.state.lastRenderedChords : [];
 		if (!chords.length) { console.warn('No rendered chords to play.'); return; }
+
 		// Init audio context
 		if (!this._audioCtx) {
 			try { this._audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ console.warn('AudioContext unavailable', e); return; }
@@ -3766,40 +5352,142 @@ if (typeof SheetMusicGenerator !== 'undefined') {
         if (this._audioCtx.state === 'suspended') {
             this._audioCtx.resume();
         }
+
 		this.stopMidiPlayback();
 		this._midiSources = [];
 		this._isPlayingMidi = true;
+
 		const secondsPerBeat = 60 / tempo;
-		const beatsPerMeasure = 4;
-		const chordDuration = secondsPerBeat * 0.9; // chord plays for 90% of one beat (quarter note)
-		const measureDur = beatsPerMeasure * secondsPerBeat;
+		const chordDuration = secondsPerBeat * 0.9; 
 		const startTime = this._audioCtx.currentTime + 0.05;
+
 		chords.forEach((voices, barIdx) => {
-			const chordStart = startTime + barIdx * secondsPerBeat; // chords on each beat
+			const chordStart = startTime + barIdx * 4 * secondsPerBeat; // Assumes 1 chord per bar in legacy mode
 			const chordEnd = chordStart + chordDuration;
 			voices.forEach(note => {
-				const m = String(note).match(/^([A-G][#b]?)(\d+)$/);
-				if (!m) return;
-				const letter = m[1]; const oct = parseInt(m[2],10);
-				const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
-				const semitone = midiMap[letter] ?? 0;
-				const midi = (oct + 1)*12 + semitone;
-				// Piano-like tone with smooth envelope to prevent clicks
-				const osc = this._audioCtx.createOscillator();
-				const gain = this._audioCtx.createGain();
-				osc.type = 'triangle'; // softer than sine
-				osc.frequency.value = 440 * Math.pow(2, (midi - 69)/12);
-				osc.connect(gain).connect(this._audioCtx.destination);
-				// Smooth exponential envelope prevents clicks/buzzing
-				const attack = 0.015, decay = 0.1, sustain = 0.2, release = 0.3;
-				gain.gain.setValueAtTime(0.001, chordStart); // start near zero
-				gain.gain.exponentialRampToValueAtTime(0.35, chordStart + attack);
-				gain.gain.exponentialRampToValueAtTime(sustain, chordStart + attack + decay);
-				gain.gain.setValueAtTime(sustain, chordEnd - release);
-				gain.gain.exponentialRampToValueAtTime(0.001, chordEnd);
-				osc.start(chordStart);
-				osc.stop(chordEnd + 0.05);
-				this._midiSources.push(osc);
+				this._playSingleNote(note, chordStart, chordEnd, 0.3);
+			});
+		});
+	};
+
+	// Internal helper for scheduling a single synth note
+	SheetMusicGenerator.prototype._playSingleNote = function(noteStr, start, end, volume = 0.3) {
+		if (!this._audioCtx) return;
+		const raw = String(noteStr || '').trim();
+		const m = raw.match(/^([A-G][#b]?)(-?\d+)?$/);
+		if (!m) return;
+
+		const letter = m[1];
+		const oct = (m[2] !== undefined) ? parseInt(m[2], 10) : 4;
+		const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
+		const semitone = midiMap[letter] ?? 0;
+		const midi = (oct + 1) * 12 + semitone;
+
+		const osc = this._audioCtx.createOscillator();
+		const gain = this._audioCtx.createGain();
+		osc.type = 'triangle';
+		osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+		osc.connect(gain).connect(this._audioCtx.destination);
+
+		const attack = 0.015, decay = 0.1, sustain = 0.6, release = 0.2;
+		gain.gain.setValueAtTime(0.001, start);
+		gain.gain.exponentialRampToValueAtTime(volume, start + attack);
+		gain.gain.exponentialRampToValueAtTime(volume * sustain, start + attack + decay);
+		gain.gain.setValueAtTime(volume * sustain, Math.max(start, end - release));
+		gain.gain.exponentialRampToValueAtTime(0.001, end);
+
+		osc.start(start);
+		osc.stop(end + 0.1);
+		this._midiSources.push(osc);
+	};
+
+	/**
+	 * Enhanced beat-aware playback for rich musical phrases.
+	 * Schedules harmony (chords) and melody with correct rhythmic timing.
+	 */
+	SheetMusicGenerator.prototype.playMusicalPhrase = function(phrase, options = {}) {
+		const tempo = options.tempo || 120;
+		const secondsPerQuarter = 60 / tempo;
+		const signature = parseTimeSignatureSpec(phrase && phrase.timeSignature, phrase && phrase.beatsPerBar);
+		const beatsPerBar = Math.max(1, parseInt((phrase && phrase.beatsPerBar), 10) || signature.beatsPerBar || 4);
+		const beatUnit = Math.max(1, parseInt((phrase && phrase.beatUnit), 10) || signature.beatUnit || 4);
+		const secondsPerBeatUnit = secondsPerQuarter * (4 / beatUnit);
+		if (!phrase || !Array.isArray(phrase.bars) || phrase.bars.length === 0) return;
+		
+		if (!this._audioCtx) {
+			try { this._audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ console.warn('AudioContext unavailable', e); return; }
+		}
+		if (this._audioCtx.state === 'suspended') {
+			this._audioCtx.resume();
+		}
+
+		this.stopMidiPlayback();
+		this._midiSources = [];
+		this._isPlayingMidi = true;
+
+		const startTime = this._audioCtx.currentTime + 0.1;
+		const durationToQuarterBeats = {
+			'whole': 4,
+			'half': 2,
+			'quarter': 1,
+			'dotted-quarter': 1.5,
+			'eighth': 0.5,
+			'dotted-eighth': 0.75,
+			'sixteenth': 0.25
+		};
+
+		// Schedule beats per bar. If beat-level data is missing, synthesize a simple bar.
+		phrase.bars.forEach((bar, barIdx) => {
+			const barStartTime = startTime + barIdx * beatsPerBar * secondsPerBeatUnit;
+			const baseDuration = (beatUnit === 8) ? 'eighth' : 'quarter';
+			const events = (bar && Array.isArray(bar.beats) && bar.beats.length)
+				? bar.beats
+				: Array.from({ length: beatsPerBar }, (_, i) => ({
+					beat: i + 1,
+					duration: baseDuration,
+					isRest: (i + 1) !== 1
+				}));
+
+			events.forEach((event, idx) => {
+				const beatNumber = Number.isFinite(event && event.beat) ? event.beat : (idx + 1);
+				const beatOffset = (beatNumber - 1) * secondsPerBeatUnit;
+				const noteStart = barStartTime + beatOffset;
+				const durationName = normalizeDurationName(event.duration, beatUnit === 8 ? 'eighth' : 'quarter');
+				const quarterBeats = durationToQuarterBeats[durationName] || (typeof event.duration === 'number' ? event.duration : 1);
+				const noteEnd = noteStart + (quarterBeats * secondsPerQuarter * 0.95);
+
+				// --- Play Harmony ---
+				if (event.chordObj && event.chordObj.chordNotes) {
+					// Voicing: Use close position centered on C3/C4 for preview
+					event.chordObj.chordNotes.forEach((nn, i) => {
+						const oct = i === 0 ? 3 : 4;
+						const raw = String(nn || '').trim();
+						const noteName = /-?\d+$/.test(raw) ? raw : (raw + oct);
+						this._playSingleNote(noteName, noteStart, noteEnd, 0.15);
+					});
+				}
+
+				// --- Play Melody ---
+				if (event.melodySequence && Array.isArray(event.melodySequence) && event.melodySequence.length > 0) {
+					// Schedule intra-beat melody notes (if provided)
+					let cursor = noteStart;
+					const totalQuarter = event.melodySequence.reduce((sum, n) => {
+						const dn = normalizeDurationName(n && n.duration, durationName);
+						return sum + (durationToQuarterBeats[dn] || (typeof (n && n.duration) === 'number' ? n.duration : 0));
+					}, 0);
+					const fallbackQuarterEach = (quarterBeats / Math.max(1, event.melodySequence.length));
+					event.melodySequence.forEach((n) => {
+						if (!n || !n.noteName) return;
+						const dn = normalizeDurationName(n.duration, durationName);
+						let q = durationToQuarterBeats[dn] || (typeof n.duration === 'number' ? n.duration : 0);
+						if (!q || !Number.isFinite(q) || q <= 0) q = (totalQuarter > 0 ? (quarterBeats * (1 / event.melodySequence.length)) : fallbackQuarterEach);
+						const end = Math.min(noteEnd, cursor + (q * secondsPerQuarter * 0.98));
+						this._playSingleNote(n.noteName, cursor, end, 0.4);
+						cursor = end;
+					});
+				} else if (event.melody) {
+					this._playSingleNote(event.melody, noteStart, noteEnd, 0.4);
+				}
 			});
 		});
 	};
@@ -3816,15 +5504,114 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 	SheetMusicGenerator.prototype.buildMidiFile = function(opts = {}) {
 		const tempo = opts.tempo || 120; // BPM
 		const ppq = opts.ppq || 480;
-		const chords = Array.isArray(this.state.lastRenderedChords) ? this.state.lastRenderedChords : [];
-		if (!chords.length) throw new Error('No rendered chords to export');
 		const microPerQuarter = Math.round(60000000 / tempo);
+		
+		const phrase = this.state.musicalPhrase;
+		const hasPhrase = phrase && phrase.bars && this.state.barMode === 'per-bar';
+		const signature = hasPhrase
+			? parseTimeSignatureSpec(phrase.timeSignature, phrase.beatsPerBar)
+			: { beatsPerBar: 4, beatUnit: 4, timeSignature: '4/4' };
+		const beatsPerMeasure = Math.max(1, parseInt((hasPhrase && phrase.beatsPerBar), 10) || signature.beatsPerBar || 4);
+		const beatUnit = Math.max(1, parseInt((hasPhrase && phrase.beatUnit), 10) || signature.beatUnit || 4);
+		const ticksPerQuarter = ppq;
+		const ticksPerBeatUnit = Math.max(1, Math.round(ticksPerQuarter * (4 / beatUnit)));
+		const measureTicks = beatsPerMeasure * ticksPerBeatUnit;
+		
+		const chords = Array.isArray(this.state.lastRenderedChords) ? this.state.lastRenderedChords : [];
+		if (!chords.length && !hasPhrase) throw new Error('No musical content to export');
+
 		const events = [];
-		const beatsPerMeasure = 4;
-		const ticksPerBeat = ppq;
-		const measureTicks = beatsPerMeasure * ticksPerBeat;
-		const chordNames = Array.isArray(this.state.lastRenderedChordNames) ? this.state.lastRenderedChordNames : [];
-		// VLQ encoder
+		let currentTick = 0;
+
+		// --- MIDI Initialization ---
+		// Tempo
+		events.push({ delta: 0, data: [0xFF, 0x51, 0x03, (microPerQuarter >> 16) & 0xFF, (microPerQuarter >> 8) & 0xFF, microPerQuarter & 0xFF] });
+		// Track name
+		try {
+			const tn = `Narrative: ${this.state.key} ${this.state.scale}`;
+			const bytes = Array.from(tn).map(c => c.charCodeAt(0) & 0x7F);
+			events.push({ delta: 0, data: [0xFF, 0x03, bytes.length, ...bytes] });
+		} catch (_) {}
+		// Time signature from phrase metadata (fallback 4/4)
+		const denPow = (() => {
+			const valid = [1, 2, 4, 8, 16, 32, 64];
+			if (!valid.includes(beatUnit)) return 2;
+			return Math.max(0, Math.round(Math.log2(beatUnit)));
+		})();
+		events.push({ delta: 0, data: [0xFF, 0x58, 0x04, beatsPerMeasure & 0xFF, denPow & 0xFF, 0x18, 0x08] });
+		
+		const durationMap = { 'whole': 4, 'half': 2, 'quarter': 1, 'eighth': 0.5, 'sixteenth': 0.25 };
+		const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
+		const getMidi = (noteStr, defaultOct = 4) => {
+			const m = String(noteStr).match(/^([A-G][#b]?)(\d+)?$/);
+			if (!m) return null;
+			const letter = m[1];
+			const oct = m[2] ? parseInt(m[2], 10) : defaultOct;
+			const semitone = midiMap[letter] ?? 0;
+			return (oct + 1) * 12 + semitone;
+		};
+
+		// --- Core Event Generation ---
+		const rawEvents = []; // { tick, type: 0x90|0x80, note, velocity }
+
+		if (hasPhrase) {
+			// Rich Beat-Aware Export
+			phrase.bars.forEach((bar, barIdx) => {
+				const barStartTick = barIdx * measureTicks;
+				bar.beats.forEach((event) => {
+					const beatStartTick = barStartTick + Math.round((event.beat - 1) * ticksPerBeatUnit);
+					const durationName = normalizeDurationName(event.duration, beatUnit === 8 ? 'eighth' : 'quarter');
+					const quarterBeats = durationMap[durationName] || (typeof event.duration === 'number' ? event.duration : 1);
+					const durTicks = Math.round(quarterBeats * ticksPerQuarter);
+					const beatEndTick = beatStartTick + Math.round(durTicks * 0.95);
+
+					// Harmony
+					if (event.chordObj && event.chordObj.chordNotes) {
+						event.chordObj.chordNotes.forEach((nn, i) => {
+							const midi = getMidi(nn, i === 0 ? 3 : 4);
+							if (midi !== null) {
+								rawEvents.push({ tick: beatStartTick, type: 0x90, note: midi, vel: 0x40 });
+								rawEvents.push({ tick: beatEndTick, type: 0x80, note: midi, vel: 0x00 });
+							}
+						});
+					}
+					// Melody
+					if (event.melody) {
+						const midi = getMidi(event.melody);
+						if (midi !== null) {
+							rawEvents.push({ tick: beatStartTick, type: 0x90, note: midi, vel: 0x60 });
+							rawEvents.push({ tick: beatEndTick, type: 0x80, note: midi, vel: 0x00 });
+						}
+					}
+				});
+			});
+		} else {
+			// Legacy Bar-Based Export
+			chords.forEach((voices, barIdx) => {
+				const startTick = barIdx * measureTicks;
+				const endTick = startTick + measureTicks - 10;
+				voices.forEach(n => {
+					const midi = getMidi(n);
+					if (midi !== null) {
+						rawEvents.push({ tick: startTick, type: 0x90, note: midi, vel: 0x60 });
+						rawEvents.push({ tick: endTick, type: 0x80, note: midi, vel: 0x00 });
+					}
+				});
+			});
+		}
+
+		// Sort and delta-encode events
+		rawEvents.sort((a, b) => a.tick - b.tick || b.type - a.type); // ON before OFF if simultaneous
+		rawEvents.forEach(ev => {
+			const delta = ev.tick - currentTick;
+			events.push({ delta, data: [ev.type, ev.note & 0x7F, ev.vel & 0x7F] });
+			currentTick = ev.tick;
+		});
+
+		// End of track
+		events.push({ delta: 0, data: [0xFF, 0x2F, 0x00] });
+
+		// Build bytes using VLQ encoder
 		const vlq = (num) => {
 			const bytes = [];
 			let value = num >>> 0;
@@ -3833,138 +5620,16 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 			while (value > 0) { bytes.unshift((value & 0x7F) | 0x80); value >>= 7; }
 			return bytes;
 		};
-		let currentTick = 0;
-		// Tempo
-		events.push({ delta: 0, data: [0xFF,0x51,0x03,(microPerQuarter>>16)&0xFF,(microPerQuarter>>8)&0xFF,microPerQuarter&0xFF] });
-		// Track name
-		try {
-			const nameParts = [];
-			if (this.state.key) nameParts.push(this.state.key);
-			if (this.state.scale) nameParts.push(this.state.scale);
-			if (this.state.voicingStyle) nameParts.push(this.state.voicingStyle);
-			const tn = nameParts.join(' ');
-			if (tn) {
-				const bytes = Array.from(tn).map(c=>c.charCodeAt(0)&0x7F);
-				events.push({ delta: 0, data: [0xFF,0x03, bytes.length, ...bytes] });
-			}
-		} catch(_){}
-		// Time signature 4/4 (nn=4 dd=2 => 2^2=4)
-		events.push({ delta: 0, data: [0xFF,0x58,0x04, 0x04, 0x02, 0x18, 0x08] });
-		// Key signature
-		try {
-			const ksMap = {C:0,'G':1,'D':2,'A':3,'E':4,'B':5,'F#':6,'C#':7,'F':-1,'Bb':-2,'Eb':-3,'Ab':-4,'Db':-5,'Gb':-6,'Cb':-7};
-			let sf = 0;
-			if (this.state.key && ksMap[this.state.key] != null) sf = ksMap[this.state.key];
-			let mi = 0; // 0 major, 1 minor
-			if (this.state.scale && /(minor|aeolian|dorian|phrygian|locrian|harmonic|melodic)/i.test(this.state.scale)) mi = 1;
-			events.push({ delta: 0, data: [0xFF,0x59,0x02, sf & 0xFF, mi] });
-		} catch(_){}
-		// Voicing style marker
-		if (this.state.voicingStyle) {
-			const vsBytes = Array.from(this.state.voicingStyle).map(c=>c.charCodeAt(0)&0x7F);
-			events.push({ delta: 0, data: [0xFF,0x06, vsBytes.length, ...vsBytes] });
-		}
-		
-		// Enhanced grading metadata preservation
-		try {
-			if (this.musicTheory && typeof this.musicTheory.gradingMode === 'string') {
-				// Add grading mode as metadata
-				const gradingModeText = `Grading:${this.musicTheory.gradingMode}`;
-				const gradingBytes = Array.from(gradingModeText).map(c=>c.charCodeAt(0)&0x7F);
-				events.push({ delta: 0, data: [0xFF,0x06, gradingBytes.length, ...gradingBytes] });
-				
-				// Add grading version for future compatibility
-				const versionText = 'GradingVersion:1.0';
-				const versionBytes = Array.from(versionText).map(c=>c.charCodeAt(0)&0x7F);
-				events.push({ delta: 0, data: [0xFF,0x06, versionBytes.length, ...versionBytes] });
-			}
-		} catch(_) {}
-		// Chords
-		chords.forEach((voices, barIdx) => {
-			const startTick = barIdx * measureTicks;
-			const endTick = startTick + measureTicks;
-			const deltaToStart = startTick - currentTick;
-			// Optional measure marker with chord name
-			let consumedStartDelta = false;
-			if (barIdx < chordNames.length) {
-				const nm = chordNames[barIdx];
-				if (nm) {
-					const nmBytes = Array.from(nm).map(c=>c.charCodeAt(0)&0x7F);
-					events.push({ delta: deltaToStart, data: [0xFF,0x06, nmBytes.length, ...nmBytes] });
-					currentTick = startTick;
-					consumedStartDelta = true;
-				}
-			}
-			
-			// Add grading information for this chord/measure
-			try {
-				if (this.musicTheory && typeof this.musicTheory.calculateElementGrade === 'function' && 
-					typeof this.musicTheory.getGradingTierInfo === 'function' && barIdx < chordNames.length) {
-					
-					const chordName = chordNames[barIdx];
-					if (chordName) {
-						// Calculate grading for this chord
-						const context = {
-							key: this.state.key || 'C',
-							scaleType: this.state.scale || 'major',
-							elementType: 'chord',
-							barIndex: barIdx
-						};
-						
-						const tier = this.musicTheory.calculateElementGrade(chordName, context);
-						const tierInfo = this.musicTheory.getGradingTierInfo(tier);
-						
-						// Add grading metadata as MIDI marker
-						const gradingText = `Grade:${tier}:${tierInfo.name}:${tierInfo.color}`;
-						const gradingBytes = Array.from(gradingText).map(c=>c.charCodeAt(0)&0x7F);
-						const gradingDelta = consumedStartDelta ? 0 : deltaToStart;
-						events.push({ delta: gradingDelta, data: [0xFF,0x06, gradingBytes.length, ...gradingBytes] });
-						
-						if (!consumedStartDelta) {
-							currentTick = startTick;
-							consumedStartDelta = true;
-						}
-					}
-				}
-			} catch(_) {}
-			let first = true;
-			voices.forEach(n => {
-				const m = String(n).match(/^([A-G][#b]?)(\d+)$/);
-				if (!m) return;
-				const letter = m[1]; const oct = parseInt(m[2],10);
-				const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
-				const semitone = midiMap[letter] ?? 0;
-				const midi = (oct + 1)*12 + semitone;
-				const startDelta = first ? (consumedStartDelta ? 0 : deltaToStart) : 0;
-				events.push({ delta: startDelta, data: [0x90, midi & 0x7F, 0x60] });
-				first = false;
-			});
-			currentTick = startTick;
-			// Note-offs simultaneous
-			let offFirst = true;
-			voices.forEach(n => {
-				const m = String(n).match(/^([A-G][#b]?)(\d+)$/);
-				if (!m) return;
-				const letter = m[1]; const oct = parseInt(m[2],10);
-				const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
-				const semitone = midiMap[letter] ?? 0;
-				const midi = (oct + 1)*12 + semitone;
-				const deltaToEnd = endTick - currentTick;
-				events.push({ delta: offFirst ? deltaToEnd : 0, data: [0x80, midi & 0x7F, 0x00] });
-				offFirst = false;
-			});
-			currentTick = endTick;
-		});
-		// End of track
-		events.push({ delta: 0, data: [0xFF,0x2F,0x00] });
-		// Build bytes
+
 		const trackBytes = [];
 		events.forEach(ev => { trackBytes.push(...vlq(ev.delta), ...ev.data); });
 		const trackLen = trackBytes.length;
-		const header = [0x4D,0x54,0x68,0x64, 0x00,0x00,0x00,0x06, 0x00,0x00, 0x00,0x01, (ppq>>8)&0xFF, ppq&0xFF];
-		const trackHeader = [0x4D,0x54,0x72,0x6B, (trackLen>>24)&0xFF, (trackLen>>16)&0xFF, (trackLen>>8)&0xFF, trackLen&0xFF];
+		const header = [0x4D, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, (ppq >> 8) & 0xFF, ppq & 0xFF];
+		const trackHeader = [0x4D, 0x54, 0x72, 0x6B, (trackLen >> 24) & 0xFF, (trackLen >> 16) & 0xFF, (trackLen >> 8) & 0xFF, trackLen & 0xFF];
 		const all = new Uint8Array(header.length + trackHeader.length + trackBytes.length);
-		all.set(header,0); all.set(trackHeader, header.length); all.set(trackBytes, header.length+trackHeader.length);
+		all.set(header, 0); 
+		all.set(trackHeader, header.length); 
+		all.set(trackBytes, header.length + trackHeader.length);
 		return all;
 	};
 

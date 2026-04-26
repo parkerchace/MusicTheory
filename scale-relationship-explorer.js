@@ -130,6 +130,23 @@ class ScaleRelationshipExplorer {
         return note.charAt(0).toUpperCase() + (note.slice(1) || '');
     }
 
+    getSafeExternalUrl(url) {
+        if (!url || typeof url !== 'string') return null;
+        const trimmed = url.trim();
+        if (!trimmed || trimmed === '#') return null;
+
+        try {
+            const parsed = new URL(trimmed, window.location.href);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+                return parsed.href;
+            }
+        } catch (_) {
+            // Ignore invalid URLs
+        }
+
+        return null;
+    }
+
     findContainingScales(chordNotes) {
         const allScales = this.getAllScales(); 
         const containing = [];
@@ -407,7 +424,8 @@ class ScaleRelationshipExplorer {
             const roman = this.getRomanNumeral(this.state.parsedChord.root, scale.root, scale.name);
             const citation = scale.citation || {};
             const description = citation.description || '';
-            const url = citation.url || (citation.references && citation.references[0] ? citation.references[0].url : '#');
+            const urlRaw = citation.url || (citation.references && citation.references[0] ? citation.references[0].url : '');
+            const url = this.getSafeExternalUrl(urlRaw);
             const uniqueId = `sre-scale-${index}`;
             
             // Relationship badge
@@ -415,9 +433,18 @@ class ScaleRelationshipExplorer {
                 ? `<span style="font-size:0.7rem; color:var(--text-muted); margin-left:8px; border:1px solid var(--border-light); padding:1px 5px; border-radius:3px; text-transform:uppercase; letter-spacing:0.5px;">${scale.relationshipLabel}</span>` 
                 : '';
 
+            const headerOpen = url
+                ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; cursor: pointer; text-decoration:none;">`
+                : `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">`;
+            const headerClose = url ? `</a>` : `</div>`;
+
+            const learnMore = url
+                ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="font-size: 0.75rem; color: var(--accent-primary); text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; flex: 1; text-decoration:none;">Click to learn more ↗</a>`
+                : `<div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; flex: 1;">No source link</div>`;
+
             html += `
                 <div class="scale-item" style="background: rgba(255,255,255,0.05); padding: 10px; border-left: 3px solid var(--accent-primary); border-radius: 4px; transition: background 0.2s;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; cursor: pointer;" onclick="window.open('${url}', '_blank')">
+                    ${headerOpen}
                         <div style="display:flex; align-items:center;">
                             <div style="font-weight: bold; color: var(--text-highlight); font-size: 1rem;">${scale.root} ${scale.name}</div>
                             ${relationshipBadge}
@@ -425,14 +452,12 @@ class ScaleRelationshipExplorer {
                         <div style="background: var(--bg-panel); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; color: var(--accent-secondary);">
                             ${roman}
                         </div>
-                    </div>
+                    ${headerClose}
                     <div style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 4px; font-style: italic;">"${vibe}"</div>
                     ${description ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; line-height: 1.3;">${description}</div>` : ''}
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 6px;">
-                        <div style="font-size: 0.75rem; color: var(--accent-primary); text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; flex: 1;" onclick="window.open('${url}', '_blank')">
-                            Click to learn more ↗
-                        </div>
+                        ${learnMore}
                         <button class="btn-apply-scale" data-root="${scale.root}" data-name="${scale.name}" 
                                 style="background: var(--accent-primary); color: #000; border: none; font-size: 0.7rem; padding: 3px 8px; cursor: pointer; border-radius: 3px; font-weight: bold; text-transform: uppercase;">
                             Apply

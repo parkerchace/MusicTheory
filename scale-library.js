@@ -223,6 +223,22 @@ class ScaleLibrary {
     getVariationGroups(scaleIdsInput, taxonomyByScale) {
         const groups = new Map();
         const roots = [];
+        const pedagogicalCore = ['major', 'ionian', 'dorian', 'phrygian', 'lydian', 'mixolydian', 'aeolian', 'minor', 'locrian'];
+        const getScaleRank = (scaleId) => {
+            const id = String(scaleId || '').toLowerCase();
+            const coreIdx = pedagogicalCore.indexOf(id);
+            if (coreIdx !== -1) return coreIdx;
+
+            const info = taxonomyByScale && taxonomyByScale[id];
+            const rows = Array.isArray(info) ? info : (info ? [info] : []);
+            if (rows.length) {
+                const primary = rows.find(row => row && row.isPrimary) || rows[0];
+                if (primary && typeof primary.displayOrder === 'number') {
+                    return 100 + primary.displayOrder;
+                }
+            }
+            return 9999;
+        };
         
         const scaleIds = this.flattenIds(scaleIdsInput);
 
@@ -237,11 +253,19 @@ class ScaleLibrary {
             }
             roots.push(scaleId);
         });
-        roots.sort((a, b) => this.getScaleDisplayName(a).localeCompare(this.getScaleDisplayName(b)));
+        roots.sort((a, b) => {
+            const rankDiff = getScaleRank(a) - getScaleRank(b);
+            if (rankDiff !== 0) return rankDiff;
+            return this.getScaleDisplayName(a).localeCompare(this.getScaleDisplayName(b));
+        });
         roots.forEach(rootId => {
             const variants = groups.get(rootId);
             if (variants) {
-                variants.sort((a, b) => this.getScaleDisplayName(a).localeCompare(this.getScaleDisplayName(b)));
+                variants.sort((a, b) => {
+                    const rankDiff = getScaleRank(a) - getScaleRank(b);
+                    if (rankDiff !== 0) return rankDiff;
+                    return this.getScaleDisplayName(a).localeCompare(this.getScaleDisplayName(b));
+                });
             }
         });
         return { roots, groups };
@@ -494,6 +518,16 @@ class ScaleLibrary {
     }
 
     /**
+     * Label shown in the top picker button.
+     * Includes key + scale so users can see both at a glance.
+     */
+    getCurrentScaleLabel() {
+        const scaleName = this.getScaleDisplayName(this.getCurrentScale());
+        const keyName = this.getCurrentKey() || 'C';
+        return `${keyName} ${scaleName}`;
+    }
+
+    /**
      * Highlight scale degree on piano
      */
     highlightScaleDegree(degree) {
@@ -651,11 +685,12 @@ class ScaleLibrary {
         
         const currentScale = this.getCurrentScale();
         const currentScaleName = this.getScaleDisplayName(currentScale);
+        const currentScaleLabel = this.getCurrentScaleLabel();
         const scaleCategories = this.musicTheory.getScaleCategories();
         const taxonomy = this.getTaxonomyMeta();
         if (document.getElementById('scale-picker-modal') && this.container.innerHTML.includes('scale-picker-modal')) {
-            const nameSpan = document.querySelector('#scale-picker-btn .current-scale-name');
-            if (nameSpan) nameSpan.textContent = currentScaleName;
+            const nameSpan = document.querySelector('#scale-picker-btn > span.current-scale-name') || document.querySelector('#scale-picker-btn .current-scale-name');
+            if (nameSpan) nameSpan.textContent = currentScaleLabel;
             const keySelect = document.getElementById('key-select');
             if (keySelect) keySelect.value = this.state.currentKey;
             return;
@@ -674,7 +709,7 @@ class ScaleLibrary {
                     </div>
                     
                     <button id="scale-picker-btn" class="scale-picker-button">
-                        <span class="current-scale-name">${currentScaleName}</span>
+                        <span class="current-scale-name">${currentScaleLabel}</span>
                         <span class="picker-icon">▼</span>
                     </button>
                 </div>
@@ -762,6 +797,8 @@ class ScaleLibrary {
                 
                 .current-scale-name {
                     font-weight: 600;
+                    font-size: 0.92rem;
+                    color: #f8fafc;
                 }
                 
                 .picker-icon {
@@ -1687,16 +1724,17 @@ class ScaleLibrary {
         const taxonomy = this.getTaxonomyMeta();
         const byFamily = taxonomy.byFamily || {};
         const byScale = taxonomy.byScale || {};
+        const familyOrder = Array.isArray(taxonomy.familyOrder) ? taxonomy.familyOrder : Object.keys(byFamily);
 
         // Prefer the explicitly named tree family; fall back to the first family.
         const treeFamily = byFamily['1. The Family Tree'] || byFamily['The Family Tree'] || byFamily[Object.keys(byFamily)[0]];
         const branches = treeFamily && treeFamily.categories ? treeFamily.categories : {};
 
         const familyKeys = Object.keys(byFamily || {});
-        const otherFamilies = familyKeys
+        const otherFamilies = familyOrder
+            .filter(name => familyKeys.includes(name))
             .filter(name => name !== '1. The Family Tree' && name !== 'The Family Tree')
-            .filter(name => !/special/i.test(name))
-            .sort((a, b) => a.localeCompare(b));
+            .filter(name => !/special/i.test(name));
 
         const toTreeObj = (familyBucket) => {
             const result = {};
@@ -1758,8 +1796,36 @@ class ScaleLibrary {
         rootRow.appendChild(rootNode);
         root.appendChild(rootRow);
 
-        const keys = Object.keys(branches || {});
-        keys.sort((a, b) => a.localeCompare(b));
+        const branchPedagogyRank = (label) => {
+            const lower = String(label || '').toLowerCase();
+            if (lower.includes('major')) return -40;
+            if (lower.includes('church') || lower.includes('mode')) return -30;
+            if (lower.includes('minor')) return -20;
+            if (lower.includes('hybrid')) return -10;
+
+            const bucket = branches[label] || {};
+            const ids = this.flattenIds(normalizeTaxonomyNode(bucket));
+            if (!ids.length) return 9999;
+
+            let minDisplayOrder = Number.POSITIVE_INFINITY;
+            ids.forEach((scaleId) => {
+                const info = byScale && byScale[scaleId];
+                const rows = Array.isArray(info) ? info : (info ? [info] : []);
+                rows.forEach((row) => {
+                    if (row && typeof row.displayOrder === 'number') {
+                        minDisplayOrder = Math.min(minDisplayOrder, row.displayOrder);
+                    }
+                });
+            });
+
+            return Number.isFinite(minDisplayOrder) ? minDisplayOrder : 9999;
+        };
+
+        const keys = Object.keys(branches || {}).sort((a, b) => {
+            const rankDiff = branchPedagogyRank(a) - branchPedagogyRank(b);
+            if (rankDiff !== 0) return rankDiff;
+            return a.localeCompare(b);
+        });
 
         const branchRow = createEl('div', 'pyramid-row');
         keys.forEach(label => {
@@ -1958,10 +2024,114 @@ class ScaleLibrary {
     }
     
     filterScales(query) {
+        const activeView = document.querySelector('.scale-view-tab.active')?.dataset.view || 'common';
         const categoryBoxes = document.querySelectorAll('.category-box');
-        
+
+        const setMatches = (rootEl, q) => {
+            if (!rootEl) return [];
+            const items = Array.from(rootEl.querySelectorAll('.scale-item'));
+            if (!q) {
+                items.forEach(el => { el.style.display = 'block'; });
+                return items;
+            }
+            items.forEach(el => {
+                const name = String(el.textContent || '').toLowerCase();
+                el.style.display = name.includes(q) ? 'block' : 'none';
+            });
+            return items;
+        };
+
+        const expandVariationGroups = (rootEl) => {
+            if (!rootEl) return;
+            rootEl.querySelectorAll('.variation-group').forEach(group => {
+                const hasVisible = !!group.querySelector('.scale-item[style*="display: block"]');
+                group.classList.toggle('expanded', hasVisible);
+            });
+        };
+
+        const expandNestedCategories = (rootEl) => {
+            if (!rootEl) return;
+            rootEl.querySelectorAll('.nested-category-box').forEach(box => {
+                const content = box.querySelector('.nested-category-content');
+                const header = box.querySelector('.nested-category-header');
+                const hasVisible = !!box.querySelector('.scale-item[style*="display: block"]');
+                if (content) content.style.display = hasVisible ? 'block' : 'none';
+                if (header) {
+                    const icon = header.querySelector('.picker-icon');
+                    if (icon) icon.textContent = hasVisible ? '▲' : '▼';
+                }
+                box.style.display = hasVisible ? 'block' : 'none';
+            });
+        };
+
+        const applyTreeFilter = (q) => {
+            const pyramid = document.getElementById('scale-pyramid-tree');
+            if (!pyramid) return;
+
+            // Reset visibility first
+            pyramid.querySelectorAll('.pyramid-node').forEach(node => { node.style.display = ''; });
+            pyramid.querySelectorAll('.pyramid-submenu').forEach(menu => { menu.style.display = 'none'; });
+
+            setMatches(pyramid, q);
+            expandVariationGroups(pyramid);
+            expandNestedCategories(pyramid);
+
+            // Show only hubs that contain matches; auto-open their menus
+            pyramid.querySelectorAll('.pyramid-node').forEach(node => {
+                const menu = node.querySelector(':scope > .pyramid-submenu');
+                if (!menu) return;
+                const hasVisible = !!menu.querySelector('.scale-item[style*="display: block"]');
+                menu.style.display = hasVisible ? 'block' : 'none';
+                node.style.display = hasVisible ? '' : 'none';
+            });
+
+            // Keep root visible regardless
+            const rootNode = pyramid.querySelector('.pyramid-node.root');
+            if (rootNode) rootNode.style.display = '';
+        };
+
+        const applySpecialFilter = (q) => {
+            const special = document.getElementById('scale-special-view');
+            if (!special) return;
+
+            // Reset visibility first
+            special.querySelectorAll('.special-column').forEach(col => { col.style.display = ''; });
+            special.querySelectorAll('.special-cat').forEach(cat => { cat.style.display = ''; });
+            special.querySelectorAll('.special-cat-items').forEach(items => { items.style.display = 'none'; });
+
+            setMatches(special, q);
+
+            // Expand/keep only categories with visible matches
+            special.querySelectorAll('.special-cat').forEach(cat => {
+                const hasVisible = !!cat.querySelector('.scale-item[style*="display: block"]');
+                const items = cat.querySelector('.special-cat-items');
+                const title = cat.querySelector('.special-cat-title');
+                if (items) items.style.display = hasVisible ? 'block' : 'none';
+                if (title) {
+                    const icon = title.querySelector('.picker-icon');
+                    if (icon) icon.textContent = hasVisible ? '▲' : '▼';
+                }
+                cat.style.display = hasVisible ? '' : 'none';
+            });
+
+            // Hide entire columns that end up empty
+            special.querySelectorAll('.special-column').forEach(col => {
+                const hasVisible = !!col.querySelector('.scale-item[style*="display: block"]');
+                col.style.display = hasVisible ? '' : 'none';
+            });
+        };
+
         if (!query) {
-            const activeView = document.querySelector('.scale-view-tab.active')?.dataset.view || 'common';
+            // Clear filters and restore view defaults
+            if (activeView === 'tree') {
+                applyTreeFilter('');
+                return;
+            }
+            if (activeView === 'special') {
+                applySpecialFilter('');
+                return;
+            }
+
             categoryBoxes.forEach(box => {
                 const visible = box.dataset.view === activeView;
                 box.style.display = visible ? 'block' : 'none';
@@ -1975,15 +2145,25 @@ class ScaleLibrary {
             });
             return;
         }
-        
-        // Filter scales
+
+        // Active view-aware filtering
+        if (activeView === 'tree') {
+            applyTreeFilter(query);
+            return;
+        }
+        if (activeView === 'special') {
+            applySpecialFilter(query);
+            return;
+        }
+
+        // Default: filter category boxes (common list view)
         categoryBoxes.forEach(box => {
             const categoryId = box.dataset.category;
             const scalesDiv = document.getElementById(`scales-${categoryId}`);
             const scaleItems = scalesDiv?.querySelectorAll('.scale-item');
-            
+
             let hasVisibleScales = false;
-            
+
             scaleItems?.forEach(item => {
                 const scaleName = item.textContent.toLowerCase();
                 if (scaleName.includes(query)) {
@@ -1993,14 +2173,14 @@ class ScaleLibrary {
                     item.style.display = 'none';
                 }
             });
-            
+
             // Show/hide category based on whether it has matching scales
             if (hasVisibleScales) {
                 box.style.display = 'block';
                 box.classList.add('expanded');
                 if (scalesDiv) scalesDiv.style.display = 'block';
                 box.querySelectorAll('.variation-group').forEach(group => {
-                    if (group.querySelector('.scale-item[style="display: block;"]')) {
+                    if (group.querySelector('.scale-item[style*="display: block"]')) {
                         group.classList.add('expanded');
                     }
                 });
@@ -2044,7 +2224,10 @@ class ScaleLibrary {
             allScaleItems.forEach(el => el.classList.remove('similar-highlight'));
         }
 
+        // Attach hover listeners once per element (avoid stacking on every keystroke)
         allScaleItems.forEach(item => {
+            if (item.dataset.similarityHoverAttached === 'true') return;
+            item.dataset.similarityHoverAttached = 'true';
             item.addEventListener('mouseenter', (e) => {
                 const id = e.currentTarget.dataset.scale;
                 if (!id) return;

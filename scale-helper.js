@@ -37,25 +37,69 @@ class ScaleHelper {
                 };
                 return acc;
             }, {});
+            this.scalesMeta = central.meta || {};
         } else {
             // Last-resort fallback: minimal major scale to avoid runtime errors
             this.scales = {
                 major: { name: 'Major (Ionian)', intervals: [0,2,4,5,7,9,11], chordTypes: {} }
             };
+            this.scalesMeta = {};
         }
 
         this.selectedScale = 'major';
         this.selectedKey = 'C';
+
+        // Keep the most common learning path first.
+        this.pedagogicalOrder = [
+            'major',
+            'ionian',
+            'dorian',
+            'phrygian',
+            'lydian',
+            'mixolydian',
+            'aeolian',
+            'minor',
+            'locrian',
+            'harmonic_minor',
+            'melodic_minor',
+            'major_pentatonic',
+            'minor_pentatonic',
+            'blues'
+        ];
+    }
+
+    _getPedagogicalRank(scaleId) {
+        const id = String(scaleId || '').toLowerCase();
+        const directRank = this.pedagogicalOrder.indexOf(id);
+        if (directRank !== -1) return directRank;
+
+        const taxonomyByScale = this.scalesMeta && this.scalesMeta.taxonomy && this.scalesMeta.taxonomy.byScale;
+        const taxRows = taxonomyByScale && taxonomyByScale[id];
+        if (Array.isArray(taxRows) && taxRows.length) {
+            const primary = taxRows.find(row => row && row.isPrimary) || taxRows[0];
+            if (primary && typeof primary.displayOrder === 'number') {
+                return 100 + primary.displayOrder;
+            }
+        }
+
+        return 9999;
     }
 
     /**
      * Get available scales
      */
     getAvailableScales() {
-        return Object.keys(this.scales).map(key => ({
-            key: key,
-            name: this.scales[key].name
-        }));
+        return Object.keys(this.scales)
+            .sort((a, b) => {
+                const rankA = this._getPedagogicalRank(a);
+                const rankB = this._getPedagogicalRank(b);
+                if (rankA !== rankB) return rankA - rankB;
+                return String(this.scales[a].name || a).localeCompare(String(this.scales[b].name || b));
+            })
+            .map(key => ({
+                key: key,
+                name: this.scales[key].name
+            }));
     }
 
     /**

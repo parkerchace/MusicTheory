@@ -1584,6 +1584,11 @@ class MusicTheoryEngine {
      * Calculate grading tier for a chord
      */
     calculateChordGrade(chordName, key, scaleType, context = {}) {
+        // ✅ FIX: Defensive check - chordName might be undefined or not a string
+        if (!chordName || typeof chordName !== 'string') {
+            return 0;
+        }
+        
         // Parse chord name to get root and type
         const match = chordName.match(/^([A-G][#b]?)(.*)$/);
         if (!match) return 0;

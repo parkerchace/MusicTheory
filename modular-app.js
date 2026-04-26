@@ -165,6 +165,10 @@ window.mountLearnModuleIfReady = function(instrument) {
                     console.warn('UnifiedChordExplorer not available, falling back to legacy ChordExplorer', e);
                     this.chordExplorer = new ChordExplorer(this.musicTheory, this.scaleLibrary, this.numberGenerator);
                 }
+
+                // Generative Engines Initialization
+                this.intelligenceEngine = typeof ScaleIntelligenceEngine !== 'undefined' ? new ScaleIntelligenceEngine(this.musicTheory) : null;
+
                 this.sheetMusicGenerator = new SheetMusicGenerator(this.musicTheory);
 
                 // Initialize grading legend and help system (guard against missing module)
@@ -179,18 +183,7 @@ window.mountLearnModuleIfReady = function(instrument) {
                     console.info && console.info('GradingLegendHelpSystem not loaded; skipping.');
                 }
 
-                // Initialize word grading visualization system
-                try {
-                    // Wait for word engine to be available
-                    setTimeout(() => {
-                        if (typeof window.wordEngine !== 'undefined' && window.wordEngine) {
-                            this.wordGradingViz = new WordGradingVisualization(this.musicTheory, window.wordEngine);
-                            window.wordGradingViz = this.wordGradingViz; // Make globally available
-                        }
-                    }, 1000);
-                } catch (e) {
-                    console.warn('WordGradingVisualization not available:', e);
-                }
+
 
                 this.initialize();
             }
@@ -870,6 +863,14 @@ window.mountLearnModuleIfReady = function(instrument) {
                         this.scaleLibrary.on('scaleChanged', ({ key, scale, notes }) => {
                             if (this.guitarFretboard && this.guitarFretboard.renderScale) {
                                 this.guitarFretboard.renderScale({ key, scale, notes });
+                            }
+                            if (this.numberGenerator) {
+                                if (typeof this.numberGenerator.setScaleInfo === 'function') {
+                                    this.numberGenerator.setScaleInfo(key, scale);
+                                }
+                                if (typeof this.numberGenerator.setCurrentScaleNotes === 'function') {
+                                    this.numberGenerator.setCurrentScaleNotes(notes);
+                                }
                             }
                         });
                         this.scaleLibrary.on('degreeHighlighted', ({ note }) => {
