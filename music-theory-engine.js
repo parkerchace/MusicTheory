@@ -82,6 +82,10 @@ class MusicTheoryEngine {
             this.scales.major = this.scales.major || [0, 2, 4, 5, 7, 9, 11];
         }
 
+        // Ensure a few commonly referenced modal/altered scales exist even when the embedded
+        // dataset is missing them. These ids are used across modules.
+        // Mixolydian ♭6 (5th mode of melodic minor): 1 2 3 4 5 ♭6 ♭7
+        this.scales.mixolydian_b6 = this.scales.mixolydian_b6 || [0, 2, 4, 5, 7, 8, 10];
         this.scaleCitations = {};
 
         // Utility: transpose a note by semitones (supports sharps/flats)
@@ -468,6 +472,41 @@ class MusicTheoryEngine {
         s = s.replace(/^lydian_dominant$/, 'lydian_dominant');
         s = s.replace(/^lydian_augmented$/, 'lydian_augmented');
         return s;
+    }
+
+    /**
+     * Ensure a scale id exists in this.scales.
+     * Useful for "borrow/modulate" scenarios where multiple scales are referenced
+     * transiently without changing any global UI selection.
+     */
+    ensureScale(scaleType) {
+        const scaleId = this.normalizeScaleId ? this.normalizeScaleId(scaleType) : String(scaleType);
+        if (!scaleId) return false;
+        if (this.scales && this.scales[scaleId]) return true;
+
+        // Try to source from global embedded catalog if available (browser)
+        try {
+            const globalS = (typeof globalThis !== 'undefined' && globalThis.SCALES) || (typeof window !== 'undefined' && window.SCALES) || null;
+            if (globalS && globalS.intervals && globalS.intervals[scaleId]) {
+                this.scales = this.scales || {};
+                this.scales[scaleId] = globalS.intervals[scaleId];
+                this.scalesMeta = this.scalesMeta || globalS.meta || {};
+                return true;
+            }
+        } catch (_) {}
+
+        // Node/CommonJS fallback
+        try {
+            const S = require('./scales.js');
+            if (S && S.intervals && S.intervals[scaleId]) {
+                this.scales = this.scales || {};
+                this.scales[scaleId] = S.intervals[scaleId];
+                this.scalesMeta = this.scalesMeta || S.meta || {};
+                return true;
+            }
+        } catch (_) {}
+
+        return !!(this.scales && this.scales[scaleId]);
     }
 
     /**

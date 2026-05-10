@@ -32,24 +32,42 @@ class SemanticContourEngine {
             };
         });
 
-        // 🧠 SMARTER SCALE SUGGESTION
+        // --- Derive basic continuous attributes from syllables ---
+        const totalSyllables = profile.wordTokens.reduce((sum, w) => sum + (w.syllables ? w.syllables.length : 0), 0);
+        const pitchSum = profile.wordTokens.reduce((sum, w) =>
+            sum + (w.syllables || []).reduce((sSum, s) => sSum + (Number(s.pitchValue) || 0), 0), 0);
+        const avgPitch = totalSyllables > 0 ? (pitchSum / totalSyllables) : 0.5;
+
+        // Heuristics:
+        // - energy: more syllables/words → more motion
+        // - brightness: vowel-brightness proxy (avgPitch)
+        // - tension/darkness: inverse of brightness
+        const energy01 = this._clamp(0.15 + (totalSyllables / 14) * 0.65 + (words.length / 10) * 0.2, 0.05, 0.98);
+        const brightness01 = this._clamp(avgPitch, 0.05, 0.98);
+        const darkness01 = this._clamp(1.0 - brightness01, 0.02, 0.98);
+        const tension01 = this._clamp(0.25 + darkness01 * 0.65 + Math.max(0, Math.min(0.25, (words.length - 3) * 0.04)), 0.05, 0.98);
+        const mystery01 = this._clamp((words.length / 10) * 0.6 + (totalSyllables / 18) * 0.4, 0, 1);
+
+        profile.overallEnergy = energy01;
+        profile.globalTension = tension01;
+        profile.densityArchetype = energy01 > 0.75 ? 'busy' : (energy01 < 0.32 ? 'sparse' : 'steady');
+
+        // 🧠 SMARTER SCALE + MOOD SUGGESTION
         if (this.scaleIntelligence && profile.wordTokens.length > 0) {
-            // Aggregate attributes from syllables
-            const totalSyllables = profile.wordTokens.reduce((sum, w) => sum + w.syllables.length, 0);
-            const avgPitch = profile.wordTokens.reduce((sum, w) => 
-                sum + w.syllables.reduce((sSum, s) => sSum + s.pitchValue, 0), 0) / totalSyllables;
-            
             const attrs = {
-                energy: Math.min(1.0, totalSyllables / 12),
-                tension: this._clamp(1.0 - avgPitch, 0, 1),
-                complexity: this._clamp(profile.wordTokens.length / 8, 0, 1)
+                energy: energy01,
+                tension: tension01,
+                brightness: brightness01,
+                darkness: darkness01,
+                mystery: mystery01,
+                words
             };
-            
+
             const intelligence = this.scaleIntelligence.selectScale(attrs);
             if (intelligence) {
                 profile.recommendedScale = intelligence.name;
                 profile.preferredIntervals = [intelligence.name];
-                profile.contourArchetype = intelligence.emotion;
+                profile.contourArchetype = intelligence.emotion || profile.contourArchetype;
             }
         }
 

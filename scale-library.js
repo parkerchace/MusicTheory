@@ -22,6 +22,10 @@ class ScaleLibrary {
             selectedNotes: []
         };
 
+        // A lightweight stack so generation systems can temporarily borrow/modulate
+        // without permanently mutating the global UI selection.
+        this.scaleStack = [];
+
         this.listeners = new Map();
         this.pianoRenderer = null;
 
@@ -29,6 +33,85 @@ class ScaleLibrary {
 
         // Rely on `musicTheory.scales` being provided by the centralized `scales.js` module
         // The engine should attach `scales` and `scalesMeta` during initialization.
+    }
+
+    /**
+     * Ensure the requested scale exists in the underlying engine without changing UI state.
+     */
+    ensureScaleAvailable(scale) {
+        try {
+            if (this.musicTheory && typeof this.musicTheory.ensureScale === 'function') {
+                return !!this.musicTheory.ensureScale(scale);
+            }
+        } catch (_) {}
+        return !!(this.musicTheory && this.musicTheory.scales && this.musicTheory.scales[scale]);
+    }
+
+    /**
+     * Non-mutating scale note lookup (key-signature aware).
+     */
+    getScaleNotesFor(key, scale) {
+        if (!key || !scale) return [];
+        this.ensureScaleAvailable(scale);
+        try {
+            return this.musicTheory.getScaleNotesWithKeySignature(key, scale) || [];
+        } catch (_) {
+            try { return this.musicTheory.getScaleNotes(key, scale) || []; } catch (_) {}
+        }
+        return [];
+    }
+
+    /**
+     * Push a temporary key/scale onto a stack, set it active, and optionally suppress re-render.
+     */
+    pushKeyAndScale(key, scale, { silent = true } = {}) {
+        this.scaleStack.push({
+            currentKey: this.state.currentKey,
+            currentScale: this.state.currentScale,
+            selectedNotes: Array.isArray(this.state.selectedNotes) ? this.state.selectedNotes.slice() : []
+        });
+
+        if (silent) {
+            // Do the minimal validation/scale ensuring without UI churn
+            this.ensureScaleAvailable(scale);
+            this.state.currentKey = key;
+            this.state.currentScale = scale;
+            this.state.selectedNotes = [];
+            this.emit('scaleChanged', { key, scale, notes: this.getCurrentScaleNotes() });
+            return;
+        }
+
+        this.setKeyAndScale(key, scale);
+    }
+
+    /**
+     * Pop a temporary key/scale from the stack.
+     */
+    popKeyAndScale({ silent = true } = {}) {
+        const prev = this.scaleStack.pop();
+        if (!prev) return;
+
+        if (silent) {
+            this.state.currentKey = prev.currentKey;
+            this.state.currentScale = prev.currentScale;
+            this.state.selectedNotes = prev.selectedNotes || [];
+            this.emit('scaleChanged', { key: this.state.currentKey, scale: this.state.currentScale, notes: this.getCurrentScaleNotes() });
+            return;
+        }
+
+        this.setKeyAndScale(prev.currentKey, prev.currentScale);
+    }
+
+    /**
+     * Run a function inside a temporary key/scale context.
+     */
+    withTempKeyAndScale(key, scale, fn, { silent = true } = {}) {
+        this.pushKeyAndScale(key, scale, { silent });
+        try {
+            return fn();
+        } finally {
+            this.popKeyAndScale({ silent });
+        }
     }
 
     initialize() {

@@ -107,6 +107,7 @@ class SheetMusicGenerator {
 		this.container = null;
 		this.controlsContainer = null;
 		this.svgContainer = null;
+		this._lastGoodSvgMarkup = '';
 		
 		// Voice leading state: track previous chord voicing
 		this.previousVoicing = null; // array of MIDI note numbers from last chord
@@ -152,7 +153,54 @@ class SheetMusicGenerator {
 		if (!container) return;
 		this.container = container;
 		this._renderShell();
+		this._attachDomDebugger();
 		this._scheduleRender();
+	}
+
+	_attachDomDebugger() {
+		if (this._debuggerAttached || !this.svgContainer) return;
+		this._debuggerAttached = true;
+
+		// Log whenever the SVG host's children change
+		try {
+			const observer = new MutationObserver((mutations) => {
+				mutations.forEach((m) => {
+					if (m.type === 'childList') {
+						const now = new Date().toISOString();
+						const removed = m.removedNodes.length;
+						const added = m.addedNodes.length;
+						const childCount = this.svgContainer.children.length;
+						console.log(`[Sheet Debug] ${now} childList mutation: removed=${removed}, added=${added}, now ${childCount} children`);
+						if (removed > 0 && childCount === 0) {
+							console.warn('[Sheet Debug] ⚠️ SVG host EMPTIED! Stack:', new Error().stack);
+						}
+					}
+				});
+			});
+			observer.observe(this.svgContainer, { childList: true, subtree: false });
+			window.__sheetDomObserver = observer;
+		} catch (e) {
+			console.warn('[Sheet Debug] MutationObserver setup failed:', e);
+		}
+
+		// Also check parent visibility chain
+		try {
+			const checkVisibility = () => {
+				let el = this.svgContainer;
+				let depth = 0;
+				while (el && depth < 10) {
+					const cs = window.getComputedStyle(el);
+					if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) {
+						console.warn(`[Sheet Debug] ⚠️ HIDDEN ancestor at depth ${depth}:`, el.id || el.className, `display=${cs.display} visibility=${cs.visibility} opacity=${cs.opacity}`);
+					}
+					el = el.parentElement;
+					depth++;
+				}
+			};
+			window.__checkSheetVisibility = checkVisibility;
+		} catch (e) {
+			console.warn('[Sheet Debug] Visibility chain setup failed:', e);
+		}
 	}
 
 	setKeyAndScale(key, scale, notes) {
@@ -505,6 +553,11 @@ class SheetMusicGenerator {
 	// ------------------------- Internal render ------------------------
 
 	_renderShell() {
+		// Preserve the piano connector helper host (if present) so other systems
+		// don't fall back to using #sheet-music-container directly.
+		let pianoSheetHost = null;
+		try { pianoSheetHost = this.container.querySelector('#piano-sheet-music'); } catch (_) { pianoSheetHost = null; }
+
 		this.container.innerHTML = '';
 
 		// Create a container that holds both the main wrapper and the voicing panel
@@ -1044,7 +1097,7 @@ class SheetMusicGenerator {
         svgHost.style.minHeight = '120px';
         svgHost.style.overflowX = 'auto';
         svgHost.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
-        svgHost.style.filter = 'invert(1) hue-rotate(180deg)';
+		// Avoid CSS filters here: they can cause SVG to appear blank/frozen during rapid rerenders.
 
         wrapper.appendChild(svgHost);
 
@@ -1288,6 +1341,19 @@ class SheetMusicGenerator {
 		outerContainer.appendChild(voicingPanel);
 
 		this.container.appendChild(outerContainer);
+
+		// Re-add (or create) the piano-sheet helper host as a hidden node.
+		// This prevents connector code from targeting the full sheet container.
+		try {
+			if (!pianoSheetHost) {
+				pianoSheetHost = document.createElement('div');
+				pianoSheetHost.id = 'piano-sheet-music';
+			}
+			pianoSheetHost.style.display = 'none';
+			pianoSheetHost.style.height = '0px';
+			pianoSheetHost.style.overflow = 'hidden';
+			this.container.appendChild(pianoSheetHost);
+		} catch (_) {}
 		this.controlsContainer = controls;
 		this.svgContainer = svgHost;
 	}
@@ -1997,8 +2063,54 @@ class SheetMusicGenerator {
     }
 
     render() {
-        if (!this.svgContainer) return;
-        this.svgContainer.innerHTML = '';
+		// Diagnostic: log render start state
+		try {
+			const initSvg = this.svgContainer.querySelector('svg');
+			const initChildCount = this.svgContainer.children.length;
+			console.log(`[Sheet Render] Start. SVG present: ${!!initSvg}, host children: ${initChildCount}, barMode: ${this.state.barMode}, chords: ${(this.state.barChords || []).length}`);
+		} catch (_) {}
+
+		// Self-heal: the module DOM can be remounted/replaced by other UI systems.
+		if (!this.svgContainer || !this.svgContainer.isConnected) {
+			try {
+				const rebound = (this.container && this.container.querySelector)
+					? this.container.querySelector('.sheet-music-svg-host')
+					: document.querySelector('#sheet-music-container .sheet-music-svg-host');
+				if (rebound) {
+					console.log('[Sheet Render] Rebinding svgContainer (old one was disconnected)');
+					this.svgContainer = rebound;
+				}
+			} catch (_) {}
+		}
+		if (!this.svgContainer) return;
+
+		// Render strategy: build the new SVG off-DOM and then swap its contents into
+		// the existing SVG node (if any). This avoids blank/flicker and avoids leaving
+		// behind hidden “scratch” SVGs.
+		let __targetSvg = null;
+		const __prevMarkup = this.svgContainer.innerHTML;
+		const __lastGoodMarkup = this._lastGoodSvgMarkup;
+		const __svgLooksNonEmpty = (svgEl) => {
+			try {
+				if (!svgEl || !svgEl.querySelector) return false;
+				// Staff lines are <line>; notes/clefs include <path>/<text>.
+				return !!svgEl.querySelector('line, path, text, circle, rect');
+			} catch (_) {
+				return false;
+			}
+		};
+		const __removeNode = (node) => {
+			try {
+				if (!node) return;
+				if (node.parentNode) node.parentNode.removeChild(node);
+			} catch (_) {}
+		};
+		try {
+			// Identify the existing SVG (if any) so we can reuse it.
+			try {
+				__targetSvg = this.svgContainer.querySelector('svg');
+			} catch (_) { __targetSvg = null; }
+
 			// Reset captured voiced chords for MIDI export/playback
 			this.state.lastRenderedChords = [];
 			this.state.lastRenderedChordNames = [];
@@ -2111,8 +2223,19 @@ class SheetMusicGenerator {
 			
 			let rawNotes = chord.chordNotes;
 			if (chord.diatonicNotes && chord.diatonicNotes.length > 0) {
+				// Some sources provide fully qualified notes like "C4".
+				// For this height pre-pass we only need pitch classes; if we treat
+				// octave-tagged notes as pitch classes and append another octave, we
+				// can accidentally create notes like "C44" and blow up the SVG height.
 				rawNotes = chord.diatonicNotes;
 			}
+			// Normalize to pitch classes (strip octave numbers if present)
+			const pitchClassOnly = (n) => {
+				const m = String(n || '').trim().match(/^([A-Ga-g])([#b]?)/);
+				if (!m) return String(n || '').trim();
+				return (m[1].toUpperCase() + (m[2] || ''));
+			};
+			rawNotes = Array.isArray(rawNotes) ? rawNotes.map(pitchClassOnly).filter(Boolean) : rawNotes;
 			
 			// Quick voice calculation (simplified - just to get approximate positions)
 			const maxInv = Math.max(0, Math.min((rawNotes.length || 1) - 1, this.state.inversion || 0));
@@ -2127,13 +2250,15 @@ class SheetMusicGenerator {
 			
 			invNotes.forEach((note) => {
 				let oct = baseOct;
-				let currentNote = note + oct;
+				// Ensure we never double-append octaves (e.g., "C4" + 4 => "C44")
+				const pc = pitchClassOnly(note);
+				let currentNote = pc + oct;
 				let midi = noteToMidi(currentNote);
 				
 				// Raise octave until strictly above previous note (standard close voicing)
 				while (prevMidi != null && midi <= prevMidi) {
 					oct += 1;
-					currentNote = note + oct;
+					currentNote = pc + oct;
 					midi = noteToMidi(currentNote);
 				}
 				prevMidi = midi;
@@ -2168,13 +2293,15 @@ class SheetMusicGenerator {
 		const gapBetweenStaves = 60;
 		const heightGrand = heightSingle * 2 + gapBetweenStaves;
 		
-		// Add extra vertical space at the top for chord labels that extend above staff
-		const extraTopSpace = Math.max(0, maxLabelOffset - 8); // beyond the default 8px
+		// Add extra vertical space at the top for chord labels that extend above staff.
+		// Clamp to avoid pathological/infinite-scroll layouts if upstream note parsing
+		// ever produces absurd staff positions.
+		const extraTopSpace = Math.max(0, Math.min(260, maxLabelOffset - 8)); // beyond the default 8px
 		const baseStaffTopY = 20 + extraTopSpace; // push staff down if needed
 		const svgHeight = (this.state.staffType === 'grand' ? heightGrand : heightSingle) + extraTopSpace;
 
 		const svgNS = 'http://www.w3.org/2000/svg';
-		const svg = document.createElementNS(svgNS, 'svg');
+		let svg = document.createElementNS(svgNS, 'svg');
 		svg.setAttribute('width', String(width));
 		svg.setAttribute('height', String(svgHeight));
 		svg.setAttribute('viewBox', `0 0 ${width} ${svgHeight}`);
@@ -2441,7 +2568,7 @@ class SheetMusicGenerator {
 	// Capture sigData once for the whole render
 	const sigData = getKeySignatureForScale();
 
-	// Draw staff(s) based on staffType
+		// Draw staff(s) based on staffType
 	let treble = null;
 	let bass = null;
 	if (this.state.staffType === 'grand') {
@@ -2705,20 +2832,10 @@ class SheetMusicGenerator {
 			const fill = opts.fill || '#0ea5e9';
 			const textColor = opts.textColor || '#042024';
 
-			// Temporary text element to measure width
-			const tmp = document.createElementNS(svgNS, 'text');
-			tmp.setAttribute('x', '0');
-			tmp.setAttribute('y', '0');
-			tmp.setAttribute('font-size', String(fontSize));
-			tmp.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
-			tmp.setAttribute('visibility', 'hidden');
-			tmp.textContent = labelText;
-			svg.appendChild(tmp);
-			const bbox = tmp.getBBox ? tmp.getBBox() : { width: labelText.length * (fontSize * 0.6), height: fontSize };
-			try { svg.removeChild(tmp); } catch(_) {}
-
-			const rectW = bbox.width + paddingX * 2;
-			const rectH = bbox.height + paddingY * 2;
+			// Deterministic width estimate (keeps render off-DOM friendly)
+			const textWidth = String(labelText || '').length * (fontSize * 0.62);
+			const rectW = textWidth + paddingX * 2;
+			const rectH = fontSize + paddingY * 2;
 			const rectX = xCenter - rectW / 2;
 			const rectY = yTop;
 
@@ -4162,8 +4279,37 @@ class SheetMusicGenerator {
                     hasBars: phrase && Array.isArray(phrase.bars),
                     barCount: phrase && phrase.bars ? phrase.bars.length : 0
                 }));
-                
-                if (phrase && Array.isArray(phrase.bars)) {
+
+				// Fallback: if we are in per-bar mode but no phrase has been set,
+				// render the bar-chord sequence using the legacy bar renderer.
+				// This prevents the staff from going blank when callers only use setBarChords().
+				if (!(phrase && Array.isArray(phrase.bars) && phrase.bars.length > 0)) {
+					const barsToRender = Math.min(4, Array.isArray(chordsToShow) ? chordsToShow.length : 0);
+					if (barsToRender === 0) {
+						const empty = document.createElementNS(svgNS, 'text');
+						empty.setAttribute('x', String((firstBarX + staffRight) / 2));
+						const emptyY = (treble ? treble.topY : bass.topY) + (treble ? treble.spacing : bass.spacing) * 2;
+						empty.setAttribute('y', String(emptyY));
+						empty.setAttribute('fill', '#999');
+						empty.setAttribute('font-size', '11');
+						empty.setAttribute('font-style', 'italic');
+						empty.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
+						empty.setAttribute('text-anchor', 'middle');
+						empty.textContent = 'Select a chord to see it on the staff';
+						svg.appendChild(empty);
+					} else {
+						for (let barIndex = 0; barIndex < barsToRender; barIndex++) {
+							const chord = chordsToShow[barIndex];
+							if (!chord) continue;
+							if (this.state.staffType === 'grand' && treble && bass && this.state.splitAcrossGrand) {
+								drawChordSplitAcrossGrand(chord, barIndex, treble, bass);
+							} else {
+								if (treble) drawChordInBar(chord, barIndex, treble);
+								if (bass) drawChordInBar(chord, barIndex, bass);
+							}
+						}
+					}
+				} else if (phrase && Array.isArray(phrase.bars)) {
                     const traceId = phrase.__traceId || this.state.__lastTraceId || null;
                     const renderAudit = { chordsIntended: 0, chordsDrawn: 0, melodiesDrawn: 0, restsDrawn: 0, chordSkips: [] };
                     pushSheetTrace(traceId, 'render.phraseMode.start', {
@@ -4179,13 +4325,16 @@ class SheetMusicGenerator {
                         const barX = firstBarX + barIndex * barWidth;
                         // Space notes by musical time, not array index — quarter note = 1/beatsPerBar of bar width.
                         const beatSlotWidth = barWidth / phraseBeatsPerBar;
+						// Track chord labels so we don't duplicate symbols every beat.
+						let __lastChordLabel = null;
+						let __chordLabelsDrawnInBar = 0;
                         const __barEVals = bar.beats.map(b => b.energy || 0);
                         const __barEMin = Math.min(...__barEVals).toFixed(3);
                         const __barEMax = Math.max(...__barEVals).toFixed(3);
 
                         console.log(`[Sheet] ━━━ Bar ${barIndex + 1} | key=${bar.key||phrase.startKey||'?'} scale=${bar.scale||'?'} | ${phraseBeatsPerBar}/${phrase.beatUnit||4} | events=${bar.beats.length} | energy=${__barEMin}→${__barEMax}`);
 
-                        bar.beats.forEach((event, beatIndex) => {
+						bar.beats.forEach((event, beatIndex) => {
                             // Position by musical time (fractional beat within bar), not by array index.
                             // This ensures eighth-note off-beats land at the correct visual position.
                             const fracInBar = event.arcStage
@@ -4314,8 +4463,9 @@ class SheetMusicGenerator {
                                 });
                             }
                             
-                            // 3. Draw chord label when a chord is present
-                            if (event.chord) {
+							// 3. Draw chord label when a chord is present.
+							// Only label when the chord changes (or first appearance) to avoid duplicates.
+							if (event.chord && event.chord !== __lastChordLabel) {
                                 const lbl = document.createElementNS(svgNS, 'text');
                                 lbl.setAttribute('x', String(x));
                                 lbl.setAttribute('y', String(staffMeta.topY - 10));
@@ -4325,21 +4475,23 @@ class SheetMusicGenerator {
                                 lbl.setAttribute('text-anchor', 'middle');
                                 lbl.textContent = event.chord;
                                 svg.appendChild(lbl);
+								__lastChordLabel = event.chord;
+								__chordLabelsDrawnInBar += 1;
                             }
                         });
                         
-                        // Main Label for the Bar (First chord or summary)
-                        if (bar.beats[0] && bar.beats[0].chord) {
-                            const mainLabel = document.createElementNS(svgNS, 'text');
-                            mainLabel.setAttribute('x', String(barX + barWidth/2));
-                            mainLabel.setAttribute('y', String((treble || bass).topY - 25));
-                            mainLabel.setAttribute('fill', '#fff');
-                            mainLabel.setAttribute('font-size', '12');
-                            mainLabel.setAttribute('font-weight', 'bold');
-                            mainLabel.setAttribute('text-anchor', 'middle');
-                            mainLabel.textContent = bar.beats[0].chord;
-                            svg.appendChild(mainLabel);
-                        }
+						// Main Label for the Bar (only if no beat-level labels were drawn)
+						if (__chordLabelsDrawnInBar === 0 && bar.beats[0] && bar.beats[0].chord) {
+							const mainLabel = document.createElementNS(svgNS, 'text');
+							mainLabel.setAttribute('x', String(barX + barWidth/2));
+							mainLabel.setAttribute('y', String((treble || bass).topY - 25));
+							mainLabel.setAttribute('fill', '#fff');
+							mainLabel.setAttribute('font-size', '12');
+							mainLabel.setAttribute('font-weight', 'bold');
+							mainLabel.setAttribute('text-anchor', 'middle');
+							mainLabel.textContent = bar.beats[0].chord;
+							svg.appendChild(mainLabel);
+						}
                     });
                     
 					this._drawArcEnergyGuide(svg, phrase, {
@@ -4367,7 +4519,37 @@ class SheetMusicGenerator {
 			}
 		}
 
-		this.svgContainer.appendChild(svg);
+		// Atomically apply the new rendering.
+		// Prefer reusing the existing visible <svg> node so DevTools references stay stable.
+		try {
+			if (__targetSvg && __targetSvg !== svg) {
+				// Copy sizing
+				try {
+					__targetSvg.setAttribute('width', svg.getAttribute('width') || String(width));
+					__targetSvg.setAttribute('height', svg.getAttribute('height') || String(svgHeight));
+					__targetSvg.setAttribute('viewBox', svg.getAttribute('viewBox') || `0 0 ${width} ${svgHeight}`);
+					__targetSvg.style.display = 'block';
+					__targetSvg.style.background = 'var(--bg-panel, #1a1a1a)';
+				} catch (_) {}
+
+				// Move all rendered children over (fast + keeps namespaces correct)
+				try {
+					while (__targetSvg.firstChild) __targetSvg.removeChild(__targetSvg.firstChild);
+					while (svg.firstChild) __targetSvg.appendChild(svg.firstChild);
+				} catch (_) {
+					// Fallback for older engines
+					try { __targetSvg.innerHTML = svg.innerHTML; } catch (_) {}
+				}
+
+				// Drop the off-DOM SVG instance
+				try { __removeNode(svg); } catch (_) {}
+				svg = __targetSvg;
+			} else {
+				// First render: replace any existing SVG and append.
+				try { this.svgContainer.innerHTML = ''; } catch (_) {}
+				this.svgContainer.appendChild(svg);
+			}
+		} catch (_) {}
 
 		// Attach chord label click listeners for audition + piano popup
 		try {
@@ -4387,9 +4569,11 @@ class SheetMusicGenerator {
 			});
 		} catch(e) { /* non-fatal */ }
 
-		// Post-process ledger lines: ensure there's enough top padding so ledger lines above
-		// the treble staff aren't clipped or cramped. If any ledger line sits too close
-		// to the top of the SVG, shift the whole drawing down and increase the SVG height.
+		// DISABLED: Ledger line post-processing was causing SVG height to inflate due to
+		// negative Y coordinates in the ledger line elements. The ledger lines are already
+		// positioned correctly during initial render; this adjustment is unnecessary and harmful.
+		// Original code commented out below for reference:
+		/*
 		try {
 			const ledgerEls = svg.querySelectorAll('.ledger-line');
 			if (ledgerEls && ledgerEls.length) {
@@ -4398,25 +4582,23 @@ class SheetMusicGenerator {
 					const y = parseFloat(l.getAttribute('y1')) || parseFloat(l.getAttribute('y2')) || 0;
 					if (!isNaN(y)) minY = Math.min(minY, y);
 				});
-				const desiredTopMargin = 12; // pixels of breathing room above highest ledger
+				const desiredTopMargin = 12;
 				if (minY !== Infinity && minY < desiredTopMargin) {
 					const delta = desiredTopMargin - minY;
-					// Move all existing children into a wrapper group translated down by delta
 					const allChildren = Array.from(svg.childNodes);
 					const g = document.createElementNS(svgNS, 'g');
 					g.setAttribute('transform', `translate(0, ${delta})`);
 					allChildren.forEach(n => g.appendChild(n));
 					svg.appendChild(g);
-					// Increase svg height and viewBox to preserve bottom spacing
 					const newHeight = svgHeight + delta;
 					svg.setAttribute('height', String(newHeight));
 					svg.setAttribute('viewBox', `0 0 ${width} ${newHeight}`);
 				}
 			}
 		} catch (e) {
-			// Non-fatal; if DOM methods unavailable, skip gracefully
 			console.warn('Ledger post-process skipped:', e);
 		}
+		*/
 
 		// Update key pill text
 		const pill = this.controlsContainer && this.controlsContainer.querySelector('#sheet-music-key-pill');
@@ -4457,6 +4639,54 @@ class SheetMusicGenerator {
 			simplifyCb.checked = !!this.state.simplifyModalSignatures;
 		}
 
+		// If the new render resulted in an empty/blank SVG, restore the last known good.
+		try {
+			const svgNow = this.svgContainer.querySelector('svg');
+			if (__svgLooksNonEmpty(svgNow)) {
+				this._lastGoodSvgMarkup = this.svgContainer.innerHTML;
+			} else if (__lastGoodMarkup && String(__lastGoodMarkup).trim().length > 0) {
+				this.svgContainer.innerHTML = __lastGoodMarkup;
+			}
+		} catch (_) {}
+
+		// Per-bar UX: auto-scroll horizontally to the newest bars when content overflows.
+		// This makes long generated progressions usable without manual scrolling.
+		try {
+			if (this.state && this.state.barMode === 'per-bar' && this.state.followGenerated !== false) {
+				const scroller = this.svgContainer;
+				if (scroller && scroller.scrollWidth > scroller.clientWidth + 4) {
+					requestAnimationFrame(() => {
+						try { scroller.scrollLeft = scroller.scrollWidth; } catch (_) {}
+					});
+				}
+			}
+		} catch (_) {}
+
+		// Diagnostic: log successful render completion
+		try {
+			const finalSvg = this.svgContainer.querySelector('svg');
+			const finalChildCount = this.svgContainer.children.length;
+			const hasContent = __svgLooksNonEmpty(finalSvg);
+			
+			// Capture computed styles and dimensions
+			const hostStyles = finalSvg ? window.getComputedStyle(finalSvg) : null;
+			const containerStyles = window.getComputedStyle(this.svgContainer);
+			const hostDim = finalSvg ? { width: finalSvg.getAttribute('width'), height: finalSvg.getAttribute('height'), viewBox: finalSvg.getAttribute('viewBox') } : null;
+			
+			console.log(`[Sheet Render] ✓ Complete. SVG present: ${!!finalSvg}, has content: ${hasContent}, host children: ${finalChildCount}`);
+			
+			if (hostStyles) {
+				console.log(`[Sheet Render] SVG Computed: display=${hostStyles.display} visibility=${hostStyles.visibility} opacity=${hostStyles.opacity} width=${hostStyles.width} height=${hostStyles.height}`);
+				console.log(`[Sheet Render] SVG Attributes: ${JSON.stringify(hostDim)}`);
+			}
+			
+			console.log(`[Sheet Render] Container Computed: display=${containerStyles.display} visibility=${containerStyles.visibility} opacity=${containerStyles.opacity}`);
+			
+			if (!hasContent && finalSvg) {
+				console.warn('[Sheet Render] ⚠️ SVG rendered but appears empty. Last-good cached:', !!this._lastGoodSvgMarkup);
+			}
+		} catch (_) {}
+
 		// Bitwig button availability (disable if client/server missing)
 		const bitwigBtn = this.controlsContainer && this.controlsContainer.querySelector('#send-bitwig-btn');
 		if (bitwigBtn) {
@@ -4480,6 +4710,42 @@ class SheetMusicGenerator {
 				}}, 300); } catch(_){ }
 			}
 		}
+	} catch (err) {
+		try { console.error('[Sheet] render() failed; keeping previous SVG', err); } catch (_) {}
+		try {
+			if (typeof window !== 'undefined') {
+				window.__lastSheetRenderError = {
+					message: err && err.message ? err.message : String(err),
+					stack: err && err.stack ? String(err.stack) : null,
+					at: new Date().toISOString(),
+					state: {
+						barMode: this.state && this.state.barMode,
+						staffType: this.state && this.state.staffType,
+						key: this.state && this.state.key,
+						scale: this.state && this.state.scale,
+						barChordCount: this.state && Array.isArray(this.state.barChords) ? this.state.barChords.length : null,
+						hasPhrase: !!(this.state && this.state.musicalPhrase)
+					}
+				};
+			}
+		} catch (_) {}
+
+		// Best-effort restore: prefer the last-known-good snapshot, then fall back
+		// to the immediate prior markup.
+		try {
+			const currentSvg = (this.svgContainer && this.svgContainer.querySelector)
+				? this.svgContainer.querySelector('svg')
+				: null;
+			const looksEmpty = !__svgLooksNonEmpty(currentSvg);
+			if (looksEmpty) {
+				if (__lastGoodMarkup && String(__lastGoodMarkup).trim().length > 0) {
+					this.svgContainer.innerHTML = __lastGoodMarkup;
+				} else if (__prevMarkup && String(__prevMarkup).trim().length > 0) {
+					this.svgContainer.innerHTML = __prevMarkup;
+				}
+			}
+		} catch (_) {}
+	}
 	}
 }
 
@@ -4791,6 +5057,19 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 	});
 
 	const energyProfile = Array.isArray(arc.energyProfile) ? arc.energyProfile : [];
+	const clamp01 = (x) => Math.max(0, Math.min(1, Number(x)));
+	const energyAtBeat = (absoluteBeat) => {
+		const idx = Math.floor(absoluteBeat);
+		const ep = energyProfile[idx];
+		if (Number.isFinite(ep)) return clamp01(ep);
+		if (arc && typeof arc.sample === 'function') {
+			const total = barCount * beatsPerBar;
+			const t = total > 0 ? (Number(absoluteBeat) / total) : 0;
+			const v = Number(arc.sample(t));
+			return Number.isFinite(v) ? clamp01(v) : 0.5;
+		}
+		return 0.5;
+	};
 	const bars = [];
 
 	for (let barIndex = 0; barIndex < barCount; barIndex++) {
@@ -4844,7 +5123,7 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 				duration,
 				accent,
 				accentScore: Number(accentScore.toFixed(3)),
-				energy: Number.isFinite(energyProfile[Math.floor(absoluteBeat)]) ? energyProfile[Math.floor(absoluteBeat)] : 0,
+				energy: energyAtBeat(absoluteBeat),
 				texture: melodyNote ? 'melodic' : (frac === 0 ? 'harmonic' : 'rest'),
 				arcStage: {
 					bar: barIndex,
@@ -4870,6 +5149,21 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 			if (scheduled && scheduled.chordObj) {
 				beatEvent.chord = scheduled.chordObj.fullName;
 				beatEvent.chordObj = { ...scheduled.chordObj };
+                
+                // ✅ ENHANCEMENT: If the generator provided specific voice notes (voicing),
+                // use them instead of the generic diatonic notes.
+                if (scheduled.chordEvent && scheduled.chordEvent.voicing) {
+                    const voices = scheduled.chordEvent.voicing;
+                    // Extract all voices (soprano, alto, tenor, bass) into a note array
+                    const voicedNotes = Object.values(voices)
+                        .filter(v => v !== null)
+                        .map(midi => sheetGen._midiToNoteName(midi));
+                    
+                    if (voicedNotes.length > 0) {
+                        beatEvent.chordObj.diatonicNotes = voicedNotes;
+                    }
+                }
+
 				beatEvent.harmonyRole = (scheduled.chordEvent && scheduled.chordEvent.roman) || null;
 				beatEvent.chordDuration = durationBeatsToName(
 					scheduled.chordEvent && scheduled.chordEvent.duration, defaultBeatDuration);
@@ -5458,12 +5752,17 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 
 				// --- Play Harmony ---
 				if (event.chordObj && event.chordObj.chordNotes) {
+                    // Use independent chord duration if available, else fallback to beat duration
+                    const chordDurName = event.chordDuration || durationName;
+                    const chordQuarterBeats = durationToQuarterBeats[chordDurName] || (typeof event.chordDuration === 'number' ? event.chordDuration : quarterBeats);
+                    const chordEnd = noteStart + (chordQuarterBeats * secondsPerQuarter * 0.98);
+
 					// Voicing: Use close position centered on C3/C4 for preview
 					event.chordObj.chordNotes.forEach((nn, i) => {
 						const oct = i === 0 ? 3 : 4;
 						const raw = String(nn || '').trim();
 						const noteName = /-?\d+$/.test(raw) ? raw : (raw + oct);
-						this._playSingleNote(noteName, noteStart, noteEnd, 0.15);
+						this._playSingleNote(noteName, noteStart, chordEnd, 0.15);
 					});
 				}
 
@@ -6100,5 +6399,25 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		});
 		scheduleHide();
 	};
+
+    /**
+     * Internal helper to convert MIDI numbers to note names for display.
+     * Uses sharps by default, but switches to flats in flat keys (F, Bb, etc.)
+     */
+    SheetMusicGenerator.prototype._midiToNoteName = function(midi) {
+        if (midi === null || midi === undefined) return '';
+        
+        const flatKeys = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Dm', 'Gm', 'Cm', 'Fm', 'Bbm', 'Ebm', 'Abm'];
+        const currentKey = (this.state && this.state.key) || 'C';
+        const useFlats = flatKeys.includes(currentKey);
+        
+        const sharpNotes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const flatNotes  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+        
+        const notes = useFlats ? flatNotes : sharpNotes;
+        const octave = Math.floor(midi / 12) - 1;
+        const note = notes[midi % 12];
+        return `${note}${octave}`;
+    };
 }
 

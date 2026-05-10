@@ -140,7 +140,11 @@ class VoiceLeadingEngine {
         }
 
         // Detect quality
-        if (/^(m|min|minor|-)/i.test(symbol)) {
+        if (/maj7|M7|Δ/i.test(symbol)) {
+            result.quality = 'major';
+            result.extensions.push('maj7');
+            symbol = symbol.replace(/maj7|M7|Δ/i, '');
+        } else if (/^(m|min|minor|-)/i.test(symbol)) {
             result.quality = 'minor';
             symbol = symbol.replace(/^(m|min|minor|-)/i, '');
         } else if (/^dim/i.test(symbol)) {

@@ -74,6 +74,7 @@ class ScaleIntelligenceEngine {
 
         return {
             name: scaleName,
+            emotion: targetTone,
             score: 0.95,
             primaryReason: `Mapped ${targetTone} profile from attributes (energy:${energy.toFixed(2)}, tension:${tension.toFixed(2)})`
         };

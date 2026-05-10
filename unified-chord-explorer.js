@@ -960,6 +960,79 @@ class UnifiedChordExplorer {
             description: 'Parallel major/minor (same root, different quality)'
         });
 
+        // MODULATION TYPES - key-center changes
+
+        // Dominant-tonic key change: current V becomes new I (modulate up a P5)
+        const domTonicRoot = this.noteFromInterval(chord.root, 7);
+        if (domTonicRoot) {
+            const domTonicType = chord.chordType.includes('m') ? 'm7' : 'maj7';
+            subs.push({
+                type: 'dominant_tonic_modulation',
+                root: domTonicRoot,
+                chordType: domTonicType,
+                fullName: `${domTonicRoot}${domTonicType}`,
+                label: 'dom→tonic (↑5th)',
+                angle: 155,
+                grade: 'good',
+                family: 'modulation',
+                voiceLeading: 'dominant-tonic shift',
+                description: `Dominant-tonic key change: ${domTonicRoot} becomes new tonic (modulate up a 5th)`
+            });
+        }
+
+        // Subdominant key change: modulate down a P5 (current I was V of new key)
+        const subdomTonicRoot = this.noteFromInterval(chord.root, -7);
+        if (subdomTonicRoot) {
+            const subdomType = chord.chordType.includes('m') ? 'm7' : 'maj7';
+            subs.push({
+                type: 'subdominant_modulation',
+                root: subdomTonicRoot,
+                chordType: subdomType,
+                fullName: `${subdomTonicRoot}${subdomType}`,
+                label: 'IV→tonic (↓5th)',
+                angle: 165,
+                grade: 'good',
+                family: 'modulation',
+                voiceLeading: 'subdominant shift',
+                description: `Subdominant key change: ${subdomTonicRoot} becomes new tonic (modulate down a 5th)`
+            });
+        }
+
+        // Pivot chord modulation: the chord below (−m3) has dual function in both keys
+        const pivotRoot = this.noteFromInterval(chord.root, 9); // maj 6th up = min 3rd below target
+        if (pivotRoot) {
+            const pivotType = chord.chordType.includes('m') ? 'maj7' : 'm7';
+            subs.push({
+                type: 'pivot_chord',
+                root: pivotRoot,
+                chordType: pivotType,
+                fullName: `${pivotRoot}${pivotType}`,
+                label: 'pivot chord',
+                angle: 175,
+                grade: 'good',
+                family: 'modulation',
+                voiceLeading: 'pivot reinterpretation',
+                description: `Pivot chord modulation: ${pivotRoot}${pivotType} is diatonic in both current and target key`
+            });
+        }
+
+        // Enharmonic pivot: use a dim7 to enharmonically re-spell into a distant key
+        const enharmRoot = this.noteFromInterval(chord.root, 3); // dim7 a minor 3rd up
+        if (enharmRoot) {
+            subs.push({
+                type: 'enharmonic_pivot',
+                root: enharmRoot,
+                chordType: 'dim7',
+                fullName: `${enharmRoot}°7`,
+                label: 'enharmonic pivot',
+                angle: -165,
+                grade: 'fair',
+                family: 'modulation',
+                voiceLeading: 'enharmonic reinterpretation',
+                description: `Enharmonic pivot via ${enharmRoot}°7 — reinterpret to reach distant keys`
+            });
+        }
+
         this._log('radial', `[generateSubstitutions] total=${subs.length}`);
         // Sort by family and grade for better clustering
         const sorted = this.sortSubstitutionsByHarmonicDistance(subs, chord);
@@ -1220,6 +1293,42 @@ class UnifiedChordExplorer {
             });
         }
 
+        // Direct upper chromatic mediant (major 3rd up, SAME quality — 1 common tone)
+        const directUpperRoot = this.noteFromInterval(root, 4);
+        if (directUpperRoot) {
+            const sameType = chord.chordType.includes('m') ? 'm7' : 'maj7';
+            subs.push({
+                type: 'direct_chromatic_mediant',
+                root: directUpperRoot,
+                chordType: sameType,
+                fullName: `${directUpperRoot}${sameType}`,
+                label: 'direct ③ (↑M3)',
+                angle: 105,
+                grade: 'fair',
+                family: 'mediant',
+                voiceLeading: 'direct chromatic',
+                description: 'Direct chromatic mediant: major 3rd up, same quality (1 common tone)'
+            });
+        }
+
+        // Direct lower chromatic mediant (major 3rd down, SAME quality — 1 common tone)
+        const directLowerRoot = this.noteFromInterval(root, -4);
+        if (directLowerRoot) {
+            const sameTypeDown = chord.chordType.includes('m') ? 'm7' : 'maj7';
+            subs.push({
+                type: 'direct_chromatic_mediant',
+                root: directLowerRoot,
+                chordType: sameTypeDown,
+                fullName: `${directLowerRoot}${sameTypeDown}`,
+                label: 'direct ③ (↓M3)',
+                angle: 140,
+                grade: 'fair',
+                family: 'mediant',
+                voiceLeading: 'direct chromatic',
+                description: 'Direct chromatic mediant: major 3rd down, same quality (1 common tone)'
+            });
+        }
+
         return subs;
     }
 
@@ -1235,7 +1344,8 @@ class UnifiedChordExplorer {
             'tonic': 3,
             'modal': 4,
             'extension': 5,
-            'mediant': 6
+            'mediant': 6,
+            'modulation': 7
         };
 
         // Calculate harmonic distance for each sub
@@ -2868,7 +2978,8 @@ class UnifiedChordExplorer {
             'tonic': 'rgba(16, 185, 129, 0.15)',
             'modal': 'rgba(139, 92, 246, 0.15)',
             'extension': 'rgba(59, 130, 246, 0.15)',
-            'mediant': 'rgba(236, 72, 153, 0.15)'
+            'mediant': 'rgba(236, 72, 153, 0.15)',
+            'modulation': 'rgba(20, 184, 166, 0.15)'
         };
 
         Object.entries(familyGroups).forEach(([family, subs]) => {

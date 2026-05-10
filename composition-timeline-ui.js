@@ -435,13 +435,19 @@ class CompositionTimelineUI {
     triggerGeneration() {
         if (!this.currentProfile) return;
 
+        // Always provide a seed so repeated clicks can generate different results.
+        // Use Date.now() so it varies even if Math.random() is overridden/deterministic.
+        this._seedCounter = (this._seedCounter || 0) + 1;
+        const seed = ((Date.now() ^ (this._seedCounter * 2654435761)) >>> 0);
+
         // Dispatch arcConfirmed event with details for the generation engine
         const event = new CustomEvent('arcConfirmed', {
             detail: {
                 profile: this.currentProfile,
                 points: this.points,
                 canvasMode: this.canvasMode,
-                input: this.inputElement.value
+                input: this.inputElement.value,
+                seed
             }
         });
         

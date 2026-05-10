@@ -1140,6 +1140,65 @@ class ContextEngine {
         };
     }
 
+    /**
+     * Uses compromise.js (loaded as window.nlp) to detect:
+     *   - POS tags (adjectives weighted 1.5×, verbs 1.2×, nouns 1.0×, other 0.7×)
+     *   - Negation ("not happy" → flip valence direction)
+     *   - Intensification ("very sad" → amplify)
+     * Returns a map of { word → { weight, negated, intensified } }
+     */
+    _analyzeWithCompromise(text) {
+        if (typeof nlp === 'undefined') return {};
+        try {
+            const doc = nlp(text);
+            const result = {};
+
+            // Build POS weight map
+            const adjSet  = new Set(doc.adjectives().out('array').map(w => w.toLowerCase()));
+            const verbSet  = new Set(doc.verbs().out('array').map(w => w.toLowerCase()));
+            const nounSet  = new Set(doc.nouns().out('array').map(w => w.toLowerCase()));
+            const allTerms = doc.terms().out('array').map(w => w.toLowerCase());
+
+            for (const w of allTerms) {
+                if (!result[w]) result[w] = { weight: 0.8, negated: false, intensified: false };
+                if (adjSet.has(w))       result[w].weight = 1.5;
+                else if (verbSet.has(w)) result[w].weight = 1.2;
+                else if (nounSet.has(w)) result[w].weight = 1.0;
+            }
+
+            // Negation: words immediately following a negation marker get negated flag
+            const negMarkers = new Set(['not', 'never', 'no', "n't", 'without', 'barely', 'hardly', 'nothing', 'nor']);
+            for (let i = 0; i < allTerms.length - 1; i++) {
+                if (negMarkers.has(allTerms[i])) {
+                    const next = allTerms[i + 1];
+                    if (result[next]) result[next].negated = true;
+                    // Also negate two positions out for "not very X"
+                    if (i + 2 < allTerms.length) {
+                        const skip = allTerms[i + 2];
+                        if (result[skip] && (adjSet.has(skip) || verbSet.has(skip))) {
+                            result[skip].negated = true;
+                        }
+                    }
+                }
+            }
+
+            // Intensification: words immediately following an intensifier get amplified
+            const intensifiers = new Set(['very', 'extremely', 'so', 'deeply', 'truly', 'absolutely',
+                                          'really', 'incredibly', 'profoundly', 'utterly', 'terribly',
+                                          'awfully', 'immensely', 'overwhelmingly', 'intensely']);
+            for (let i = 0; i < allTerms.length - 1; i++) {
+                if (intensifiers.has(allTerms[i])) {
+                    const next = allTerms[i + 1];
+                    if (result[next]) result[next].intensified = true;
+                }
+            }
+
+            return result;
+        } catch (e) {
+            return {};
+        }
+    }
+
     _analyzeLexicalSemantics(input, normalized) {
         const words = this._tokenizeWords(normalized);
         if (!words.length) {
@@ -1159,6 +1218,9 @@ class ContextEngine {
             };
         }
 
+        // Compromise pass: POS weights, negation, intensification
+        const compMeta = this._analyzeWithCompromise(input);
+
         const db = this._getWordDatabase();
         const values = [];
         const categories = {};
@@ -1169,17 +1231,30 @@ class ContextEngine {
             const hasDirectLexiconEntry = !!(db && db.emotions && db.emotions[word]);
 
             if (db && typeof db.getEmotionalValence === 'function') {
-                emotion = db.getEmotionalValence(word);
+                emotion = db.getEmotionalValence(word) || emotion;
             }
 
             const fallback = this._fallbackLexicalEmotion(word);
             if (((this._isNeutralEmotion(emotion) || !hasDirectLexiconEntry) || !db) && fallback) {
                 emotion = {
-                    valence: fallback.valence || 0,
-                    arousal: fallback.arousal || 0,
+                    valence:   fallback.valence   || 0,
+                    arousal:   fallback.arousal   || 0,
                     dominance: fallback.dominance || 0
                 };
             }
+
+            // Apply compromise modifiers
+            const meta = compMeta[word] || {};
+            if (meta.negated) {
+                // "not happy" → reverse valence, dampen arousal
+                emotion = { ...emotion, valence: emotion.valence * -0.8, arousal: emotion.arousal * 0.75 };
+            }
+            if (meta.intensified) {
+                // "very sad" → amplify magnitude (clamped to ±1)
+                const clamp = x => Math.max(-1, Math.min(1, x));
+                emotion = { ...emotion, valence: clamp(emotion.valence * 1.45), arousal: clamp(emotion.arousal * 1.35) };
+            }
+            emotion._weight = meta.weight !== undefined ? meta.weight : 1.0;
 
             values.push(emotion);
 
@@ -1204,9 +1279,11 @@ class ContextEngine {
         }
 
         const count = values.length;
-        const avgValence = values.reduce((sum, v) => sum + (v.valence || 0), 0) / count;
-        const avgArousal = values.reduce((sum, v) => sum + (v.arousal || 0), 0) / count;
-        const avgDominance = values.reduce((sum, v) => sum + (v.dominance || 0), 0) / count;
+        // POS-weighted averages: adjectives and verbs carry more emotional weight
+        const totalWeight  = values.reduce((s, v) => s + (v._weight || 1), 0) || count;
+        const avgValence   = values.reduce((s, v) => s + (v.valence   || 0) * (v._weight || 1), 0) / totalWeight;
+        const avgArousal   = values.reduce((s, v) => s + (v.arousal   || 0) * (v._weight || 1), 0) / totalWeight;
+        const avgDominance = values.reduce((s, v) => s + (v.dominance || 0) * (v._weight || 1), 0) / totalWeight;
 
         const firstValence = values[0].valence || 0;
         const lastValence = values[count - 1].valence || 0;

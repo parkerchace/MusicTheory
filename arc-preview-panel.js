@@ -849,18 +849,30 @@ class ArcPreviewPanel {
    * Play preview of generated music
    */
   _playPreview() {
-    console.log('▶ Play button clicked (audio engine integration pending)');
-    // TODO: Wire to enhanced-audio-engine.js
-    // For now, just log - audio playback will be Phase 2
+    if (!this.currentMusic) return;
+    try {
+      if (typeof window.applyGeneratedMusicToSheet === 'function') {
+        window.applyGeneratedMusicToSheet(this.currentMusic);
+      }
+      const sheetGen = window.sheetMusicGenerator ||
+        (window.modularApp && window.modularApp.sheetMusicGenerator);
+      if (sheetGen && typeof sheetGen.playMidiFromRendered === 'function') {
+        sheetGen.playMidiFromRendered({ tempo: 120 });
+      }
+    } catch (e) { console.warn('Arc play preview failed:', e); }
   }
-  
+
   /**
    * Stop preview of generated music
    */
   _stopPreview() {
-    console.log('⏹ Stop button clicked (audio engine integration pending)');
-    // TODO: Wire to enhanced-audio-engine.js
-    // For now, just log - audio playback will be Phase 2
+    try {
+      const sheetGen = window.sheetMusicGenerator ||
+        (window.modularApp && window.modularApp.sheetMusicGenerator);
+      if (sheetGen && typeof sheetGen.stopMidiPlayback === 'function') {
+        sheetGen.stopMidiPlayback();
+      }
+    } catch (e) { console.warn('Arc stop preview failed:', e); }
   }
   
   /**

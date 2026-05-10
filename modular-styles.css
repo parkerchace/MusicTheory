@@ -118,6 +118,31 @@
             outline: 2px solid var(--accent-primary);
             outline-offset: 2px;
         }
+
+        /* ==================== ARC CHORD ORIGIN TOAST ==================== */
+        #arc-chord-toast {
+            position: fixed;
+            left: 50%;
+            bottom: 18px;
+            transform: translateX(-50%) translateY(10px);
+            max-width: min(860px, calc(100vw - 32px));
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            background: var(--bg-panel);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            font-size: 0.92rem;
+            line-height: 1.25rem;
+            opacity: 0;
+            z-index: 10000;
+            transition: opacity 180ms ease, transform 180ms ease;
+        }
+
+        #arc-chord-toast.show {
+            opacity: 0.96;
+            transform: translateX(-50%) translateY(0);
+        }
         
         body {
             background-color: var(--bg-app);
@@ -597,7 +622,6 @@
             display: flex;
             justify-content: center;
             padding: 20px;
-            filter: invert(1) hue-rotate(180deg);
         }
         
         #chord-explorer-container {
