@@ -21,7 +21,8 @@ class ScaleRelationshipExplorer {
                 fifthBelow: [],
                 relative: []
             },
-            selectedRelationshipFilter: 'all'
+            selectedRelationshipFilter: 'all',
+            builderRoot: null
         };
 
         this.containerElement = null;
@@ -47,9 +48,12 @@ class ScaleRelationshipExplorer {
                         <input type="text" id="sre-chord-input" 
                             value="${this.state.inputChord}" 
                             placeholder="e.g. Cm7, G7, F#maj9"
-                            style="flex: 1; background: var(--bg-input); border: 1px solid var(--border-light); color: var(--text-main); padding: 8px; font-family: var(--font-tech); text-transform: uppercase;">
+                            autocapitalize="off" autocorrect="off" spellcheck="false"
+                            style="flex: 1; background: var(--bg-input); border: 1px solid var(--border-light); color: var(--text-main); padding: 8px; font-family: var(--font-tech);">
                         <button id="sre-analyze-btn" style="background: var(--accent-primary); color: #000; border: none; padding: 0 15px; font-weight: bold; cursor: pointer;">ANALYZE</button>
                     </div>
+                    ${this.renderChordSyntaxGuide()}
+                    ${this.renderChordBuilder()}
                 </div>
 
                 <div id="sre-results">
@@ -78,6 +82,194 @@ class ScaleRelationshipExplorer {
         this.bindFilterEvents();
         this.bindApplyScaleEvents();
         this.bindPreviewEvents();
+        this.bindChordBuilderEvents();
+    }
+
+    bindChordBuilderEvents() {
+        if (!this.containerElement) return;
+
+        this.containerElement.querySelectorAll('.sre-degree-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const root = btn.getAttribute('data-root');
+                // Clicking the selected degree again collapses the quality palette.
+                this.state.builderRoot = (this.state.builderRoot === root) ? null : root;
+                this.render();
+            });
+        });
+
+        this.containerElement.querySelectorAll('.sre-quality-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const root = btn.getAttribute('data-root');
+                const quality = btn.getAttribute('data-quality');
+                this.handleInput(`${root}${quality}`);
+            });
+        });
+    }
+
+    /**
+     * Case matters in chord symbols ('m7' vs 'maj7'), and the input is no longer
+     * visually uppercased, so spell out the convention rather than leaving users
+     * to guess whether "M7" means major or minor.
+     */
+    renderChordSyntaxGuide() {
+        const rows = [
+            ['maj / (blank)', 'major triad', 'C, Cmaj'],
+            ['m', 'minor triad', 'Cm'],
+            ['maj7', 'major 7th', 'Cmaj7'],
+            ['m7', 'minor 7th', 'Cm7'],
+            ['7', 'dominant 7th', 'C7'],
+            ['dim / dim7', 'diminished', 'Cdim7'],
+            ['aug', 'augmented', 'Caug'],
+            ['sus2 / sus4', 'suspended', 'Csus4'],
+            ['m7b5', 'half-diminished', 'Cm7b5'],
+            ['9 / 11 / 13', 'extensions', 'C9, Cmaj13'],
+            ['b9 / #9 / #11 / b13', 'alterations', 'C7b9']
+        ];
+
+        return `
+            <details class="sre-syntax-guide" style="margin-top: 8px;">
+                <summary style="cursor: pointer; font-size: 0.75rem; color: var(--accent-primary); text-transform: uppercase; letter-spacing: 0.5px;">Chord spelling guide</summary>
+                <div style="margin-top: 6px; padding: 8px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-light); border-radius: 4px;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
+                        Case-sensitive: lowercase <code style="color: var(--accent-primary);">m</code> is minor,
+                        <code style="color: var(--accent-primary);">maj</code> is major.
+                        <code style="color: var(--accent-primary);">Cm7</code> is C minor 7 &mdash; for C major 7 type <code style="color: var(--accent-primary);">Cmaj7</code>.
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto auto 1fr; gap: 3px 10px; font-size: 0.75rem;">
+                        ${rows.map(([suffix, meaning, example]) => `
+                            <code style="color: var(--accent-primary);">${suffix}</code>
+                            <span style="color: var(--text-muted);">${meaning}</span>
+                            <code style="color: var(--text-muted);">${example}</code>
+                        `).join('')}
+                    </div>
+                </div>
+            </details>
+        `;
+    }
+
+    /**
+     * Returns the currently loaded key/scale plus a pitch-class bitmask of its
+     * notes, or null when no scale library is available.
+     */
+    getActiveScaleContext() {
+        const library = (typeof window !== 'undefined' && window.modularApp)
+            ? window.modularApp.scaleLibrary
+            : null;
+        if (!library || typeof library.getCurrentScaleNotes !== 'function') return null;
+
+        const key = library.getCurrentKey ? library.getCurrentKey() : null;
+        const scaleName = library.getCurrentScale ? library.getCurrentScale() : null;
+        const notes = (library.getCurrentScaleNotes() || []).map(n => String(n).replace(/[0-9]/g, ''));
+        if (!key || !scaleName || notes.length === 0) return null;
+
+        const getVal = (n) => this.musicTheory.noteValues ? this.musicTheory.noteValues[n] : -1;
+        const mask = notes.reduce((m, n) => {
+            const v = getVal(n);
+            return v >= 0 ? m | (1 << (v % 12)) : m;
+        }, 0);
+
+        return { key, scaleName, notes, mask };
+    }
+
+    /** True when every note of `root + quality` is present in the active scale. */
+    chordFitsScale(root, quality, scaleMask) {
+        try {
+            const notes = this.musicTheory.getChordNotes(root, quality);
+            if (!notes || notes.length === 0) return false;
+            const getVal = (n) => this.musicTheory.noteValues ? this.musicTheory.noteValues[n] : -1;
+            return notes.every(n => {
+                const v = getVal(n);
+                return v >= 0 && (scaleMask & (1 << (v % 12))) !== 0;
+            });
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Pick a scale degree, then build on it. Chord qualities are grouped by how
+     * they relate to the loaded scale: the stacked-thirds diatonic chord first,
+     * then other qualities whose notes still come entirely from the scale
+     * (sus4 in major, for example), then the rest as deliberate departures.
+     */
+    renderChordBuilder() {
+        const ctx = this.getActiveScaleContext();
+        if (!ctx) return '';
+
+        const selectedRoot = this.state.builderRoot;
+        const displayScale = String(ctx.scaleName).replace(/_/g, ' ');
+
+        const degreeButtons = ctx.notes.map((note, i) => {
+            const isSelected = note === selectedRoot;
+            return `
+                <button class="sre-degree-btn" data-root="${note}" data-degree="${i + 1}"
+                    style="background: ${isSelected ? 'var(--accent-primary)' : 'transparent'}; color: ${isSelected ? '#000' : 'var(--text-main)'}; border: 1px solid var(--border-light); font-size: 0.75rem; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-family: var(--font-tech); font-weight: bold; text-transform: none;">
+                    <span style="opacity: 0.6; font-size: 0.65rem;">${i + 1}</span> ${note}
+                </button>
+            `;
+        }).join('');
+
+        let qualitySection = `
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">
+                Pick a degree above to build a chord on it.
+            </div>
+        `;
+
+        if (selectedRoot) {
+            const degreeIndex = ctx.notes.indexOf(selectedRoot);
+            let diatonicQuality = null;
+            try {
+                const diatonic = this.musicTheory.getDiatonicChord(degreeIndex + 1, ctx.key, ctx.scaleName);
+                if (diatonic && diatonic.chordType) diatonicQuality = diatonic.chordType;
+            } catch (e) { /* fall through to the generic palette */ }
+
+            const palette = ['maj', 'm', 'dim', 'aug', 'sus2', 'sus4', 'maj7', 'm7', '7',
+                             'm7b5', 'dim7', '6', 'm6', '7sus4', '9', 'maj9', 'm9', '11', '13'];
+            const qualities = diatonicQuality && !palette.includes(diatonicQuality)
+                ? [diatonicQuality, ...palette]
+                : palette;
+
+            const inScale = [];
+            const outside = [];
+            qualities.forEach(q => {
+                if (q === diatonicQuality) return;
+                (this.chordFitsScale(selectedRoot, q, ctx.mask) ? inScale : outside).push(q);
+            });
+
+            const button = (q, variant) => {
+                const styles = {
+                    diatonic: 'background: var(--accent-primary); color: #000; border: 1px solid var(--accent-primary);',
+                    inScale: 'background: rgba(255,255,255,0.06); color: var(--text-main); border: 1px solid var(--border-light);',
+                    outside: 'background: transparent; color: var(--text-muted); border: 1px dashed var(--border-light);'
+                }[variant];
+                // text-transform must stay none: 'Cm' vs 'Cmaj' is the whole point.
+                return `<button class="sre-quality-btn" data-root="${selectedRoot}" data-quality="${q}"
+                    style="${styles} font-size: 0.75rem; padding: 3px 8px; cursor: pointer; border-radius: 3px; font-family: var(--font-tech); text-transform: none;">${selectedRoot}${q}</button>`;
+            };
+
+            const group = (label, hint, html) => html
+                ? `<div style="margin-top: 8px;">
+                       <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${label} <span style="text-transform: none; letter-spacing: 0; opacity: 0.7;">${hint}</span></div>
+                       <div style="display: flex; flex-wrap: wrap; gap: 4px;">${html}</div>
+                   </div>`
+                : '';
+
+            qualitySection = `
+                ${group('Diatonic', '&mdash; built from the scale itself', diatonicQuality ? button(diatonicQuality, 'diatonic') : '')}
+                ${group('Also in scale', '&mdash; every note stays in the scale', inScale.map(q => button(q, 'inScale')).join(''))}
+                ${group('Outside the scale', '&mdash; borrows notes from elsewhere', outside.map(q => button(q, 'outside')).join(''))}
+            `;
+        }
+
+        return `
+            <div class="sre-chord-builder" style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 4px;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                    Build from <span style="color: var(--accent-primary);">${ctx.key} ${displayScale}</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">${degreeButtons}</div>
+                ${qualitySection}
+            </div>
+        `;
     }
 
     handleInput(value) {
@@ -160,20 +352,39 @@ class ScaleRelationshipExplorer {
         const parsedChordRoot = this.state.parsedChord ? this.state.parsedChord.root : null;
         const parsedChordType = this.state.parsedChord ? this.state.parsedChord.type : null;
 
-        allScales.forEach(scale => {
-            // Filter: Must have a link/citation to be shown
-            const citation = this.musicTheory.scaleCitations ? this.musicTheory.scaleCitations[scale.name] : null;
-            const hasLink = citation && (citation.url || (citation.references && citation.references.length > 0));
-            
-            if (!hasLink) return;
+        // Pitch-class bitmask of the chord, so scale membership is a single AND
+        // instead of building/searching a note-name array for every scale.
+        const chordMask = chordSemis.reduce((mask, semi) => (
+            semi >= 0 ? mask | (1 << (semi % 12)) : mask
+        ), 0);
 
-            const scaleNotes = this.musicTheory.getScaleNotes(scale.root, scale.name);
-            const scaleSemis = scaleNotes.map(n => getVal(n));
-            
-            // Check if all chord notes are in scale
-            const allIn = chordSemis.every(cSemi => scaleSemis.includes(cSemi));
-            
+        // The scale currently loaded in the app, surfaced first in the results.
+        const activeLibrary = (typeof window !== 'undefined' && window.modularApp)
+            ? window.modularApp.scaleLibrary
+            : null;
+        const activeRoot = activeLibrary && activeLibrary.getCurrentKey ? activeLibrary.getCurrentKey() : null;
+        const activeScaleName = activeLibrary && activeLibrary.getCurrentScale ? activeLibrary.getCurrentScale() : null;
+
+        allScales.forEach(scale => {
+            // Citations are optional metadata — the results list renders a
+            // "No source link" state — so they must not gate which scales match.
+            const citation = this.musicTheory.scaleCitations ? this.musicTheory.scaleCitations[scale.name] : null;
+
+            const intervals = this.musicTheory.scales ? this.musicTheory.scales[scale.name] : null;
+            const rootVal = getVal(scale.root);
+
+            let allIn;
+            if (Array.isArray(intervals) && rootVal >= 0) {
+                const scaleMask = intervals.reduce((mask, iv) => mask | (1 << ((rootVal + iv) % 12)), 0);
+                allIn = (chordMask & scaleMask) === chordMask;
+            } else {
+                const scaleNotes = this.musicTheory.getScaleNotes(scale.root, scale.name);
+                const scaleSemis = scaleNotes.map(n => getVal(n));
+                allIn = chordSemis.every(cSemi => scaleSemis.includes(cSemi));
+            }
+
             if (allIn) {
+                const isCurrentScale = scale.root === activeRoot && scale.name === activeScaleName;
                 // Determine match quality: exact (diatonic) vs. just "contains notes"
                 // Exact matches will be prioritized in sorting
                 let isDiatonicMatch = false;
@@ -225,19 +436,24 @@ class ScaleRelationshipExplorer {
                     relationshipLabel = 'Mediant';
                 }
 
-                containing.push({ 
-                    ...scale, 
-                    complexity, 
-                    citation, 
-                    relationshipTier, 
+                containing.push({
+                    ...scale,
+                    complexity,
+                    citation,
+                    relationshipTier,
                     relationshipLabel,
-                    isDiatonicMatch  // Track whether this is an exact diatonic match
+                    isDiatonicMatch,  // Track whether this is an exact diatonic match
+                    isCurrentScale
                 });
             }
         });
 
         // Sort: exact diatonic matches first, then by Relationship Tier, then Complexity, then Root
         containing.sort((a, b) => {
+            // The scale the user currently has loaded is the most relevant answer
+            if (a.isCurrentScale !== b.isCurrentScale) {
+                return a.isCurrentScale ? -1 : 1;
+            }
             // Prioritize exact diatonic matches (same root + matching chord type)
             if (a.isDiatonicMatch !== b.isDiatonicMatch) {
                 return a.isDiatonicMatch ? -1 : 1;  // Diatonic matches come first
@@ -429,8 +645,12 @@ class ScaleRelationshipExplorer {
             const uniqueId = `sre-scale-${index}`;
             
             // Relationship badge
-            const relationshipBadge = scale.relationshipLabel && scale.relationshipLabel !== 'Related' 
-                ? `<span style="font-size:0.7rem; color:var(--text-muted); margin-left:8px; border:1px solid var(--border-light); padding:1px 5px; border-radius:3px; text-transform:uppercase; letter-spacing:0.5px;">${scale.relationshipLabel}</span>` 
+            const relationshipBadge = scale.relationshipLabel && scale.relationshipLabel !== 'Related'
+                ? `<span style="font-size:0.7rem; color:var(--text-muted); margin-left:8px; border:1px solid var(--border-light); padding:1px 5px; border-radius:3px; text-transform:uppercase; letter-spacing:0.5px;">${scale.relationshipLabel}</span>`
+                : '';
+
+            const currentBadge = scale.isCurrentScale
+                ? `<span style="font-size:0.7rem; color:#000; background:var(--accent-primary); margin-left:8px; padding:1px 5px; border-radius:3px; text-transform:uppercase; letter-spacing:0.5px; font-weight:bold;">Current</span>`
                 : '';
 
             const headerOpen = url
@@ -447,6 +667,7 @@ class ScaleRelationshipExplorer {
                     ${headerOpen}
                         <div style="display:flex; align-items:center;">
                             <div style="font-weight: bold; color: var(--text-highlight); font-size: 1rem;">${scale.root} ${scale.name}</div>
+                            ${currentBadge}
                             ${relationshipBadge}
                         </div>
                         <div style="background: var(--bg-panel); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; color: var(--accent-secondary);">

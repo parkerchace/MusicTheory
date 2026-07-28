@@ -122,7 +122,7 @@ window.mountLearnModuleIfReady = function(instrument) {
                     whiteKeyHeight: 140,
                     blackKeyHeight: 95,
                     autoFitHeight: true,
-                    showFingering: true,
+                    showFingering: false,
                     showRomanNumerals: true,
                     fitToContainer: true,
                     showNoteLabels: false,
@@ -201,13 +201,26 @@ window.mountLearnModuleIfReady = function(instrument) {
             /**
              * Render the mini chord strip across the top with Roman numerals for the current key/scale.
              */
+            /**
+             * Uppercase roman numeral for a scale degree, without wrapping at VII.
+             * Delegates to the number generator so both views agree on numbering.
+             */
+            degreeNumeral(degree) {
+                if (this.numberGenerator && typeof this.numberGenerator.degreeToRomanNumeral === 'function') {
+                    return this.numberGenerator.degreeToRomanNumeral(degree);
+                }
+                return String(degree);
+            }
+
             renderMiniChordStrip(key, scale) {
                 try {
                     const host = document.getElementById('mini-chord-strip');
                     if (!host) return;
-                    const roman = ['I','II','III','IV','V','VI','VII','VIII'];
-                    const isBarry = String(scale || '').toLowerCase().startsWith('barry_');
-                    const degreeCount = isBarry ? 8 : 7;
+                    // One chord per note in the scale — 5 for pentatonic, 8 for
+                    // octatonic — rather than always assuming a seven-note scale.
+                    let scaleNotes = [];
+                    try { scaleNotes = this.musicTheory.getScaleNotes(key, scale) || []; } catch(_) { scaleNotes = []; }
+                    const degreeCount = scaleNotes.length || 7;
                     const scaleName = String(scale || '').toLowerCase();
                     const isMajorish = /major|ionian/.test(scaleName);
                     const isMinorish = /minor|aeolian/.test(scaleName);
@@ -222,7 +235,7 @@ window.mountLearnModuleIfReady = function(instrument) {
                         const isHalfDim = /m7b5|ø/.test(type);
                         const isDim = /dim|°/.test(type) && !isHalfDim;
                         const isMinor = /^m(?!aj)/.test(type) && !isHalfDim; // plain minor qualities
-                        let label = roman[(degree - 1) % roman.length];
+                        let label = this.degreeNumeral(degree);
                         let cls = 'maj';
                         if (isHalfDim) { label = label.toLowerCase() + 'ø'; cls = 'dim'; }
                         else if (isDim) { label = label.toLowerCase() + '°'; cls = 'dim'; }
@@ -311,6 +324,9 @@ window.mountLearnModuleIfReady = function(instrument) {
                 // Connect scale library to other modules
                 this.scaleLibrary.on('scaleChanged', (data) => {
                     const currentNumbers = this.numberGenerator.getCurrentNumbers();
+                    // Only auto-resize the degree run if the user hasn't customized it,
+                    // so switching scales doesn't silently discard a hand-built progression.
+                    const wasFullScaleRun = this.isFullScaleRun(currentNumbers);
                     if (currentNumbers.length > 0) {
                         this.numberGenerator.emit('numbersChanged', {
                             numbers: currentNumbers,
@@ -338,6 +354,14 @@ window.mountLearnModuleIfReady = function(instrument) {
                     }
                     this.numberGenerator.setCurrentScaleNotes(data.notes);
                     this.numberGenerator.setScaleInfo(data.key, data.scale);
+
+                    // Match the chord count to the new scale's note count so the
+                    // full-scale view shows every chord the scale contains.
+                    const scaleDegrees = this.fullScaleDegrees(data.notes);
+                    if (wasFullScaleRun && scaleDegrees.length !== currentNumbers.length) {
+                        this.numberGenerator.setNumbers(scaleDegrees, this.numberGenerator.getNumberType());
+                    }
+
                     this.numberGenerator.render();
                     if (this.solarSystem) {
                         this.solarSystem.updateSystem({ key: data.key, scale: data.scale, notes: data.notes });
@@ -356,11 +380,7 @@ window.mountLearnModuleIfReady = function(instrument) {
                     // Update mini chord strip to reflect new key/scale
                     try { this.renderMiniChordStrip(data.key, data.scale); } catch(_){}
                     
-                    // Redraw piano connectors for new scale
-                    setTimeout(() => {
-                        this.renderPianoSheetMusic();
-                        setTimeout(() => this.drawPianoConnectors(), 500);
-                    }, 300);
+                    // Piano connector line redraw disabled (see setupPianoConnectors comment above).
                 });
 
                 // Connect container chord tool to piano visualizer
@@ -1133,10 +1153,10 @@ window.mountLearnModuleIfReady = function(instrument) {
                 // so it's ready when bubbles are clicked
                 this.containerChordTool.setKeyAndScale('C', 'major');
 
-                // Set initial numbers to a simple diatonic run [1,2,3,4,5,6,7]
-                // so all modules (Progression Builder, Sheet Music, Explorer)
-                // start from the full scale by default.
-                this.numberGenerator.setNumbers([1,2,3,4,5,6,7], this.numberGenerator.getNumberType());
+                // Seed a full run of the scale's own degrees so all modules
+                // (Progression Builder, Sheet Music, Explorer) start by showing
+                // every chord in the scale — 5 for pentatonic, 8 for octatonic, etc.
+                this.numberGenerator.setNumbers(this.fullScaleDegrees(), this.numberGenerator.getNumberType());
                 // Re-render the number generator UI to reflect the explicit numbers
                 if (typeof this.numberGenerator.render === 'function') this.numberGenerator.render();
                 // Initialize solar system with current key/scale
@@ -1163,10 +1183,29 @@ window.mountLearnModuleIfReady = function(instrument) {
                     renderScaleCitation(currentScale, compactInfoContainer, expandedInfoContainer);
                 }
                 
-                // Initialize piano connector system
-                this.setupPianoConnectors();
+                // Piano connector system disabled: its anchor target (#piano-sheet-music)
+                // is hidden/collapsed, which made every connector line resolve to a
+                // phantom off-screen point instead of a real note position.
+                // this.setupPianoConnectors();
             }
             
+            /**
+             * [1..N] for the loaded scale, where N is its actual note count.
+             * Falls back to a seven-degree run if the scale isn't readable yet.
+             */
+            fullScaleDegrees(notes) {
+                const scaleNotes = notes || (this.scaleLibrary ? this.scaleLibrary.getCurrentScaleNotes() : null);
+                const count = Array.isArray(scaleNotes) && scaleNotes.length > 0 ? scaleNotes.length : 7;
+                return Array.from({ length: count }, (_, i) => i + 1);
+            }
+
+            /** True when `numbers` is exactly the untouched run 1,2,3...N. */
+            isFullScaleRun(numbers) {
+                return Array.isArray(numbers)
+                    && numbers.length > 0
+                    && numbers.every((n, i) => n === i + 1);
+            }
+
             // Piano connector system methods
             setupPianoConnectors() {
                 if (this._pianoConnectorsSetupDone) return;

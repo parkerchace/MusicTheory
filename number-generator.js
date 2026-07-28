@@ -1717,10 +1717,29 @@ class NumberGenerator {
      *  - Half‑diminished sevenths → lowercase with ø (viiø)
      *  - If quality unknown → fallback to major-mode convention for the degree
      */
+    /**
+     * Roman numeral for any scale degree. Scales in this library run from 5 to
+     * 12 notes, so degrees past VII must keep going (VIII, IX, X...) rather than
+     * wrapping back to I and colliding with the tonic.
+     */
+    degreeToRomanNumeral(n) {
+        const numerals = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+        let remaining = n;
+        let out = '';
+        numerals.forEach(([value, symbol]) => {
+            while (remaining >= value) {
+                out += symbol;
+                remaining -= value;
+            }
+        });
+        return out;
+    }
+
     numberToRoman(n) {
         const base = ['I','II','III','IV','V','VI','VII'];
         if (typeof n !== 'number' || n < 1) return '?';
         const idx = (n - 1) % base.length;
+        const numeral = this.degreeToRomanNumeral(n);
 
         // Try to use connected theory engine for accurate diatonic chord quality
         let chordType = null;
@@ -1745,25 +1764,25 @@ class NumberGenerator {
             const isDominant = /(^|[^a-z])7($|[^0-9])/i.test(t) && !isMinorQuality && !isHalfDim && !/maj7/i.test(t);
             const isMajQuality = /maj/i.test(t) || (!isMinorQuality && !isHalfDim && !isDim && !isDominant);
 
-            let sym = base[idx];
+            let sym = numeral;
             if (isHalfDim) {
                 // Use textual half-dim label for manual form clarity
-                sym = base[idx].toLowerCase();
+                sym = numeral.toLowerCase();
             } else if (isDim) {
-                sym = base[idx].toLowerCase();
+                sym = numeral.toLowerCase();
             } else if (isMinorMajor) {
                 // Minor-major seventh: lowercase roman with explicit mMaj7 suffix
-                sym = base[idx].toLowerCase();
+                sym = numeral.toLowerCase();
             } else if (isAugMaj7) {
                 // Augmented major seventh: keep uppercase roman
-                sym = base[idx];
+                sym = numeral;
             } else if (isAugMin7) {
                 // Augmented minor seventh: lowercase roman
-                sym = base[idx].toLowerCase();
+                sym = numeral.toLowerCase();
             } else if (isMinorQuality) {
-                sym = base[idx].toLowerCase();
+                sym = numeral.toLowerCase();
             } else if (isMajQuality || isDominant) {
-                sym = base[idx];
+                sym = numeral;
             }
 
             // Append extensions/qualities
@@ -1830,7 +1849,10 @@ class NumberGenerator {
         }
 
         // Fallback by scale-type heuristic (major default): I ii iii IV V vi vii°
-        // For common modes we provide a simple mapping of triad qualities.
+        // These mode tables only describe seven-degree scales; past that there is
+        // no conventional quality to assume, so return the bare numeral.
+        if (n > base.length) return numeral;
+
         const lower = base.map(r => r.toLowerCase());
         const majorMap = [base[0], lower[1], lower[2], base[3], base[4], lower[5], lower[6] + '°'];
         const aeolianMap = [lower[0], lower[1] + '°', base[2], lower[3], lower[4], base[5], base[6]]; // natural minor

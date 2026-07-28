@@ -1641,8 +1641,10 @@ class MusicTheoryEngine {
         const scaleMatchPercent = (inScaleCount / chordNotes.length) * 100;
         
         if (this.gradingMode === 'functional') {
-            // Check if it's a diatonic chord
-            for (let degree = 1; degree <= 7; degree++) {
+            // Check if it's a diatonic chord. Scales here range from 5 to 12
+            // notes, so walk the scale's real degree count rather than assuming 7.
+            const degreeCount = scaleNotes.length || 7;
+            for (let degree = 1; degree <= degreeCount; degree++) {
                 const diatonicChord = this.getDiatonicChord(degree, key, scaleType);
                 if (diatonicChord.fullName === chordName) return 4; // Perfect - diatonic
             }

@@ -4284,7 +4284,7 @@ class SheetMusicGenerator {
 				// render the bar-chord sequence using the legacy bar renderer.
 				// This prevents the staff from going blank when callers only use setBarChords().
 				if (!(phrase && Array.isArray(phrase.bars) && phrase.bars.length > 0)) {
-					const barsToRender = Math.min(4, Array.isArray(chordsToShow) ? chordsToShow.length : 0);
+					const barsToRender = Array.isArray(chordsToShow) ? chordsToShow.length : 0;
 					if (barsToRender === 0) {
 						const empty = document.createElementNS(svgNS, 'text');
 						empty.setAttribute('x', String((firstBarX + staffRight) / 2));
