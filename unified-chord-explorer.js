@@ -390,6 +390,20 @@ class UnifiedChordExplorer {
                 }
             });
 
+            // NumberGenerator never emits 'manualPreviewTokens' — it emits
+            // 'displayTokensChanged' while you type. Listening only for the
+            // former meant live preview never once fired.
+            numberGenerator.on('displayTokensChanged', (data) => {
+                try {
+                    const tokens = Array.isArray(data && data.tokens) ? data.tokens.map(t => String(t).trim()).filter(t => t.length) : [];
+                    const raw = Array.isArray(data && data.rawTokens) ? data.rawTokens.map(t => String(t).trim()).filter(t => t.length) : [];
+                    if (tokens.length === 0 && raw.length === 0) return;
+                    this.updateManualPreviewTokens(tokens, raw);
+                } catch (e) {
+                    console.warn('[UnifiedChordExplorer] displayTokensChanged preview failed', e);
+                }
+            });
+
             // Manual preview from number generator (keeps raw case-preserving tokens while editing)
             numberGenerator.on('manualPreviewTokens', (data) => {
                 try {

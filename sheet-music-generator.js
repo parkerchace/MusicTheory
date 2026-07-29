@@ -99,6 +99,17 @@ class SheetMusicGenerator {
 			vlCombosVariant: 'v2'
 		};
 
+		// Layout preferences (persisted): bar width and wrapping.
+		try {
+			const bw = parseInt(localStorage.getItem('sheetBarWidth'), 10);
+			if (Number.isFinite(bw)) this.state.barWidth = bw;
+			const bpl = localStorage.getItem('sheetBarsPerLine');
+			if (bpl && bpl !== 'auto') {
+				const n = parseInt(bpl, 10);
+				if (Number.isFinite(n) && n > 0) this.state.barsPerLine = n;
+			}
+		} catch (_) {}
+
 		// Whether the SheetMusicGenerator should follow generated progressions
 		// Enable following generated progressions by default so the Sheet Music
 		// immediately reflects Progression Builder output on app startup.
@@ -289,6 +300,18 @@ class SheetMusicGenerator {
 	 */
 	setBarChords(chords) {
 		if (!Array.isArray(chords)) chords = [];
+		// A generated phrase outranks bar chords during render, and nothing ever
+		// cleared it — so after one Generate Music click every other chord tool
+		// (progression builder, number generator, explorer) silently had no
+		// visible effect. Any explicit setBarChords now retires the phrase.
+		if (this.state.musicalPhrase && !this._applyingPhrase) {
+			this.state.musicalPhrase = null;
+			this.state.barBeatEvents = null;
+			this.state.barDurations = null;
+			this.state.barMelodies = null;
+			this.state.renderedNoteEvents = null;
+		}
+
 		// Dedupe: if incoming sequence is identical to current, skip work/logging
 		const sameLength = this.state.barChords && this.state.barChords.length === chords.length;
 		let isSame = sameLength;
@@ -527,8 +550,10 @@ class SheetMusicGenerator {
 		this.state.barBeatEvents = barBeatEvents; // NEW: Store beat events
 		this.state.barMode = 'per-bar';
 
-		// Use the existing setBarChords pipeline for rendering
-		this.setBarChords(barChords);
+		// Use the existing setBarChords pipeline for rendering.
+		// Flagged so the phrase we just installed isn't immediately retired.
+		this._applyingPhrase = true;
+		try { this.setBarChords(barChords); } finally { this._applyingPhrase = false; }
 
 		// Log the enriched phrase data
 		try {
@@ -673,6 +698,58 @@ class SheetMusicGenerator {
 		arcGuideWrap.appendChild(arcGuideCb);
 		arcGuideWrap.appendChild(arcGuideLabel);
 		controls.appendChild(arcGuideWrap);
+
+		// Bar spacing — dense rhythms need more horizontal room per bar or the
+		// noteheads collide and become impossible to click individually.
+		const spacingWrap = document.createElement('label');
+		spacingWrap.style.cssText = 'font-size:0.8rem; display:flex; align-items:center; gap:6px; color:#f9fafb;';
+		spacingWrap.title = 'Horizontal width of each bar';
+		const spacingText = document.createElement('span');
+		spacingText.textContent = 'Bar width:';
+		const spacingInput = document.createElement('input');
+		spacingInput.type = 'range';
+		spacingInput.min = '110';
+		spacingInput.max = '460';
+		spacingInput.step = '10';
+		spacingInput.value = String(Number.isFinite(this.state.barWidth) ? this.state.barWidth : 150);
+		spacingInput.style.width = '90px';
+		const spacingVal = document.createElement('span');
+		spacingVal.textContent = spacingInput.value;
+		spacingVal.style.cssText = 'min-width:28px; color:#38bdf8;';
+		spacingInput.addEventListener('input', () => {
+			this.state.barWidth = parseInt(spacingInput.value, 10) || 150;
+			spacingVal.textContent = spacingInput.value;
+			try { localStorage.setItem('sheetBarWidth', spacingInput.value); } catch (_) {}
+			this._scheduleRender();
+		});
+		spacingWrap.appendChild(spacingText);
+		spacingWrap.appendChild(spacingInput);
+		spacingWrap.appendChild(spacingVal);
+		controls.appendChild(spacingWrap);
+
+		// Bars per line — wraps the staff into multiple systems.
+		const bplWrap = document.createElement('label');
+		bplWrap.style.cssText = 'font-size:0.8rem; display:flex; align-items:center; gap:6px; color:#f9fafb;';
+		bplWrap.title = 'How many bars before wrapping to a new staff line';
+		const bplText = document.createElement('span');
+		bplText.textContent = 'Bars/line:';
+		const bplSelect = document.createElement('select');
+		bplSelect.style.fontSize = '0.8rem';
+		['auto', '1', '2', '3', '4', '6', '8'].forEach((v) => {
+			const o = document.createElement('option');
+			o.value = v;
+			o.textContent = v;
+			bplSelect.appendChild(o);
+		});
+		bplSelect.value = this.state.barsPerLine ? String(this.state.barsPerLine) : 'auto';
+		bplSelect.addEventListener('change', () => {
+			this.state.barsPerLine = bplSelect.value === 'auto' ? null : parseInt(bplSelect.value, 10);
+			try { localStorage.setItem('sheetBarsPerLine', bplSelect.value); } catch (_) {}
+			this._scheduleRender();
+		});
+		bplWrap.appendChild(bplText);
+		bplWrap.appendChild(bplSelect);
+		controls.appendChild(bplWrap);
 
 		// Inversion select
 		const invLabel = document.createElement('label');
@@ -926,9 +1003,47 @@ class SheetMusicGenerator {
 			
 			updateRefreshState();
 			this.previousVoicing = null;
-			this.render();
+			// Generated music bakes its voicing in at generation time, so the
+			// sheet must ask for a re-voice — re-rendering alone would keep
+			// showing the previous voicing and the control would look dead.
+			if (window.NumericProgression && window.NumericProgression.state.degrees.length) {
+				window.NumericProgression.revoice();
+			} else if (typeof window !== 'undefined' && typeof window.regenerateLastGeneration === 'function'
+				&& window.__lastGenInputs) {
+				window.regenerateLastGeneration('voicing-change');
+			} else {
+				this.render();
+			}
 		});
 		
+		// Register control (low / mid / high) — also feeds generated voicings.
+		const regLabel = document.createElement('label');
+		regLabel.textContent = 'Register:';
+		regLabel.style.fontSize = '0.8rem';
+		regLabel.style.color = '#f9fafb';
+		const regSelect = document.createElement('select');
+		regSelect.style.fontSize = '0.8rem';
+		['low', 'mid', 'high'].forEach((r) => {
+			const o = document.createElement('option');
+			o.value = r; o.textContent = r;
+			regSelect.appendChild(o);
+		});
+		regSelect.value = this.state.voicingRegister || 'mid';
+		regSelect.addEventListener('change', () => {
+			this.state.voicingRegister = regSelect.value;
+			this.previousVoicing = null;
+			if (window.NumericProgression && window.NumericProgression.state.degrees.length) {
+				window.NumericProgression.revoice();
+			} else if (typeof window !== 'undefined' && typeof window.regenerateLastGeneration === 'function'
+				&& window.__lastGenInputs) {
+				window.regenerateLastGeneration('register-change');
+			} else {
+				this.render();
+			}
+		});
+		controls.appendChild(regLabel);
+		controls.appendChild(regSelect);
+
 		refreshBtn.addEventListener('click', () => {
 			if (this.state.autoVoicingAll) {
 				this.previousVoicing = null; // reset to let new logic influence from scratch
@@ -1337,6 +1452,16 @@ class SheetMusicGenerator {
 		});
 		voicingPanel.appendChild(regenBtn);
 
+		// Per-bar overrides live here now. They used to be a separate strip in
+		// the "Where the chords come from" panel offering five styles, so the
+		// app had two voicing UIs that disagreed about what a voicing even is.
+		// One panel, and the per-bar dropdown offers the same styles as the
+		// sequence control.
+		try {
+			const perBar = this._createPerBarVoicingSection();
+			if (perBar) voicingPanel.appendChild(perBar);
+		} catch (_) {}
+
 		outerContainer.appendChild(wrapper);
 		outerContainer.appendChild(voicingPanel);
 
@@ -1476,6 +1601,102 @@ class SheetMusicGenerator {
 		} catch(_) {}
 	}
 
+	/**
+	 * Per-bar voicing overrides for the current generated sequence.
+	 *
+	 * Approach chords are skipped deliberately: they are inserted ornaments
+	 * that borrow their bar from the chord they lead into, so pinning a
+	 * voicing to them would fight the run rather than shape the harmony.
+	 *
+	 * Returns null when nothing is generated yet, so the panel simply does not
+	 * show the section rather than showing an empty one.
+	 */
+	_createPerBarVoicingSection() {
+		const music = (typeof window !== 'undefined' && window.__lastMusicGenerated) || null;
+		const seq = (music && music.harmony && music.harmony.chordSequence) || [];
+		const bars = [];
+		seq.forEach((ev) => {
+			if (!ev || ev.approachStrategy) return;
+			if (!bars.some(b => b.bar === ev.bar)) bars.push({ bar: ev.bar, chord: ev.chord });
+		});
+		if (!bars.length) return null;
+
+		const wrap = document.createElement('div');
+		wrap.style.cssText = 'display:flex; flex-direction:column; gap:5px; margin-top:6px;'
+			+ 'padding-top:8px; border-top:1px solid rgba(148,163,184,0.2);';
+
+		const settings = (music.harmony && music.harmony.voicingSettings) || {};
+		const head = document.createElement('div');
+		head.style.cssText = 'font-size:0.75rem; color:#94a3b8;';
+		head.innerHTML = `<strong style="color:#e5e7eb;">Per-bar override</strong> `
+			+ `<span>sequence: ${settings.voicing || this.state.voicingStyle || 'close'}`
+			+ ` / ${settings.register || this.state.voicingRegister || 'mid'}</span>`;
+		wrap.appendChild(head);
+
+		if (!window.__chordVoicingOverrides) window.__chordVoicingOverrides = {};
+
+		// Same manual styles the sequence-wide control offers.
+		const STYLES = ['close', 'open', 'drop2', 'drop3', 'drop2+4', 'drop3+5', 'spread',
+			'shell', 'shell-no3', 'shell-high3', 'quartal', 'quintal', 'cluster',
+			'gospel-shell', 'gospel-cluster', 'jazz-rootless', 'classical-balanced', 'add-tensions'];
+
+		const row = document.createElement('div');
+		row.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap;';
+
+		bars.forEach((b) => {
+			const cell = document.createElement('div');
+			cell.style.cssText = 'display:flex; flex-direction:column; gap:2px; align-items:center;';
+
+			const name = document.createElement('span');
+			name.textContent = b.chord;
+			name.style.cssText = 'color:#fbbf24; font-size:0.7rem;';
+
+			const sel = document.createElement('select');
+			sel.style.cssText = 'font-size:0.7rem; background:#0f172a; color:#e2e8f0;'
+				+ 'border:1px solid #334155; border-radius:3px; max-width:104px;';
+			const seqOpt = document.createElement('option');
+			seqOpt.value = ''; seqOpt.textContent = 'sequence';
+			sel.appendChild(seqOpt);
+			STYLES.forEach((s) => {
+				const o = document.createElement('option');
+				o.value = s; o.textContent = s;
+				sel.appendChild(o);
+			});
+
+			const reg = document.createElement('select');
+			reg.style.cssText = sel.style.cssText;
+			[['', 'reg'], ['low', 'low'], ['mid', 'mid'], ['high', 'high']].forEach(([v, t]) => {
+				const o = document.createElement('option');
+				o.value = v; o.textContent = t;
+				reg.appendChild(o);
+			});
+
+			const cur = window.__chordVoicingOverrides[b.bar] || {};
+			sel.value = cur.voicing || '';
+			reg.value = cur.register || '';
+
+			const apply = () => {
+				const next = {};
+				if (sel.value) next.voicing = sel.value;
+				if (reg.value) next.register = reg.value;
+				if (Object.keys(next).length) window.__chordVoicingOverrides[b.bar] = next;
+				else delete window.__chordVoicingOverrides[b.bar];
+				if (typeof window.regenerateLastGeneration === 'function') {
+					window.regenerateLastGeneration('per-chord-voicing');
+				}
+			};
+			sel.addEventListener('change', apply);
+			reg.addEventListener('change', apply);
+
+			cell.appendChild(name);
+			cell.appendChild(sel);
+			cell.appendChild(reg);
+			row.appendChild(cell);
+		});
+		wrap.appendChild(row);
+		return wrap;
+	}
+
 	_createVoicingCheckbox(id, label, checked, tooltip, onChange) {
 		const wrap = document.createElement('label');
 		wrap.style.fontSize = '0.75rem';
@@ -1585,6 +1806,15 @@ class SheetMusicGenerator {
     /**
      * Helper: Draw a rhythmic note with stem and flag
      */
+    /** Shift a note name (e.g. "C4") by whole octaves, clamped to a sane range. */
+    _shiftNoteOctave(noteName, offset) {
+        if (!offset) return noteName;
+        const m = String(noteName || '').match(/^([A-G][#b]?)(-?\d+)$/);
+        if (!m) return noteName;
+        const oct = Math.max(0, Math.min(8, parseInt(m[2], 10) + offset));
+        return `${m[1]}${oct}`;
+    }
+
     _drawRhythmicNote(svg, x, y, duration, options = {}) {
         const svgNS = 'http://www.w3.org/2000/svg';
 		const color = options.color || '#f3f4f6';
@@ -1594,50 +1824,73 @@ class SheetMusicGenerator {
         // Convert string duration to numeric if needed
         const numDuration = this._durationToNumber(duration);
         
-		// 1. Choose Notehead based on duration
-        let notehead = '\u{1D158}'; // Quarter default
-        let noteheadFill = 'black';
-        
-        if (numDuration >= 4) {
-            notehead = '\u{1D15D}'; // Whole - hollow
-            noteheadFill = 'white';
-        } else if (numDuration >= 2) {
-            notehead = '\u{1D157}'; // Half - hollow
-            noteheadFill = 'white';
-        } else {
-            // Quarter, eighth, sixteenth - filled
-            noteheadFill = 'black';
-        }
-        
-        const head = document.createElementNS(svgNS, 'text');
-        head.setAttribute('x', String(x));
-        // Bravura noteheads are slightly offset in their em-box; +0.8px y-shift improves staff line centering
-        head.setAttribute('y', String(y + 0.8));
-		head.setAttribute('font-size', '30'); // Slightly larger for better readability
-        head.setAttribute('font-family', 'Bravura, "Noto Music", "Segoe UI Symbol", Georgia, serif');
-        head.setAttribute('fill', noteheadFill === 'white' ? 'white' : color);
+		// 1. Notehead drawn as a vector ellipse — Unicode Musical Symbols
+		// (U+1D15x) render as tofu boxes when no music font (Bravura etc.)
+		// is installed, so no font dependency is allowed here.
+        const hollowHead = numDuration >= 2;   // half + whole
+        const isWholeHead = numDuration >= 4;
+
+        const head = document.createElementNS(svgNS, 'ellipse');
+        head.setAttribute('cx', String(x));
+        head.setAttribute('cy', String(y));
+        head.setAttribute('rx', isWholeHead ? '7.4' : '6.1');
+        head.setAttribute('ry', isWholeHead ? '4.8' : '4.4');
+        if (!isWholeHead) head.setAttribute('transform', `rotate(-20 ${x} ${y})`);
+        head.setAttribute('fill', hollowHead ? 'none' : color);
         head.setAttribute('stroke', color);
-		head.setAttribute('stroke-width', noteheadFill === 'white' ? '1.5' : '0.5');
-        head.setAttribute('text-anchor', 'middle');
-        head.setAttribute('dominant-baseline', 'middle');
+        head.setAttribute('stroke-width', hollowHead ? '2' : '1.3');
 		head.setAttribute('opacity', '0.98');
         head.style.cursor = 'pointer';
         head.style.pointerEvents = 'all';
-        head.textContent = notehead;
         
         if (options.noteName) {
             head.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this._playNote(options.noteName);
             });
-            head.setAttribute('title', `Play ${options.noteName}`);
+            // SVG needs a <title> CHILD; a title attribute renders no tooltip,
+            // so the pitch was invisible on hover.
+            const tip = document.createElementNS(svgNS, 'title');
+            tip.textContent = String(options.noteName);
+            head.appendChild(tip);
+            head.setAttribute('data-note', String(options.noteName));
         }
         
         svg.appendChild(head);
 
-        // 1a. Draw Accidental if sigData provided
-        if (options.sigData && options.noteName) {
-            this._drawAccidentalForNote(svg, x, y, options.noteName, options.sigData);
+        // 1. Ledger lines FIRST so they sit under the notehead. The phrase
+        // renderer draws every note through here and never drew them, so any
+        // note above or below the staff had nothing locating it.
+        if (options.staffMeta && Number.isFinite(options.staffPosition)) {
+            const sm = options.staffMeta;
+            const sp = options.staffPosition;
+            const len = 9;
+            const drawLedger = (lineIndex) => {
+                const ly = sm.topY + 4 * sm.spacing - lineIndex * sm.spacing;
+                const ln = document.createElementNS(svgNS, 'line');
+                ln.setAttribute('class', 'ledger-line');
+                ln.setAttribute('x1', String(x - len));
+                ln.setAttribute('y1', String(ly));
+                ln.setAttribute('x2', String(x + len));
+                ln.setAttribute('y2', String(ly));
+                ln.setAttribute('stroke', color);
+                ln.setAttribute('stroke-width', '1.2');
+                ln.style.pointerEvents = 'none';
+                svg.appendChild(ln);
+            };
+            if (sp < -0.5) {
+                for (let i = -1; i >= Math.min(-1, Math.ceil(sp)); i -= 1) drawLedger(i);
+            } else if (sp > 4.5) {
+                for (let i = 5; i <= Math.max(5, Math.floor(sp)); i += 1) drawLedger(i);
+            }
+        }
+
+        // 1a. Accidentals: always attempt when the pitch is known. Gating this
+        // on sigData meant that whenever the key signature failed to resolve,
+        // sharps/flats vanished and F♯ rendered identically to F.
+        if (options.noteName) {
+            this._drawAccidentalForNote(svg, x, y, options.noteName, options.sigData || null,
+                options.measureKey || null);
         }
 
  
@@ -1652,6 +1905,7 @@ class SheetMusicGenerator {
  				augDot.setAttribute('r', '2.1');
  				augDot.setAttribute('fill', color);
  				augDot.setAttribute('opacity', '0.95');
+ 				augDot.style.pointerEvents = 'none';
  				svg.appendChild(augDot);
  			}
  		} catch (_) {}
@@ -1668,19 +1922,19 @@ class SheetMusicGenerator {
                  dot.setAttribute('cy', String(articulationY));
                  dot.setAttribute('r', '2');
                  dot.setAttribute('fill', color);
+                 dot.style.pointerEvents = 'none';
                  svg.appendChild(dot);
              }
 
              if (options.accent) {
-                 const accent = document.createElementNS(svgNS, 'text');
-                 accent.setAttribute('x', String(articulateX));
-                 accent.setAttribute('y', String(articulationY));
-                 accent.setAttribute('font-size', '20');
-                 accent.setAttribute('font-family', 'Bravura, serif');
-                 accent.setAttribute('fill', color);
-                 accent.setAttribute('text-anchor', 'middle');
-                 accent.setAttribute('dominant-baseline', 'middle');
-                 accent.textContent = '\u{1D18B}'; // Standard accent wedge >
+                 // Accent wedge drawn as a path (font-independent)
+                 const accent = document.createElementNS(svgNS, 'path');
+                 accent.setAttribute('d', `M ${articulateX - 5} ${articulationY - 3} L ${articulateX + 5} ${articulationY} L ${articulateX - 5} ${articulationY + 3}`);
+                 accent.setAttribute('stroke', color);
+                 accent.setAttribute('stroke-width', '1.6');
+                 accent.setAttribute('fill', 'none');
+                 accent.setAttribute('stroke-linecap', 'round');
+                 accent.style.pointerEvents = 'none';
                  svg.appendChild(accent);
              }
          } catch (_) {}
@@ -1698,27 +1952,26 @@ class SheetMusicGenerator {
             stem.setAttribute('y2', String(yEnd));
             stem.setAttribute('stroke', color);
 			stem.setAttribute('stroke-width', '1.9');
+            stem.style.pointerEvents = 'none';
             svg.appendChild(stem);
 
-            // 3. Draw Flags (if eighth or smaller)
+            // 3. Draw Flags (if eighth or smaller) — vector paths, no music font
             if (numDuration <= 0.5) {
                 const flagX = stemX;
-                const flagY = yEnd;
                 const flagCount = numDuration <= 0.25 ? 2 : 1;
-                const flagChar = (direction === 'up') ? 
-                    (flagCount === 2 ? '\u{1D170}' : '\u{1D16E}') : 
-                    (flagCount === 2 ? '\u{1D171}' : '\u{1D16F}');
-                
-                const flag = document.createElementNS(svgNS, 'text');
-                flag.setAttribute('x', String(flagX));
-                flag.setAttribute('y', String(flagY));
-				flag.setAttribute('font-size', '26');
-                flag.setAttribute('font-family', 'Bravura, Georgia, serif');
-                flag.setAttribute('fill', color);
-                flag.setAttribute('text-anchor', 'start');
-                flag.setAttribute('dominant-baseline', 'middle');
-                flag.textContent = flagChar;
-                svg.appendChild(flag);
+                const sgn = (direction === 'up') ? 1 : -1;
+                for (let f = 0; f < flagCount; f++) {
+                    const fy = yEnd + sgn * f * 7;
+                    const flag = document.createElementNS(svgNS, 'path');
+                    flag.setAttribute('d',
+                        `M ${flagX} ${fy}` +
+                        ` C ${flagX + 8} ${fy + sgn * 6}, ${flagX + 9} ${fy + sgn * 13}, ${flagX + 3.5} ${fy + sgn * 20}` +
+                        ` C ${flagX + 7} ${fy + sgn * 13}, ${flagX + 4} ${fy + sgn * 8}, ${flagX} ${fy + sgn * 6} Z`);
+                    flag.setAttribute('fill', color);
+                    flag.setAttribute('opacity', '0.95');
+                    flag.style.pointerEvents = 'none';
+                    svg.appendChild(flag);
+                }
             }
         }
     }
@@ -1741,43 +1994,95 @@ class SheetMusicGenerator {
      * @param {string} noteName - Note name (e.g., "F#4")
      * @param {object} sigData - Key signature data from getKeySignatureForScale()
      */
-    _drawAccidentalForNote(svg, noteX, noteY, noteName, sigData) {
-        if (!noteName || !sigData) return;
+    _drawAccidentalForNote(svg, noteX, noteY, noteName, sigData, measureKey) {
+        // NOTE: sigData being absent must NOT suppress accidentals. F\u266F and F
+        // occupy the same staff line, so omitting the sharp renders two
+        // different pitches identically \u2014 the sheet then contradicts what the
+        // ear hears. With no key signature we treat it as "no accidentals in
+        // the key", which means every sharp/flat is spelled explicitly.
+        if (!noteName) return;
         const svgNS = 'http://www.w3.org/2000/svg';
-        
-        // 1. Extract spelling details
-        const letter = noteName.charAt(0).toUpperCase();
-        const hasSharp = noteName.includes('#');
-        const hasFlat = noteName.includes('b');
-        
-        // 2. Determine what's in the key signature for this letter
-        const baseAccidentals = (sigData.baseSignature && sigData.baseSignature.accidentals) || [];
-        const scaleAccidentals = sigData.scaleAccidentals || [];
-        const allSigAccs = [...baseAccidentals, ...scaleAccidentals];
-        
-        const sigAcc = allSigAccs.find(acc => acc.startsWith(letter));
-        const sigSharp = sigAcc && sigAcc.includes('#');
-        const sigFlat = sigAcc && sigAcc.includes('b');
-        
-        // 3. Determine if we need to draw a symbol
-        let symbol = null;
-        if (hasSharp && !sigSharp) symbol = '\u266F'; // Needs sharp, not in sig
-        else if (hasFlat && !sigFlat) symbol = '\u266D';  // Needs flat, not in sig
-        else if (!hasSharp && !hasFlat && (sigSharp || sigFlat)) symbol = '\u266E'; // Is natural, but sig has sharp/flat
-        
-        if (!symbol) return;
 
-        const t = document.createElementNS(svgNS, 'text');
-        const x = noteX - 16; // Offset to the left of notehead
-        t.setAttribute('x', String(x));
-        t.setAttribute('y', String(noteY));
-        t.setAttribute('fill', '#d1d5db');
-        t.setAttribute('font-size', '22');
-        t.setAttribute('font-family', 'Georgia, serif');
-        t.setAttribute('text-anchor', 'end');
-        t.setAttribute('dominant-baseline', 'middle');
-        t.textContent = symbol;
-        svg.appendChild(t);
+        // 1. Extract spelling details (strip the octave before scanning, so a
+        // trailing 'b' can never be confused with an octave digit).
+        const bare = String(noteName).replace(/-?\d+$/, '');
+        const letter = bare.charAt(0).toUpperCase();
+        const hasSharp = bare.includes('#') || bare.includes('\u266F');
+        const hasFlat = bare.slice(1).includes('b') || bare.includes('\u266D');
+
+        // 2. Determine what's in the key signature for this letter
+        const baseAccidentals = (sigData && sigData.baseSignature && sigData.baseSignature.accidentals) || [];
+        const scaleAccidentals = (sigData && sigData.scaleAccidentals) || [];
+        const allSigAccs = [...baseAccidentals, ...scaleAccidentals];
+
+        const sigAcc = allSigAccs.find(acc => String(acc).charAt(0).toUpperCase() === letter);
+        const sigSharp = !!(sigAcc && String(sigAcc).includes('#'));
+        const sigFlat = !!(sigAcc && String(sigAcc).slice(1).includes('b'));
+
+        // 3. Determine if we need to draw a symbol.
+        //
+        // MEASURE MEMORY. An accidental holds for the rest of its bar, so it is
+        // written once and the following notes on that pitch need nothing. This
+        // used to compare every note against the key signature in isolation, so
+        // a bar with four B♭s drew four flats, and every B natural after a
+        // borrowed chord drew its own natural. The page filled with symbols
+        // that marked no change — exactly the churn that makes a real
+        // accidental stop meaning "something happens here".
+        //
+        // State is per bar AND per pitch (letter + octave), which is what the
+        // convention actually scopes to.
+        const want = hasSharp ? '#' : (hasFlat ? 'b' : '');
+        const sigState = sigSharp ? '#' : (sigFlat ? 'b' : '');
+
+        let inEffect = sigState;
+        let bar = null;
+        const octave = (String(noteName).match(/(-?\d+)$/) || [])[1];
+        const pitchKey = `${letter}${octave === undefined ? '' : octave}`;
+        if (measureKey) {
+            this._accidentalMemory = this._accidentalMemory || new Map();
+            bar = this._accidentalMemory.get(measureKey);
+            if (!bar) { bar = new Map(); this._accidentalMemory.set(measureKey, bar); }
+            if (bar.has(pitchKey)) inEffect = bar.get(pitchKey);
+        }
+
+        // Nothing to say: this pitch already sounds the way it is spelled.
+        if (want === inEffect) return;
+        if (bar) bar.set(pitchKey, want);
+
+        const kind = want === '#' ? 'sharp' : (want === 'b' ? 'flat' : 'natural');
+
+        // Drawn as vectors: the \u266F \u266D \u266E glyphs are unreliable in the UI font
+        // stack, and a missing glyph here is indistinguishable from no
+        // accidental at all \u2014 the exact failure this method must prevent.
+        const g = document.createElementNS(svgNS, 'g');
+        g.style.pointerEvents = 'none';
+        const x = noteX - 13;
+        const y = noteY;
+        const stroke = (d, w) => {
+            const p = document.createElementNS(svgNS, 'path');
+            p.setAttribute('d', d);
+            p.setAttribute('stroke', '#e5e7eb');
+            p.setAttribute('stroke-width', String(w || 1.3));
+            p.setAttribute('fill', 'none');
+            p.setAttribute('stroke-linecap', 'round');
+            g.appendChild(p);
+        };
+
+        if (kind === 'sharp') {
+            stroke(`M ${x - 2.6} ${y - 6.5} L ${x - 2.6} ${y + 5.5}`, 1.3);
+            stroke(`M ${x + 1.4} ${y - 7.5} L ${x + 1.4} ${y + 4.5}`, 1.3);
+            stroke(`M ${x - 5} ${y - 1.6} L ${x + 4} ${y - 3.4}`, 1.8);
+            stroke(`M ${x - 5} ${y + 3.2} L ${x + 4} ${y + 1.4}`, 1.8);
+        } else if (kind === 'flat') {
+            stroke(`M ${x - 2.4} ${y - 8} L ${x - 2.4} ${y + 5}`, 1.4);
+            stroke(`M ${x - 2.4} ${y - 0.5} C ${x + 2.5} ${y - 3.5}, ${x + 4} ${y + 2}, ${x - 2.4} ${y + 5}`, 1.4);
+        } else {
+            stroke(`M ${x - 2.6} ${y - 7} L ${x - 2.6} ${y + 3.5}`, 1.3);
+            stroke(`M ${x + 2.2} ${y - 3.5} L ${x + 2.2} ${y + 7}`, 1.3);
+            stroke(`M ${x - 2.6} ${y - 2.2} L ${x + 2.2} ${y - 3.8}`, 1.6);
+            stroke(`M ${x - 2.6} ${y + 2.2} L ${x + 2.2} ${y + 0.6}`, 1.6);
+        }
+        svg.appendChild(g);
     }
 
     /**
@@ -1823,24 +2128,55 @@ class SheetMusicGenerator {
         const svgNS = 'http://www.w3.org/2000/svg';
 		const color = options.color || '#f3f4f6';
         const numDuration = this._durationToNumber(duration);
-        
-        // Use Unicode rest symbols: whole, half, quarter, eighth/sixteenth
-        let restChar = '𝄩'; // quarter rest - fallback
-        if (numDuration >= 4) restChar = '𝄶'; // whole rest
-        else if (numDuration >= 2) restChar = '𝄷'; // half rest
-        else if (numDuration <= 0.5) restChar = '𝄬'; // eighth/sixteenth rest
-        
-        const rest = document.createElementNS(svgNS, 'text');
-        rest.setAttribute('x', String(x));
-        rest.setAttribute('y', String(y + 2));
-		rest.setAttribute('font-size', '37');
-        rest.setAttribute('font-family', 'Bravura, Georgia, serif');
-        rest.setAttribute('fill', color);
-        rest.setAttribute('text-anchor', 'middle');
-        rest.setAttribute('dominant-baseline', 'middle');
-		rest.setAttribute('opacity', '0.98');
-        rest.textContent = restChar;
-        svg.appendChild(rest);
+
+        // Rests drawn as vector shapes — Unicode rest glyphs need a music font
+        // and render as boxes without one.
+        if (numDuration >= 4) {
+            // Whole rest: block hanging below the line
+            const r = document.createElementNS(svgNS, 'rect');
+            r.setAttribute('x', String(x - 6));
+            r.setAttribute('y', String(y - 4));
+            r.setAttribute('width', '12');
+            r.setAttribute('height', '4');
+            r.setAttribute('fill', color);
+            r.setAttribute('opacity', '0.98');
+            svg.appendChild(r);
+        } else if (numDuration >= 2) {
+            // Half rest: block sitting on the line
+            const r = document.createElementNS(svgNS, 'rect');
+            r.setAttribute('x', String(x - 6));
+            r.setAttribute('y', String(y));
+            r.setAttribute('width', '12');
+            r.setAttribute('height', '4');
+            r.setAttribute('fill', color);
+            r.setAttribute('opacity', '0.98');
+            svg.appendChild(r);
+        } else if (numDuration <= 0.5) {
+            // Eighth/sixteenth rest: slanted stem with a comma hook
+            const p = document.createElementNS(svgNS, 'path');
+            p.setAttribute('d', `M ${x + 3} ${y - 8} C ${x} ${y - 3}, ${x - 4} ${y - 5}, ${x - 3.5} ${y - 8} M ${x + 3} ${y - 8} L ${x - 2} ${y + 8}`);
+            p.setAttribute('stroke', color);
+            p.setAttribute('stroke-width', '1.8');
+            p.setAttribute('fill', 'none');
+            p.setAttribute('stroke-linecap', 'round');
+            svg.appendChild(p);
+            const hook = document.createElementNS(svgNS, 'circle');
+            hook.setAttribute('cx', String(x - 3.5));
+            hook.setAttribute('cy', String(y - 7));
+            hook.setAttribute('r', '2');
+            hook.setAttribute('fill', color);
+            svg.appendChild(hook);
+        } else {
+            // Quarter rest: stylized zigzag
+            const p = document.createElementNS(svgNS, 'path');
+            p.setAttribute('d', `M ${x - 2} ${y - 10} L ${x + 3} ${y - 4} L ${x - 2} ${y + 1} C ${x + 3} ${y + 3}, ${x + 3} ${y + 7}, ${x - 1} ${y + 10} C ${x + 1} ${y + 5}, ${x - 3} ${y + 4}, ${x - 2} ${y + 1}`);
+            p.setAttribute('stroke', color);
+            p.setAttribute('stroke-width', '2');
+            p.setAttribute('fill', 'none');
+            p.setAttribute('stroke-linecap', 'round');
+            p.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(p);
+        }
     }
 
     /**
@@ -1885,6 +2221,16 @@ class SheetMusicGenerator {
 	 * Draw arc-energy guide directly from phrase beat energies.
 	 * This aligns Arc timing to the exact bar/beat coordinates used by sheet rendering.
 	 */
+	/** MIDI number for a note name, or NaN. */
+	_noteToMidiSafe(noteName) {
+		const m = String(noteName || '').match(/^([A-G][#b]?)(-?\d+)$/);
+		if (!m) return NaN;
+		const map = { C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11 };
+		const pc = map[m[1]];
+		if (pc === undefined) return NaN;
+		return (parseInt(m[2], 10) + 1) * 12 + pc;
+	}
+
 	_drawArcEnergyGuide(svg, phrase, layout = {}) {
 		if (!svg || !phrase || !Array.isArray(phrase.bars) || phrase.bars.length === 0) return;
 		if (this.state.showArcGuide === false) return;
@@ -1900,12 +2246,46 @@ class SheetMusicGenerator {
 		const laneHeight = Math.max(8, laneBottom - laneTop);
 		const points = [];
 
+		// Position arc points by MUSICAL TIME (same mapping as the note renderer)
+		// — spacing by array index drifted out of line with the notes because
+		// bar.beats is a sparse event list, not a uniform grid.
+		const guideBeatsPerBar = Math.max(1, parseInt(phrase.beatsPerBar, 10) || 4);
+
+		// Opt-in: plot the melody contour instead of the arc. Off by default so
+		// the lane shows what its label claims.
+		const trackMelody = this.state.arcGuideTracksMelody === true;
+
+		// Melody ambitus, so the guide's vertical scale matches the actual notes.
+		let melodyRange = null;
+		try {
+			let lo = Infinity, hi = -Infinity;
+			(phrase.bars || []).forEach((b) => {
+				(b.beats || []).forEach((be) => {
+					(be.melodySequence || []).forEach((mn) => {
+						const m = this._noteToMidiSafe(mn.noteName);
+						if (Number.isFinite(m)) { if (m < lo) lo = m; if (m > hi) hi = m; }
+					});
+				});
+			});
+			if (Number.isFinite(lo) && Number.isFinite(hi) && hi > lo) melodyRange = { min: lo, max: hi };
+		} catch (_) {}
+		const barLayout = typeof layout.barLayout === 'function' ? layout.barLayout : null;
+		// With wrapping, each staff row needs its own curve segment.
+		const segments = [];
 		phrase.bars.forEach((bar, barIndex) => {
 			const beats = Array.isArray(bar && bar.beats) ? bar.beats : [];
 			if (!beats.length) return;
 
-			const barX = staffLeft + (barIndex * barWidth);
-			const beatWidth = barWidth / beats.length;
+			const bl = barLayout ? barLayout(barIndex) : null;
+			const rowIdx = bl ? bl.row : 0;
+			const rowMeta = (bl && bl.staffMeta) ? bl.staffMeta : staffMeta;
+			const rowLaneBottom = rowMeta.topY + (4 * rowMeta.spacing) + 4;
+			const rowLaneTop = rowMeta.topY - 18;
+			const rowLaneHeight = Math.max(8, rowLaneBottom - rowLaneTop);
+			if (!segments[rowIdx]) segments[rowIdx] = [];
+
+			const barX = bl ? bl.barX : staffLeft + (barIndex * barWidth);
+			const beatSlotWidth = barWidth / guideBeatsPerBar;
 			beats.forEach((beat, beatIndex) => {
 				let energy = Number(beat && beat.energy);
 				if (!Number.isFinite(energy)) {
@@ -1914,23 +2294,63 @@ class SheetMusicGenerator {
 				}
 				energy = Math.max(0, Math.min(1, energy));
 
-				const x = barX + (beatIndex * beatWidth) + (beatWidth / 2);
-				const y = laneBottom - (energy * laneHeight);
-				points.push({ x, y });
+				const fracInBar = (beat && beat.arcStage && Number.isFinite(beat.arcStage.absoluteBeat))
+					? (beat.arcStage.absoluteBeat - barIndex * guideBeatsPerBar)
+					: beatIndex * (guideBeatsPerBar / beats.length);
+				const x = barX + fracInBar * beatSlotWidth + (beatSlotWidth * 0.15);
+
+				// ONE QUANTITY FOR THE WHOLE LANE.
+				//
+				// This previously plotted melody pitch on beats that had a note
+				// and raw energy on beats that did not. Those are unrelated
+				// scales — pitch normalized across the melody's ambitus versus
+				// an absolute 0..1 energy — so the curve sawtoothed between them
+				// every other beat. A phrase whose energy rose in a clean arch
+				// with zero direction changes was drawn with seven, which is the
+				// squiggle: an artefact of the mixing, describing neither the arc
+				// nor the melody.
+				//
+				// The lane is labelled ARC, so it plots the arc. Melody tracking
+				// stays available via `arcGuideTracksMelody`, and in that mode
+				// beats with no note are left for interpolation instead of being
+				// filled in from a different measurement.
+				let level = null;
+				if (trackMelody) {
+					if (melodyRange && beat && beat.melodySequence && beat.melodySequence.length) {
+						const mm = this._noteToMidiSafe(beat.melodySequence[0].noteName);
+						if (Number.isFinite(mm)) {
+							level = (mm - melodyRange.min) / Math.max(1, melodyRange.max - melodyRange.min);
+						}
+					}
+				} else {
+					level = energy;
+				}
+				if (level === null) return;   // no comparable value; let the curve span the gap
+
+				const y = rowLaneBottom - (Math.max(0, Math.min(1, level)) * rowLaneHeight);
+				const pt = { x, y };
+				points.push(pt);
+				segments[rowIdx].push(pt);
 			});
 		});
 
 		if (points.length < 2) return;
 
-		const guidePath = document.createElementNS(svgNS, 'path');
-		guidePath.setAttribute('d', this._createSmoothCurve(points));
-		guidePath.setAttribute('stroke', '#38bdf8');
-		guidePath.setAttribute('stroke-width', '1.8');
-		guidePath.setAttribute('fill', 'none');
-		guidePath.setAttribute('opacity', '0.72');
-		guidePath.setAttribute('stroke-linecap', 'round');
-		guidePath.setAttribute('stroke-linejoin', 'round');
-		svg.appendChild(guidePath);
+		segments.forEach((segPoints) => {
+			if (!segPoints || segPoints.length < 2) return;
+			const guidePath = document.createElementNS(svgNS, 'path');
+			guidePath.setAttribute('d', this._createSmoothCurve(segPoints));
+			guidePath.setAttribute('stroke', '#38bdf8');
+			guidePath.setAttribute('stroke-width', '1.8');
+			guidePath.setAttribute('fill', 'none');
+			guidePath.setAttribute('opacity', '0.72');
+			guidePath.setAttribute('stroke-linecap', 'round');
+			guidePath.setAttribute('stroke-linejoin', 'round');
+			// Decorative overlay drawn last and spanning the staff — without this
+			// its stroke swallowed clicks meant for the noteheads underneath.
+			guidePath.style.pointerEvents = 'none';
+			svg.appendChild(guidePath);
+		});
 
 		// Light checkpoints make beat-alignment visible without overwhelming notation.
 		for (let i = 0; i < points.length; i += Math.max(1, Math.floor(points.length / 24))) {
@@ -1941,6 +2361,7 @@ class SheetMusicGenerator {
 			dot.setAttribute('r', '1.6');
 			dot.setAttribute('fill', '#7dd3fc');
 			dot.setAttribute('opacity', '0.75');
+			dot.style.pointerEvents = 'none';
 			svg.appendChild(dot);
 		}
 
@@ -1950,7 +2371,9 @@ class SheetMusicGenerator {
 		label.setAttribute('fill', '#7dd3fc');
 		label.setAttribute('font-size', '8');
 		label.setAttribute('font-family', 'var(--font-tech, monospace)');
-		label.textContent = 'ARC';
+		// Name what is actually plotted, so the lane can never claim to be one
+		// measurement while drawing another.
+		label.textContent = trackMelody ? 'MEL' : 'ARC';
 		svg.appendChild(label);
 	}
 
@@ -2278,7 +2701,9 @@ class SheetMusicGenerator {
 
 		// ================= Dynamic layout sizing =================
 		// In per-bar mode, expand width to accommodate all chords (one chord per measure).
-		const baseBarWidth = 150;
+		// Bar width is user-adjustable: dense rhythms need more room per bar or
+		// noteheads collide.
+		const baseBarWidth = Number.isFinite(this.state.barWidth) ? this.state.barWidth : 150;
 		const minBars = 4;
 		const dynamicBarCount = this.state.barMode === 'per-bar'
 			? Math.max(minBars, this.state.barChords.length)
@@ -2287,7 +2712,16 @@ class SheetMusicGenerator {
 		const staffLeft = 20; // left edge of staff lines and header
 		const headerWidth = 130; // reserved for clef + key signature + time signature
 		const firstBarX = staffLeft + headerWidth; // where bar 0 starts
-		const staffRight = firstBarX + dynamicBarCount * barWidth;
+
+		// Wrapping: 'auto' keeps everything on one (scrollable) line; a fixed
+		// count wraps into stacked systems the way real notation does.
+		const barsPerLine = Number.isFinite(this.state.barsPerLine) && this.state.barsPerLine > 0
+			? Math.min(this.state.barsPerLine, dynamicBarCount)
+			: dynamicBarCount;
+		const rowCount = Math.max(1, Math.ceil(dynamicBarCount / barsPerLine));
+		const barsInRow = (row) => Math.min(barsPerLine, dynamicBarCount - row * barsPerLine);
+
+		const staffRight = firstBarX + barsPerLine * barWidth;
 		const width = staffRight + 20; // right margin
 		const heightSingle = 150; // single staff height
 		const gapBetweenStaves = 60;
@@ -2298,7 +2732,8 @@ class SheetMusicGenerator {
 		// ever produces absurd staff positions.
 		const extraTopSpace = Math.max(0, Math.min(260, maxLabelOffset - 8)); // beyond the default 8px
 		const baseStaffTopY = 20 + extraTopSpace; // push staff down if needed
-		const svgHeight = (this.state.staffType === 'grand' ? heightGrand : heightSingle) + extraTopSpace;
+		const systemHeight = (this.state.staffType === 'grand' ? heightGrand : heightSingle);
+		const svgHeight = systemHeight * rowCount + extraTopSpace;
 
 		const svgNS = 'http://www.w3.org/2000/svg';
 		let svg = document.createElementNS(svgNS, 'svg');
@@ -2322,48 +2757,70 @@ class SheetMusicGenerator {
 		};
 
 		// Helper to draw a 5‑line staff at a vertical offset
-		const drawStaff = (topY, clef = 'treble') => {
+		const drawStaff = (topY, clef = 'treble', barsThisRow = barCount) => {
 			const spacing = 10; // refined for standard look
+			const rowRight = firstBarX + barsThisRow * barWidth;
 			for (let i = 0; i < 5; i++) {
 				const y = topY + i * spacing;
-				addLine(staffLeft, y, staffRight, y, { 'stroke-width': '1.2' });
+				addLine(staffLeft, y, rowRight, y, { 'stroke-width': '1.2' });
 			}
 
 			// Bar lines — start at firstBarX (after the header region)
-			for (let b = 0; b <= barCount; b++) {
+			for (let b = 0; b <= barsThisRow; b++) {
 				const x = firstBarX + b * barWidth;
-				const weight = (b === 0 || b === barCount) ? '2.5' : '1.2';
+				const weight = (b === 0 || b === barsThisRow) ? '2.5' : '1.2';
 				addLine(x, topY, x, topY + 4 * spacing, { 'stroke-width': weight });
 			}
 
-			// Draw clef symbol
+			// Draw clef symbol — stylized vector paths so no music font is needed
+			// (Unicode clef glyphs render as boxes without Bravura/Noto Music).
 			const clefX = staffLeft + 10;
 			if (clef === 'treble') {
-				// Treble clef (𝄞): the swirl centers on G line (second from bottom = line 3 from top = topY + 3*spacing)
-				const gLineY = topY + 3 * spacing;
-				const clefSymbol = document.createElementNS(svgNS, 'text');
-				clefSymbol.setAttribute('x', String(clefX));
-				clefSymbol.setAttribute('y', String(gLineY - 2)); // slightly higher to center swirl on G line
-				clefSymbol.setAttribute('font-size', '50');
-				clefSymbol.setAttribute('font-family', "'Bravura', 'Segoe UI Symbol', 'Noto Music', Georgia, serif");
-				clefSymbol.setAttribute('fill', '#d1d5db');
-				clefSymbol.setAttribute('text-anchor', 'start');
-				clefSymbol.setAttribute('dominant-baseline', 'middle');
-				clefSymbol.textContent = '\u{1D11E}'; // 𝄞 treble clef
-				svg.appendChild(clefSymbol);
+				// Treble clef: spiral centers on G line (topY + 3*spacing)
+				const gY = topY + 3 * spacing;
+				const cx = clefX + 8;
+				const clefPath = document.createElementNS(svgNS, 'path');
+				clefPath.setAttribute('d',
+					`M ${cx - 1} ${gY}` +
+					` C ${cx + 6} ${gY - 1}, ${cx + 6} ${gY + 8}, ${cx - 1} ${gY + 9}` +
+					` C ${cx - 8} ${gY + 10}, ${cx - 10} ${gY + 1}, ${cx - 4} ${gY - 5}` +
+					` C ${cx + 3} ${gY - 12}, ${cx + 5} ${gY - 18}, ${cx + 2} ${gY - 26}` +
+					` C ${cx - 2} ${gY - 22}, ${cx - 3} ${gY - 14}, ${cx - 1.5} ${gY - 6}` +
+					` L ${cx + 1.5} ${gY + 14}` +
+					` C ${cx + 2.5} ${gY + 19}, ${cx - 3} ${gY + 22}, ${cx - 6} ${gY + 18}`);
+				clefPath.setAttribute('stroke', '#d1d5db');
+				clefPath.setAttribute('stroke-width', '2');
+				clefPath.setAttribute('fill', 'none');
+				clefPath.setAttribute('stroke-linecap', 'round');
+				svg.appendChild(clefPath);
 			} else if (clef === 'bass') {
-				// Bass clef (𝄢): dots surround F line (fourth from bottom = line 2 from top = topY + 2*spacing)
-				const fLineY = topY + 2 * spacing;
-				const clefSymbol = document.createElementNS(svgNS, 'text');
-				clefSymbol.setAttribute('x', String(clefX - 2));
-				clefSymbol.setAttribute('y', String(fLineY)); // center on F line
-				clefSymbol.setAttribute('font-size', '40');
-				clefSymbol.setAttribute('font-family', "'Bravura', 'Segoe UI Symbol', 'Noto Music', Georgia, serif");
-				clefSymbol.setAttribute('fill', '#d1d5db');
-				clefSymbol.setAttribute('text-anchor', 'start');
-				clefSymbol.setAttribute('dominant-baseline', 'middle');
-				clefSymbol.textContent = '\u{1D122}'; // 𝄢 bass clef
-				svg.appendChild(clefSymbol);
+				// Bass clef: curve starting on F line (topY + 2*spacing) + two dots
+				const fY = topY + 2 * spacing;
+				const cx = clefX + 2;
+				const clefPath = document.createElementNS(svgNS, 'path');
+				clefPath.setAttribute('d',
+					`M ${cx} ${fY + 2}` +
+					` C ${cx - 1} ${fY - 6}, ${cx + 9} ${fY - 9}, ${cx + 13} ${fY - 3}` +
+					` C ${cx + 17} ${fY + 4}, ${cx + 11} ${fY + 14}, ${cx + 1} ${fY + 21}`);
+				clefPath.setAttribute('stroke', '#d1d5db');
+				clefPath.setAttribute('stroke-width', '2.4');
+				clefPath.setAttribute('fill', 'none');
+				clefPath.setAttribute('stroke-linecap', 'round');
+				svg.appendChild(clefPath);
+				const originDot = document.createElementNS(svgNS, 'circle');
+				originDot.setAttribute('cx', String(cx));
+				originDot.setAttribute('cy', String(fY + 1));
+				originDot.setAttribute('r', '3');
+				originDot.setAttribute('fill', '#d1d5db');
+				svg.appendChild(originDot);
+				[fY - 5, fY + 4].forEach((dy) => {
+					const dot = document.createElementNS(svgNS, 'circle');
+					dot.setAttribute('cx', String(cx + 19));
+					dot.setAttribute('cy', String(dy));
+					dot.setAttribute('r', '2');
+					dot.setAttribute('fill', '#d1d5db');
+					svg.appendChild(dot);
+				});
 			}
 
 			return { topY, spacing, clef };
@@ -2571,18 +3028,43 @@ class SheetMusicGenerator {
 		// Draw staff(s) based on staffType
 	let treble = null;
 	let bass = null;
-	if (this.state.staffType === 'grand') {
-		treble = drawStaff(baseStaffTopY, 'treble');
-		const bassTop = treble.topY + treble.spacing * 5 + gapBetweenStaves;
-		bass = drawStaff(bassTop, 'bass');
-		// Simple connecting brace
-		addLine(staffLeft - 4, treble.topY, staffLeft - 4, bassTop + 4 * bass.spacing, { 'stroke-width': '2.5', 'stroke': '#d1d5db' });
-	} else if (this.state.staffType === 'bass') {
-		bass = drawStaff(baseStaffTopY, 'bass');
-	} else {
-		// default treble
-		treble = drawStaff(baseStaffTopY, 'treble');
+	// One system per wrapped row. `systems[0]` doubles as the legacy
+	// treble/bass pair so single-line paths keep working unchanged.
+	const systems = [];
+	for (let row = 0; row < rowCount; row++) {
+		const rowTop = baseStaffTopY + row * systemHeight;
+		const nBars = barsInRow(row);
+		let rTreble = null;
+		let rBass = null;
+		if (this.state.staffType === 'grand') {
+			rTreble = drawStaff(rowTop, 'treble', nBars);
+			const bassTop = rTreble.topY + rTreble.spacing * 5 + gapBetweenStaves;
+			rBass = drawStaff(bassTop, 'bass', nBars);
+			addLine(staffLeft - 4, rTreble.topY, staffLeft - 4, bassTop + 4 * rBass.spacing, { 'stroke-width': '2.5', 'stroke': '#d1d5db' });
+		} else if (this.state.staffType === 'bass') {
+			rBass = drawStaff(rowTop, 'bass', nBars);
+		} else {
+			rTreble = drawStaff(rowTop, 'treble', nBars);
+		}
+		systems.push({ treble: rTreble, bass: rBass, row });
 	}
+	treble = systems[0] ? systems[0].treble : null;
+	bass = systems[0] ? systems[0].bass : null;
+
+	// Where does a given bar live once wrapping is applied?
+	const barLayout = (barIndex) => {
+		const row = Math.min(systems.length - 1, Math.floor(barIndex / barsPerLine));
+		const col = barIndex - row * barsPerLine;
+		const sys = systems[row] || systems[0];
+		return {
+			row,
+			col,
+			barX: firstBarX + col * barWidth,
+			staffMeta: (sys && (sys.treble || sys.bass)) || null,
+			treble: sys ? sys.treble : null,
+			bass: sys ? sys.bass : null
+		};
+	};
 
 
 
@@ -2723,8 +3205,8 @@ class SheetMusicGenerator {
 		};
 		// Draw key signatures
 		if (this.state.showKeySignature) {
-			if (treble) drawKeySignature(treble, 'treble');
-			if (bass) drawKeySignature(bass, 'bass');
+			systems.forEach((sys) => { if (sys.treble) drawKeySignature(sys.treble, 'treble'); });
+			systems.forEach((sys) => { if (sys.bass) drawKeySignature(sys.bass, 'bass'); });
 		}
 
 		// Draw time signature (4/4 or phrase-derived)
@@ -4312,6 +4794,10 @@ class SheetMusicGenerator {
 				} else if (phrase && Array.isArray(phrase.bars)) {
                     const traceId = phrase.__traceId || this.state.__lastTraceId || null;
                     const renderAudit = { chordsIntended: 0, chordsDrawn: 0, melodiesDrawn: 0, restsDrawn: 0, chordSkips: [] };
+                    // Accidentals persist within a bar; that memory must not
+                    // survive into the next render or a redraw would suppress
+                    // the symbols it drew the first time.
+                    this._accidentalMemory = new Map();
                     pushSheetTrace(traceId, 'render.phraseMode.start', {
                         bars: phrase.bars.length,
                         beatsPerBar: phrase.beatsPerBar || 4,
@@ -4321,8 +4807,24 @@ class SheetMusicGenerator {
                     console.log('[Sheet] ** PHRASE RENDERING MODE ** - rendering', phrase.bars.length, 'bars');
                     
                     const phraseBeatsPerBar = phrase.beatsPerBar || 4;
+                    // Record exactly what gets DRAWN so playback can replay the
+                    // sheet rather than re-deriving notes from the phrase (which
+                    // let un-drawn chord tones sound and collapsed off-beats).
+                    this.state.renderedNoteEvents = [];
+                    const recordRendered = (absBeat, noteName, durBeats, kind) => {
+                        if (!noteName || !Number.isFinite(absBeat)) return;
+                        this.state.renderedNoteEvents.push({
+                            absBeat,
+                            noteName: String(noteName),
+                            durationBeats: Number.isFinite(durBeats) && durBeats > 0 ? durBeats : 1,
+                            kind
+                        });
+                    };
                     phrase.bars.forEach((bar, barIndex) => {
-                        const barX = firstBarX + barIndex * barWidth;
+                        const __bl = barLayout(barIndex);
+                        const barX = __bl.barX;
+                        const rowTreble = __bl.treble;
+                        const rowBass = __bl.bass;
                         // Space notes by musical time, not array index — quarter note = 1/beatsPerBar of bar width.
                         const beatSlotWidth = barWidth / phraseBeatsPerBar;
 						// Track chord labels so we don't duplicate symbols every beat.
@@ -4362,7 +4864,7 @@ class SheetMusicGenerator {
                             
                             // Skip if this is a rest event
                             if (event.isRest) {
-                                const centerY = (treble || bass).topY + 2 * (treble || bass).spacing;
+                                const centerY = (rowTreble || rowBass).topY + 2 * (rowTreble || rowBass).spacing;
                                 this._drawRest(svg, x, centerY, event.duration || 'quarter', { color: '#d1d5db' });
                                 renderAudit.restsDrawn += 1;
                                 console.log(`[Sheet]   REST | beat=${fracInBar.toFixed(1)} dur=${event.duration||'quarter'} accent=${event.accent||false}`);
@@ -4370,7 +4872,7 @@ class SheetMusicGenerator {
                             }
                             
                             const clef = (treble ? 'treble' : 'bass');
-                            const staffMeta = treble || bass;
+                            const staffMeta = rowTreble || rowBass;
                             // Chord uses its own duration (e.g. whole note for a 4-beat chord);
                             // melody notes carry individual durations.
                             const chordDuration = event.chordDuration || event.duration || 'whole';
@@ -4389,16 +4891,28 @@ class SheetMusicGenerator {
                                 console.log(`[Sheet]     Chord tones: ${__chordToneDetail} | role=${event.harmonyRole||'?'} | chordDur=${chordDuration} | energy=${(event.energy||0).toFixed(3)}`);
 								event.chordObj.diatonicNotes.forEach((noteName) => {
 									const spelledName = (typeof convertToKeySignatureSpelling === 'function') ? convertToKeySignatureSpelling(noteName) : noteName;
-									const pos = noteToStaffPosition(spelledName, clef);
+									// Honour the Octave control — the phrase renderer ignored
+									// it, so the ▲/▼ buttons did nothing to generated music.
+									const __named = /\d/.test(String(spelledName)) ? String(spelledName) : (String(spelledName) + String(defaultOct));
+									const __shifted = this._shiftNoteOctave(__named, this.state.octaveOffset || 0);
+									const pos = noteToStaffPosition(__shifted, clef);
 									const y = staffPositionToY(pos, staffMeta);
-									const playableName = /\d/.test(String(spelledName)) ? String(spelledName) : (String(spelledName) + String(defaultOct));
+									const playableName = __shifted;
 									this._drawRhythmicNote(svg, x, y, chordDuration, {
 										direction: 'down',
 										color: '#d1d5db',
 										isChord: true,
 										noteName: playableName,
-										sigData: sigData
+										sigData: sigData,
+										measureKey: `${clef}:${barIndex}`,
+										staffMeta: staffMeta,
+										staffPosition: pos
 									});
+									recordRendered(
+										barIndex * phraseBeatsPerBar + fracInBar,
+										playableName,
+										this._durationToNumber(chordDuration),
+										'chord');
 								});
                             } else if (event.chordObj) {
                                 const skip = {
@@ -4419,33 +4933,49 @@ class SheetMusicGenerator {
                                     const __mPos = noteToStaffPosition(mn.noteName, clef);
                                     console.log(`[Sheet]     Melody[${__mi}]: ${mn.noteName}[${this.__posLabel(__mPos)}] dur=${mn.duration||beatDuration} beat=${fracInBar.toFixed(1)} accent=${event.accent||false}`);
                                 });
-                                // Draw each note in the melody with visual rhythm
-                                // MELODIC SPACING: Distribute notes across beat duration proportionally
-                                const melodyNoteCount = event.melodySequence.length || 1;
-                                const spacingPerNote = (beatSlotWidth * 0.95) / Math.max(1, melodyNoteCount);
-                                
+                                // Draw each note in the melody with visual rhythm.
+                                // MELODIC SPACING: advance x by each note's actual duration so
+                                // sixteenth pairs, melismas and passing tones sit at their true
+                                // musical time instead of being spread evenly over a full beat
+                                // (which overlapped neighboring slots and looked jumbled).
+                                let melodyCumBeats = 0;
+
                                 event.melodySequence.forEach((melodyNote, idx) => {
                                     if (!melodyNote || !melodyNote.noteName) return;
-                                    
+
                                     const spelledMelodyName = (typeof convertToKeySignatureSpelling === 'function') ? convertToKeySignatureSpelling(melodyNote.noteName) : melodyNote.noteName;
-                                    const melodyPos = noteToStaffPosition(spelledMelodyName, clef);
+                                    const __mNamed = /\d/.test(String(spelledMelodyName)) ? String(spelledMelodyName) : (String(spelledMelodyName) + String(clef === 'bass' ? 3 : 4));
+                                    const __mShifted = this._shiftNoteOctave(__mNamed, this.state.octaveOffset || 0);
+                                    const melodyPos = noteToStaffPosition(__mShifted, clef);
                                     const melodyY = staffPositionToY(melodyPos, staffMeta);
-                                    
-                                    // Distribute melody notes across beat duration with proper spacing
-                                    // Start melody at same X as chord but use internal spacing
-                                    const melodyX = x + (idx * spacingPerNote);
+
+                                    const melodyX = x + melodyCumBeats * beatSlotWidth;
+                                    {
+                                        const durBeatsRaw = (typeof this._durationToNumber === 'function')
+                                            ? this._durationToNumber(melodyNote.duration || event.duration || 'quarter')
+                                            : 1;
+                                        melodyCumBeats += Number.isFinite(durBeatsRaw) && durBeatsRaw > 0 ? durBeatsRaw : 1;
+                                    }
                                     
                                     // Use rhythm duration from melody note if available, else beat duration
                                     const noteDuration = melodyNote.duration || event.duration || 'quarter';
-									const playableName = /\d/.test(String(spelledMelodyName)) ? String(spelledMelodyName) : (String(spelledMelodyName) + String(clef === 'bass' ? 3 : 4));
+									const playableName = __mShifted;
                                     
                                     // Draw melody with up stems (opposite of chord which stems down)
                                     this._drawRhythmicNote(svg, melodyX, melodyY, noteDuration, {
                                         direction: 'up',
                                         color: '#f97316', // Orange for melody
 										noteName: playableName,
-										sigData: sigData
+										sigData: sigData,
+										measureKey: `${clef}:${barIndex}`,
+										staffMeta: staffMeta,
+										staffPosition: melodyPos
                                     });
+                                    recordRendered(
+                                        barIndex * phraseBeatsPerBar + fracInBar + (melodyCumBeats - (this._durationToNumber(noteDuration) || 1)),
+                                        playableName,
+                                        this._durationToNumber(noteDuration),
+                                        'melody');
 
                                     // Draw Syllable Label below staff
                                     if (melodyNote.syllable) {
@@ -4458,6 +4988,7 @@ class SheetMusicGenerator {
                                         syl.setAttribute('font-style', 'italic');
                                         syl.setAttribute('text-anchor', 'middle');
                                         syl.textContent = melodyNote.syllable;
+                                        syl.style.pointerEvents = 'none';
                                         svg.appendChild(syl);
                                     }
                                 });
@@ -4474,6 +5005,30 @@ class SheetMusicGenerator {
                                 lbl.setAttribute('font-family', 'var(--font-tech, monospace)');
                                 lbl.setAttribute('text-anchor', 'middle');
                                 lbl.textContent = event.chord;
+                                lbl.style.cursor = 'pointer';
+                                lbl.style.pointerEvents = 'all';
+                                // Click the symbol to hear the chord, and show
+                                // where it came from when it was borrowed.
+                                (function (chordEvent, symbol) {
+                                    const tip = document.createElementNS(svgNS, 'title');
+                                    const origin = chordEvent.explain || chordEvent.approachStrategy || null;
+                                    tip.textContent = origin ? `${symbol} — ${origin}` : `Play ${symbol}`;
+                                    lbl.appendChild(tip);
+                                    lbl.addEventListener('click', (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                            const notes = (chordEvent.chordObj &&
+                                                ((chordEvent.chordObj.diatonicNotes && chordEvent.chordObj.diatonicNotes.length && chordEvent.chordObj.diatonicNotes) ||
+                                                 chordEvent.chordObj.chordNotes)) || [];
+                                            this._playChordNotes(notes);
+                                        } catch (_) {}
+                                        try {
+                                            document.dispatchEvent(new CustomEvent('sheetChordSelected', {
+                                                detail: { chord: symbol, event: chordEvent }
+                                            }));
+                                        } catch (_) {}
+                                    });
+                                }).call(this, event, event.chord);
                                 svg.appendChild(lbl);
 								__lastChordLabel = event.chord;
 								__chordLabelsDrawnInBar += 1;
@@ -4484,7 +5039,7 @@ class SheetMusicGenerator {
 						if (__chordLabelsDrawnInBar === 0 && bar.beats[0] && bar.beats[0].chord) {
 							const mainLabel = document.createElementNS(svgNS, 'text');
 							mainLabel.setAttribute('x', String(barX + barWidth/2));
-							mainLabel.setAttribute('y', String((treble || bass).topY - 25));
+							mainLabel.setAttribute('y', String((rowTreble || rowBass).topY - 25));
 							mainLabel.setAttribute('fill', '#fff');
 							mainLabel.setAttribute('font-size', '12');
 							mainLabel.setAttribute('font-weight', 'bold');
@@ -4497,7 +5052,9 @@ class SheetMusicGenerator {
 					this._drawArcEnergyGuide(svg, phrase, {
 						staffLeft: firstBarX,
 						barWidth,
-						staffMeta: treble || bass
+						staffMeta: treble || bass,
+						barLayout,
+						barsPerLine
 					});
                     console.log('[Sheet] Render audit JSON:\n' + safeJson(renderAudit));
                     pushSheetTrace(traceId, 'render.audit', renderAudit);
@@ -5001,6 +5558,10 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 	};
 
 	// Map chord events (generateHarmony format) onto beat grid.
+	// generateHarmony beats are 0-based and may be fractional (approach-chord
+	// runs live on the off-beats: 2.5, 3, 3.5 …). Snap to the same 0.5-beat
+	// grid the phrase iterates on — flooring to integers collapsed every
+	// approach run onto one slot, dropping chords and misplacing the rest.
 	chordSequence.forEach((chordEvent, idx) => {
 		if (!chordEvent) return;
 		const rawChord = chordEvent.chord;
@@ -5008,10 +5569,8 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 		const bar = Number.isFinite(chordEvent.bar) ? chordEvent.bar : idx;
 		let beatOffset = 0;
 		if (Number.isFinite(chordEvent.beat)) {
-			// In generateHarmony(), beat is typically 0-based (evt.sub). Still handle 1-based defensively.
-			if (chordEvent.beat === 0) beatOffset = 0;
-			else if (chordEvent.beat >= 1 && chordEvent.beat <= beatsPerBar) beatOffset = Math.max(0, Math.floor(chordEvent.beat - 1));
-			else beatOffset = Math.max(0, Math.floor(chordEvent.beat));
+			beatOffset = Math.max(0, Math.round(chordEvent.beat * 2) / 2);
+			if (beatOffset >= beatsPerBar) beatOffset = Math.max(0, beatsPerBar - 0.5);
 		}
 		const absoluteBeat = (bar * beatsPerBar) + beatOffset;
 		const chordObj = parseChordSymbolForPhrase(rawChord, musicTheory);
@@ -5025,8 +5584,12 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 	(melody.notes || []).forEach((noteEvent) => {
 		const abs = toAbsoluteBeat(noteEvent);
 		if (!Number.isFinite(abs)) return;
-		// Snap to 0.5-beat grid so eighth-note off-beats land in their own slot
-		const beatIndex = Math.max(0, Math.round(abs * 2) / 2);
+		// Snap to 0.5-beat grid so eighth-note off-beats land in their own slot.
+		// Clamp to the last renderable slot: a note on a sixteenth just before
+		// the end (e.g. 11.75 of 12) rounded UP to the phrase end, which is
+		// past the final bar, and was silently dropped.
+		const lastSlot = Math.max(0, (barCount * beatsPerBar) - 0.5);
+		const beatIndex = Math.min(lastSlot, Math.max(0, Math.round(abs * 2) / 2));
 		const rawName = (noteEvent && (noteEvent.noteName || noteEvent.note)) ? String(noteEvent.noteName || noteEvent.note).trim() : '';
 		if (!rawName || noteEvent.isRest) return;
 
@@ -5073,7 +5636,11 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 	const bars = [];
 
 	for (let barIndex = 0; barIndex < barCount; barIndex++) {
-		const chordEvent = chordSequence[barIndex] || chordSequence[chordSequence.length - 1];
+		// The bar's main chord is the event at this bar's downbeat — indexing
+		// chordSequence[barIndex] breaks once approach chords are interleaved.
+		const chordEvent = chordSequence.find(ev => ev && ev.bar === barIndex && (!Number.isFinite(ev.beat) || ev.beat === 0))
+			|| chordSequence.find(ev => ev && ev.bar === barIndex)
+			|| chordSequence[chordSequence.length - 1];
 		const fallbackChordObj = parseChordSymbolForPhrase(chordEvent && chordEvent.chord, musicTheory);
 		const beats = [];
 		const accentBeats = [];
@@ -5165,6 +5732,14 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
                 }
 
 				beatEvent.harmonyRole = (scheduled.chordEvent && scheduled.chordEvent.roman) || null;
+				// Carry provenance so the sheet can explain WHERE a borrowed
+				// chord came from (which scale, which approach strategy).
+				if (scheduled.chordEvent) {
+					if (scheduled.chordEvent.explain) beatEvent.explain = scheduled.chordEvent.explain;
+					if (scheduled.chordEvent.approachStrategy) beatEvent.approachStrategy = scheduled.chordEvent.approachStrategy;
+					if (scheduled.chordEvent.approachFamily) beatEvent.approachFamily = scheduled.chordEvent.approachFamily;
+					if (scheduled.chordEvent.scaleHint) beatEvent.scaleHint = scheduled.chordEvent.scaleHint;
+				}
 				beatEvent.chordDuration = durationBeatsToName(
 					scheduled.chordEvent && scheduled.chordEvent.duration, defaultBeatDuration);
                 
@@ -5664,6 +6239,25 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		});
 	};
 
+	// Play a chord immediately (used when a chord symbol is clicked)
+	SheetMusicGenerator.prototype._playChordNotes = function(notes, volume = 0.22) {
+		if (!Array.isArray(notes) || !notes.length) return;
+		if (!this._audioCtx) {
+			try { this._audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+			catch (e) { return; }
+		}
+		if (this._audioCtx.state === 'suspended') this._audioCtx.resume();
+		const start = this._audioCtx.currentTime + 0.02;
+		const end = start + 1.1;
+		if (!Array.isArray(this._midiSources)) this._midiSources = [];
+		notes.forEach((n, i) => {
+			const raw = String(n || '').trim();
+			if (!raw) return;
+			const named = /-?\d+$/.test(raw) ? raw : (raw + (i === 0 ? 3 : 4));
+			this._playSingleNote(named, start, end, volume);
+		});
+	};
+
 	// Internal helper for scheduling a single synth note
 	SheetMusicGenerator.prototype._playSingleNote = function(noteStr, start, end, volume = 0.3) {
 		if (!this._audioCtx) return;
@@ -5720,6 +6314,21 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		this._isPlayingMidi = true;
 
 		const startTime = this._audioCtx.currentTime + 0.1;
+
+		// Preferred path: replay exactly the notes the renderer drew. The
+		// legacy path below re-derived notes from the phrase, which sounded
+		// chord tones that were never drawn and collapsed every off-beat onto
+		// its integer beat (so playback did not match the page).
+		const drawn = Array.isArray(this.state.renderedNoteEvents) ? this.state.renderedNoteEvents : null;
+		if (drawn && drawn.length) {
+			drawn.forEach((ev) => {
+				const noteStart = startTime + (ev.absBeat * secondsPerBeatUnit);
+				const noteEnd = noteStart + Math.max(0.05, ev.durationBeats * secondsPerQuarter * 0.95);
+				this._playSingleNote(ev.noteName, noteStart, noteEnd, ev.kind === 'melody' ? 0.4 : 0.15);
+			});
+			return;
+		}
+
 		const durationToQuarterBeats = {
 			'whole': 4,
 			'half': 2,

@@ -55,25 +55,81 @@ class VoiceLeadingEngine {
     generateVoiceLeading(chordSymbols, options = {}) {
         const voicing = options.voicing || 'close';
         const register = options.register || 'mid';
-        
+
+        // VL COMBOS ("multi" mode): search several voicing styles and keep the
+        // one that moves the voices least across the whole progression. This
+        // was previously unimplemented — `mode`/`variant` were accepted and
+        // then ignored, so the VL Combos control did nothing at all.
+        if (options.mode === 'multi' && !options.__inCombos) {
+            const styles = ['close', 'spread', 'drop2', 'shell'];
+            let best = null;
+            let bestCost = Infinity;
+            for (const style of styles) {
+                let candidate;
+                try {
+                    candidate = this.generateVoiceLeading(chordSymbols, {
+                        voicing: style, register, __inCombos: true
+                    });
+                } catch (_) { continue; }
+                if (!candidate || !candidate.length) continue;
+
+                let cost = 0;
+                for (let i = 1; i < candidate.length; i++) {
+                    const a = candidate[i - 1].voices || {};
+                    const b = candidate[i].voices || {};
+                    for (const key of ['bass', 'tenor', 'alto', 'soprano']) {
+                        const x = a[key], y = b[key];
+                        if (Number.isFinite(x) && Number.isFinite(y)) cost += Math.abs(y - x);
+                    }
+                }
+                if (cost < bestCost) {
+                    bestCost = cost;
+                    best = candidate;
+                    best.forEach(v => { if (v) v.comboStyle = style; });
+                }
+            }
+            if (best) {
+                this._log(`VL Combos picked "${best[0] && best[0].comboStyle}" (movement ${bestCost})`);
+                return best;
+            }
+        }
+
         this._log('Generating voice leading for:', chordSymbols);
 
+        // MELODY AWARENESS.
+        //
+        // Without this the accompaniment picks its soprano freely while the
+        // melody is written separately afterwards, so the piece ends up with
+        // two unrelated top lines: the chord's top voice crosses above the
+        // tune, doubles it in unison, or runs in parallel octaves with it.
+        // Given the melody note sounding over each chord, the accompaniment
+        // keeps its top voice underneath and treats the melody as a real
+        // fifth voice when checking parallels.
+        const melody = Array.isArray(options.melody) ? options.melody : null;
+        const melodyAt = (i) => {
+            const m = melody && melody[i];
+            return Number.isFinite(m) ? m : null;
+        };
+
         // Convert chord symbols to pitch collections
-        const chordPitches = chordSymbols.map(symbol => 
+        const chordPitches = chordSymbols.map(symbol =>
             this._getChordPitches(symbol, register)
         );
 
         // Generate initial voicing for first chord
         const voicings = [];
-        const firstVoicing = this._generateInitialVoicing(chordPitches[0], voicing, register);
+        const firstVoicing = this._generateInitialVoicing(chordPitches[0], voicing, register, melodyAt(0));
         voicings.push(firstVoicing);
 
         // Voice lead to each subsequent chord
         for (let i = 1; i < chordPitches.length; i++) {
             const prevVoicing = voicings[i - 1];
             const nextChordPitches = chordPitches[i];
-            
-            const nextVoicing = this._voiceLeadToChord(prevVoicing, nextChordPitches, voicing);
+
+            const nextVoicing = this._voiceLeadToChord(prevVoicing, nextChordPitches, voicing, {
+                melody: melodyAt(i),
+                prevMelody: melodyAt(i - 1)
+            });
             voicings.push(nextVoicing);
         }
 
@@ -95,17 +151,47 @@ class VoiceLeadingEngine {
     _getChordPitches(chordSymbol, register) {
         // Parse chord symbol
         const parsed = this._parseChord(chordSymbol);
-        
+
         // Get root pitch in middle octave
         const baseOctave = register === 'low' ? 2 : register === 'high' ? 4 : 3;
         const rootPitch = this._noteToMidi(parsed.root, baseOctave);
-        
-        // Build intervals for chord type
-        const intervals = this._getChordIntervals(parsed);
-        
+
+        // Prefer the app's authoritative chord formulas. The local symbol
+        // parser mis-read several common qualities (its /M7/i test matched the
+        // lowercase "m7" of a minor-7 chord, so Dm7 came out as D F# A C#), and
+        // a second, divergent chord model is exactly the kind of drift that
+        // makes one tool contradict another.
+        const theory = this.musicTheory
+            || (typeof window !== 'undefined' && window.modularApp && window.modularApp.musicTheory)
+            || null;
+        let intervals = null;
+        if (theory && typeof theory.getChordNotes === 'function' && theory.noteValues) {
+            try {
+                const m = String(chordSymbol || '').match(/^([A-G][#b]?)(.*)$/);
+                if (m) {
+                    const type = (m[2] || '').split('/')[0].trim() || 'maj';
+                    const notes = theory.getChordNotes(m[1], type) || [];
+                    const rootVal = theory.noteValues[m[1]];
+                    if (notes.length && Number.isFinite(rootVal)) {
+                        const seen = new Set();
+                        intervals = [];
+                        notes.forEach((n) => {
+                            const v = theory.noteValues[String(n).replace(/-?\d+$/, '')];
+                            if (!Number.isFinite(v)) return;
+                            const iv = (((v - rootVal) % 12) + 12) % 12;
+                            if (!seen.has(iv)) { seen.add(iv); intervals.push(iv); }
+                        });
+                        intervals.sort((a, b) => a - b);
+                        if (!intervals.length) intervals = null;
+                    }
+                }
+            } catch (_) { intervals = null; }
+        }
+        if (!intervals) intervals = this._getChordIntervals(parsed);
+
         // Generate pitch class set
         const pitches = intervals.map(interval => rootPitch + interval);
-        
+
         return {
             root: parsed.root,
             pitches: pitches,
@@ -140,10 +226,12 @@ class VoiceLeadingEngine {
         }
 
         // Detect quality
-        if (/maj7|M7|Δ/i.test(symbol)) {
+        // NOTE: the major-7 test must be case-SENSITIVE for "M7" — with /i it
+        // also matched the "m7" of a minor-7 chord.
+        if (/maj7|Δ/i.test(symbol) || /M7/.test(symbol)) {
             result.quality = 'major';
             result.extensions.push('maj7');
-            symbol = symbol.replace(/maj7|M7|Δ/i, '');
+            symbol = symbol.replace(/maj7|Δ/i, '').replace(/M7/, '');
         } else if (/^(m|min|minor|-)/i.test(symbol)) {
             result.quality = 'minor';
             symbol = symbol.replace(/^(m|min|minor|-)/i, '');
@@ -191,7 +279,7 @@ class VoiceLeadingEngine {
         // Extensions
         for (const ext of parsed.extensions) {
             if (ext === '6') intervals.push(9);
-            if (ext === '7') intervals.push(10);
+            if (ext === '7') intervals.push(parsed.quality === 'diminished' ? 9 : 10);
             if (ext === 'maj7') intervals.push(11);
             if (ext === '9') intervals.push(10, 14); // 7th + 9th
             if (ext === '11') intervals.push(10, 14, 17); // 7th + 9th + 11th
@@ -204,41 +292,63 @@ class VoiceLeadingEngine {
     /**
      * Generate initial voicing for first chord
      */
-    _generateInitialVoicing(chordPitches, voicingType, register) {
+    _generateInitialVoicing(chordPitches, voicingType, register, melodyMidi) {
         const pitches = chordPitches.pitches;
         const bass = chordPitches.bass;
 
-        if (voicingType === 'close') {
-            // Close voicing: all upper voices within an octave
-            return {
-                bass: bass,
-                tenor: pitches[0] + 12,
-                alto: pitches[1 % pitches.length] + 12,
-                soprano: pitches[2 % pitches.length] + 12
-            };
-        } else {
-            // Spread voicing: wider spacing
-            return {
-                bass: bass,
-                tenor: pitches[0] + 12,
-                alto: pitches[1 % pitches.length] + 19,
-                soprano: pitches[2 % pitches.length] + 24
-            };
+        // Voice the chord's ACTUAL tones. The previous version always took
+        // pitches[0..2], which on any seventh chord dropped the 7th and
+        // doubled the root — the chord's defining colour never sounded.
+        const upper = pitches.length > 1 ? pitches.slice(1) : pitches.slice();
+        const pick = (i) => upper[i % upper.length];
+
+        // Three upper voices, always ascending above the bass.
+        const spacing = (voicingType === 'close') ? 0 : 7;
+        const voices = [];
+        let cursor = bass;
+        for (let i = 0; i < 3; i++) {
+            let m = pick(i);
+            while (m <= cursor) m += 12;
+            if (i > 0) m += spacing > 0 ? 0 : 0;
+            voices.push(m);
+            cursor = m;
         }
+
+        if (voicingType !== 'close') {
+            // Spread: open the inner voices without compounding octaves.
+            voices[1] += 12;
+            voices[2] += 12;
+            voices.sort((a, b) => a - b);
+        }
+
+        const out = { bass: bass, tenor: voices[0], alto: voices[1], soprano: voices[2] };
+
+        // Drop the accompaniment by octaves until its top voice clears the
+        // melody. Opening the piece with the pad sitting on top of the tune
+        // buries the first phrase before the line has established itself.
+        if (Number.isFinite(melodyMidi)) {
+            let guard = 0;
+            while (out.soprano >= melodyMidi && guard++ < 3) {
+                out.soprano -= 12; out.alto -= 12; out.tenor -= 12;
+                if (out.bass > this.ranges.bass.min + 12) out.bass -= 12;
+            }
+        }
+        return out;
     }
 
     /**
      * Voice lead from previous voicing to next chord
      * Uses dynamic programming to find optimal voice leading
      */
-    _voiceLeadToChord(prevVoicing, nextChordPitches, voicingType) {
-        const nextPitches = this._generatePitchOptions(nextChordPitches);
-        
+    _voiceLeadToChord(prevVoicing, nextChordPitches, voicingType, melodyCtx = {}) {
+        const nextPitches = this._generatePitchOptions(nextChordPitches, melodyCtx.melody);
+
         // Find best assignment of voices to pitches
         const bestVoicing = this._findOptimalVoicing(
             prevVoicing,
             nextPitches,
-            nextChordPitches.bass
+            nextChordPitches.bass,
+            melodyCtx
         );
 
         return bestVoicing;
@@ -247,13 +357,17 @@ class VoiceLeadingEngine {
     /**
      * Generate pitch options for each voice (multiple octaves)
      */
-    _generatePitchOptions(chordPitches) {
+    _generatePitchOptions(chordPitches, melodyMidi) {
         const options = {
             soprano: [],
             alto: [],
             tenor: [],
             bass: []
         };
+        // The accompaniment's top voice stays strictly below the melody. Equal
+        // is excluded too: a unison doubling makes the melody note vanish into
+        // the pad instead of singing over it.
+        const ceiling = Number.isFinite(melodyMidi) ? melodyMidi - 1 : null;
 
         // Bass gets root or specified bass note
         const bassPitch = chordPitches.bass;
@@ -275,10 +389,44 @@ class VoiceLeadingEngine {
                 if (p >= this.ranges.alto.min && p <= this.ranges.alto.max) {
                     options.alto.push(p);
                 }
-                if (p >= this.ranges.soprano.min && p <= this.ranges.soprano.max) {
+                if (p >= this.ranges.soprano.min && p <= this.ranges.soprano.max
+                    && (ceiling === null || p <= ceiling)) {
                     options.soprano.push(p);
                 }
             }
+        }
+
+        // A melody down in the accompaniment's own register empties the soprano
+        // list. Staying under the tune matters more than which register name a
+        // voice carries, so widen downward — first into the alto range, then by
+        // dropping chord tones whole octaves — rather than giving up and
+        // letting the pad sit on top of the melody.
+        if (!options.soprano.length && ceiling !== null) {
+            const under = options.alto.filter(p => p <= ceiling);
+            if (under.length) {
+                options.soprano = under;
+            } else {
+                const dropped = [];
+                for (const pitch of chordPitches.pitches) {
+                    for (let octave = -2; octave <= 3; octave++) {
+                        const p = pitch + (octave * 12);
+                        if (p <= ceiling && p >= this.ranges.bass.min) dropped.push(p);
+                    }
+                }
+                options.soprano = dropped.length ? dropped : options.alto.slice();
+            }
+        } else if (!options.soprano.length) {
+            options.soprano = options.alto.slice();
+        }
+
+        // The inner voices must not poke above the top voice either.
+        if (ceiling !== null) {
+            const trim = (list) => {
+                const f = list.filter(p => p <= ceiling);
+                return f.length ? f : list;
+            };
+            options.alto = trim(options.alto);
+            options.tenor = trim(options.tenor);
         }
 
         return options;
@@ -287,7 +435,7 @@ class VoiceLeadingEngine {
     /**
      * Find optimal voicing using cost function
      */
-    _findOptimalVoicing(prevVoicing, pitchOptions, nextBass) {
+    _findOptimalVoicing(prevVoicing, pitchOptions, nextBass, melodyCtx = {}) {
         let bestVoicing = null;
         let bestCost = Infinity;
 
@@ -297,8 +445,9 @@ class VoiceLeadingEngine {
                 for (const tenor of pitchOptions.tenor) {
                     for (const bass of pitchOptions.bass) {
                         const voicing = { soprano, alto, tenor, bass };
-                        const cost = this._calculateVoicingCost(prevVoicing, voicing);
-                        
+                        const cost = this._calculateVoicingCost(prevVoicing, voicing)
+                            + this._melodyCost(prevVoicing, voicing, melodyCtx);
+
                         if (cost < bestCost) {
                             bestCost = cost;
                             bestVoicing = voicing;
@@ -309,6 +458,53 @@ class VoiceLeadingEngine {
         }
 
         return bestVoicing || prevVoicing; // Fallback
+    }
+
+    /**
+     * Cost of this voicing measured against the melody sitting above it.
+     *
+     * The melody is treated as a real voice: the same parallel-fifth and
+     * parallel-octave rules that apply between alto and tenor apply between
+     * every accompaniment voice and the tune. Without this the pad can march
+     * in octaves with the melody and the texture collapses from four parts
+     * into one thick line.
+     */
+    _melodyCost(prevVoicing, nextVoicing, melodyCtx = {}) {
+        const mel = melodyCtx.melody;
+        const prevMel = melodyCtx.prevMelody;
+        if (!Number.isFinite(mel)) return 0;
+
+        let cost = 0;
+        const voices = ['soprano', 'alto', 'tenor', 'bass'];
+
+        for (const v of voices) {
+            const next = nextVoicing[v];
+            if (!Number.isFinite(next)) continue;
+
+            // Crossing above or colliding with the melody.
+            if (next > mel) cost += 60;
+            else if (next === mel) cost += 25;
+
+            // Parallel perfects against the melody.
+            if (Number.isFinite(prevMel) && Number.isFinite(prevVoicing[v])) {
+                const before = Math.abs(prevMel - prevVoicing[v]) % 12;
+                const after = Math.abs(mel - next) % 12;
+                const sameDir = (mel - prevMel) * (next - prevVoicing[v]) > 0;
+                if (sameDir && before === after && (after === 7 || after === 0)) {
+                    cost += after === 0 ? this.costs.parallel8ve : this.costs.parallel5th;
+                }
+            }
+        }
+
+        // Keep the top of the accompaniment close under the melody so the two
+        // read as one texture — a pad two octaves below leaves a hole.
+        const gap = mel - nextVoicing.soprano;
+        if (Number.isFinite(gap) && gap > 0) {
+            if (gap > 16) cost += (gap - 16) * 1.5;
+            else if (gap < 3) cost += (3 - gap) * 2;
+        }
+
+        return cost;
     }
 
     /**

@@ -99,41 +99,135 @@ class CompositionTimelineUI {
         this.renderPanel();
     }
 
+    /**
+     * A library of genuinely different phrase shapes. Each roll picks a shape,
+     * so a word is INTERPRETED rather than assigned one fixed curve — "tomorrow"
+     * can arch, climb, sigh, or swell across takes.
+     * Values are energy 0..1 (converted to canvas Y, which is inverted).
+     */
+    static get ARC_SHAPES() {
+        return {
+            arch:        (t) => Math.sin(t * Math.PI),
+            rise:        (t) => t,
+            fall:        (t) => 1 - t,
+            valley:      (t) => 1 - Math.sin(t * Math.PI),
+            wave:        (t) => 0.5 + 0.5 * Math.sin(t * Math.PI * 2),
+            surge:       (t) => Math.pow(t, 0.55),
+            sigh:        (t) => Math.pow(1 - t, 0.6),
+            lateBloom:   (t) => Math.pow(t, 2.2),
+            earlyPeak:   (t) => Math.sin(Math.pow(t, 0.55) * Math.PI),
+            plateau:     (t) => Math.min(1, Math.sin(Math.min(t, 0.5) * Math.PI) * 1.15),
+            terraced:    (t) => Math.floor(t * 3) / 3 + 0.12,
+            swell:       (t) => 0.5 + 0.5 * Math.sin(t * Math.PI * 1.5 - Math.PI / 2),
+            pulse:       (t) => 0.5 + 0.45 * Math.sin(t * Math.PI * 3),
+            hang:        (t) => 0.72 - 0.25 * Math.cos(t * Math.PI * 2)
+        };
+    }
+
     generateBasePoints() {
         this.points = [];
-        const numTokens = Math.max(2, this.currentProfile.wordTokens.length); // Ensure at least 2 points
-        
-        // Map contour archetype to base curve shape
-        const shape = this.currentProfile.contourArchetype || 'balanced';
-        
-        for (let i = 0; i <= numTokens; i++) {
-            let normalizedX = i / numTokens;
-            let normalizedY = 0.5; // middle
+        const wordCount = Math.max(1, this.currentProfile.wordTokens.length);
+        const syllableCount = (this.currentProfile.wordTokens || [])
+            .reduce((n, w) => n + ((w.syllables && w.syllables.length) || 1), 0);
 
-            // Procedural shape mapping with slight organic variation
-            const noise = (Math.sin(normalizedX * 10 + i) * 0.05);
+        // Re-rolling used to reproduce an identical curve because nothing here
+        // varied. A per-roll seed gives a different (but still tone-appropriate)
+        // shape each time Auto-Generate is pressed.
+        this._arcRoll = (this._arcRoll || 0) + 1;
+        let seed = (this._arcRoll * 2654435761) >>> 0;
+        const rnd = () => {
+            seed = (seed * 1664525 + 1013904223) >>> 0;
+            return seed / 4294967296;
+        };
+        const vary = (amount) => (rnd() - 0.5) * 2 * amount;
 
-            if (shape === 'rise' || shape === 'intense') {
-                normalizedY = 0.9 - (normalizedX * 0.8) + noise; // Start low, end high (Y is inverted in canvas)
-            } else if (shape === 'fall' || shape === 'dark') {
-                normalizedY = 0.2 + (normalizedX * 0.7) + noise; 
-            } else if (shape === 'wander' || shape === 'playful') {
-                normalizedY = 0.5 + (Math.sin(normalizedX * Math.PI * 2) * 0.3) + noise;
-            } else if (shape === 'jump' && i > 0) {
-                normalizedY = (i % 2 === 0) ? 0.2 : 0.8;
-            } else if (shape === 'balanced' || shape === 'calm') {
-                normalizedY = 0.5 + (Math.cos(normalizedX * Math.PI) * 0.15) + noise; // Slight gentle curve
-            } else {
-                normalizedY = 0.5 + noise;
+        // Map contour archetype to base curve shape. Every tone the engines can
+        // emit must land on a real shape — unmapped tones used to fall through
+        // to a flat line, which made the whole arc (canvas + sheet) flat.
+        // The arc must read the words the same way the GENERATOR does.
+        let tone = this.currentProfile.contourArchetype || 'balanced';
+        let energy = this.currentProfile.overallEnergy || 0.5;
+        let tension = this.currentProfile.globalTension || 0.5;
+        try {
+            const wce = (typeof WordCharacterEngine !== 'undefined') ? WordCharacterEngine : null;
+            const text = (this.currentProfile.wordTokens || []).map(w => w.originalWord).join(' ');
+            if (wce && text.trim()) {
+                const agg = wce.phraseCharacter(text);
+                if (agg && agg.matchedCount > 0) {
+                    tone = wce.toneFor(agg) || tone;
+                    energy = Math.max(0.05, Math.min(0.98,
+                        agg.motion * 0.45 + agg.attack * 0.25 + (agg.arousal + 1) / 2 * 0.3));
+                    tension = Math.max(0.05, Math.min(0.98,
+                        agg.tension * 0.7 + Math.max(0, -agg.valence) * 0.3));
+                }
             }
+        } catch (_) {}
 
-            // Clamp Y
-            normalizedY = Math.max(0.1, Math.min(0.9, normalizedY));
+        // Each tone LEANS toward some shapes but never owns one — that's what
+        // makes a word interpretable instead of always drawing the same bell.
+        const leanings = {
+            joyful: ['rise', 'surge', 'arch', 'lateBloom'],
+            hopeful: ['rise', 'lateBloom', 'swell', 'plateau'],
+            playful: ['wave', 'pulse', 'terraced', 'arch'],
+            sad: ['fall', 'sigh', 'valley', 'hang'],
+            sorrow: ['sigh', 'fall', 'hang'],
+            dark: ['valley', 'hang', 'fall', 'terraced'],
+            angry: ['earlyPeak', 'pulse', 'arch', 'surge'],
+            intense: ['surge', 'earlyPeak', 'arch', 'lateBloom'],
+            mysterious: ['wave', 'hang', 'valley', 'plateau'],
+            dreamy: ['swell', 'wave', 'plateau', 'hang'],
+            calm: ['plateau', 'hang', 'swell', 'sigh'],
+            peaceful: ['plateau', 'swell', 'hang'],
+            balanced: ['arch', 'wave', 'swell', 'rise']
+        };
+        const shapeNames = Object.keys(CompositionTimelineUI.ARC_SHAPES);
+        const pool = leanings[tone] || leanings.balanced;
+        // 70% from the tone's leanings, 30% from the whole library — occasional
+        // surprises, as asked.
+        const shapeName = (rnd() < 0.7)
+            ? pool[Math.floor(rnd() * pool.length)]
+            : shapeNames[Math.floor(rnd() * shapeNames.length)];
+        const shapeFn = CompositionTimelineUI.ARC_SHAPES[shapeName] || CompositionTimelineUI.ARC_SHAPES.arch;
+        this.lastArcShape = shapeName;
+
+        // POINT COUNT is not syllable count. Syllables bias it — often matching,
+        // sometimes melismatic ("to-morr-oh-ohh-ohhh"), sometimes fewer and
+        // sustained.
+        let numTokens;
+        const roll = rnd();
+        if (roll < 0.5) numTokens = Math.max(2, syllableCount);              // one point per syllable
+        else if (roll < 0.75) numTokens = Math.max(2, syllableCount + 1 + Math.floor(rnd() * 3)); // melisma
+        else if (roll < 0.9) numTokens = Math.max(2, Math.ceil(syllableCount / 2)); // sustained
+        else numTokens = Math.max(2, wordCount);                              // one per word
+        numTokens = Math.min(12, numTokens);
+
+        const amp = 0.55 + energy * 0.4;
+
+        for (let i = 0; i <= numTokens; i++) {
+            const normalizedX = i / numTokens;
+            // Canvas Y is inverted: high energy = low Y.
+            let normalizedY = 0.5 - (shapeFn(normalizedX) - 0.5) * amp;
+
+            // Word-level intention: the token at this point bends its segment.
+            try {
+                const toks = this.currentProfile.wordTokens || [];
+                const tok = toks.length ? toks[Math.min(Math.floor(normalizedX * toks.length), toks.length - 1)] : null;
+                const wce = (typeof WordCharacterEngine !== 'undefined') ? WordCharacterEngine : null;
+                if (tok && wce) {
+                    const ch = wce.analyzeWord(String(tok.originalWord || ''));
+                    if (ch && ch.matched) {
+                        normalizedY -= (ch.arousal * 0.12 + ch.motion * 0.10 - ch.sustain * 0.08);
+                    }
+                }
+            } catch (_) {}
+
+            normalizedY += (rnd() - 0.5) * 2 * (0.05 + tension * 0.06);
+            normalizedY = Math.max(0.08, Math.min(0.92, normalizedY));
 
             this.points.push({
                 xNorm: normalizedX,
                 yNorm: normalizedY,
-                tension: this.currentProfile.globalTension || 0.5
+                tension: tension
             });
         }
     }
@@ -189,8 +283,12 @@ class CompositionTimelineUI {
         this.attachCanvasListeners(this.canvas);
         canvasContainer.appendChild(this.canvas);
         panel.appendChild(canvasContainer);
-        
+
         this.drawCanvas();
+
+        // COMPLEXITY CONTROLS — how busy the rhythm is, how adventurous the
+        // melody is, and how much outside harmonic color gets pulled in.
+        panel.appendChild(this.buildComplexityRow());
 
         // TOKEN TIMELINE
         const timeline = document.createElement('div');
@@ -296,6 +394,81 @@ class CompositionTimelineUI {
         genBtn.onclick = () => this.triggerGeneration();
         actions.appendChild(genBtn);
         panel.appendChild(actions);
+    }
+
+    getComplexity() {
+        if (!window.__arcComplexity) {
+            let stored = null;
+            try { stored = JSON.parse(localStorage.getItem('arcComplexity') || 'null'); } catch (_) {}
+            window.__arcComplexity = (stored && typeof stored === 'object')
+                ? { rhythm: +stored.rhythm || 0.5, melody: +stored.melody || 0.5, color: +stored.color || 0.5 }
+                : { rhythm: 0.5, melody: 0.5, color: 0.5 };
+        }
+        return window.__arcComplexity;
+    }
+
+    saveComplexity() {
+        try { localStorage.setItem('arcComplexity', JSON.stringify(window.__arcComplexity)); } catch (_) {}
+    }
+
+    buildComplexityRow() {
+        const cx = this.getComplexity();
+        const row = document.createElement('div');
+        row.style.cssText = `
+            padding: 8px 12px; display: flex; gap: 16px; align-items: center;
+            border-top: 1px solid #0f3460; background: #111c33; font-size: 10px;
+        `;
+
+        const sliderRefs = {};
+        const mkSlider = (emoji, label, key, title) => {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; align-items:center; gap:6px; flex:1;';
+            wrap.title = title;
+            const lab = document.createElement('span');
+            lab.textContent = `${emoji} ${label}`;
+            lab.style.cssText = 'color:#94a3b8; white-space:nowrap;';
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = '0'; slider.max = '100';
+            slider.value = String(Math.round((cx[key] || 0.5) * 100));
+            slider.style.cssText = 'flex:1; min-width:60px; accent-color:#00d4ff;';
+            const pct = document.createElement('span');
+            pct.textContent = slider.value + '%';
+            pct.style.cssText = 'color:#22d3ee; width:30px; text-align:right;';
+            slider.oninput = () => {
+                window.__arcComplexity[key] = slider.value / 100;
+                pct.textContent = slider.value + '%';
+                this.saveComplexity();
+            };
+            sliderRefs[key] = { slider, pct };
+            wrap.appendChild(lab); wrap.appendChild(slider); wrap.appendChild(pct);
+            return wrap;
+        };
+
+        row.appendChild(mkSlider('🥁', 'Rhythm', 'rhythm', 'Rhythmic complexity: subdivisions, dotted notes, syncopation'));
+        row.appendChild(mkSlider('🎼', 'Melody', 'melody', 'Melodic complexity: wider leaps, chromatic passing tones, melisma'));
+        row.appendChild(mkSlider('🎨', 'Color', 'color', 'Harmonic color: how spicy and frequent the approach chords/borrowed scales get'));
+
+        const dice = document.createElement('button');
+        dice.textContent = '🎲';
+        dice.title = 'Roll random complexity settings';
+        dice.style.cssText = `
+            background: #0f3460; border: 1px solid #f59e0b; color: #f59e0b;
+            padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 13px;
+        `;
+        dice.onclick = () => {
+            ['rhythm', 'melody', 'color'].forEach(key => {
+                const v = Math.round(Math.random() * 100);
+                window.__arcComplexity[key] = v / 100;
+                if (sliderRefs[key]) {
+                    sliderRefs[key].slider.value = String(v);
+                    sliderRefs[key].pct.textContent = v + '%';
+                }
+            });
+            this.saveComplexity();
+        };
+        row.appendChild(dice);
+        return row;
     }
 
     attachCanvasListeners(canvas) {

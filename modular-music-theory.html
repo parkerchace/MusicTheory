@@ -336,6 +336,7 @@
                 <button id="word-send-sheet-btn" class="btn-icon" title="To Sheet Music">🎼</button>
                 <button id="word-toggle-timeline-btn" class="btn-icon" title="Show timeline"
                     aria-pressed="false">⏱️</button>
+                <button id="word-settings-btn" class="btn-icon" title="Lexical weights &amp; options">⚙️</button>
             </div>
         </div>
 
@@ -418,9 +419,23 @@
     <div id="word-settings-panel" class="word-settings-panel studio-panel" style="position:fixed; top:60px; right:10px; z-index:100; width:320px; background:var(--bg-panel); border:1px solid var(--border-light); border-radius:4px; box-shadow:0 10px 25px rgba(0,0,0,0.5); display:none;">
         <div class="panel-header" style="padding:8px 12px; background:var(--bg-header); border-bottom:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center; font-size:0.75rem;">
             <span>⚙️ LEXICAL WEIGHTS</span>
-            <button class="btn-close" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; font-size:1.2rem;" onclick="document.getElementById('word-settings-panel').classList.remove('active')">×</button>
+            <button class="btn-close" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; font-size:1.2rem;" onclick="var p=document.getElementById('word-settings-panel');p.style.display='none';p.classList.remove('active')">×</button>
         </div>
         <div class="panel-content" style="padding:12px;">
+            <div style="margin-bottom:12px; display:flex; flex-direction:column; gap:6px; font-size:0.75rem; color:var(--text-dim);">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" id="weight-key-variety" checked>
+                    <span>Key variety (derive key from the words)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" id="weight-auto-send" checked>
+                    <span>Auto-send while typing</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" id="weight-aggressive">
+                    <span>Aggressive mapping</span>
+                </label>
+            </div>
             <div style="margin-bottom:10px;">
                 <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">
                     <label>Emotional Intent</label>
@@ -2137,12 +2152,15 @@
     <script src="nrc-lexicon.js"></script>
     <script src="word-database.js"></script>
     <script src="context-engine.js"></script>
-    <script src="local-music-lexicon.js"></script>
-    <script src="offline-thesaurus.js"></script>
-    <script src="semantic-contour-engine.js"></script>
-    <script src="scale-intelligence-engine.js"></script>
-    <script src="composition-timeline-ui.js"></script>
-    <script src="arc-ui-init.js?v=2.0.2"></script>
+    <script src="semantic-contour-engine.js?v=3.8.0"></script>
+    <script src="scale-intelligence-engine.js?v=3.8.0"></script>
+    <script src="word-character-engine.js?v=3.8.0"></script>
+    <script src="melodic-line-engine.js?v=3.8.0"></script>
+    <script src="approach-engine.js?v=3.8.0"></script>
+    <script src="approach-provenance-panel.js?v=3.8.0"></script>
+    <script src="numeric-progression.js?v=3.8.0"></script>
+    <script src="composition-timeline-ui.js?v=3.8.0"></script>
+    <script src="arc-ui-init.js?v=3.8.0"></script>
 
     <!-- Embedded scales data (CORS-safe for file:// protocol) -->
     <script src="scales-data-embedded.js"></script>
@@ -2152,12 +2170,14 @@
     <!-- Learning modules -->
     <script src="learn-inversions.js"></script>
     <script src="learn-scales.js"></script>
+    <script src="learn-piano-notes.js?v=3.8.0"></script>
+    <script src="learn-guitar-notes.js?v=3.8.0"></script>
     <script src="learn-chords.js"></script>
 
     <!-- Chord tools -->
     <script src="chord-attribute-engine.js"></script>
     <script src="voice-leading-engine.js"></script>
-    <script src="sheet-music-generator.js?v=2.1.1"></script>
+    <script src="sheet-music-generator.js?v=3.8.0"></script>
     <script src="logic-path-3d.js"></script>
     <script src="number-generator.js"></script>
     <script src="scale-library.js"></script>
@@ -2834,6 +2854,10 @@
             // Lexical Engine State & Orchestration Functions
             let lexicalWeights = { emotional: 0.3, syllabic: 0.2, phonetic: 0.15, semantic: 0.25, archetype: 0.1 };
             let lexicalSettings = { aggressiveMapping: false, keyVariety: true, autoSend: true };
+            // Expose for the arc generation path (arc-ui-init.js) so keyVariety etc.
+            // affect "Generate Music" as well as live typing.
+            window.__lexicalSettings = lexicalSettings;
+            window.__lexicalWeights = lexicalWeights;
             let lexicalEngine = null;
 
             async function processWordsInput(text) {
@@ -2911,7 +2935,11 @@
 
             if (wordSettingsBtn && wordSettingsPanel) {
                 wordSettingsBtn.addEventListener('click', () => {
-                    wordSettingsPanel.classList.toggle('active');
+                    // The panel carries an inline display:none, which beats any
+                    // class rule — toggling a class alone never revealed it.
+                    const hidden = wordSettingsPanel.style.display === 'none' || !wordSettingsPanel.style.display;
+                    wordSettingsPanel.style.display = hidden ? 'block' : 'none';
+                    wordSettingsPanel.classList.toggle('active', hidden);
                     // Close analysis panel if open
                     const analysisPanel = document.getElementById('word-analysis-panel');
                     if (analysisPanel) analysisPanel.classList.remove('active');
@@ -3930,11 +3958,22 @@
                         const input = String(words || '').trim();
                         const context = localContextEngine.parseInput(input);
                         const seed = Math.floor(Math.random() * 1000000);
-                        
-                        // Use ScaleIntelligenceEngine if available
+
+                        const lex = (context.metadata && context.metadata.lexical) || {};
+
+                        // Use ScaleIntelligenceEngine if available; the emotional
+                        // weight slider scales how strongly word sentiment drives it.
                         let recommendedScale = (context.harmonicProfile && context.harmonicProfile.recommendedScale) || 'major';
                         if (scaleIntelligence) {
-                            const intelligentChoice = scaleIntelligence.selectScale(context.metadata.lexical);
+                            const w = (options && options.weights) || {};
+                            const emotionalWeight = Number.isFinite(w.emotional) ? w.emotional : 0.3;
+                            const intelligentChoice = scaleIntelligence.selectScale({
+                                ...lex,
+                                avgValence: (lex.avgValence || 0) * (0.5 + emotionalWeight * 1.5),
+                                avgArousal: (lex.avgArousal || 0) * (0.5 + emotionalWeight * 1.5),
+                                forceTone: context.emotionalTone || null,
+                                words: input.toLowerCase().split(/\s+/).filter(Boolean)
+                            });
                             if (intelligentChoice) {
                                 recommendedScale = intelligentChoice.name;
                                 if (!context.harmonicProfile) context.harmonicProfile = {};
@@ -3942,10 +3981,38 @@
                             }
                         }
 
+                        // Home key derived from the words (circle-of-fifths mapping),
+                        // unless the user turned key variety off.
+                        const keyVariety = !options || options.keyVariety !== false;
+                        const derivedRoot = (keyVariety && typeof deriveRootFromLexical === 'function')
+                            ? deriveRootFromLexical(lex, input)
+                            : null;
+                        const currentStudioKey = (window.modularApp && window.modularApp.scaleLibrary
+                            && typeof window.modularApp.scaleLibrary.getCurrentKey === 'function')
+                            ? window.modularApp.scaleLibrary.getCurrentKey() : null;
+                        const homeRoot = derivedRoot || currentStudioKey || 'C';
+                        if (!context.harmonicProfile) context.harmonicProfile = {};
+                        context.harmonicProfile.root = homeRoot;
+                        if (typeof context.intensity === 'number' && typeof context.overallEnergy !== 'number') {
+                            context.overallEnergy = context.intensity;
+                        }
+                        if (typeof context.globalTension !== 'number' && context.metadata && typeof context.metadata.complexity === 'number') {
+                            context.globalTension = context.metadata.complexity;
+                        }
+
                         let progression = [];
 
-                        if (localArcGenerator && typeof generateHarmony === 'function') {
-                            const arc = localArcGenerator.generateArc(context, seed, 4);
+                        // ArcGenerator never shipped, so don't gate the real harmony
+                        // generator on it — a lightweight arc is enough here.
+                        if (typeof generateHarmony === 'function') {
+                            const arc = (localArcGenerator && typeof localArcGenerator.generateArc === 'function')
+                                ? localArcGenerator.generateArc(context, seed, 4)
+                                : {
+                                    bars: 4,
+                                    beatsPerBar: 4,
+                                    totalBeats: 16,
+                                    sample: (t) => 0.4 + 0.3 * Math.sin(Math.PI * Math.max(0, Math.min(1, t)))
+                                  };
                             const harmony = generateHarmony(context, arc, seed);
                             progression = (harmony.chordSequence || []).map((entry, index) => {
                                 const meta = _inferChordFunction(entry.roman);
@@ -4001,8 +4068,8 @@
                         const complexityValue = context.metadata && context.metadata.complexity ? context.metadata.complexity : 0.5;
                         return {
                             scale: {
-                                root: 'C',
-                                key: 'C',
+                                root: homeRoot,
+                                key: homeRoot,
                                 name: (context.harmonicProfile && context.harmonicProfile.recommendedScale) ? context.harmonicProfile.recommendedScale : 'major',
                                 scale: (context.harmonicProfile && context.harmonicProfile.recommendedScale) ? context.harmonicProfile.recommendedScale : 'major'
                             },

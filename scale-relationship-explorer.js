@@ -34,7 +34,43 @@ class ScaleRelationshipExplorer {
             console.error(`ScaleRelationshipExplorer: Container ${selector} not found`);
             return;
         }
+        this.subscribeToScaleChanges();
         this.render();
+    }
+
+    /**
+     * The builder reads the library's active scale, but only ever did so at
+     * mount — so it sat on whatever was loaded then (C major) no matter what
+     * the picker said afterwards, and its degree buttons described a scale you
+     * were no longer in. The library already emits 'scaleChanged'; listen.
+     *
+     * Temporary contexts (pushKeyAndScale / withTempKeyAndScale) emit the same
+     * event while the stack is non-empty, so those are ignored — otherwise the
+     * panel would flicker through scales the user never selected.
+     */
+    subscribeToScaleChanges() {
+        if (this._scaleSub) return;
+        const library = (typeof window !== 'undefined' && window.modularApp)
+            ? window.modularApp.scaleLibrary : null;
+        if (!library || typeof library.on !== 'function') return;
+
+        this._scaleSub = () => {
+            if (Array.isArray(library.scaleStack) && library.scaleStack.length) return;
+            if (!this.containerElement) return;
+            // A degree chosen in the old scale means nothing in the new one.
+            this.state.builderRoot = null;
+            this.render();
+        };
+        library.on('scaleChanged', this._scaleSub);
+    }
+
+    destroy() {
+        const library = (typeof window !== 'undefined' && window.modularApp)
+            ? window.modularApp.scaleLibrary : null;
+        if (library && this._scaleSub && typeof library.off === 'function') {
+            library.off('scaleChanged', this._scaleSub);
+        }
+        this._scaleSub = null;
     }
 
     render() {
@@ -87,6 +123,21 @@ class ScaleRelationshipExplorer {
 
     bindChordBuilderEvents() {
         if (!this.containerElement) return;
+
+        // Reuse the library's own scale-picker modal rather than building a
+        // second scale browser that could drift out of sync with it.
+        const pickerBtn = this.containerElement.querySelector('#sre-scale-picker-btn');
+        if (pickerBtn) {
+            pickerBtn.addEventListener('click', () => {
+                const modal = document.getElementById('scale-picker-modal');
+                if (!modal) return;
+                modal.style.display = 'flex';
+                setTimeout(() => {
+                    const search = document.getElementById('scale-search-input');
+                    if (search) search.focus();
+                }, 100);
+            });
+        }
 
         this.containerElement.querySelectorAll('.sre-degree-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -199,12 +250,23 @@ class ScaleRelationshipExplorer {
         const selectedRoot = this.state.builderRoot;
         const displayScale = String(ctx.scaleName).replace(/_/g, ' ');
 
+        // One button per degree the scale actually has — eight for octatonic,
+        // five for a pentatonic — each labelled with its numeral so a specific
+        // degree can be picked directly instead of only the suggested ones.
+        const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
         const degreeButtons = ctx.notes.map((note, i) => {
             const isSelected = note === selectedRoot;
+            const numeral = NUMERALS[i] || String(i + 1);
+            let quality = '';
+            try {
+                const d = this.musicTheory.getDiatonicChord(i + 1, ctx.key, ctx.scaleName);
+                if (d && d.chordType) quality = d.chordType;
+            } catch (e) { /* label degrades to the note name alone */ }
             return `
                 <button class="sre-degree-btn" data-root="${note}" data-degree="${i + 1}"
-                    style="background: ${isSelected ? 'var(--accent-primary)' : 'transparent'}; color: ${isSelected ? '#000' : 'var(--text-main)'}; border: 1px solid var(--border-light); font-size: 0.75rem; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-family: var(--font-tech); font-weight: bold; text-transform: none;">
-                    <span style="opacity: 0.6; font-size: 0.65rem;">${i + 1}</span> ${note}
+                    title="Degree ${numeral}${quality ? ' — ' + note + quality : ''}"
+                    style="background: ${isSelected ? 'var(--accent-primary)' : 'transparent'}; color: ${isSelected ? '#000' : 'var(--text-main)'}; border: 1px solid var(--border-light); font-size: 0.75rem; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-family: var(--font-tech); font-weight: bold; text-transform: none; display: inline-flex; align-items: baseline; gap: 4px;">
+                    <span style="opacity: 0.6; font-size: 0.65rem;">${numeral}</span>${note}${quality ? `<span style="opacity: 0.5; font-size: 0.62rem;">${quality}</span>` : ''}
                 </button>
             `;
         }).join('');
@@ -261,10 +323,18 @@ class ScaleRelationshipExplorer {
             `;
         }
 
+        // Same picker control the rest of the app uses, so the active scale is
+        // both visible and changeable from here rather than being an opaque
+        // label that silently disagreed with the picker.
         return `
             <div class="sre-chord-builder" style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 4px;">
-                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
-                    Build from <span style="color: var(--accent-primary);">${ctx.key} ${displayScale}</span>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Build from</span>
+                    <button id="sre-scale-picker-btn" class="scale-picker-button" type="button"
+                        title="Change the scale this builder works in">
+                        <span class="current-scale-name">${ctx.key} ${displayScale}</span>
+                        <span class="picker-icon">▼</span>
+                    </button>
                 </div>
                 <div style="display: flex; flex-wrap: wrap; gap: 4px;">${degreeButtons}</div>
                 ${qualitySection}
@@ -572,8 +642,11 @@ class ScaleRelationshipExplorer {
             const index = scaleNotes.indexOf(chordRoot);
             if (index === -1) return '?';
             
-            const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
-            const num = numerals[index];
+            // Runs to XII: octatonic has eight degrees, and stopping at VII
+            // left degree 8 — the Adim7 in B octatonic, exactly the chord you
+            // reach for — labelled "undefined" and unselectable.
+            const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+            const num = numerals[index] || String(index + 1);
             
             // Determine if major or minor chord (simple heuristic from parsed chord)
             const isMinor = this.state.parsedChord && (this.state.parsedChord.type.includes('m') && !this.state.parsedChord.type.includes('maj'));
