@@ -2074,28 +2074,62 @@ function generateHarmony(context, arc, seed = 0) {
   harmony.sectionProgressions = plan.sectionProgressions || {};
   harmony.devices = plan.devices || [];
 
-  // MODAL-BLEND CADENCE ("the triumphant lift").
+  // THE ♭VI–♭VII–I CADENCE.
   //
-  // A minor key already contains two major triads sitting a step apart on its
-  // ♭6 and ♭7 — in C minor those are A♭ and B♭. Walking them up into a MAJOR
-  // tonic turns the ending from resigned to triumphant without leaving the
-  // parent scale until the very last chord, which is the only borrowed note in
-  // the gesture. This is a deliberate set-piece placed at the cadence, not a
-  // per-bar dice roll, so the arrival is intentional and lands in the same
-  // place every take at a given seed.
+  // Two major triads a step apart walking up into the tonic. It belongs in
+  // BOTH modes and means something different in each:
+  //
+  //   In MINOR it is the triumphant lift. ♭VI and ♭VII are already in the
+  //   parent scale — in C minor, A♭ and B♭ — so the only borrowed note in the
+  //   whole gesture is the major third of the final chord, and that one note
+  //   turns a resigned ending into a triumphant one.
+  //
+  //   In MAJOR it is the aeolian cadence: both approach triads are borrowed
+  //   from the parallel minor while the tonic stays where it already was. This
+  //   is the rock/film ending — ♭VI–♭VII–I in C major is A♭–B♭–C — and it is
+  //   completely idiomatic. An earlier version fired it in major only because
+  //   the tonic had been mislabelled minor, and the fix for THAT wrongly took
+  //   the device away from major keys altogether. The device was never the
+  //   problem; firing it without deciding where it goes was.
+  //
+  // WHERE is what makes it work. It is a payoff, so it is placed at a moment
+  // that can carry one: the piece's final cadence, or the end of a departure
+  // section handing back to a return — the bridge-into-last-chorus position.
   const ccCad = context.complexityControls || { color: 0.5 };
   let picardyBar = -1;
-  if (minorTone && barCount >= 3) {
+  let aeolianCadenceBar = -1;
+  if (barCount >= 3) {
     // Lifts are a payoff, so they want either an emotional arc that has been
     // building or an explicit appetite for colour.
     const lift = clamp01((context.globalTension || 0) * 0.5 + (ccCad.color || 0.5) * 0.5);
     if (rng() < lift * 0.75) {
-      // The lift belongs at the piece's real ending, which with a form is the
-      // final section's cadence rather than simply the last three bars.
-      baseProg[barCount - 3] = 'bVI';
-      baseProg[barCount - 2] = 'bVII';
-      baseProg[barCount - 1] = 'I';
-      picardyBar = barCount - 1;
+      // Candidate landing bars: the real ending, plus the last bar of any
+      // departure section that hands back to a returning one.
+      const landings = [barCount - 1];
+      try {
+        const secs = (form && Array.isArray(form.sections)) ? form.sections : [];
+        secs.forEach((s, i) => {
+          const next = secs[i + 1];
+          const isDeparture = s.letter && s.letter !== 'A';
+          const returnsAfter = next && next.letter === 'A';
+          if (isDeparture && returnsAfter && s.endBar >= 2 && s.endBar < barCount - 1) {
+            landings.push(s.endBar);
+          }
+        });
+      } catch (_) {}
+      // The ending is the strongest place for it; a bridge hand-off is the
+      // alternative when the form offers one.
+      const landing = (landings.length > 1 && rng() < 0.45)
+        ? landings[1 + Math.floor(rng() * (landings.length - 1))]
+        : landings[0];
+
+      baseProg[landing - 2] = 'bVI';
+      baseProg[landing - 1] = 'bVII';
+      baseProg[landing] = 'I';
+      aeolianCadenceBar = landing;
+      // Only a MINOR key needs its tonic forced major — in major it already is,
+      // and forcing it there would be a no-op pretending to be a decision.
+      if (minorTone) picardyBar = landing;
     }
   }
 
@@ -2155,7 +2189,11 @@ function generateHarmony(context, arc, seed = 0) {
     const isCadenceGoal = barSection && bar === barSection.endBar;
     const isCadentialDominant = barSection && bar === barSection.endBar - 1
       && /^V$/i.test(String(baseProg[bar] || '').replace(/[^ivxIVX]/g, ''));
-    const inCadence = (picardyBar >= 0 && bar >= picardyBar - 2)
+    // Guard the gesture in BOTH modes: aeolianCadenceBar marks it whether or
+    // not the tonic needed forcing, so a major-key aeolian cadence is as
+    // protected from random substitution as a minor-key picardy lift.
+    const cadenceAnchor = aeolianCadenceBar >= 0 ? aeolianCadenceBar : picardyBar;
+    const inCadence = (cadenceAnchor >= 0 && bar >= cadenceAnchor - 2 && bar <= cadenceAnchor)
       || isCadenceGoal || isCadentialDominant;
     if (!inCadence && rng() < borrowChance) {
         const tone = context.emotionalTone;
@@ -2477,10 +2515,17 @@ function generateHarmony(context, arc, seed = 0) {
             fullName: String(chordObj.root),
             roman: 'I'
           };
-          borrowedInfo = { type: 'modal-blend', from: 'i', to: 'I', cadence: 'bVI-bVII-I' };
+          borrowedInfo = { type: 'modal-blend', from: 'i', to: 'I', cadence: 'bVI-bVII-I', mode: 'minor' };
         }
       } catch (_) {}
     }
+
+    // The same cadence in a MAJOR key needs no forcing — the tonic is already
+    // major — but it is still the gesture, and still worth saying so.
+    if (bar === aeolianCadenceBar && picardyBar !== bar) {
+      borrowedInfo = { type: 'modal-blend', from: 'I', to: 'I', cadence: 'bVI-bVII-I', mode: 'major' };
+    }
+
 
     borrowedFlags.push(borrowedInfo);
     resolvedBarChords.push(chordObj);
@@ -2580,6 +2625,14 @@ function generateHarmony(context, arc, seed = 0) {
     // arrival sound prepared. A genuine climax section can run at two
     // throughout, and that contrast is now audible precisely because the rest
     // of the piece is not doing it.
+    // The two chords WALKING UP are part of the cadence gesture too. Left
+    // unmarked they were explained one at a time by the generic chromatic
+    // reader — "A♭ rises a semitone into A" — which is true, useless, and
+    // actively misleading about what is happening: they are not two unrelated
+    // chromatic leans, they are the first two thirds of a named cadence.
+    const inAeolianWalk = aeolianCadenceBar >= 2
+      && (bar === aeolianCadenceBar - 2 || bar === aeolianCadenceBar - 1);
+
     const sectionActivity = section ? (section.activityBias || 0) + (section.energyBias || 0) : 0;
     const isCadenceApproach = !!(section && bar === section.endBar - 1 && section.endBar > section.startBar);
     const isClimaxSection = !!(section && (section.energyBias || 0) > 0.15);
@@ -2622,6 +2675,7 @@ function generateHarmony(context, arc, seed = 0) {
         // Same chord as the previous bar, still sounding — hold it rather than
         // striking it again.
         sustainedFromPrevBar: sustainedFromPrevBar && d === 0,
+        cadenceGesture: (bar === aeolianCadenceBar || inAeolianWalk) ? 'bVI-bVII-I' : null,
         cadenceApproach: isCadenceApproach && d === 0,
         barKey: eventKeyPlan.key || currentKey,
         barScale: eventKeyPlan.scaleName || currentScale,
@@ -2670,9 +2724,18 @@ function generateHarmony(context, arc, seed = 0) {
       // A modulation is the larger event and keeps its explanation.
       if (event.explain) {
         // already explained above
+      } else if (inAeolianWalk) {
+        const step = bar === aeolianCadenceBar - 2 ? '♭VI' : '♭VII';
+        event.explain = `${step} of the ♭VI–♭VII–I cadence: ${event.chord} is borrowed from the parallel minor `
+          + `and is walking up into the tonic. It is one third of a single gesture, not a chord on its own.`;
       } else if (borrowedInfo && borrowedInfo.type === 'modal-blend') {
-        event.explain = `Modal blend cadence: ♭VI–♭VII–${event.chord} — both approach triads are already in the minor scale; `
-          + `only the final major third is borrowed, turning the ending triumphant`;
+        event.explain = borrowedInfo.mode === 'major'
+          // Same three chords, a different borrowing, and worth saying which.
+          ? `Aeolian cadence: ♭VI–♭VII–${event.chord} — both approach triads are borrowed from the parallel `
+            + `minor while the tonic stays major. The two chords step up into the key from outside it, `
+            + `which is why this ending sounds like an arrival rather than a resolution`
+          : `Modal blend cadence: ♭VI–♭VII–${event.chord} — both approach triads are already in the minor scale; `
+            + `only the final major third is borrowed, turning the ending triumphant`;
       } else if (borrowedInfo && borrowedInfo.to) {
         const modeLabel = borrowedInfo.type === 'modal-interchange' ? 'Modal interchange' : 'Borrowed color';
         event.explain = `${modeLabel}: ${event.chord} (${formatScaleNameForDisplay(borrowedInfo.to)}) for contrast`;
