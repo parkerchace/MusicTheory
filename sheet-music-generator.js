@@ -1016,11 +1016,14 @@ class SheetMusicGenerator {
 			// Generated music bakes its voicing in at generation time, so the
 			// sheet must ask for a re-voice — re-rendering alone would keep
 			// showing the previous voicing and the control would look dead.
+			// revoiceLastGeneration re-harmonizes the EXISTING melody rather than
+			// building a new take, so changing the voicing style never rewrites
+			// the tune it's harmonizing.
 			if (window.NumericProgression && window.NumericProgression.state.degrees.length) {
 				window.NumericProgression.revoice();
-			} else if (typeof window !== 'undefined' && typeof window.regenerateLastGeneration === 'function'
+			} else if (typeof window !== 'undefined' && typeof window.revoiceLastGeneration === 'function'
 				&& window.__lastGenInputs) {
-				window.regenerateLastGeneration('voicing-change');
+				window.revoiceLastGeneration('voicing-change');
 			} else {
 				this.render();
 			}
@@ -1044,9 +1047,9 @@ class SheetMusicGenerator {
 			this.previousVoicing = null;
 			if (window.NumericProgression && window.NumericProgression.state.degrees.length) {
 				window.NumericProgression.revoice();
-			} else if (typeof window !== 'undefined' && typeof window.regenerateLastGeneration === 'function'
+			} else if (typeof window !== 'undefined' && typeof window.revoiceLastGeneration === 'function'
 				&& window.__lastGenInputs) {
-				window.regenerateLastGeneration('register-change');
+				window.revoiceLastGeneration('register-change');
 			} else {
 				this.render();
 			}
@@ -1359,6 +1362,20 @@ class SheetMusicGenerator {
 			else vlIntText.textContent = 'Ultra-smooth';
 		};
 		updateVlText();
+		// What the number actually changes, not just its name — this only
+		// matters when Voice Leading or VL Combos is also on, since that is
+		// what puts more than one inversion in contention to weigh.
+		const vlIntDesc = document.createElement('div');
+		vlIntDesc.style.cssText = 'font-size:0.65rem; color:#94a3b8; line-height:1.3;';
+		const updateVlDesc = () => {
+			const v = (this.state.vlIntensity != null ? this.state.vlIntensity : 0.5);
+			vlIntDesc.textContent = v < 0.25
+				? 'Each chord favours its ideal register over matching the previous chord — bass line moves freely.'
+				: v < 0.6
+					? 'Balances a chord’s ideal register against minimal movement from the one before it.'
+					: 'Strongly favours the smoothest bass motion from chord to chord, even over ideal register.';
+		};
+		updateVlDesc();
 		vlIntSlider.addEventListener('input', () => {
 			const raw = parseInt(vlIntSlider.value, 10);
 			const norm = Math.min(1, Math.max(0, raw / 100));
@@ -1373,6 +1390,7 @@ class SheetMusicGenerator {
 				});
 			} catch(_) {}
 			updateVlText();
+			updateVlDesc();
 			// Changing intensity conceptually changes the optimization objective;
 			// reset continuity so a fresh solution can be found.
 			this._applyVoicingChange();
@@ -1381,6 +1399,7 @@ class SheetMusicGenerator {
 		vlIntRow.appendChild(vlIntText);
 		vlIntWrap.appendChild(vlIntLabel);
 		vlIntWrap.appendChild(vlIntRow);
+		vlIntWrap.appendChild(vlIntDesc);
 		voicingPanel.appendChild(vlIntWrap);
 
 		// (Spread and Double Root toggles removed to keep panel lean.
@@ -1433,7 +1452,18 @@ class SheetMusicGenerator {
 			this._lastVLStyle = null;
 			this._baseStyleIncludedOnce = false;
 			this.voicingRefreshSeed = Math.random() * 0.9 + 0.1;
-			this.render();
+			// Word-generated music: re-voice with a fresh random seed so the
+			// resolver's near-ties break differently, WITHOUT touching the
+			// melody — this.render() alone re-draws the cached phrase and does
+			// not recompute anything, so Randomize previously had no effect
+			// here at all.
+			if (window.NumericProgression && window.NumericProgression.state.degrees.length) {
+				this.render();
+			} else if (typeof window.revoiceLastGeneration === 'function' && window.__lastGenInputs) {
+				window.revoiceLastGeneration('randomize', Math.floor(Math.random() * 1e9));
+			} else {
+				this.render();
+			}
 			// Emit a UI event so Save Interaction Log captures the new seed/state
 			try {
 				const evt = new CustomEvent('sheetMusicUpdated', {
@@ -1456,6 +1486,42 @@ class SheetMusicGenerator {
 			}, 400);
 		});
 		voicingPanel.appendChild(regenBtn);
+
+		// WHAT ACTUALLY HAPPENED. The controls above describe an intent; this
+		// says what the resolver did with it — which style, which register, how
+		// many chords it could actually voice, and how many it rotated to put
+		// the melody's own note on top. Without this the panel is four controls
+		// you set blind and a chord grid that may or may not have moved.
+		const vlStatus = document.createElement('div');
+		vlStatus.style.cssText = 'font-size:0.65rem; color:#94a3b8; line-height:1.4; '
+			+ 'padding-top:8px; margin-top:2px; border-top:1px solid rgba(148,163,184,0.15);';
+		vlStatus.textContent = 'Generate music from words, then a voicing change here re-harmonizes it.';
+		voicingPanel.appendChild(vlStatus);
+		const updateVlStatus = (music) => {
+			const vs = (music && music.harmony && music.harmony.voicingSettings) || null;
+			if (!vs) { vlStatus.textContent = 'Generate music from words, then a voicing change here re-harmonizes it.'; return; }
+			const seq = (music.harmony.chordSequence || []).filter(ev => ev && !ev.approachStrategy);
+			const bars = new Set(seq.map(ev => ev.bar)).size;
+			const voicedBars = new Set(seq.filter(ev => ev.voicing).map(ev => ev.bar)).size;
+			const parts = [];
+			parts.push(`${vs.style || vs.voicing || 'auto'} · ${vs.register || 'mid'} register`);
+			parts.push(`${voicedBars}/${bars || voicedBars} bars voiced`);
+			if (vs.rejected) parts.push(`${vs.rejected} kept literal (style didn't fit that chord)`);
+			if (vs.melodyAlignedChords) parts.push(`${vs.melodyAlignedChords} rotated so the melody note is the chord's own top voice`);
+			if (vs.voiceLeading || vs.vlCombos) {
+				parts.push(vs.vlCombos
+					? 'VL Combos: also weighing the intelligent engine’s own voicing per chord'
+					: 'Voice Leading: smoothest inversion of this style per chord');
+			}
+			vlStatus.textContent = parts.join(' · ');
+		};
+		document.addEventListener('musicGenerated', (e) => updateVlStatus(e && e.detail));
+		// The panel can be built after music already exists (e.g. the sheet was
+		// re-opened), so show the current state immediately rather than waiting
+		// for the next generation.
+		if (typeof window !== 'undefined' && window.__lastMusicGenerated) {
+			updateVlStatus(window.__lastMusicGenerated);
+		}
 
 		// Per-bar overrides live here now. They used to be a separate strip in
 		// the "Where the chords come from" panel offering five styles, so the
@@ -1691,8 +1757,8 @@ class SheetMusicGenerator {
 				if (reg.value) next.register = reg.value;
 				if (Object.keys(next).length) window.__chordVoicingOverrides[b.bar] = next;
 				else delete window.__chordVoicingOverrides[b.bar];
-				if (typeof window.regenerateLastGeneration === 'function') {
-					window.regenerateLastGeneration('per-chord-voicing');
+				if (typeof window.revoiceLastGeneration === 'function') {
+					window.revoiceLastGeneration('per-chord-voicing');
 				}
 			};
 			sel.addEventListener('change', apply);
@@ -2139,6 +2205,10 @@ class SheetMusicGenerator {
 	 * generated, so re-rendering alone shows the previous voicing and the control
 	 * looks dead — the Inversion selector, the Voice Leading and VL Combos
 	 * checkboxes and the VL Intensity slider all did exactly that.
+	 *
+	 * revoiceLastGeneration re-harmonizes the melody that is already written
+	 * rather than building a new take from the same seed — these are all
+	 * voicing-only controls and none of them should touch the tune.
 	 */
 	_applyVoicingChange() {
 		this.previousVoicing = null;
@@ -2148,8 +2218,8 @@ class SheetMusicGenerator {
 				window.NumericProgression.revoice();
 				return;
 			}
-			if (typeof window.regenerateLastGeneration === 'function' && window.__lastGenInputs) {
-				window.regenerateLastGeneration('voicing-control');
+			if (typeof window.revoiceLastGeneration === 'function' && window.__lastGenInputs) {
+				window.revoiceLastGeneration('voicing-control');
 				return;
 			}
 		} catch (_) {}

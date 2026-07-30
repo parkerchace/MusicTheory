@@ -611,6 +611,107 @@ function regenerateLastGeneration(reason = 'settings-change') {
 }
 if (typeof window !== 'undefined') window.regenerateLastGeneration = regenerateLastGeneration;
 
+/**
+ * VOICING-ONLY. Re-resolve every bar's chord voicing against the melody that
+ * is ALREADY WRITTEN, without regenerating a single note of it.
+ *
+ * `regenerateLastGeneration` reruns the whole pipeline with the same seed,
+ * which sounds like it should reproduce an identical melody — and it did,
+ * before the melody became voicing-aware. Now the melody's own register
+ * follows wherever the chords happen to sit, so re-running generation with a
+ * different voicing setting genuinely produces a different melody even
+ * though nothing about the words or the seed changed. The Voicing dropdown,
+ * Register, Inversion, Voice Leading, VL Combos, VL Intensity and Randomize
+ * have nothing to do with the tune; this reharmonizes the one that is
+ * already on the page instead of building a new take around it.
+ *
+ * The chord IDENTITIES — which roman numeral, which root, which quality —
+ * are read back from the harmony already on screen and held fixed. Only
+ * their VOICING (style, spacing, inversion, register) is free to change.
+ */
+function revoiceLastGeneration(reason = 'voicing-only', randomSeed) {
+  const prior = (typeof window !== 'undefined') ? window.__lastMusicGenerated : null;
+  const inputs = (typeof window !== 'undefined') ? window.__lastGenInputs : null;
+  // Nothing to reharmonize yet — fall back to a full generation so the
+  // control still does something on a first-ever change.
+  if (!prior || !prior.harmony || !prior.melody || !inputs || !inputs.arc) {
+    return regenerateLastGeneration(reason);
+  }
+  try {
+    const { harmony, melody, context, arc, seed, input } = prior;
+    const mt = window.modularApp && window.modularApp.musicTheory;
+    if (!mt) return regenerateLastGeneration(reason);
+
+    // The one-chord-per-bar list the resolver expects, read back from the
+    // harmony that already exists rather than rebuilt from the progression —
+    // the SAME chord objects, not new ones drawn from the same romans.
+    const seq = harmony.chordSequence || [];
+    const barChordObjs = [];
+    const seenBars = new Set();
+    seq.forEach((ev) => {
+      if (!ev || ev.approachStrategy || !ev.chordObj || !Number.isFinite(ev.bar)) return;
+      if (seenBars.has(ev.bar)) return;
+      seenBars.add(ev.bar);
+      barChordObjs[ev.bar] = ev.chordObj;
+    });
+    const barCount = barChordObjs.length;
+    for (let b = 0; b < barCount; b++) {
+      if (!barChordObjs[b]) {
+        const root = (context.harmonicProfile && context.harmonicProfile.root) || 'C';
+        barChordObjs[b] = { root, chordType: 'major', fullName: root, chordNotes: [], diatonicNotes: [] };
+      }
+    }
+
+    let vlEngine = null;
+    if (typeof VoiceLeadingEngine !== 'undefined') {
+      try { vlEngine = new VoiceLeadingEngine(mt); } catch (_) { vlEngine = null; }
+    }
+
+    const { voicings, voicingSettings } = resolveHarmonyVoicings(mt, barChordObjs, context, vlEngine, randomSeed);
+
+    // Write the new voicing onto every structural event in that bar — a bar
+    // struck twice (density 2) shares one voicing between both attacks, the
+    // same as first generation. A bar whose voicing came out unusable falls
+    // back to literal chord tones exactly as it would on a first pass.
+    seq.forEach((ev) => {
+      if (!ev || ev.approachStrategy || !Number.isFinite(ev.bar)) return;
+      const v = voicings[ev.bar];
+      if (v && v.voices) ev.voicing = v.voices; else delete ev.voicing;
+    });
+    harmony.voicingSettings = voicingSettings;
+
+    // Rotate each bar's voicing to put the EXISTING melody's own chord tone
+    // on top wherever it lands — the tune itself is read-only here.
+    if (voicingFirst()) {
+      const alignedCount = alignVoicingToMelody(
+        harmony, melody, arc.beatsPerBar || 4, mt, voicingSettings.style, voicingSettings.overrides, voicingSettings.ceiling);
+      if (alignedCount) harmony.voicingSettings = { ...harmony.voicingSettings, melodyAlignedChords: alignedCount };
+    }
+
+    // The accompaniment plays whatever the voicing now is; the melody feeding
+    // it is the identical object, untouched.
+    const piano = buildPianoTexture(context, arc, harmony, melody, seed);
+
+    const generatedMusic = {
+      harmony, melody, piano,
+      scaleTimeline: prior.scaleTimeline,   // chord progression and keys did not change
+      context, arc, seed,
+      traceId: `arc-${Date.now().toString(36)}`,
+      input,
+      regeneratedFor: reason,
+      melodyPreserved: true,
+      timestamp: new Date().toISOString()
+    };
+    window.__lastMusicGenerated = generatedMusic;
+    document.dispatchEvent(new CustomEvent('musicGenerated', { detail: generatedMusic }));
+    return true;
+  } catch (err) {
+    console.warn('[ArcInit] revoice failed, falling back to full regenerate', err);
+    return regenerateLastGeneration(reason);
+  }
+}
+if (typeof window !== 'undefined') window.revoiceLastGeneration = revoiceLastGeneration;
+
 function ensureArcChordToastUI() {
   if (typeof document === 'undefined') return null;
   let toast = document.getElementById('arc-chord-toast');
@@ -1516,7 +1617,7 @@ const VOICING_BASS_FLOOR = 33;   // A1 — below this a chord is a growl
  *
  * @returns {Array<Object|null>} per-bar `voices` objects, null where unusable
  */
-function resolveVoicings({ mt, chordObjs, led, style, register, overrides, inversion, voiceLeading, vlCombos, vlIntensity }) {
+function resolveVoicings({ mt, chordObjs, led, style, register, overrides, inversion, voiceLeading, vlCombos, vlIntensity, randomSeed }) {
   const CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const ceiling = VOICING_TOP_CEIL[register] || VOICING_TOP_CEIL.mid;
   const styleFn = (typeof window !== 'undefined' && typeof window.applyVoicingStyleTo === 'function')
@@ -1528,6 +1629,15 @@ function resolveVoicings({ mt, chordObjs, led, style, register, overrides, inver
   // movement term `place()` already computed against a fixed weight.
   const intensity = Number.isFinite(vlIntensity) ? Math.max(0, Math.min(1, vlIntensity)) : 0.5;
   const movementWeight = 0.15 + intensity * 1.35;
+
+  // RANDOMIZE: every choice this function makes is otherwise a deterministic
+  // minimum, so re-running it with identical settings always lands on the
+  // identical voicing — the Randomize button had nothing to randomize. A
+  // seed nudges near-tied candidates apart by an amount small next to the
+  // register and bass-floor penalties, so it can only ever decide between
+  // options that were already close, never promote a genuinely worse one.
+  const jitterRng = Number.isFinite(randomSeed) ? createRNG(randomSeed) : null;
+  const jitter = () => jitterRng ? (jitterRng() - 0.5) * 1.4 : 0;
 
   const pcOf = (n) => {
     const nm = String(n).replace(/-?\d+$/, '');
@@ -1597,7 +1707,8 @@ function resolveVoicings({ mt, chordObjs, led, style, register, overrides, inver
       const bottom = cand[0];
       const cost = (top > ceiling ? (top - ceiling) * 4 : (ceiling - top) * 0.6)
         + (bottom < VOICING_BASS_FLOOR ? (VOICING_BASS_FLOOR - bottom) * 4 : 0)
-        + (Number.isFinite(prevBottom) ? Math.abs(bottom - prevBottom) * movementWeight : 0);
+        + (Number.isFinite(prevBottom) ? Math.abs(bottom - prevBottom) * movementWeight : 0)
+        + jitter();
       if (!best || cost < best.cost) best = { cand, cost };
     });
     return best;
@@ -1702,6 +1813,103 @@ function voicingTopOf(harmony) {
     });
   });
   return top;
+}
+
+/**
+ * Everything the sheet's Voicing dropdown, Register, and Voicing Options
+ * panel currently say, read once. Shared by first generation and by a
+ * voicing-only re-voice so both read the panel exactly the same way — before
+ * this was inlined twice, and the two readings could quietly drift apart.
+ */
+function readVoicingPanelSettings(context) {
+  const sheet = (window.modularApp && window.modularApp.sheetMusicGenerator) || window.sheetMusicGenerator || null;
+  const sheetState = (sheet && sheet.state) || {};
+  const overrides = (typeof window !== 'undefined' && window.__chordVoicingOverrides) || {};
+
+  const autoVoicing = context.overallEnergy > 0.7 ? 'spread' : 'close';
+  const autoRegister = context.overallEnergy > 0.8 ? 'high' : (context.overallEnergy < 0.3 ? 'low' : 'mid');
+  const logicToVoicing = { smart: 'close', smooth: 'close', open: 'spread', jazz: 'spread', piano: 'close' };
+  const manualStyle = sheetState.autoVoicingAll ? null : (sheetState.voicingStyle || null);
+  const globalVoicing = sheetState.autoVoicingAll
+      ? (logicToVoicing[sheetState.voicingLogic] || autoVoicing)
+      : (manualStyle || autoVoicing);
+  const globalRegister = sheetState.voicingRegister || autoRegister;
+  const inversion = Number.isFinite(parseInt(sheetState.inversion, 10)) ? parseInt(sheetState.inversion, 10) : 0;
+  const voiceLeading = !!sheetState.voiceLeading;
+  const vlCombos = sheetState.voiceLeadingMode === 'multi';
+  const vlIntensity = Number.isFinite(sheetState.vlIntensity) ? sheetState.vlIntensity : 0.5;
+
+  return { manualStyle, globalVoicing, globalRegister, overrides, inversion, voiceLeading, vlCombos, vlIntensity };
+}
+
+/**
+ * Resolve every bar's voicing against a FIXED list of chords, reading the
+ * panel exactly as `generateHarmony`'s first pass does. Pulled out so a
+ * voicing-only re-voice (Voicing/Register/Inversion/Voice Leading/VL Combos/
+ * VL Intensity/Randomize) can call the identical logic against chords that
+ * already exist, instead of duplicating it or — as those controls did before
+ * this existed — going through the full generator and silently regenerating
+ * the melody along with the voicing.
+ *
+ * @param randomSeed optional — present only for a Randomize reroll, so a
+ *   voicing-only change stays perfectly deterministic otherwise.
+ */
+function resolveHarmonyVoicings(mt, chordObjs, context, vlEngine, randomSeed) {
+  const { manualStyle, globalVoicing, globalRegister, overrides, inversion, voiceLeading, vlCombos, vlIntensity }
+    = readVoicingPanelSettings(context);
+
+  let led = null;
+  if (vlEngine) {
+    try {
+      led = vlEngine.generateVoiceLeading(chordObjs.map(c => c.fullName), {
+        voicing: globalVoicing,
+        register: globalRegister
+      });
+    } catch (_) { led = null; }
+  }
+
+  try {
+    Object.keys(overrides).forEach((barKey) => {
+      const bi = parseInt(barKey, 10);
+      if (!Number.isFinite(bi) || !chordObjs[bi] || !vlEngine || !led) return;
+      const o = overrides[barKey] || {};
+      const single = vlEngine.generateVoiceLeading([chordObjs[bi].fullName], {
+        voicing: o.voicing || globalVoicing,
+        register: o.register || globalRegister
+      });
+      if (single && single[0]) led[bi] = single[0];
+    });
+  } catch (_) {}
+
+  const resolved = resolveVoicings({
+    mt,
+    chordObjs,
+    led,
+    style: manualStyle,
+    register: globalRegister,
+    overrides: Object.keys(overrides).reduce((acc, k) => {
+      const i = parseInt(k, 10);
+      if (Number.isFinite(i)) acc[i] = overrides[k];
+      return acc;
+    }, {}),
+    inversion, voiceLeading, vlCombos, vlIntensity, randomSeed
+  });
+
+  const voicings = resolved.map(v => (v ? { voices: v } : null));
+  const voicingSettings = {
+    voicing: globalVoicing,
+    style: manualStyle,
+    register: globalRegister,
+    inversion, voiceLeading, vlCombos, vlIntensity,
+    ceiling: resolved.__ceiling,
+    overrides,
+    rejected: resolved.__rejected || 0,
+    melodyFollowsVoicing: true
+  };
+  if (resolved.__rejected) {
+    console.warn(`[ArcInit] ${resolved.__rejected} voicing(s) rejected as out-of-chord; literal tones kept.`);
+  }
+  return { voicings, voicingSettings };
 }
 
 function generateHarmony(context, arc, seed = 0) {
@@ -2225,89 +2433,9 @@ function generateHarmony(context, arc, seed = 0) {
   // through the voice-leading engine, which is what solves each chord against
   // the last. Whatever comes out is the chord as it will sound — the melody is
   // written above it and the piano texture plays it as written.
-  let voicings = null;
-  {
-      const sheet = (window.modularApp && window.modularApp.sheetMusicGenerator) || window.sheetMusicGenerator || null;
-      const sheetState = (sheet && sheet.state) || {};
-      const overrides = (typeof window !== 'undefined' && window.__chordVoicingOverrides) || {};
-
-      const autoVoicing = context.overallEnergy > 0.7 ? 'spread' : 'close';
-      const autoRegister = context.overallEnergy > 0.8 ? 'high' : (context.overallEnergy < 0.3 ? 'low' : 'mid');
-
-      // 'smart/smooth/open/jazz/piano' are the intelligent modes; the eighteen
-      // manual entries are named styles applied literally.
-      const logicToVoicing = { smart: 'close', smooth: 'close', open: 'spread', jazz: 'spread', piano: 'close' };
-      const manualStyle = sheetState.autoVoicingAll ? null : (sheetState.voicingStyle || null);
-      const globalVoicing = sheetState.autoVoicingAll
-          ? (logicToVoicing[sheetState.voicingLogic] || autoVoicing)
-          : (manualStyle || autoVoicing);
-      const globalRegister = sheetState.voicingRegister || autoRegister;
-
-      // Voice-leading pass: the intelligent modes' answer, and the fallback for
-      // any bar whose named style comes out unusable.
-      let led = null;
-      if (vlEngine) {
-        try {
-          led = vlEngine.generateVoiceLeading(resolvedBarChords.map(c => c.fullName), {
-            voicing: globalVoicing,
-            register: globalRegister
-          });
-        } catch (_) { led = null; }
-      }
-
-      // Per-bar register overrides still go through the engine, since register
-      // is the one thing a named style does not decide.
-      try {
-        Object.keys(overrides).forEach((barKey) => {
-          const bi = parseInt(barKey, 10);
-          if (!Number.isFinite(bi) || !resolvedBarChords[bi] || !vlEngine || !led) return;
-          const o = overrides[barKey] || {};
-          const single = vlEngine.generateVoiceLeading([resolvedBarChords[bi].fullName], {
-            voicing: o.voicing || globalVoicing,
-            register: o.register || globalRegister
-          });
-          if (single && single[0]) led[bi] = single[0];
-        });
-      } catch (_) {}
-
-      // The rest of the Voicing Options panel. These previously only reached
-      // the manual numeric-progression builder — word-generated music read
-      // none of them, so the Inversion dropdown and the three VL controls did
-      // nothing to a generated take no matter how they were set.
-      const inversion = Number.isFinite(parseInt(sheetState.inversion, 10)) ? parseInt(sheetState.inversion, 10) : 0;
-      const voiceLeading = !!sheetState.voiceLeading;
-      const vlCombos = sheetState.voiceLeadingMode === 'multi';
-      const vlIntensity = Number.isFinite(sheetState.vlIntensity) ? sheetState.vlIntensity : 0.5;
-
-      const resolved = resolveVoicings({
-        mt,
-        chordObjs: resolvedBarChords,
-        led,
-        style: manualStyle,
-        register: globalRegister,
-        overrides: Object.keys(overrides).reduce((acc, k) => {
-          const i = parseInt(k, 10);
-          if (Number.isFinite(i)) acc[i] = overrides[k];
-          return acc;
-        }, {}),
-        inversion, voiceLeading, vlCombos, vlIntensity
-      });
-      voicings = resolved.map(v => (v ? { voices: v } : null));
-
-      harmony.voicingSettings = {
-        voicing: globalVoicing,
-        style: manualStyle,
-        register: globalRegister,
-        inversion, voiceLeading, vlCombos, vlIntensity,
-        ceiling: resolved.__ceiling,
-        overrides,
-        rejected: resolved.__rejected || 0,
-        melodyFollowsVoicing: true
-      };
-      if (resolved.__rejected) {
-        console.warn(`[ArcInit] ${resolved.__rejected} voicing(s) rejected as out-of-chord; literal tones kept.`);
-      }
-  }
+  const { voicings: resolvedVoicings, voicingSettings } = resolveHarmonyVoicings(mt, resolvedBarChords, context, vlEngine);
+  let voicings = resolvedVoicings;
+  harmony.voicingSettings = voicingSettings;
 
   // One RNG stream for energy perturbation across all events — creating it per
   // event re-seeded identically and produced a constant offset instead of noise.
@@ -2810,19 +2938,17 @@ function alignVoicingToMelody(harmony, melody, beatsPerBar, mt, voicingStyle, ov
       const barStyle = (overrides && overrides[ev.bar] && overrides[ev.bar].voicing) || voicingStyle || null;
 
       // Every rotation of the SAME style, keeping only the ones whose own top
-      // voice comes out as the melody's pitch class. WHICH rotation is a
-      // separate question from WHERE it sits, so the octave is not fixed
-      // either — it is scored the same way the first pass scores register:
-      // close to the ceiling for THIS register setting, with a floor so the
-      // bass never strands the left hand. A mid-register melody pulls its
-      // chord tight underneath it — the register ceiling and the melody's own
-      // octave usually coincide there, so the closed voicing often lands in
-      // unison with the tune, which is what "the melody note IS the top of
-      // the chord" actually sounds like. A melody sitting high in the treble
-      // pulls the ceiling-optimal placement an octave or two below it instead,
-      // because stacking the chord up at the melody's own height would leave
-      // the left hand nothing to play. Never above the melody, in either case
-      // — offsets are 0 or negative only.
+      // voice comes out as the melody's pitch class.
+      //
+      // WHERE that rotation sits: unison with the melody, always, for now —
+      // the top voice IS the melody note. Dropping it an octave (or two) when
+      // the tune sat high in the treble was a deliberate register-vs-left-hand
+      // tradeoff, but Parker does not want that: the chord should stay tight
+      // under wherever the melody actually is rather than falling away from
+      // it. OCTAVE_OFFSETS is kept as a list (not inlined as a single number)
+      // so that tradeoff can come back later without restructuring this —
+      // add -12/-24 back in to revive it.
+      const OCTAVE_OFFSETS = [0];
       let best = null;
       for (let k = 0; k < pcs.length; k++) {
         const stack = stackFromPcs(rotate(pcs, k));
@@ -2841,7 +2967,7 @@ function alignVoicingToMelody(harmony, melody, beatsPerBar, mt, voicingStyle, ov
         const topPc = ((naturalTop % 12) + 12) % 12;
         if (topPc !== melodyPc) continue;
 
-        [0, -12, -24, -36].forEach((offset) => {
+        OCTAVE_OFFSETS.forEach((offset) => {
           const shift = (melodyMidi + offset) - naturalTop;
           if (shift % 12 !== 0) return;
           const placed = sorted.map(m => m + shift);
