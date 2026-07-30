@@ -284,6 +284,68 @@
                 return out;
             }
         },
+        /**
+         * THE INVARIANT FIGURE — the Bach Prelude in C device.
+         *
+         * One fixed shape, repeated bar after bar without variation, while the
+         * harmony underneath it changes. Every other pattern here reacts to
+         * something (breath, energy, meter); this one deliberately does not,
+         * and that is the entire musical point. The listener stops attending to
+         * the figure after two bars and starts hearing only the harmony moving
+         * through it, which is what lets a piece built from a single
+         * semiquaver pattern explore a page of chords and still feel whole.
+         *
+         * The shape is index-based rather than pitch-based, so it survives the
+         * chord changing shape underneath it: low–mid–high–mid, then the upper
+         * pair again, is the classic broken figure and stays recognisable
+         * whether the chord below has three notes or five.
+         */
+        invariantFigure: {
+            name: 'invariant broken figure', density: 0.75, minBeats: 2, invariant: true,
+            build: (tones, beats) => {
+                const pick = (i) => tones[Math.min(i, tones.length - 1)];
+                // low, mid, high, mid — then hold the upper pair as the second
+                // half of the bar, exactly as the figure repeats in the Prelude.
+                const shape = [0, 1, 2, 1, 2, 1, 2, 1].map(pick);
+                const out = [];
+                const step = 0.5;
+                for (let i = 0, b = 0; b < beats - 1e-6; i++, b += step) {
+                    out.push({ notes: [shape[i % shape.length]], beat: b, duration: step });
+                }
+                return out;
+            }
+        },
+        /**
+         * GROUND-BASS TEXTURE — the Pachelbel device.
+         *
+         * The bass is a LINE, not a support: it takes the root on the downbeat
+         * and then steps toward the next chord's root, so the lowest voice has
+         * its own shape and its own direction. The chord above it fills the
+         * remaining beats, which is what lets two melodies — one on the bottom,
+         * one on top — coexist over an arpeggiated middle.
+         */
+        groundBass: {
+            name: 'ground bass', density: 0.55, minBeats: 4,
+            build: (tones, beats, ctx) => {
+                const root = tones[0];
+                const upper = tones.slice(1, 4);
+                const out = [{ notes: [root], beat: 0, duration: 1 }];
+                // Step toward wherever the next chord's root is, so the bass
+                // arrives rather than simply restating.
+                const target = (ctx && Number.isFinite(ctx.nextRoot)) ? ctx.nextRoot : root;
+                const dir = target === root ? 0 : (target > root ? 1 : -1);
+                for (let b = 1; b < beats; b++) {
+                    const isLast = b === beats - 1;
+                    if (isLast && dir !== 0) {
+                        // Approach the next root by step.
+                        out.push({ notes: [target - dir * 2], beat: b, duration: 1 });
+                    } else if (upper.length) {
+                        out.push({ notes: upper, beat: b, duration: 1 });
+                    }
+                }
+                return out;
+            }
+        },
         octaveBass: {
             name: 'octave bass', density: 0.5, minBeats: 2,
             build: (tones, beats) => {
@@ -729,19 +791,51 @@
             const exceptions = [];
             const sectionList = (form && form.sections) || [{ label: '-', startBar: 0, endBar: barCount - 1, role: 'statement', variation: 0 }];
 
+            // ONE FIGURE FOR THE WHOLE PIECE, sometimes.
+            //
+            // Choosing a fresh pattern per section is right for song-shaped
+            // music, where each section wants its own character. It is wrong
+            // for the other tradition — the Prelude, the Gymnopédie, the
+            // ground-bass piece — where a single accompaniment figure is
+            // stated once and then never changes, and the whole interest comes
+            // from the harmony moving through a texture the ear has stopped
+            // having to track. That texture becomes the piece's identity, and
+            // an identity is something a piece can RETURN to.
+            //
+            // So a minority of takes commit: one figure, every bar, no
+            // breathing, no exceptions. Calm and steady material is where this
+            // belongs; a driving take still gets sectional variety.
+            const energy0 = Number(context.overallEnergy) || 0.5;
+            const committedFigure = (() => {
+                if (beatsPerBar === 3) return null;               // waltz owns triple metre
+                const calm = energy0 < 0.62;
+                if (!calm) return null;
+                const roll = rng();
+                if (roll < 0.22) return 'invariantFigure';         // Bach-prelude figuration
+                if (roll < 0.34) return 'groundBass';              // Pachelbel-style walking ground
+                return null;
+            })();
+
             sectionList.forEach((s, i) => {
                 const energy = Number(context.overallEnergy) || 0.5;
                 const activity = Math.max(0, Math.min(1,
                     energy * 0.6 + (s.activityBias || 0) + (rng() - 0.5) * 0.3));
-                const pattern = pickPattern(rng, {
+                const pattern = committedFigure || pickPattern(rng, {
                     activity, beatsPerBar, energy,
                     tone: context.emotionalTone, sectionRole: s.role
                 });
-                sections[s.label] = { pattern, activity, name: LH_PATTERNS[pattern].name };
+                sections[s.label] = {
+                    pattern, activity, name: LH_PATTERNS[pattern].name,
+                    committed: !!committedFigure
+                };
 
                 // --- The exceptions ------------------------------------------
                 // Each is a real orchestrational choice, so each gets a whole
                 // section and a stated reason rather than a per-bar dice roll.
+                // A committed figure admits no exceptions either: a descant
+                // or a tenor lead partway through is exactly the change the
+                // commitment exists to refuse.
+                if (committedFigure) return;
                 const isClimax = (s.energyBias || 0) > 0.2;
                 const isFinal = !!s.isFinal;
                 const isDeparture = s.letter && s.letter !== 'A';
@@ -864,22 +958,32 @@
                 // articulates, and the chord thins and thickens with it.
                 const breath = breathAt({ arc, bar, barCount, beatsPerBar, section: sec, phase: breathPhase });
                 let patternId = cfg.pattern;
-                const patDensity = (LH_PATTERNS[patternId] || LH_PATTERNS.block).density;
-                if (breath < patDensity - 0.18) {
-                    // Well below what this pattern wants — let it sustain.
-                    patternId = beats >= 4 ? 'halfPad' : 'pad';
-                } else if (breath < patDensity - 0.08) {
-                    patternId = 'block';
+                const committed = !!(cfg.committed
+                    || (LH_PATTERNS[patternId] && LH_PATTERNS[patternId].invariant));
+                if (!committed) {
+                    // EBB AND FLOW — but only for figures that are supposed to
+                    // breathe. An invariant figure is defined by NOT reacting;
+                    // letting the breath curve swap it out for a pad every time
+                    // the arc dips is what stops a texture from ever becoming
+                    // an identity the piece can return to.
+                    const patDensity = (LH_PATTERNS[patternId] || LH_PATTERNS.block).density;
+                    if (breath < patDensity - 0.18) {
+                        // Well below what this pattern wants — let it sustain.
+                        patternId = beats >= 4 ? 'halfPad' : 'pad';
+                    } else if (breath < patDensity - 0.08) {
+                        patternId = 'block';
+                    }
+                    // A tenor lead or bass melody overrides the pattern: the
+                    // left hand is carrying the tune, not accompanying.
+                    if (cfg.lead === 'tenor' || cfg.bassMelody) patternId = 'pad';
+                    // The same chord as the bar before is not a new harmonic
+                    // event. Re-striking it in full turns a two-bar harmony into
+                    // two identical attacks and erases the sense that anything
+                    // is being held; a sustained treatment lets the tune move
+                    // over stillness, which is what the harmony sitting still
+                    // is FOR.
+                    if (ev.sustainedFromPrevBar) patternId = beats >= 4 ? 'halfPad' : 'pad';
                 }
-                // A tenor lead or bass melody overrides the pattern: the left
-                // hand is carrying the tune, not accompanying.
-                if (cfg.lead === 'tenor' || cfg.bassMelody) patternId = 'pad';
-                // The same chord as the bar before is not a new harmonic event.
-                // Re-striking it in full turns a two-bar harmony into two
-                // identical attacks and erases the sense that anything is being
-                // held; a sustained treatment lets the tune move over stillness,
-                // which is what the harmony sitting still is FOR.
-                if (ev.sustainedFromPrevBar) patternId = beats >= 4 ? 'halfPad' : 'pad';
                 const pattern = LH_PATTERNS[patternId] || LH_PATTERNS.block;
 
                 let built;

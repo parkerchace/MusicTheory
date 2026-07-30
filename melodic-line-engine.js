@@ -913,6 +913,12 @@
             // figure in the connector.
             let chromaticNeighborChoice = null;
             let neighborChromatic = false;
+            // A sweep that is still travelling when its span runs out. Spans are
+            // one bar of word-rhythm, which is too short to hold the four-to-six
+            // note gesture the Minuet opens with, so a run that is still going
+            // and still heading the right way carries into the next span rather
+            // than being cut off and restarted as something else.
+            let carriedRunDir = 0;
 
             // ---- 6. BREATH: density plan per anchor span ----
             const notes = [];
@@ -1250,7 +1256,12 @@
                 // harmony, then let a tendency tone resolve — and choosing the
                 // mode per span is what produces that alternation instead of
                 // one uniform texture over the whole piece.
-                const motion = sequenceSteps ? 'sequence' : pickMotion({
+                // A run still in flight continues, provided the next anchor is
+                // genuinely still in that direction — otherwise it has arrived
+                // and the line is free to do something else.
+                const continuingRun = carriedRunDir !== 0
+                    && (to ? (to.midi - from.midi) * carriedRunDir > 0 : false);
+                const motion = continuingRun ? 'run' : sequenceSteps ? 'sequence' : pickMotion({
                     rng, melodyC,
                     energy: arcEnergy,
                     char: phraseChar,
@@ -1263,7 +1274,7 @@
 
                 // Per-span figure state. A run commits to one direction; a
                 // neighbour figure commits to one home note and one side.
-                let runDir = 0;
+                let runDir = continuingRun ? carriedRunDir : 0;
                 let neighborHome = null;
                 let neighborDir = 0;
 
@@ -1632,6 +1643,17 @@
                     lastChordEv = evHere;
                     current = midi;
                     cursor += dur;
+                }
+
+                // Hand a still-travelling sweep on to the next span. A run that
+                // has been going for a while is allowed to keep going; one that
+                // has already covered a lot of ground is not, or a single
+                // gesture would swallow the whole phrase.
+                if (motion === 'run' && runDir !== 0 && spanIntervals.length
+                    && spanIntervals.length < 6 && rng() < 0.62) {
+                    carriedRunDir = runDir;
+                } else {
+                    carriedRunDir = 0;
                 }
 
                 // The first span that actually MOVES becomes the line's shape.
