@@ -29,6 +29,18 @@
 
     const CONTOURS = ['arch', 'ascending', 'descending', 'wave', 'valley'];
 
+    /**
+     * Whether the chords are being treated as the frame the line is written
+     * above. arc-ui-init owns this decision — it is opt-in, and off by default
+     * so the tune keeps its own natural register instead of being pushed above
+     * whatever the accompaniment happens to be doing.
+     */
+    function voicingFirstActive() {
+        if (typeof window === 'undefined') return false;
+        if (typeof window.__voicingFirstActive === 'function') return window.__voicingFirstActive();
+        return window.__voicingFirst === true;
+    }
+
     // --- Rhythmic figures ---------------------------------------------------
     //
     // A FIGURE is one beat (or two) of notated rhythm with a name. Building the
@@ -422,7 +434,7 @@
          * harmony is not voiced (the melody then keeps its own register).
          */
         voicingCeiling(harmony) {
-            if (typeof window !== 'undefined' && window.__voicingFirst === false) return null;
+            if (!voicingFirstActive()) return null;
             const seq = (harmony && harmony.chordSequence) || [];
             let top = null;
             seq.forEach((ev) => {
@@ -492,7 +504,7 @@
          *      step within the scale, not by a leap.
          */
         fitAgainstVoicings(notes, harmony, beatsPerBar, opts = {}) {
-            if (typeof window !== 'undefined' && window.__voicingFirst === false) return 0;
+            if (!voicingFirstActive()) return 0;
             const scaleNotes = opts.scaleNotes || [];
             const preferFlat = !!opts.preferFlat;
             const high = Number.isFinite(opts.high) ? opts.high : 91;

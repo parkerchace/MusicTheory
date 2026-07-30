@@ -133,7 +133,12 @@
      * all of them together mean the chord you chose is not the chord you hear.
      */
     function voicingFirst() {
-        return typeof window === 'undefined' || window.__voicingFirst !== false;
+        if (typeof window === 'undefined') return false;
+        // arc-ui-init owns the decision (it also knows whether the user has
+        // actually picked a voicing); this only falls back to the raw flag if
+        // that file has not loaded.
+        if (typeof window.__voicingFirstActive === 'function') return window.__voicingFirstActive();
+        return window.__voicingFirst === true;
     }
 
     /**

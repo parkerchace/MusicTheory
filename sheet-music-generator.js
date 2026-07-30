@@ -778,6 +778,8 @@ class SheetMusicGenerator {
 		invSelect.style.fontSize = '0.8rem';
 		invSelect.addEventListener('change', () => {
 			this.state.inversion = Math.max(0, Math.min(3, parseInt(invSelect.value)));
+			// Pinning an inversion names a voicing — see the Voicing dropdown.
+			try { window.__voicingUserChoice = true; } catch (_) {}
 			// Reset voice leading state when inversion changes
 			this._applyVoicingChange();
 		});
@@ -1013,6 +1015,11 @@ class SheetMusicGenerator {
 			
 			updateRefreshState();
 			this.previousVoicing = null;
+			// Picking a voicing by hand is what hands the texture over to that
+			// voicing. Until this is set, generated music keeps the ordinary
+			// arrangement — chords in their own register, melody above them —
+			// instead of restating a block chord under every melody note.
+			try { window.__voicingUserChoice = true; } catch (_) {}
 			// Generated music bakes its voicing in at generation time, so the
 			// sheet must ask for a re-voice — re-rendering alone would keep
 			// showing the previous voicing and the control would look dead.
@@ -1273,6 +1280,9 @@ class SheetMusicGenerator {
 			'Keep same voicing type, smooth inversions only',
 			(checked) => {
 				this.state.voiceLeading = checked;
+				// A voice-leading option is the other way of asking for the
+				// voicing to drive the texture — see the Voicing dropdown.
+				try { if (checked) window.__voicingUserChoice = true; } catch (_) {}
 				// When simple VL is on and no explicit combo mode chosen,
 				// default to single-style voice leading.
 				if (!this.state.voiceLeadingMode) {
@@ -1293,6 +1303,7 @@ class SheetMusicGenerator {
 				this.state.voiceLeadingMode = checked ? 'multi' : 'single';
 				// Combos implies voice leading is conceptually active
 				if (checked) this.state.voiceLeading = true;
+				try { if (checked) window.__voicingUserChoice = true; } catch (_) {}
 				// Ensure new system is active
 				this.state.vlCombosVariant = 'v2';
                 // Fallback flag used by render() to enforce multi-mode if propagation fails
@@ -1757,6 +1768,8 @@ class SheetMusicGenerator {
 				if (reg.value) next.register = reg.value;
 				if (Object.keys(next).length) window.__chordVoicingOverrides[b.bar] = next;
 				else delete window.__chordVoicingOverrides[b.bar];
+				// Naming a voicing for one bar counts as choosing one.
+				try { if (sel.value) window.__voicingUserChoice = true; } catch (_) {}
 				if (typeof window.revoiceLastGeneration === 'function') {
 					window.revoiceLastGeneration('per-chord-voicing');
 				}

@@ -2804,20 +2804,42 @@ function generateHarmony(context, arc, seed = 0) {
 }
 
 /**
- * VOICING-FIRST: the chord is decided, then the melody is written above it.
+ * Has the user actually ASKED for a particular voicing?
  *
- * The opposite order — write the tune, then bend the harmony to fit under it —
- * is the normal way round for song arranging, and it is what this file used to
- * do. It also means the Voicing control never survives: whatever drop-2 or
- * gospel shell was chosen gets re-solved against the melody and re-registered
- * into the bass staff, so what you hear is a generic accompaniment. Since the
- * point of picking a voicing is to HEAR that voicing under the tune, the
- * voicing wins and the melody accommodates it.
+ * Set by the sheet's Voicing dropdown, the Voice Leading and VL Combos
+ * checkboxes, the Inversion selector and the per-bar override — the controls
+ * that name a voicing. NOT set by Register, which is a placement control that
+ * should keep working in either mode.
+ */
+function voicingChosenExplicitly() {
+  return typeof window !== 'undefined' && !!window.__voicingUserChoice;
+}
+if (typeof window !== 'undefined') window.__voicingChosenExplicitly = voicingChosenExplicitly;
+
+/**
+ * VOICING-FIRST: the chord is decided, then the melody is written above it,
+ * and the chord is played exactly as voiced.
  *
- * Set `window.__voicingFirst = false` for the old melody-first behaviour.
+ * This is OPT-IN, and that is the whole point. Left on by default it forces
+ * the accompaniment to restate a full block chord under essentially every
+ * melody note — every bar's top voice dragged onto whatever the tune is
+ * doing — which chops the music into chord-per-note chunks and, because that
+ * forcing happens last, silently overwrites whatever Register, VL Intensity
+ * and VL Combos had decided. Both complaints are the same behaviour.
+ *
+ * So the default is the ordinary arrangement: chords voiced in their own
+ * register (mostly bass clef), melody written above them in the treble, the
+ * left hand playing real accompaniment patterns. Picking a voicing from the
+ * dropdown, or switching on Voice Leading / VL Combos / an Inversion, is what
+ * hands control to the voicing and makes it take over the texture.
+ *
+ * `window.__voicingFirst = true`/`false` forces it on or off regardless.
  */
 function voicingFirst() {
-  return typeof window === 'undefined' || window.__voicingFirst !== false;
+  if (typeof window === 'undefined') return false;
+  if (window.__voicingFirst === false) return false;
+  if (window.__voicingFirst === true) return true;
+  return voicingChosenExplicitly();
 }
 if (typeof window !== 'undefined') window.__voicingFirstActive = voicingFirst;
 
