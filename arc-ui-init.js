@@ -1997,7 +1997,24 @@ function generateHarmony(context, arc, seed = 0) {
 
   const toneTemplates = progressionLibrary[context.emotionalTone] || progressionLibrary.balanced;
   const harmony = { chordSequence: [], context };
-  const minorTone = /dark|sad|angry|intense|mysterious/.test(String(context.emotionalTone || ''));
+  // IS THE PIECE ACTUALLY IN A MINOR KEY?
+  //
+  // This used to be a test on the MOOD WORD alone, which is a category error:
+  // "mysterious" is a feeling, not a key signature. A piece in G major tagged
+  // mysterious was told its tonic was minor, so the progression asked for `i`,
+  // the resolver honoured the lowercase numeral and turned Gmaj7 into Gm7, and
+  // the piece spent its whole length contradicting its own key — with the
+  // panel still labelling that chord "I". It also triggered the ♭VI–♭VII–I
+  // picardy set-piece, a minor-key gesture, in a major key.
+  //
+  // The scale decides. The mood still chooses WHICH chords get used inside the
+  // key, which is what a mood should influence.
+  const minorTone = (() => {
+    const an = scaleAnalysis(mt, currentKey, currentScale);
+    if (an && typeof an.tonicIsMinor === 'boolean') return an.tonicIsMinor;
+    // No analysis (an exotic collection): fall back to the mood, as before.
+    return /dark|sad|angry|intense|mysterious/.test(String(context.emotionalTone || ''));
+  })();
 
   // THE FORM DECIDES THE PROGRESSION.
   //
@@ -2147,7 +2164,12 @@ function generateHarmony(context, arc, seed = 0) {
         if (tone === 'dark' || tone === 'sad' || tone === 'angry' || tone === 'intense') {
             borrowMap = { 'IV': 'iv', 'V': 'v', 'vi': 'bVI', 'ii': 'bII' };
         } else if (tone === 'dreamy') {
-            borrowMap = { 'IV': '#IV', 'I': 'Imaj7' };
+            // The dreamy raised fourth is a LYDIAN colour, and the way to get
+            // it is the chromatic passing diminished on ♯4 — the chord that
+            // actually walks IV up to V. Asking for a major seventh on the
+            // raised fourth instead produced C♯maj7 in G major: three foreign
+            // notes, no preparation, no resolution, and nothing lydian about it.
+            borrowMap = { 'IV': '#IVdim7', 'I': 'Imaj7' };
             borrowType = 'color-borrow';
         } else if (tone === 'mysterious') {
             borrowMap = { 'IV': 'iv', 'V': 'bVII', 'ii': 'bII' };
@@ -2375,6 +2397,44 @@ function generateHarmony(context, arc, seed = 0) {
     }
 
     if (!chordObj) chordObj = { root: currentKey, chordType: 'major', fullName: currentKey, roman: 'I' };
+
+    // COLOUR, OR A DIFFERENT KEY?
+    //
+    // Borrowed and altered chords are the point of half the machinery in this
+    // file, but there is a line past which a chord stops being a colour on the
+    // current key and simply belongs to another one. ♭VI in G major is two
+    // notes out and reads as a borrow; C♯maj7 is three notes out — C♯, F, G♯ —
+    // and reads as a mistake, because nothing around it prepares or resolves
+    // that much foreign material in a single bar.
+    //
+    // Two outside notes is the limit. Everything genuinely idiomatic clears
+    // it: secondary dominants, tritone subs, ♭VI/♭VII/♭II, the borrowed iv,
+    // diminished passing chords. What it rejects is the accidental output of
+    // building a chord quality on an altered root that no cadence asked for.
+    // A chord that fails falls back to the scale's own chord on that degree,
+    // which is always defensible.
+    try {
+      const barScaleNotes = (() => {
+        try {
+          const nm = (typeof mt.getScaleNotesWithKeySignature === 'function')
+            ? mt.getScaleNotesWithKeySignature(barKey, barScale)
+            : mt.getScaleNotes(barKey, barScale);
+          return (nm && nm.length) ? nm : [];
+        } catch (_) { return []; }
+      })();
+      const strays = notesOutsideScale(mt, chordObj, barScaleNotes);
+      if (strays.length > 2 && !chordObj.secondaryDominant) {
+        const degree = romanToDegree(roman);
+        const fallback = mt.getDiatonicChord(degree, barKey, barScale);
+        if (fallback && fallback.root) {
+          console.warn(`[ArcInit] bar ${bar}: ${chordObj.fullName} has ${strays.length} notes outside `
+            + `${barKey} ${barScale} (${strays.join(', ')}) — using ${fallback.fullName} instead.`);
+          fallback.roman = roman;
+          chordObj = fallback;
+          borrowedInfo = null;
+        }
+      }
+    } catch (_) {}
 
     // PLAIN TRIADS BELOW THE SEVENTH-CHORD STEP. The generator is built around
     // 7th chords throughout, which is right for most of its range and wrong at
@@ -2752,7 +2812,7 @@ function generateHarmony(context, arc, seed = 0) {
                   const maxBeats = event.duration >= 4
                     ? (lavish ? 2 : 1.5)
                     : (event.duration >= 2 ? 1 : 0.5);
-                  const plan = approachEngine.plan({
+                  let plan = approachEngine.plan({
                       // Word-generated music takes only chords that are real
                       // stacked-thirds degrees of the scale they claim. Chords
                       // that are merely spellable from the collection — a 7♭9
@@ -2772,6 +2832,51 @@ function generateHarmony(context, arc, seed = 0) {
                         + targetEmphasis * 0.25
                         + (crossesSection ? 0.15 : 0))
                   });
+
+                  // IS THIS ACTUALLY A PASSING CHORD?
+                  //
+                  // The scale-walk families build their chords by stacking
+                  // thirds on a degree of some borrowed collection, and on the
+                  // remoter collections that produces things that are not
+                  // chords in any useful sense: a quality of "modal", a chord
+                  // spelled with double sharps, a fragment missing its fifth.
+                  // Dropped into one beat of a G major piece they are not
+                  // chromatic colour, they are noise — and no amount of
+                  // explaining that some note "resolves by step" makes an
+                  // E♯modal a defensible passing chord.
+                  //
+                  // A real chromatic approach is a recognisable chord a beat
+                  // away from its target. Anything that fails that is discarded
+                  // and the bar is simply left plain, which is always better
+                  // than a stumble.
+                  if (plan && plan.events.length) {
+                      const usable = plan.events.every((e) => {
+                          const type = String(e.chordType || '');
+                          if (/modal|no5|unknown/i.test(type)) return false;
+                          const tones = e.chordNotes || e.diatonicNotes || [];
+                          if (tones.length < 3) return false;
+                          // Double accidentals are a sign the chord was derived
+                          // from a collection this key has no business visiting.
+                          if (tones.some(n => /##|bb/.test(String(n)))) return false;
+                          return true;
+                      });
+                      if (!usable) plan = null;
+                  }
+
+                  // FEWER, LONGER. The scale-walk builders emit a chord every
+                  // half beat, so a three-chord approach arrived as three
+                  // sixteenth-note chords — too brief for any of them to be
+                  // heard as harmony at all, which reads as a stumble on the
+                  // way to the next bar rather than as an approach to it. Two
+                  // chords is the most that can be spent and still be heard;
+                  // the ones kept are those nearest the target, because those
+                  // are the ones actually doing the approaching.
+                  if (plan && plan.events.length) {
+                      if (plan.events.length > 2) plan.events = plan.events.slice(-2);
+                      const per = Math.max(0.5, Math.min(1, maxBeats / plan.events.length));
+                      plan.events.forEach((e) => { e.duration = per; });
+                      plan.steal = per * plan.events.length;
+                  }
 
                   if (plan && plan.events.length && event.duration > plan.steal) {
                       lastApproachBar = bar;
