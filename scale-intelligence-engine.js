@@ -207,13 +207,50 @@ class ScaleIntelligenceEngine {
             exotic: Number.isFinite(target.exotic) ? target.exotic : 0.3,
             density: Number.isFinite(target.density) ? target.density : 0.5
         };
-        const scored = this._catalog().map((entry) => {
+        // A HOME scale has to carry functional harmony: a stable triad on the
+        // tonic AND a stable triad on the fifth degree. Quality is not the
+        // test — a minor v is dominant FUNCTION and most modal writing depends
+        // on it — but a degree whose own triad has no perfect fifth cannot
+        // function at all. Without this the search returned collections like
+        // aeolian-harmonic, whose fifth degree comes out augmented, and every
+        // progression written over them read as arbitrary. Such scales stay
+        // available for borrowing and approach runs; they are just not homes.
+        const wantFunctional = target.requireFunctional !== false;
+        const canFunction = (intervals) => {
+            if (typeof FunctionalHarmony !== 'undefined' && FunctionalHarmony.isFunctional) {
+                return FunctionalHarmony.isFunctional(intervals);
+            }
+            return Array.isArray(intervals) && intervals.includes(7) &&
+                (intervals.includes(3) || intervals.includes(4));
+        };
+        const catalog = wantFunctional
+            ? (this._catalog().filter(e => canFunction(e.intervals)) || [])
+            : this._catalog();
+        const usable = catalog.length ? catalog : this._catalog();
+
+        // NOTATION COST. A scale that is a rotation of the major collection is
+        // covered by an ordinary key signature; anything further out prints an
+        // accidental on every altered degree in every bar, and the result looks
+        // like a minefield however sensible the harmony underneath it is. This
+        // is a preference, not a filter — the exotic scales stay reachable, and
+        // an explicit appetite for the outside (a high `exotic` target) buys
+        // them back — but the everyday default is something readable.
+        const notationOf = (intervals) => {
+            if (typeof FunctionalHarmony !== 'undefined' && FunctionalHarmony.notationCost) {
+                return FunctionalHarmony.notationCost(intervals);
+            }
+            return 0;
+        };
+        const readabilityWeight = wantFunctional ? Math.max(0, 1.1 - want.exotic) : 0;
+
+        const scored = usable.map((entry) => {
             const p = entry.prof;
             const cost =
                 Math.abs(p.brightness - want.brightness) * 2.4 +
                 Math.abs(p.tension - want.tension) * 1.7 +
                 Math.abs(p.exotic - want.exotic) * 1.1 +
-                Math.abs(p.density - want.density) * 0.6;
+                Math.abs(p.density - want.density) * 0.6 +
+                notationOf(entry.intervals) * readabilityWeight;
             return { ...entry, score: cost };
         });
         scored.sort((a, b) => a.score - b.score);
@@ -244,7 +281,7 @@ class ScaleIntelligenceEngine {
         // A caller that already detected the emotional tone (e.g. ContextEngine's
         // keyword+lexicon analysis) can force it so scale and progression agree.
         if (a.forceTone && this.emotionalMap[a.forceTone]) {
-            return this._pickFromTone(a.forceTone, { brightness, energy, tension, words, seed: a.seed });
+            return this._pickFromTone(a.forceTone, { brightness, energy, tension, words, seed: a.seed, avoid: a.avoid, requireFunctional: a.requireFunctional });
         }
 
         // Determine target "Emotional Profile" — thresholds are deliberately reachable
@@ -260,14 +297,22 @@ class ScaleIntelligenceEngine {
         else if (brightness > 0.53 && energy > 0.55) targetTone = 'playful';
         else if (brightness > 0.53 && energy < 0.35) targetTone = 'peaceful';
 
-        return this._pickFromTone(targetTone, { brightness, energy, tension, words, seed: a.seed });
+        return this._pickFromTone(targetTone, { brightness, energy, tension, words, seed: a.seed, avoid: a.avoid, requireFunctional: a.requireFunctional });
     }
 
-    _pickFromTone(targetTone, { brightness = 0.5, energy = 0.5, tension = 0.5, words = [], seed } = {}) {
+    _pickFromTone(targetTone, { brightness = 0.5, energy = 0.5, tension = 0.5, words = [], seed, avoid, requireFunctional = true } = {}) {
         const sig = words.join('|') + '|' + Math.round(brightness * 8) + '|' + Math.round(energy * 8) + '|' + Math.round(tension * 8);
         let hash = 0;
         for (let i = 0; i < sig.length; i++) hash = ((hash << 5) - hash + sig.charCodeAt(i)) | 0;
-        if (Number.isFinite(seed)) hash = (hash ^ Math.floor(seed)) | 0;
+        if (Number.isFinite(seed)) {
+            // Mix rather than xor: xor-ing a large seed into the hash left the
+            // low bits — the only ones `% candidates.length` reads — dominated
+            // by the word hash, so different takes of one phrase kept landing
+            // on the same scale.
+            hash = (Math.imul(hash ^ Math.floor(seed), 0x27d4eb2d)) | 0;
+            hash = (hash ^ (hash >>> 15)) | 0;
+        }
+        const skip = Array.isArray(avoid) ? avoid.filter(Boolean) : [];
 
         // Search the WHOLE catalog by character rather than reading a name out
         // of a 15-entry table. That table is why every generation came back as
@@ -282,19 +327,26 @@ class ScaleIntelligenceEngine {
                 brightness,
                 tension,
                 exotic: exoticWant,
-                density: 0.35 + energy * 0.45
+                density: 0.35 + energy * 0.45,
+                // This pick is the piece's HOME, so it has to be able to
+                // cadence. Colour scales are chosen elsewhere, for borrowing.
+                requireFunctional: requireFunctional !== false
             }, 28);
             if (candidates.length) {
                 // Spread across the ranked field so different inputs land on
                 // genuinely different scales instead of all taking rank 1.
-                scaleName = candidates[Math.abs(hash) % candidates.length].id;
+                const fresh = candidates.filter(c => !skip.includes(c.id));
+                const pool = fresh.length ? fresh : candidates;
+                scaleName = pool[Math.abs(hash) % pool.length].id;
             }
         } catch (_) { scaleName = null; }
 
         // Curated fallback only if the catalog is unavailable.
         if (!scaleName) {
-            const fallbacks = this.emotionalMap[targetTone] || ['major'];
-            scaleName = fallbacks[Math.abs(hash) % fallbacks.length];
+            const all = this.emotionalMap[targetTone] || ['major'];
+            const fallbacks = all.filter(id => !skip.includes(id));
+            const pool = fallbacks.length ? fallbacks : all;
+            scaleName = pool[Math.abs(hash) % pool.length];
         }
 
         return {

@@ -44,6 +44,7 @@ class CompositionTimelineUI {
             color: #f1f5f9;
             font-size: 11px;
             width: 600px;
+            box-sizing: border-box;
         `;
         document.body.appendChild(panel);
     }
@@ -51,9 +52,20 @@ class CompositionTimelineUI {
     attachListeners() {
         if (!this.inputElement) return;
 
-        this.inputElement.addEventListener('focus', () => {
-            if (this.inputElement.value.trim().length > 0) this.openPanel();
-        });
+        // Focus AND click both open it, and both analyse first. Previously
+        // focus only called openPanel(), so returning to an input that already
+        // had text opened an empty panel — the contour only appeared once you
+        // changed what you had typed, which read as the panel being broken.
+        const openWithText = () => {
+            const text = this.inputElement.value.trim();
+            if (!text.length) return;
+            if (!this.currentProfile || this._renderedFor !== text) {
+                this.analyzeAndRender(text);
+            }
+            this.openPanel();
+        };
+        this.inputElement.addEventListener('focus', openWithText);
+        this.inputElement.addEventListener('click', openWithText);
 
         this.inputElement.addEventListener('input', (e) => {
             const text = e.target.value.trim();
@@ -64,6 +76,12 @@ class CompositionTimelineUI {
             this.analyzeAndRender(text);
             this.openPanel();
         });
+
+        // The panel is absolutely positioned against the input, so it has to
+        // follow it when the page moves underneath.
+        const reposition = () => { if (this._isOpen) this.positionPanel(); };
+        window.addEventListener('resize', reposition);
+        window.addEventListener('scroll', reposition, true);
 
         document.addEventListener('click', (e) => {
             const panel = document.getElementById(this.panelId);
@@ -76,20 +94,67 @@ class CompositionTimelineUI {
         });
     }
 
+    /**
+     * Put the panel under its input and keep it on screen.
+     *
+     * It was created `position: absolute` with no coordinates at all, so it
+     * landed wherever static flow left it — usually clipped by the bottom of
+     * the page — and nothing ever measured it against the viewport.
+     */
+    positionPanel() {
+        const panel = document.getElementById(this.panelId);
+        if (!panel || !this.inputElement) return;
+        const r = this.inputElement.getBoundingClientRect();
+        // A hidden or not-yet-laid-out input measures 0×0 at the origin.
+        // Positioning against that would fling the panel to the top-left
+        // corner; better to leave it wherever it last sat.
+        if (!r.width && !r.height) return;
+        const margin = 8;
+        // The content — a contour canvas, three labelled sliders, a legend and a
+        // strip of word tokens — genuinely needs the room. At 640px the right
+        // hand side of every one of those was being clipped by overflow-x,
+        // which is what "cut off" actually meant: not vertically, horizontally.
+        const width = Math.min(960, Math.max(360, window.innerWidth - margin * 2));
+        panel.style.width = width + 'px';
+
+        let left = r.left + window.scrollX;
+        // Keep the whole panel inside the viewport horizontally.
+        left = Math.max(margin, Math.min(left, window.scrollX + window.innerWidth - width - margin));
+        panel.style.left = left + 'px';
+        panel.style.top = (r.bottom + window.scrollY + 2) + 'px';
+
+        // Height is whatever is actually left below the input, so the contour
+        // is never cut off by a fixed 80vh that ignores where the input sits.
+        const below = window.innerHeight - r.bottom - margin * 2;
+        this._maxOpenHeight = Math.max(220, Math.min(520, below));
+    }
+
     openPanel() {
         const panel = document.getElementById(this.panelId);
-        if (panel) panel.style.maxHeight = '80vh';
+        if (!panel) return;
+        this._isOpen = true;
+        this.positionPanel();
+        panel.style.maxHeight = (this._maxOpenHeight || 420) + 'px';
+        // Scroll rather than clip. With `overflow: hidden` anything past the
+        // max height simply vanished, which is what made the timeline look
+        // truncated.
+        panel.style.overflowY = 'auto';
+        panel.style.overflowX = 'hidden';
     }
 
     closePanel() {
         const panel = document.getElementById(this.panelId);
-        if (panel) panel.style.maxHeight = '0';
+        if (!panel) return;
+        this._isOpen = false;
+        panel.style.maxHeight = '0';
+        panel.style.overflowY = 'hidden';
     }
 
     analyzeAndRender(text) {
         if (!this.engine) return;
         
         this.currentProfile = this.engine.parseInput(text);
+        this._renderedFor = text;
         
         // Generate baseline points for canvas based on profile ONLY if not in manual mode
         if (!this.manualPointsMode || !this.points.length) {
@@ -246,6 +311,9 @@ class CompositionTimelineUI {
             border-bottom: 1px solid #0f3460;
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
         `;
         header.innerHTML = `
             <div style="color: #22d3ee; font-weight: bold; font-size: 11px;">🎼 Semantic Contour Timeline</div>
@@ -272,8 +340,13 @@ class CompositionTimelineUI {
         canvasContainer.style.cssText = 'padding: 10px; background: #16213e;';
         
         this.canvas = document.createElement('canvas');
-        this.canvas.width = 580;
+        // Sized to the panel rather than to a constant, so the curve is never
+        // wider than the box that holds it.
+        const panelEl = document.getElementById(this.panelId);
+        const avail = panelEl ? Math.max(300, panelEl.clientWidth - 20) : 580;
+        this.canvas.width = avail;
         this.canvas.height = 120;
+        this.canvas.style.width = '100%';
         this.canvas.style.cssText = `
             width: 100%; height: 120px;
             background: #1a1a2e; border: 1px solid #0f3460; border-radius: 3px;
@@ -313,6 +386,7 @@ class CompositionTimelineUI {
                 border-radius: 4px;
                 font-size: 11px;
                 cursor: pointer;
+                flex: 0 0 auto;
                 transition: all 0.2s ease;
                 display: flex;
                 flex-direction: column;
@@ -366,6 +440,7 @@ class CompositionTimelineUI {
             display: flex;
             justify-content: flex-end;
             gap: 8px;
+            flex-wrap: wrap;
             background: #0f2741;
             border-top: 1px solid #0f3460;
         `;
@@ -400,9 +475,14 @@ class CompositionTimelineUI {
         if (!window.__arcComplexity) {
             let stored = null;
             try { stored = JSON.parse(localStorage.getItem('arcComplexity') || 'null'); } catch (_) {}
+            const num = (v, d) => (Number.isFinite(+v) ? +v : d);
             window.__arcComplexity = (stored && typeof stored === 'object')
-                ? { rhythm: +stored.rhythm || 0.5, melody: +stored.melody || 0.5, color: +stored.color || 0.5 }
-                : { rhythm: 0.5, melody: 0.5, color: 0.5 };
+                ? { rhythm: num(stored.rhythm, 0.5), melody: num(stored.melody, 0.5),
+                    // `harmony` is the ladder dial; `color` is kept in step for
+                    // anything still reading the old name.
+                    harmony: num(stored.harmony, num(stored.color, 0.35)),
+                    color: num(stored.harmony, num(stored.color, 0.35)) }
+                : { rhythm: 0.5, melody: 0.5, harmony: 0.35, color: 0.35 };
         }
         return window.__arcComplexity;
     }
@@ -415,14 +495,15 @@ class CompositionTimelineUI {
         const cx = this.getComplexity();
         const row = document.createElement('div');
         row.style.cssText = `
-            padding: 8px 12px; display: flex; gap: 16px; align-items: center;
+            padding: 8px 12px; display: flex; gap: 12px; align-items: center;
+            flex-wrap: wrap;
             border-top: 1px solid #0f3460; background: #111c33; font-size: 10px;
         `;
 
         const sliderRefs = {};
         const mkSlider = (emoji, label, key, title) => {
             const wrap = document.createElement('div');
-            wrap.style.cssText = 'display:flex; align-items:center; gap:6px; flex:1;';
+            wrap.style.cssText = 'display:flex; align-items:center; gap:6px; flex:1 1 190px; min-width:170px;';
             wrap.title = title;
             const lab = document.createElement('span');
             lab.textContent = `${emoji} ${label}`;
@@ -437,7 +518,9 @@ class CompositionTimelineUI {
             pct.style.cssText = 'color:#22d3ee; width:30px; text-align:right;';
             slider.oninput = () => {
                 window.__arcComplexity[key] = slider.value / 100;
+                if (key === 'harmony') window.__arcComplexity.color = slider.value / 100;
                 pct.textContent = slider.value + '%';
+                if (key === 'harmony') this.updateHarmonyLegend();
                 this.saveComplexity();
             };
             sliderRefs[key] = { slider, pct };
@@ -447,7 +530,10 @@ class CompositionTimelineUI {
 
         row.appendChild(mkSlider('🥁', 'Rhythm', 'rhythm', 'Rhythmic complexity: subdivisions, dotted notes, syncopation'));
         row.appendChild(mkSlider('🎼', 'Melody', 'melody', 'Melodic complexity: wider leaps, chromatic passing tones, melisma'));
-        row.appendChild(mkSlider('🎨', 'Color', 'color', 'Harmonic color: how spicy and frequent the approach chords/borrowed scales get'));
+        row.appendChild(mkSlider('🎹', 'Harmony', 'harmony',
+            'Harmonic complexity. Left = plain primary triads. Each step right switches on one more '
+            + 'idea: the full diatonic set, sevenths, secondary dominants, borrowed chords, approach '
+            + 'chords, modulation, chromatic mediants, sequences, subverted cadences.'));
 
         const dice = document.createElement('button');
         dice.textContent = '🎲';
@@ -457,7 +543,7 @@ class CompositionTimelineUI {
             padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 13px;
         `;
         dice.onclick = () => {
-            ['rhythm', 'melody', 'color'].forEach(key => {
+            ['rhythm', 'melody', 'harmony'].forEach(key => {
                 const v = Math.round(Math.random() * 100);
                 window.__arcComplexity[key] = v / 100;
                 if (sliderRefs[key]) {
@@ -468,7 +554,32 @@ class CompositionTimelineUI {
             this.saveComplexity();
         };
         row.appendChild(dice);
-        return row;
+
+        // The teaching part: name what this setting has switched on, and what
+        // the next notch would add. A dial that changes the music without
+        // saying what it changed teaches nothing.
+        const legend = document.createElement('div');
+        legend.id = 'harmony-complexity-legend';
+        legend.style.cssText = 'padding:4px 12px 8px; color:#94a3b8; font-size:10px; line-height:1.5; overflow-wrap:anywhere;';
+        this._harmonyLegend = legend;
+
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(row);
+        wrapper.appendChild(legend);
+        setTimeout(() => this.updateHarmonyLegend(), 0);
+        return wrapper;
+    }
+
+    /** Describe the current harmony setting in words. */
+    updateHarmonyLegend() {
+        const el = this._harmonyLegend;
+        if (!el || typeof HarmonyComplexity === 'undefined') return;
+        const cx = this.getComplexity();
+        const d = HarmonyComplexity.describe(cx.harmony != null ? cx.harmony : cx.color);
+        el.innerHTML =
+            `<strong style="color:#22d3ee;">${d.headline}</strong>` +
+            ` <span style="color:#64748b;">· on: ${d.enabled.join(' · ')}</span>` +
+            (d.next ? `<br><span style="color:#fbbf24;">${d.next}</span>` : '');
     }
 
     attachCanvasListeners(canvas) {

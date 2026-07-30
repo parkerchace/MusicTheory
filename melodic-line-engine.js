@@ -29,12 +29,340 @@
 
     const CONTOURS = ['arch', 'ascending', 'descending', 'wave', 'valley'];
 
+    // --- Rhythmic figures ---------------------------------------------------
+    //
+    // A FIGURE is one beat (or two) of notated rhythm with a name. Building the
+    // line out of figures rather than out of a stream of independent durations
+    // is what produces grouping: the same figure stated twice and then varied
+    // is heard as a rhythmic idea, where an unrepeated sequence of arbitrary
+    // lengths is heard as noise. `activity` is roughly "how busy" — figures are
+    // drawn from a window around the passage's activity, so a calm passage
+    // never reaches for sixteenths and a driving one never sits on whole notes.
+    const FIGURES = [
+        { id: 'whole',        beats: [4],                       activity: 0.00, span: 4 },
+        { id: 'half',         beats: [2],                       activity: 0.06, span: 2 },
+        { id: 'halfPair',     beats: [2, 2],                    activity: 0.10, span: 4 },
+        { id: 'dottedHalf',   beats: [3, 1],                    activity: 0.14, span: 4 },
+        { id: 'quarters',     beats: [1, 1],                    activity: 0.22, span: 2 },
+        { id: 'quarter',      beats: [1],                       activity: 0.24, span: 1 },
+        { id: 'dottedQuarter',beats: [1.5, 0.5],                activity: 0.34, span: 2 },
+        { id: 'anacrusis',    beats: [0.5, 1.5],                activity: 0.38, span: 2 },
+        { id: 'twoEighths',   beats: [0.5, 0.5],                activity: 0.46, span: 1 },
+        { id: 'fourEighths',  beats: [0.5, 0.5, 0.5, 0.5],      activity: 0.52, span: 2 },
+        { id: 'dottedPair',   beats: [0.75, 0.25],              activity: 0.58, span: 1 },
+        { id: 'scotchSnap',   beats: [0.25, 0.75],              activity: 0.62, span: 1 },
+        { id: 'syncopation',  beats: [0.25, 0.5, 0.25],         activity: 0.66, span: 1 },
+        { id: 'eighthTwoSix', beats: [0.5, 0.25, 0.25],         activity: 0.72, span: 1 },
+        { id: 'twoSixEighth', beats: [0.25, 0.25, 0.5],         activity: 0.74, span: 1 },
+        { id: 'sixteenths',   beats: [0.25, 0.25, 0.25, 0.25],  activity: 0.88, span: 1 },
+        { id: 'sixteenthRun', beats: [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25], activity: 0.95, span: 2 }
+    ];
+
+    const FIGURE_BY_ID = {};
+    FIGURES.forEach(f => { FIGURE_BY_ID[f.id] = f; });
+
+    // Figures that involve subdivision below an eighth. Suppressed entirely
+    // when the rhythm slider is low, so "simple" really is simple.
+    const NEEDS_SIXTEENTHS = /sixteen|dottedPair|scotchSnap|syncopation|eighthTwoSix|twoSixEighth/i;
+
     function makeRng(seed) {
         let s = (seed ^ 0x9e3779b9) >>> 0;
         return () => {
             s = (s * 1664525 + 1013904223) >>> 0;
             return s / 4294967296;
         };
+    }
+
+    // --- Motion modes -------------------------------------------------------
+    //
+    // How a span gets from one structural tone to the next. These are the same
+    // four kinds of motion the generation-logic selector names, applied per
+    // span rather than to the whole piece, because a melody that never changes
+    // its manner of moving reads as a study rather than as a tune.
+    //
+    //   stepwise    walk by scale steps — the default, and what most of a
+    //               singable line should be
+    //   arpeggio    outline the sounding chord — profile, and the thing that
+    //               makes the harmony audible in the tune itself
+    //   functional  follow tendency: leading tone up, seventh down, the notes
+    //               that "want" to go somewhere go there
+    //   sequence    restate a stored shape from a new degree
+    const MOTIONS = ['stepwise', 'arpeggio', 'functional', 'sequence'];
+
+    function pickMotion({ rng, melodyC = 0.5, energy = 0.5, char, preferred, isCadenceSpan }) {
+        // An explicit choice from the generation-logic selector wins most of
+        // the time, but never all of it — an entire piece of nothing but
+        // arpeggios is not what "chord tones" is asking for either.
+        if (preferred && MOTIONS.includes(preferred) && rng() < 0.7) return preferred;
+
+        // A cadence wants the tendency tones to do their job.
+        if (isCadenceSpan && rng() < 0.6) return 'functional';
+
+        const motion = char && Number.isFinite(char.motion) ? char.motion : 0.4;
+        // Weights, not thresholds: energy and the word's own sense of movement
+        // tilt the balance rather than switching it.
+        const w = {
+            stepwise: 1.0 + (1 - energy) * 0.5 + (1 - motion) * 0.4,
+            arpeggio: 0.35 + energy * 0.7 + motion * 0.5 + melodyC * 0.3,
+            functional: 0.4 + melodyC * 0.3
+        };
+        const total = w.stepwise + w.arpeggio + w.functional;
+        let r = rng() * total;
+        if ((r -= w.stepwise) < 0) return 'stepwise';
+        if ((r -= w.arpeggio) < 0) return 'arpeggio';
+        return 'functional';
+    }
+
+    /**
+     * Where a tendency tone wants to resolve, in semitones.
+     * The leading tone rises; a seventh falls; the fourth falls to the third.
+     * Returning null means the note is stable and can go anywhere.
+     */
+    function tendencyOf(midi, tonicPc, chordPcs) {
+        const pc = ((midi % 12) + 12) % 12;
+        const deg = ((pc - tonicPc) % 12 + 12) % 12;
+        if (deg === 11) return +1;      // leading tone → tonic
+        if (deg === 10) return -2;      // subtonic → ♭7 falls
+        if (deg === 5) return -1;       // 4 → 3
+        if (deg === 1) return -1;       // ♭2 → 1
+        if (deg === 8) return -1;       // ♭6 → 5
+        if (chordPcs && chordPcs.length && !chordPcs.includes(pc)) return -1;
+        return null;
+    }
+
+
+    /**
+     * METRIC HIERARCHY. Not every beat is equally strong, and almost every rule
+     * about dissonance is really a rule about WHERE a dissonance falls.
+     *
+     * In 4/4: beat 1 is the downbeat, beat 3 is the secondary strong beat, 2
+     * and 4 are weak, and anything off the beat is weaker still. Compound
+     * metres (6/8, 12/8) group in threes, so their strong points are the heads
+     * of each group.
+     */
+    function metricStrength(beatInBar, beatsPerBar) {
+        const eps = 1e-6;
+        const onBeat = Math.abs(beatInBar - Math.round(beatInBar)) < eps;
+        if (!onBeat) {
+            // Off-beats: the halfway subdivision is stronger than a sixteenth.
+            const frac = beatInBar - Math.floor(beatInBar);
+            return Math.abs(frac - 0.5) < eps ? 0.2 : 0.1;
+        }
+        const b = Math.round(beatInBar);
+        if (b === 0) return 1.0;                                  // downbeat
+        if (beatsPerBar % 3 === 0 && beatsPerBar > 3) {
+            return (b % 3 === 0) ? 0.7 : 0.35;                    // compound groupings
+        }
+        if (beatsPerBar === 4 && b === 2) return 0.7;             // the other strong beat
+        if (beatsPerBar === 6 && b === 3) return 0.7;
+        return 0.4;
+    }
+
+    /**
+     * CONSONANCE AND DISSONANCE, treated the way counterpoint treats them.
+     *
+     * A note outside the sounding chord is a dissonance, and where it may sit
+     * depends entirely on the beat:
+     *
+     *   WEAK beat   — free. This is the passing tone and the neighbour, and it
+     *                 needs no preparation at all.
+     *   STRONG beat — only as a SUSPENSION: the same pitch must already have
+     *                 been sounding (the preparation), and it must resolve
+     *                 DOWNWARD BY STEP on the next note. That resolution is
+     *                 what makes the dissonance meaningful rather than wrong.
+     *
+     * Without this the line placed non-chord tones by dice roll, so accented
+     * dissonances appeared with nothing preparing them and nothing resolving
+     * them — which is the difference between a suspension and a wrong note.
+     */
+    function dissonanceVerdict({ midi, chordPool, strength, prevMidi, isFirstOfSpan }) {
+        const consonant = chordPool.includes(midi);
+        if (consonant) return { ok: true, role: null };
+        if (strength < 0.5) return { ok: true, role: 'passing' };      // weak beat: free
+        // Strong beat: only if this pitch was already sounding.
+        if (Number.isFinite(prevMidi) && prevMidi === midi && !isFirstOfSpan) {
+            return { ok: true, role: 'suspension', mustResolveDown: true };
+        }
+        return { ok: false, role: null };
+    }
+
+    /**
+     * The figures available to a passage: those near its activity level, and
+     * never wider than the space left to fill.
+     */
+    function figureVocabulary(activity, maxSpan, allowSixteenths) {
+        const pool = FIGURES.filter(f =>
+            f.span <= maxSpan + 1e-6 &&
+            (allowSixteenths || !NEEDS_SIXTEENTHS.test(f.id)) &&
+            Math.abs(f.activity - activity) <= 0.3);
+        if (pool.length) return pool;
+        // Nothing in the window fits the space — take the closest that does.
+        const fits = FIGURES.filter(f => f.span <= maxSpan + 1e-6 &&
+            (allowSixteenths || !NEEDS_SIXTEENTHS.test(f.id)));
+        if (!fits.length) return [FIGURE_BY_ID.quarter];
+        let best = fits[0], bd = Math.abs(fits[0].activity - activity);
+        fits.forEach(f => { const d = Math.abs(f.activity - activity); if (d < bd) { bd = d; best = f; } });
+        return [best];
+    }
+
+    /**
+     * Lay out one span as a sequence of figures.
+     *
+     * The grouping rules are the whole point:
+     *   - a figure that has just been heard is likely to be heard again, so
+     *     runs of eighths and sixteenth groups actually group;
+     *   - the third statement varies, which is where the ear hears intent
+     *     rather than a stuck loop;
+     *   - the span ends longer than it began, so phrases arrive instead of
+     *     being cut off mid-flight.
+     *
+     * @returns {{durations:number[], figures:string[], positions:number[]}}
+     *          `positions[i]` is the note's index inside its own figure
+     *          INSTANCE — two statements of the same figure restart at 0, which
+     *          is what lets each group be leaned on at its head.
+     */
+    function layOutFigures(available, activity, rng, opts = {}) {
+        const allowSixteenths = opts.allowSixteenths !== false;
+        const durations = [];
+        const figures = [];
+        const positions = [];
+        let remaining = available;
+        let previous = null;
+        let repeats = 0;
+        let guard = 0;
+
+        while (remaining > 0.24 && guard++ < 32) {
+            // Close longer than we opened: a phrase that ends on its shortest
+            // value sounds cut off rather than finished.
+            const isFinalRoom = remaining <= 2.01 && durations.length > 0;
+            const vocab = figureVocabulary(
+                isFinalRoom ? Math.max(0, activity - 0.35) : activity,
+                remaining,
+                allowSixteenths);
+
+            let figure;
+            if (isFinalRoom && rng() < 0.6) {
+                // Take the broadest thing that still fits.
+                figure = vocab.reduce((best, f) => (f.activity < best.activity ? f : best), vocab[0]);
+                repeats = 0;
+            } else if (previous && repeats < 2 && previous.span <= remaining + 1e-6 && rng() < 0.62) {
+                // Say it again — this is what makes a grouping.
+                figure = previous;
+                repeats++;
+            } else {
+                figure = vocab[Math.floor(rng() * vocab.length)] || vocab[0];
+                repeats = (previous && figure.id === previous.id) ? repeats + 1 : 0;
+            }
+
+            let beats = figure.beats.slice();
+            const sum = beats.reduce((s, d) => s + d, 0);
+            if (sum > remaining + 1e-6) {
+                // Trim the figure to what is left rather than overflowing the bar.
+                const trimmed = [];
+                let acc = 0;
+                for (const d of beats) {
+                    if (acc + d > remaining + 1e-6) break;
+                    trimmed.push(d);
+                    acc += d;
+                }
+                const leftover = remaining - acc;
+                if (leftover >= 0.25) trimmed.push(leftover);
+                if (!trimmed.length) break;
+                beats = trimmed;
+            }
+
+            beats.forEach((d, k) => { durations.push(d); figures.push(figure.id); positions.push(k); });
+            remaining -= beats.reduce((s, d) => s + d, 0);
+            previous = figure;
+        }
+
+        if (!durations.length) { durations.push(available); figures.push('sustain'); positions.push(0); }
+        return { durations, figures, positions };
+    }
+
+    /**
+     * Articulation and accent for one note.
+     *
+     * Nothing here is decorative: a plosive word wants a short, detached note;
+     * a sustained word wants the bow held; the first note of a figure that
+     * lands on a strong beat is where a player would naturally lean. Marking
+     * these explicitly is the difference between a printout of pitches and
+     * something that reads as performed.
+     */
+    function articulateNote({ duration, indexInFigure, onBeat, isDownbeat, char, energy, isCadence }) {
+        const attack = char && Number.isFinite(char.attack) ? char.attack : 0.4;
+        const sustain = char && Number.isFinite(char.sustain) ? char.sustain : 0.5;
+        const weight = char && Number.isFinite(char.weight) ? char.weight : 0.4;
+
+        // Only the marks that depend on the note ALONE are decided here.
+        // Detachment is a property of a note's neighbours, not of the note, so
+        // it is settled in the phrase pass below: marking every short note
+        // staccato because its word was plosive dotted four notes in five and
+        // read as a printing error rather than as phrasing.
+        let articulation = null;
+        if (isCadence) articulation = 'tenuto';
+        else if (duration >= 1.5 && (sustain > 0.55 || weight > 0.6)) articulation = 'tenuto';
+
+        // Accents fall where a player would put weight: the head of a figure on
+        // a strong beat, and the syncopated entry of an off-beat group (which
+        // is the only thing that makes syncopation audible as syncopation).
+        const headOfFigure = indexInFigure === 0;
+        const syncopatedHead = headOfFigure && !onBeat;
+        const accent = !!(
+            (headOfFigure && isDownbeat && energy > 0.62) ||
+            (syncopatedHead && attack > 0.55 && energy > 0.5)
+        );
+
+        return { articulation, accent };
+    }
+
+    /**
+     * Phrase-level articulation: decide what is slurred and what is detached.
+     *
+     * The rule real notation follows is that a RUN of short notes is one
+     * gesture and gets a slur, while a short note standing on its own is the
+     * one that gets a dot. Deciding detachment note-by-note produced the
+     * opposite: a plosive word covered its whole passage in staccato dots, so
+     * nothing was grouped and nothing stood out.
+     */
+    function phraseArticulation(notes, defaultChar) {
+        const isShort = (n) => Number(n.duration) <= 0.5 + 1e-6;
+        const attackOf = (n) => {
+            const c = n.__char || defaultChar;
+            return c && Number.isFinite(c.attack) ? c.attack : 0.4;
+        };
+
+        // 1. Slur runs of three or more short notes inside one bar.
+        let start = -1;
+        const close = (endIdx) => {
+            if (start >= 0 && endIdx - start >= 2) {
+                notes[start].slurStart = true;
+                notes[endIdx].slurEnd = true;
+                for (let k = start; k <= endIdx; k++) notes[k].slurred = true;
+            }
+            start = -1;
+        };
+        for (let i = 0; i < notes.length; i++) {
+            const n = notes[i];
+            const sameBar = start < 0 || notes[start].bar === n.bar;
+            if (isShort(n) && !n.cadence && sameBar) {
+                if (start < 0) start = i;
+            } else {
+                close(i - 1);
+                if (isShort(n) && !n.cadence) start = i;
+            }
+        }
+        close(notes.length - 1);
+
+        // 2. Detach the short notes that stand alone — a pair or a single,
+        //    never a run — and only when the word behind them has the attack
+        //    for it.
+        for (let i = 0; i < notes.length; i++) {
+            const n = notes[i];
+            if (n.slurred || n.articulation || n.cadence) continue;
+            if (!isShort(n)) continue;
+            if (attackOf(n) > 0.5) n.articulation = 'staccato';
+        }
     }
 
     class MelodicLineEngine {
@@ -124,7 +452,27 @@
             const melodyC = Math.max(0, Math.min(1, Number(complexity.melody) || 0.5));
             const rhythmC = Math.max(0, Math.min(1, Number(complexity.rhythm) || 0.5));
 
-            const LOW = 55, HIGH = 79;   // singable ambitus (G3–G5)
+            // RIGHT-HAND AMBITUS (C4–B5).
+            //
+            // This was G3–G5, a singer's range, and it put the tune around and
+            // below middle C — which leaves a left-hand accompaniment nowhere
+            // to go. The left hand kept having to be pushed down out of the way,
+            // and the two parts fought for the same octave. Starting at middle C
+            // gives the left hand the whole bass staff and keeps the melody
+            // where a right hand actually plays it.
+            // …and the sheet's Register control moves that window. It fed the
+            // voice-leading engine but never reached the melody, so switching
+            // low/mid/high changed the accompaniment's spelling and left the
+            // tune sitting in exactly the same octave every time.
+            const REGISTER_SHIFT = (() => {
+                try {
+                    const sheet = (window.modularApp && window.modularApp.sheetMusicGenerator)
+                        || window.sheetMusicGenerator;
+                    const r = (sheet && sheet.state && sheet.state.voicingRegister) || 'mid';
+                    return r === 'low' ? -5 : r === 'high' ? 7 : 0;
+                } catch (_) { return 0; }
+            })();
+            const LOW = 60 + REGISTER_SHIFT, HIGH = 83 + REGISTER_SHIFT;
             const preferFlat = /b/.test(String(scaleNotes.join('')));
 
             // ---- 1. CONTOUR ----
@@ -141,10 +489,15 @@
                 ? toneContour
                 : CONTOURS[Math.floor(rng() * CONTOURS.length)];
 
-            // THE ARC IS THE INTENTION. Its height at time t sets where the
-            // line sits; the abstract shape only colours it. Previously the arc
-            // affected note density alone, so the drawn curve and the melody
-            // were unrelated.
+            // THE ARC IS A ROUGH INDICATION OF DIRECTION, NOT A SPECIFICATION.
+            //
+            // It used to set where the line sits at weight 0.75, which made the
+            // drawn curve the ultimate decider of every anchor pitch. Two
+            // consequences, both wrong: the same curve produced the same
+            // skeleton on every take however the seed changed, and the line
+            // could not follow the harmony, because the curve outvoted it. The
+            // arc now contributes a modest tendency; the chord under the anchor
+            // and the voice-leading from the previous one decide the pitch.
             const arcAt = (t) => {
                 if (typeof arc.sample !== 'function') return null;
                 const v = Number(arc.sample(Math.max(0, Math.min(1, t))));
@@ -159,11 +512,16 @@
                     default:           return 0.5 + 0.5 * Math.sin(t * Math.PI * 2);
                 }
             };
+            // A per-take phase offset on the abstract shape, so two takes that
+            // read the same drawn curve still put their high point in different
+            // places.
+            const phase = rng();
             const contourHeight = (t) => {
                 const a = arcAt(t);
                 const shape = shapeHeight(t);
-                // Arc leads, shape adds character. With no arc, shape alone.
-                return (a === null) ? shape : (a * 0.75 + shape * 0.25);
+                const wobble = 0.5 + 0.5 * Math.sin((t + phase) * Math.PI * 2);
+                if (a === null) return shape * 0.8 + wobble * 0.2;
+                return a * 0.4 + shape * 0.45 + wobble * 0.15;
             };
 
             // ---- 2. ANCHORS at harmonically strong points ----
@@ -208,10 +566,19 @@
             // wrecked the stepwise character of the line.
             const anchors = [];
             let prevAnchor = null;
+            let sameDirRun = 0;
+            let lastDir = 0;
             anchorBeats.forEach((b, idx) => {
                 const t = totalBeats > 0 ? b / totalBeats : 0;
                 const ev = this.harmonyAt(harmony, b, beatsPerBar);
-                const ideal = centre + (contourHeight(t) - 0.5) * span * 1.2;
+                // The arc's tendency, widened: the old ×1.2 span combined with a
+                // ±7 cap per anchor meant the line could never actually traverse
+                // its range, so every phrase wobbled inside a third or a fourth.
+                const ideal = centre + (contourHeight(t) - 0.5) * span * 1.7;
+
+                // Anchors are CHORD TONES of the chord actually sounding — that
+                // is what makes the line read as harmony rather than as a walk
+                // over a scale that happens to fit.
                 let choices = this.chordMidis(ev, LOW, HIGH);
                 if (!choices.length) choices = this.scaleMidis(scaleNotes, LOW, HIGH);
 
@@ -219,13 +586,28 @@
                 if (prevAnchor === null) {
                     midi = choices.length ? this.nearest(choices, ideal) : Math.round(ideal);
                 } else {
-                    // Step toward the contour, but never more than a fifth per
-                    // anchor — the shape emerges gradually rather than in jumps.
-                    const desired = prevAnchor + Math.max(-7, Math.min(7, ideal - prevAnchor));
-                    const reachable = choices.filter(m => Math.abs(m - prevAnchor) <= 7);
-                    midi = reachable.length
-                        ? this.nearest(reachable, desired)
-                        : this.nearest(choices, desired);
+                    // Reach further than a fifth when the shape genuinely calls
+                    // for it, and refuse to sit still: an anchor that repeats
+                    // the previous pitch three times running is what produced
+                    // the "A4 B4 A4 B4" wobble.
+                    const reach = 12;
+                    const desired = prevAnchor + Math.max(-reach, Math.min(reach, ideal - prevAnchor));
+                    let reachable = choices.filter(m => Math.abs(m - prevAnchor) <= reach);
+                    if (sameDirRun >= 2 && lastDir !== 0) {
+                        // Three anchors the same way is a gesture; a fourth is a
+                        // rut. Turn the line around.
+                        const against = reachable.filter(m => (m - prevAnchor) * lastDir < 0);
+                        if (against.length) reachable = against;
+                    }
+                    if (!reachable.length) reachable = choices;
+                    midi = this.nearest(reachable, desired);
+                    if (midi === prevAnchor && reachable.length > 1) {
+                        const moved = reachable.filter(m => m !== prevAnchor);
+                        if (moved.length) midi = this.nearest(moved, desired);
+                    }
+                    const dir = Math.sign(midi - prevAnchor);
+                    sameDirRun = (dir !== 0 && dir === lastDir) ? sameDirRun + 1 : 0;
+                    if (dir !== 0) lastDir = dir;
                 }
                 prevAnchor = midi;
                 anchors.push({ beat: b, midi, ev });
@@ -234,6 +616,9 @@
             // ---- 5. DEVELOPMENT: capture bar 1's rhythmic idea ----
             const motif = [];
             let motifCaptured = false;
+            // …and its PITCH shape, as a list of intervals. Restating that shape
+            // from a different degree is what a sequence is.
+            let pitchMotif = [];
 
             // ---- 6. BREATH: density plan per anchor span ----
             const notes = [];
@@ -244,8 +629,107 @@
                 sylIdx++;
                 return s;
             };
+            const wordCellsFirstPass = () => syllables.length > 0 && sylIdx < syllables.length;
+
+            // ---- FORM: which section a beat belongs to, and the rhythm bank ----
+            const form = (context && context.form && Array.isArray(context.form.sectionOfBar))
+                ? context.form : null;
+            const sectionAtBeat = (beat) => {
+                if (!form) return null;
+                const bar = Math.floor(beat / beatsPerBar);
+                return form.sectionOfBar[Math.max(0, Math.min(form.sectionOfBar.length - 1, bar))] || null;
+            };
+            // Rhythms stated by each LETTER, indexed by position within the
+            // section. A section restating a letter replays these, which is
+            // what turns a second A into a return rather than new material.
+            const rhythmBank = {};
+            // Keyed on THEME, matching the harmony. A theme returning in a new
+            // key is the same music transposed, so it has to keep its rhythm —
+            // keying on the letter meant sonata's second subject was rebuilt
+            // from scratch in the recapitulation and the return went unheard.
+            const rememberSpan = (section, idx, durations, figures, positions) => {
+                if (!section || !durations.length) return;
+                const key = section.theme || section.letter;
+                const bank = rhythmBank[key] || (rhythmBank[key] = {});
+                if (bank[idx] === undefined) {
+                    bank[idx] = {
+                        durations: durations.slice(),
+                        figures: figures.slice(),
+                        positions: (positions || []).slice()
+                    };
+                }
+            };
+            const reprisedSpan = (section, idx, rhythmComplexity, r) => {
+                if (!section) return null;
+                // A theme's later statements reprise it whether or not the
+                // section letter repeats — what returns is the material.
+                if (!section.variantOf && !(section.themeOccurrence > 0)) return null;
+                const bank = rhythmBank[section.theme || section.letter];
+                const stored = bank && bank[idx];
+                if (!stored || !stored.durations.length) return null;
+                const occ = Number.isFinite(section.themeOccurrence) ? section.themeOccurrence : section.variation;
+                if (occ === 0) return stored;
+                // A' varies: diminish a value into two, or extend the last one.
+                const durations = stored.durations.slice();
+                const figures = stored.figures.slice();
+                const positions = stored.positions.slice();
+                if (durations.length > 1 && rhythmComplexity >= 0.35 && r() < 0.6) {
+                    const at = Math.floor(r() * durations.length);
+                    if (durations[at] >= 0.5) {
+                        const half = durations[at] / 2;
+                        durations.splice(at, 1, half, half);
+                        figures.splice(at, 1, figures[at] + '-div', figures[at] + '-div');
+                        positions.splice(at, 1, 0, 1);
+                    }
+                } else {
+                    const last = durations.length - 1;
+                    durations[last] = Math.min(4, durations[last] * 2);
+                }
+                return { durations, figures, positions };
+            };
+
+            const phraseChar = (context && context.wordCharacter) || null;
+            // How much chromaticism the harmony dial permits (0 = none).
+            const chromaticism = (() => {
+                const cc = (context && context.complexityControls) || {};
+                const lvl = Number.isFinite(cc.harmony) ? cc.harmony
+                    : (Number.isFinite(cc.color) ? cc.color : 0.5);
+                if (typeof HarmonyComplexity !== 'undefined') return HarmonyComplexity.gate(lvl).melodyChromaticism;
+                return 1;
+            })();
+
+            // The tonic, for reading which notes are tendency tones.
+            const tonicPc = this.pcOf((context.harmonicProfile && context.harmonicProfile.root) || 'C');
+
+            // The generation-logic selector, if the user set one. Its options
+            // name motion modes directly, so word-generated melodies can honour
+            // the same choice the number generator does instead of ignoring it.
+            const LOGIC_TO_MOTION = {
+                melodic: 'stepwise',
+                chord_tones: 'arpeggio',
+                functional: 'functional',
+                harmonic: null,      // that setting is about harmony, not the line
+                random: null
+            };
+            const motionPreference = (() => {
+                try {
+                    const g = (typeof window !== 'undefined' && window.__generationLogic)
+                        || (typeof window !== 'undefined' && window.NumberGenerator
+                            && window.NumberGenerator.state && window.NumberGenerator.state.generationLogic);
+                    return LOGIC_TO_MOTION[g] || null;
+                } catch (_) { return null; }
+            })();
 
             let lastLeap = 0;
+            // A dissonance sounded on a strong beat owes a downward step.
+            let pendingResolution = null;
+            // The chord under the previous note, for spotting a change.
+            let lastChordEv = null;
+            // Direction of the current stepwise walk, and how long it has run.
+            let walkDir = 0;
+            let walkRun = 0;
+            let currentSectionLabel = null;
+            let spanIndexInSection = 0;
 
             for (let a = 0; a < anchors.length; a++) {
                 const from = anchors[a];
@@ -255,17 +739,32 @@
                 let available = spanEnd - spanStart;
                 if (available <= 0) continue;
 
+                const sectionHere = sectionAtBeat(spanStart);
+                const sectionLabel = sectionHere ? sectionHere.label : null;
+                if (sectionLabel !== currentSectionLabel) {
+                    currentSectionLabel = sectionLabel;
+                    spanIndexInSection = 0;
+                } else {
+                    spanIndexInSection++;
+                }
+
                 const arcEnergy = (typeof arc.sample === 'function')
                     ? Math.max(0, Math.min(1, Number(arc.sample(spanStart / Math.max(1, totalBeats))) || 0.5))
                     : 0.5;
 
                 // Density ebbs and flows: some spans are active, some sustain.
+                // The section leans it: a bridge moves, a final return settles.
+                const sectionActivity = sectionHere ? (sectionHere.activityBias || 0) : 0;
                 const activity = Math.max(0, Math.min(1,
-                    arcEnergy * 0.55 + melodyC * 0.3 + (rng() - 0.5) * 0.3));
-                const sustained = activity < 0.32;
+                    arcEnergy * 0.55 + melodyC * 0.3 + sectionActivity + (rng() - 0.5) * 0.25));
+                const spanActivity = activity;
+                const sustained = activity < 0.28;
 
-                // Rest between phrase groups keeps the line breathing.
-                const wantRest = !sustained && a > 0 && a % 2 === 0 && rng() < 0.35 && available > 1.5;
+                // Rest between phrase groups keeps the line breathing, and a
+                // section boundary is where a breath belongs most.
+                const atSectionStart = !!(sectionHere && Math.floor(spanStart / beatsPerBar) === sectionHere.startBar);
+                const wantRest = !sustained && a > 0 && available > 1.5 &&
+                    (atSectionStart ? rng() < 0.2 : (a % 2 === 0 && rng() < 0.35));
                 let cursor = spanStart;
                 if (wantRest) {
                     const rest = available >= 3 ? 1 : 0.5;
@@ -277,12 +776,48 @@
                 // architecture. Deriving note count from the span instead of
                 // from the syllables flattened every word to the same speed.
                 let durations = [];
-                if (sustained) {
+                let figureIds = [];
+                let figurePos = [];
+
+                // FORM FIRST. A section that restates earlier material must
+                // restate its RHYTHM — that is what the ear recognises. A
+                // primed restatement (A') varies it; an exact repeat does not.
+                const reprise = reprisedSpan(sectionHere, spanIndexInSection, rhythmC, rng);
+
+                if (reprise) {
+                    durations = reprise.durations.slice();
+                    figureIds = reprise.figures.slice();
+                    figurePos = (reprise.positions || []).slice();
+                    const total = durations.reduce((s, d) => s + d, 0);
+                    if (total > available + 1e-6) {
+                        durations = []; figureIds = []; figurePos = [];   // doesn't fit; fall through
+                    }
+                }
+
+                if (durations.length) {
+                    // reprised — nothing more to do
+                } else if (sustained) {
                     durations = [available];
-                } else if (motifCaptured && motif.length && rng() < 0.5) {
+                    figureIds = ['sustain'];
+                    figurePos = [0];
+                } else if (motifCaptured && motif.length && rng() < 0.4) {
                     // DEVELOPMENT: restate the motif, sometimes diminished.
                     const diminish = rhythmC > 0.5 && rng() < 0.4;
                     durations = motif.map(d => diminish ? Math.max(0.25, d / 2) : d);
+                    figureIds = durations.map(() => 'motif');
+                    figurePos = durations.map((_, k) => k);
+                } else if (!wordCellsFirstPass()) {
+                    // Past the text: build the span out of NAMED FIGURES rather
+                    // than a stream of independent lengths. Repeating a figure
+                    // and then varying it is what the ear reads as a group —
+                    // runs of eighths, sixteenth cells, dotted pairs — instead
+                    // of the uniform tiling this produced before.
+                    const laid = layOutFigures(available, spanActivity, rng, {
+                        allowSixteenths: rhythmC >= 0.3
+                    });
+                    durations = laid.durations;
+                    figureIds = laid.figures;
+                    figurePos = laid.positions;
                 } else {
                     // Consume syllables in order, each with its own word-derived
                     // rhythm cell, until the span is filled.
@@ -350,10 +885,15 @@
                             queue.length = 0;
                         }
                         durations.push(d);
+                        figureIds.push('word');
+                        // The word's own scansion IS the group: the cell it came
+                        // from starts a new one each time the queue refills.
+                        figurePos.push(queue.length ? (figurePos.length && figureIds[figureIds.length - 2] === 'word'
+                            ? (figurePos[figurePos.length - 1] + 1) : 0) : 0);
                         used += d;
                         emitted++;
                     }
-                    if (!durations.length) durations = [available];
+                    if (!durations.length) { durations = [available]; figureIds = ['sustain']; figurePos = [0]; }
                 }
 
                 const quant = (v) => {
@@ -368,7 +908,15 @@
                 if (sum > available + 1e-6) {
                     durations = durations.map(d => Math.max(0.25, quant((d / sum) * available)));
                 }
+                while (figureIds.length < durations.length) figureIds.push(figureIds[figureIds.length - 1] || 'word');
+                while (figurePos.length < durations.length) figurePos.push(figurePos.length);
+                figureIds.length = durations.length;
+                figurePos.length = durations.length;
                 const count = durations.length;
+
+                // Remember this span so a later section carrying the same
+                // letter can restate it.
+                rememberSpan(sectionHere, spanIndexInSection, durations, figureIds, figurePos);
 
                 if (!motifCaptured && spanStart < beatsPerBar && durations.length) {
                     motif.push(...durations);
@@ -379,6 +927,55 @@
                 const targetMidi = to ? to.midi : from.midi;
                 const homePool = this.scaleMidis(scaleNotes, LOW, HIGH);
                 let current = from.midi;
+
+                // MELODIC SEQUENCE: the same shape restated from a new degree.
+                //
+                // This is the single most recognisable "intentional" gesture in
+                // tonal melody, and the connector alone could never produce it —
+                // choosing each pitch from the gap to the next anchor makes the
+                // line oscillate between two neighbours whenever that gap is
+                // small, which reads as wandering. A sequence takes the shape
+                // already stated and moves it, so the ear hears the same idea
+                // from somewhere new.
+                let sequenceSteps = null;
+                if (pitchMotif.length >= 2 && count >= pitchMotif.length) {
+                    const wantSequence = rng() < (0.28 + melodyC * 0.35 +
+                        (sectionHere && sectionHere.variation > 0 ? 0.15 : 0));
+                    if (wantSequence) {
+                        sequenceSteps = pitchMotif.slice();
+                        // Invert it now and then: the same shape upside down is
+                        // still the same idea, and it keeps a long form from
+                        // climbing out of the singable range.
+                        if (rng() < 0.3) sequenceSteps = sequenceSteps.map(d => -d);
+                    }
+                }
+
+                // MOTION MODE for this span. A melody that is stepwise from end
+                // to end has no profile; one that only arpeggiates is a chord
+                // exercise. Real lines alternate — walk, then outline the
+                // harmony, then let a tendency tone resolve — and choosing the
+                // mode per span is what produces that alternation instead of
+                // one uniform texture over the whole piece.
+                const motion = sequenceSteps ? 'sequence' : pickMotion({
+                    rng, melodyC,
+                    energy: arcEnergy,
+                    char: phraseChar,
+                    preferred: motionPreference,
+                    isCadenceSpan: !to
+                });
+                const spanIntervals = [];
+                walkDir = 0;
+                walkRun = 0;
+
+                // Where this phrase is headed. Taking the goal from the LAST
+                // real chord of the section gives the line something to arrive
+                // at, which is what separates a phrase from a list of notes.
+                let goalMidi = null;
+                if (sectionHere) {
+                    const goalEv = evs.filter(e => e && !e.approachStrategy && e.bar === sectionHere.endBar)[0];
+                    const goalPool = this.chordMidis(goalEv, LOW, HIGH);
+                    if (goalPool.length) goalMidi = this.nearest(goalPool, from.midi);
+                }
 
                 for (let i = 0; i < count; i++) {
                     const dur = durations[i];
@@ -417,6 +1014,50 @@
                                 .filter(m => Math.abs(m - current) <= 9);
                             if (near.length) midi = this.nearest(near, midi);
                         }
+                    } else if (sequenceSteps && (i - 1) < sequenceSteps.length && (count - i) > 1) {
+                        // Restate the stored shape from wherever the line is now.
+                        // The final note of the span is left to the connector so
+                        // the sequence still lands on its anchor rather than
+                        // drifting off the harmony.
+                        const want = current + sequenceSteps[i - 1];
+                        const pool = scalePool.length ? scalePool : chordPool;
+                        midi = pool.length ? this.nearest(pool, want) : want;
+                        if (Math.abs(midi - current) > 12) midi = current + (want > current ? 12 : -12);
+                        role = 'sequence';
+                    } else if (motion === 'arpeggio' && chordPool.length >= 3 && (count - i) > 1) {
+                        // Outline the chord that is actually sounding. Moving to
+                        // the NEXT chord tone in the direction of travel is what
+                        // makes this an arpeggio rather than a series of random
+                        // chord tones.
+                        const dir = (targetMidi >= current) ? 1 : -1;
+                        const ahead = chordPool.filter(m => (m - current) * dir > 0 && Math.abs(m - current) <= 12);
+                        if (ahead.length) {
+                            midi = dir > 0 ? Math.min(...ahead) : Math.max(...ahead);
+                        } else {
+                            const back = chordPool.filter(m => (m - current) * dir < 0 && Math.abs(m - current) <= 12);
+                            midi = back.length
+                                ? (dir > 0 ? Math.max(...back) : Math.min(...back))
+                                : this.nearest(chordPool, current);
+                        }
+                        role = 'arpeggio';
+                    } else if (motion === 'functional' && (count - i) > 1) {
+                        // Let the note that wants to move, move. A leading tone
+                        // that rises and a seventh that falls are the two things
+                        // that make a line sound like it means the harmony.
+                        const chordPcs = chordPool.map(m => ((m % 12) + 12) % 12);
+                        const pull = tendencyOf(current, tonicPc, chordPcs);
+                        if (pull !== null) {
+                            const want = current + pull;
+                            const pool = scalePool.length ? scalePool : chordPool;
+                            const near = pool.filter(m => Math.abs(m - want) <= 1);
+                            midi = near.length ? this.nearest(near, want) : this.nearest(pool, want);
+                            role = 'resolution';
+                        } else {
+                            const dir = (targetMidi >= current) ? 1 : -1;
+                            const stepped = scalePool.filter(m => (m - current) * dir > 0);
+                            midi = stepped.length ? this.nearest(stepped, current + dir * 2) : current;
+                            role = 'connect';
+                        }
                     } else {
                         // Move toward the next anchor, by step wherever possible.
                         const remaining = count - i;
@@ -432,9 +1073,22 @@
                             lastLeap = 0;
                         } else if (Math.abs(idealStep) <= 2.5) {
                             // Stepwise connection — the default motion.
-                            const dir = idealStep >= 0 ? 1 : -1;
+                            //
+                            // The direction has to PERSIST. Taking it from the
+                            // sign of the gap to the next anchor means that as
+                            // soon as the line steps past that anchor the sign
+                            // flips, and it steps back — which is exactly the
+                            // "A4 B4 A4 B4" ping-pong. A walk keeps walking
+                            // until it arrives or runs out of room.
+                            let dir = idealStep >= 0 ? 1 : -1;
+                            if (walkDir !== 0 && Math.abs(targetMidi - current) <= 2 && walkRun < 4) {
+                                dir = walkDir;                 // keep going past the target
+                            }
                             const stepped = scalePool.filter(m => (m - current) * dir > 0);
                             midi = stepped.length ? this.nearest(stepped, current + dir * 2) : current;
+                            const moved = Math.sign(midi - current);
+                            walkRun = (moved !== 0 && moved === walkDir) ? walkRun + 1 : 0;
+                            if (moved !== 0) walkDir = moved;
                         } else {
                             // A leap, used sparingly and only toward a chord tone.
                             const pool = chordPool.length ? chordPool : scalePool;
@@ -450,7 +1104,11 @@
                         // DECORATION: a non-chord tone must have a function and
                         // resolve. Chromatic notes are only ever leading tones
                         // into the following pitch — never free-floating colour.
-                        const wantsDecoration = melodyC > 0.4 && dur >= 0.5 && rng() < (melodyC - 0.3) * 0.5;
+                        // Chromatic decoration is gated by the harmony dial, not
+                        // only by the melody slider: a piece set to plain triads
+                        // should not have chromatic neighbours wandering over it.
+                        const wantsDecoration = chromaticism > 0 && melodyC > 0.4
+                            && dur >= 0.5 && rng() < (melodyC - 0.3) * 0.5 * chromaticism;
                         if (wantsDecoration && !chordPool.includes(midi)) {
                             role = (Math.abs(midi - current) <= 2) ? 'passing' : 'neighbor';
                         }
@@ -466,10 +1124,86 @@
                     const justified = chordPool.includes(midi)
                         || scalePool.includes(midi)
                         || (pinnedPool && pinnedPool.includes(midi))
-                        || role === 'passing' || role === 'neighbor';
+                        || role === 'passing' || role === 'neighbor'
+                        || role === 'resolution' || role === 'arpeggio';
                     if (!justified) {
                         const pool = scalePool.length ? scalePool : chordPool;
                         if (pool.length) midi = this.nearest(pool, midi);
+                    }
+
+                    // ---- METRE AND DISSONANCE ----
+                    const strength = metricStrength(beat % beatsPerBar, beatsPerBar);
+                    const prevNote = notes.length ? notes[notes.length - 1] : null;
+                    const prevMidi = prevNote ? this.midiOf(prevNote.noteName) : null;
+
+                    // MAKE a suspension, don't just wait for one to occur.
+                    //
+                    // The classic figure is prepare–suspend–resolve: a note
+                    // consonant in the previous chord is HELD across the change,
+                    // becomes a dissonance on the strong beat, and falls by step.
+                    // Merely recognising the case where the line happened to
+                    // repeat a pitch produced none at all in twelve pieces,
+                    // because a moving line almost never repeats by accident.
+                    const chordChanged = evHere && lastChordEv && evHere.chord !== lastChordEv.chord;
+                    // Only when a note actually follows it inside this span —
+                    // a suspension on the last note of a phrase has nowhere to
+                    // fall to.
+                    const roomToResolve = i < count - 1;
+                    if (pendingResolution === null && chordChanged && strength >= 0.5
+                        && roomToResolve
+                        && Number.isFinite(prevMidi) && melodyC > 0.35
+                        && !chordPool.includes(prevMidi) && rng() < 0.35 + melodyC * 0.3) {
+                        // The held note has to actually resolve somewhere.
+                        const below = scalePool.filter(m => m < prevMidi && prevMidi - m <= 2);
+                        if (below.length) {
+                            midi = prevMidi;
+                            role = 'suspension';
+                            pendingResolution = prevMidi;
+                        }
+                    }
+
+                    // A dissonance owed a resolution gets it, before anything
+                    // else is considered: that is what makes it a suspension
+                    // rather than a wrong note left hanging.
+                    if (pendingResolution !== null && role !== 'suspension') {
+                        const target = scalePool.filter(m => m < pendingResolution && pendingResolution - m <= 2);
+                        if (target.length) {
+                            midi = Math.max(...target);
+                            role = 'resolution';
+                        }
+                        pendingResolution = null;
+                    } else if (chordPool.length && role !== 'suspension') {
+                        const verdict = dissonanceVerdict({
+                            midi, chordPool, strength, prevMidi, isFirstOfSpan: isAnchor
+                        });
+                        if (!verdict.ok) {
+                            // An unprepared dissonance on a strong beat. Take the
+                            // nearest chord tone instead — the note wanted to be
+                            // consonant here and simply was not.
+                            midi = this.nearest(chordPool, midi);
+                            role = role === 'connect' ? 'chordTone' : role;
+                        } else if (verdict.role === 'suspension') {
+                            role = 'suspension';
+                            pendingResolution = midi;    // must fall by step next
+                        } else if (verdict.role === 'passing' && role === 'connect') {
+                            role = 'passing';
+                        }
+                    }
+
+                    // ---- DESTINATION ----
+                    // The last note before a section's cadence leans toward the
+                    // goal tone, so the phrase arrives somewhere rather than
+                    // merely stopping when it runs out of span.
+                    // …but never at the cost of an unresolved dissonance. A
+                    // suspension that gets overwritten by the goal approach is
+                    // exactly the hanging wrong note this was meant to prevent.
+                    const atSectionEnd = sectionHere
+                        && Math.floor(beat / beatsPerBar) === sectionHere.endBar;
+                    if (goalMidi !== null && pendingResolution === null
+                        && role !== 'suspension'
+                        && i === count - 1 && (atSectionEnd || !to)) {
+                        const near = chordPool.filter(m => Math.abs(m - goalMidi) <= 2);
+                        if (near.length) { midi = this.nearest(near, goalMidi); role = 'approach'; }
                     }
                     // Absolute ceiling on melodic distance: a leap wider than an
                     // octave is never "sparing emphasis", it is a rupture.
@@ -483,13 +1217,36 @@
                         lastLeap = midi - current;
                     }
                     const syl = nextSyllable();
+                    // Where this note sits inside its figure decides how it is
+                    // performed: the head of a group is leaned on, the tail is
+                    // not, and a group entering off the beat is the only place
+                    // syncopation can actually be heard.
+                    const figureId = figureIds[i] || 'word';
+                    const indexInFigure = Number.isFinite(figurePos[i]) ? figurePos[i] : 0;
+                    const beatInBar = beat % beatsPerBar;
+                    const noteChar = (syl && syl.char) || phraseChar;
+                    const marks = articulateNote({
+                        duration: dur,
+                        indexInFigure,
+                        onBeat: Math.abs(beatInBar - Math.round(beatInBar)) < 1e-6,
+                        isDownbeat: Math.abs(beatInBar) < 1e-6,
+                        char: noteChar,
+                        energy: arcEnergy,
+                        isCadence: false
+                    });
                     notes.push({
                         bar: Math.floor(beat / beatsPerBar),
-                        beat: beat % beatsPerBar,
+                        beat: beatInBar,
                         noteName: this.nameOf(midi, preferFlat),
                         duration: Math.min(dur, totalBeats - beat),
                         syllable: syl ? syl.text : null,
                         word: syl ? syl.parentWord : null,
+                        figure: figureId,
+                        articulation: marks.articulation,
+                        accent: marks.accent,
+                        __char: noteChar,
+                        section: sectionLabel,
+                        sectionRole: sectionHere ? sectionHere.role : null,
                         scaleName: pinnedName
                             ? String(pinnedName).toLowerCase().replace(/\s+/g, '_')
                             : ((evHere && evHere.scaleHint && evHere.scaleHint.scaleName)
@@ -504,8 +1261,17 @@
                             && !(hintNotes ? this.scaleMidis(hintNotes, midi, midi).length
                                            : this.scaleMidis(scaleNotes, midi, midi).length)
                     });
+                    if (!isAnchor) spanIntervals.push(midi - current);
+                    lastChordEv = evHere;
                     current = midi;
                     cursor += dur;
+                }
+
+                // The first span that actually MOVES becomes the line's shape.
+                // Everything later can restate it from a new degree.
+                if (!pitchMotif.length && spanIntervals.length >= 2 &&
+                    spanIntervals.some(d => d !== 0)) {
+                    pitchMotif = spanIntervals.slice(0, 6);
                 }
             }
 
@@ -522,11 +1288,24 @@
                     last.cadence = true;
                     last.chordTone = true;
                     last.chromatic = false;
+                    last.articulation = 'tenuto';
+                    last.accent = false;
                     if (last.duration < 1) last.duration = Math.min(2, last.duration * 2);
                 }
             }
 
-            return { notes, contour, anchors: anchors.map(a => ({ beat: a.beat, midi: a.midi })) };
+            // Phrasing is decided over the whole line, not note by note: runs of
+            // short notes are slurred into one gesture, and the short notes that
+            // stand alone are the ones that get detached.
+            phraseArticulation(notes, phraseChar);
+            notes.forEach(n => { delete n.__char; });
+
+            return {
+                notes,
+                contour,
+                anchors: anchors.map(a => ({ beat: a.beat, midi: a.midi })),
+                form: form || null
+            };
         }
     }
 

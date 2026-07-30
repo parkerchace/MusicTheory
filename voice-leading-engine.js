@@ -348,7 +348,8 @@ class VoiceLeadingEngine {
             prevVoicing,
             nextPitches,
             nextChordPitches.bass,
-            melodyCtx
+            melodyCtx,
+            nextChordPitches
         );
 
         return bestVoicing;
@@ -435,7 +436,7 @@ class VoiceLeadingEngine {
     /**
      * Find optimal voicing using cost function
      */
-    _findOptimalVoicing(prevVoicing, pitchOptions, nextBass, melodyCtx = {}) {
+    _findOptimalVoicing(prevVoicing, pitchOptions, nextBass, melodyCtx = {}, chordPitches = null) {
         let bestVoicing = null;
         let bestCost = Infinity;
 
@@ -446,7 +447,8 @@ class VoiceLeadingEngine {
                     for (const bass of pitchOptions.bass) {
                         const voicing = { soprano, alto, tenor, bass };
                         const cost = this._calculateVoicingCost(prevVoicing, voicing)
-                            + this._melodyCost(prevVoicing, voicing, melodyCtx);
+                            + this._melodyCost(prevVoicing, voicing, melodyCtx)
+                            + this._structureCost(voicing, chordPitches);
 
                         if (cost < bestCost) {
                             bestCost = cost;
@@ -458,6 +460,60 @@ class VoiceLeadingEngine {
         }
 
         return bestVoicing || prevVoicing; // Fallback
+    }
+
+    /**
+     * Is this even a VOICING?
+     *
+     * The optimiser scored only how far each voice moved and whether any pair
+     * moved in parallel fifths. Nothing said the voices had to stay in order,
+     * or that they had to be different notes, or that the chord had to be
+     * complete — and because holding a voice still is the cheapest thing it can
+     * do, the search converged on collapsed stacks: A♭m7♭5 came back as
+     * soprano 60 / alto 60 / tenor 57 / bass 57, which is two notes wearing
+     * four voice names, with the fifth and seventh missing entirely. Roughly
+     * two thirds of all voicings failed validation downstream and were thrown
+     * away, so the accompaniment fell back to raw chord tones nearly every bar.
+     *
+     * These are hard structural facts about four-part writing, so they carry
+     * costs large enough to outrank any amount of smooth motion.
+     */
+    _structureCost(v, chordPitches) {
+        let cost = 0;
+        const { soprano: s, alto: a, tenor: t, bass: b } = v;
+        if (![s, a, t, b].every(Number.isFinite)) return 1e6;
+
+        // 1. Voices must not cross, and must not double each other in unison.
+        //    (An octave apart is fine; the same pitch is not.)
+        if (s < a) cost += 400; else if (s === a) cost += 300;
+        if (a < t) cost += 400; else if (a === t) cost += 300;
+        if (t < b) cost += 400; else if (t === b) cost += 300;
+
+        // 2. Spacing. Upper voices sit within an octave of each other; the gap
+        //    from tenor down to bass is allowed to be wider, as it is in real
+        //    four-part writing.
+        if (s - a > 12) cost += 120;
+        if (a - t > 12) cost += 120;
+        if (t - b > 19) cost += 80;
+
+        // 3. Completeness: the chord's defining tones have to be present. The
+        //    fifth is droppable; the third and the seventh are not.
+        if (chordPitches && Array.isArray(chordPitches.pitches) && chordPitches.pitches.length) {
+            const pcs = new Set([s, a, t, b].map(m => ((m % 12) + 12) % 12));
+            const root = ((chordPitches.pitches[0] % 12) + 12) % 12;
+            const want = [];
+            chordPitches.pitches.forEach((p) => {
+                const iv = ((p - chordPitches.pitches[0]) % 12 + 12) % 12;
+                if (iv === 3 || iv === 4 || iv === 10 || iv === 11) {
+                    want.push(((p % 12) + 12) % 12);
+                }
+            });
+            if (!pcs.has(root)) cost += 150;
+            want.forEach(pc => { if (!pcs.has(pc)) cost += 180; });
+            // Three different notes minimum — anything less is not a chord.
+            if (pcs.size < 3) cost += 250;
+        }
+        return cost;
     }
 
     /**

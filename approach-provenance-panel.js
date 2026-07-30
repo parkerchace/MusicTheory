@@ -147,10 +147,25 @@
             const home = (this.lastMusic && this.lastMusic.context && this.lastMusic.context.harmonicProfile) || {};
             const homeLine = document.createElement('div');
             homeLine.style.cssText = 'padding:8px 12px; border-bottom:1px solid #1e293b; color:#94a3b8;';
-            homeLine.innerHTML = `Home key: <strong style="color:#e2e8f0;">${home.root || '?'} ${this.pretty(home.recommendedScale)}</strong>`;
+            const notes = Array.isArray(home.scaleNotes) && home.scaleNotes.length
+                ? ` <span style="color:#64748b;">(${home.scaleNotes.join(' ')})</span>` : '';
+            homeLine.innerHTML = `Home key: <strong style="color:#e2e8f0;">${home.root || '?'} ${this.pretty(home.recommendedScale)}</strong>${notes}`;
             this.body.appendChild(homeLine);
 
             this.countEl.textContent = runs.length ? `${runs.length} borrowed run${runs.length === 1 ? '' : 's'}` : 'all diatonic';
+
+            // The panel is titled "where the chords come from", and most of the
+            // chords are the DIATONIC ones — those were never listed at all, so
+            // it only ever explained the exceptions. The progression and its
+            // form come first; the borrowed runs are then read as departures
+            // from something the reader can actually see.
+            this.body.appendChild(this.renderFormSection());
+            this.body.appendChild(this.renderDiatonicSection());
+
+            const runsHead = document.createElement('div');
+            runsHead.style.cssText = 'padding:8px 12px; border-top:2px solid #0f3460; background:#0b1220;';
+            runsHead.innerHTML = '<strong style="color:#22d3ee;">🎨 Chords borrowed from outside the key</strong>';
+            this.body.appendChild(runsHead);
 
             if (!runs.length) {
                 const none = document.createElement('div');
@@ -163,6 +178,169 @@
             // panel only — this panel is about where chords came from.
             runs.forEach((run) => this.body.appendChild(this.renderRun(run)));
             this.body.appendChild(this.renderNumericSection());
+        }
+
+        /** The planned shape: which sections exist and what each one is for. */
+        renderFormSection() {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'padding:9px 12px; border-bottom:1px solid #1e293b;';
+            const form = (this.lastMusic && this.lastMusic.context && this.lastMusic.context.form) || null;
+            if (!form || !Array.isArray(form.sections) || !form.sections.length) {
+                wrap.style.display = 'none';
+                return wrap;
+            }
+            const head = document.createElement('div');
+            head.innerHTML = `<strong style="color:#22d3ee;">🏛 Form</strong> ` +
+                `<span style="color:#e2e8f0;">${form.name}</span> ` +
+                `<span style="color:#64748b;">· ${form.bars} bars · ${form.unitBars} per section</span>`;
+            wrap.appendChild(head);
+
+            const desc = document.createElement('div');
+            desc.style.cssText = 'color:#64748b; margin:3px 0 6px;';
+            desc.textContent = form.description || '';
+            wrap.appendChild(desc);
+
+            const strip = document.createElement('div');
+            strip.style.cssText = 'display:flex; gap:4px; flex-wrap:wrap;';
+            form.sections.forEach((s) => {
+                const chip = document.createElement('span');
+                chip.title = `${s.role} · bars ${s.startBar + 1}–${s.endBar + 1} · ${s.cadence} cadence`;
+                chip.textContent = `${s.label} ${s.startBar + 1}–${s.endBar + 1}`;
+                const hot = s.letter !== 'A';
+                chip.style.cssText = `
+                    background:${hot ? '#3b2a1e' : '#1e3a5f'}; color:${hot ? '#fbbf24' : '#7dd3fc'};
+                    padding:2px 8px; border-radius:10px; font-size:10px; letter-spacing:.03em;
+                `;
+                strip.appendChild(chip);
+            });
+            wrap.appendChild(strip);
+            return wrap;
+        }
+
+        /**
+         * Every bar's main chord, with the degree it is and why it is there.
+         * A chord being ordinary is itself an explanation — "vi of the home
+         * scale" is what the reader needs in order to see that the ♭VI two bars
+         * later is a departure.
+         */
+        renderDiatonicSection() {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'padding:9px 12px; border-bottom:1px solid #1e293b;';
+
+            const seq = (this.lastMusic && this.lastMusic.harmony && this.lastMusic.harmony.chordSequence) || [];
+            const home = (this.lastMusic && this.lastMusic.context && this.lastMusic.context.harmonicProfile) || {};
+            const core = seq.filter(ev => ev && !ev.approachStrategy);
+            if (!core.length) { wrap.style.display = 'none'; return wrap; }
+
+            const head = document.createElement('div');
+            head.innerHTML = '<strong style="color:#22d3ee;">🎼 The progression itself</strong>';
+            head.style.marginBottom = '5px';
+            wrap.appendChild(head);
+
+            // Which standard progression each section is playing, by DEGREE.
+            // "2-5-1" is the point: the second, fifth and first chords of the
+            // scale in force, whatever qualities that scale gives them.
+            const progs = (this.lastMusic && this.lastMusic.harmony && this.lastMusic.harmony.sectionProgressions) || {};
+            const progEntries = Object.entries(progs).filter(([, v]) => v && v.name);
+            if (progEntries.length) {
+                const list = document.createElement('div');
+                list.style.cssText = 'margin-bottom:7px; color:#94a3b8; font-size:11px; line-height:1.6;';
+                list.innerHTML = progEntries.map(([label, p]) => {
+                    const degs = Array.isArray(p.degrees) && p.degrees.length
+                        ? `<code style="color:#fbbf24;">${p.degrees.join('–')}</code> ` : '';
+                    return `<strong style="color:#e2e8f0;">${label}</strong>: ${degs}${p.name}`;
+                }).join('<br>');
+                wrap.appendChild(list);
+            }
+
+            // Compositional devices applied on top of that core.
+            const devices = (this.lastMusic && this.lastMusic.harmony && this.lastMusic.harmony.devices) || [];
+            if (devices.length) {
+                const dl = document.createElement('div');
+                dl.style.cssText = 'margin-bottom:7px; color:#a3b8cc; font-size:11px; line-height:1.6;';
+                dl.innerHTML = devices.map(d =>
+                    `<span style="color:#c084fc;">▸</span> bar ${d.bar + 1}: <em>${d.explain}</em>`
+                ).join('<br>');
+                wrap.appendChild(dl);
+            }
+
+            const homePcs = this.pitchClassesOf(home.scaleNotes);
+
+            // One row per bar; a bar restating its chord is one harmonic event.
+            const seen = new Set();
+            const table = document.createElement('div');
+            table.style.cssText = 'display:grid; grid-template-columns:auto auto 1fr; gap:2px 10px; align-items:baseline;';
+
+            core.forEach((ev) => {
+                const k = `${ev.bar}|${ev.chord}`;
+                if (seen.has(k)) return;
+                seen.add(k);
+
+                const barCell = document.createElement('span');
+                barCell.style.cssText = 'color:#64748b; font-size:11px;';
+                barCell.textContent = `${ev.section ? ev.section + ' · ' : ''}bar ${ev.bar + 1}`;
+
+                const chordCell = document.createElement('span');
+                chordCell.style.cssText = 'color:#e2e8f0; font-weight:bold;';
+                chordCell.textContent = `${ev.chord}${ev.roman ? ` (${ev.roman})` : ''}`;
+
+                const whyCell = document.createElement('span');
+                whyCell.style.cssText = 'color:#94a3b8; font-size:11px;';
+                whyCell.innerHTML = ev.explain
+                    ? `<em style="color:#fbbf24;">${ev.explain}</em>`
+                    : this.diatonicReason(ev, home, homePcs);
+
+                table.appendChild(barCell);
+                table.appendChild(chordCell);
+                table.appendChild(whyCell);
+            });
+            wrap.appendChild(table);
+            return wrap;
+        }
+
+        pitchClassesOf(noteNames) {
+            const theory = mt();
+            const out = new Set();
+            (noteNames || []).forEach((n) => {
+                const pc = String(n || '').replace(/-?\d+$/, '');
+                const v = theory && theory.noteValues ? theory.noteValues[pc] : null;
+                if (Number.isFinite(v)) out.add(((v % 12) + 12) % 12);
+            });
+            return out;
+        }
+
+        /** Why an un-annotated chord is where it is. */
+        diatonicReason(ev, home, homePcs) {
+            const roman = String(ev.roman || '');
+            const scaleLabel = `${home.root || '?'} ${this.pretty(home.recommendedScale)}`;
+            const degree = romanToDegreeNum(roman);
+
+            // Does every tone belong to the home scale?
+            const tones = (ev.chordObj && (ev.chordObj.chordNotes || ev.chordObj.diatonicNotes)) || [];
+            const tonePcs = this.pitchClassesOf(tones);
+            let outside = 0;
+            tonePcs.forEach(pc => { if (homePcs.size && !homePcs.has(pc)) outside++; });
+
+            if (/[b#]/.test(roman)) {
+                return `Altered degree — <strong style="color:#e2e8f0;">${roman}</strong> is not in ${scaleLabel}; ` +
+                    `it is measured from the major scale and borrowed in for colour.`;
+            }
+            if (outside > 0) {
+                return `Mostly diatonic: ${outside} tone${outside === 1 ? '' : 's'} sits outside ${scaleLabel}.`;
+            }
+
+            const FUNCTION = {
+                1: 'tonic — home, the chord everything else is heard against',
+                2: 'supertonic — a pre-dominant, it leans toward V',
+                3: 'mediant — shares two tones with the tonic, so it colours rather than moves',
+                4: 'subdominant — the step away from home',
+                5: 'dominant — the strongest pull back to the tonic',
+                6: 'submediant — the tonic\'s relative, used to soften or deceive',
+                7: 'leading-tone chord — unstable, it resolves upward to the tonic'
+            };
+            const fn = degree ? FUNCTION[degree] : null;
+            return `Diatonic: degree ${degree || '?'} of <strong style="color:#e2e8f0;">${scaleLabel}</strong>` +
+                (fn ? ` — ${fn}` : '') + '.';
         }
 
         pretty(name) {
@@ -219,11 +397,39 @@
                   (Array.isArray(sh.scaleNotes) && sh.scaleNotes.length
                     ? ` <span style="color:#64748b;">(${sh.scaleNotes.join(' ')})</span>` : '')
                 : 'Chromatic — not drawn from a single parent scale';
-            detail.innerHTML = `${origin}<br>` +
+
+            // What the run is FOR. A strategy id alone ("plane:dim7:…") is only
+            // meaningful to someone who already knows the catalog; the family
+            // says what kind of motion this is, and naming the target says what
+            // the whole gesture is aimed at.
+            const targetRoman = run.target && run.target.roman ? ` (${run.target.roman})` : '';
+            const purpose = `${this.familyMeaning(run.family)} into <strong style="color:#e2e8f0;">${targetName}${targetRoman}</strong>` +
+                (run.chords[0] && run.chords[0].intoSection
+                    ? ` — the top of section ${run.chords[0].intoSection}` : '');
+
+            detail.innerHTML = `${purpose}<br>${origin}<br>` +
                 `<span style="color:#64748b;">bar ${run.bar + 1}, beat ${run.beat + 1} · strategy <code style="color:#7dd3fc;">${run.strategy}</code></span>` +
                 (run.explain ? `<br><em style="color:#a3b8cc;">${run.explain}</em>` : '');
             row.appendChild(detail);
             return row;
+        }
+
+        /** Plain-language reading of an approach family. */
+        familyMeaning(family) {
+            switch (String(family || '')) {
+                case 'dominant':
+                    return 'A dominant-function approach: a V7 (or its tritone sub / backdoor equivalent) resolving';
+                case 'planing':
+                    return 'Planing: one chord shape slid in parallel toward the target, arriving by half or whole steps';
+                case 'pivot':
+                    return 'A pivot walk: chords taken from another scale that also contains the target, walking';
+                case 'sharedRoot':
+                    return 'A shared-root approach: the same root re-coloured by a different scale, resolving';
+                case 'chain':
+                    return 'A two-step cell (V/V→V, iiø→V7♭9) setting up';
+                default:
+                    return 'An approach';
+            }
         }
 
         /**

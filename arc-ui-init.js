@@ -97,6 +97,12 @@ document.addEventListener('DOMContentLoaded', () => {
       lib.__arcKeyFollow = true;
       lib.on('scaleChanged', ({ key, scale } = {}) => {
         if (!window.__lastGenInputs) return;
+        // Generation SYNCS the studio key to whatever it just derived from the
+        // words. That sync fires scaleChanged, which used to be indistinguishable
+        // from the user turning the key knob — so every generation pinned its own
+        // key as a user override, and from the third generate onward every set of
+        // words came out in the key the second one happened to land in.
+        if (window.__arcSyncingStudioKey) return;
         // Numeric progressions rebuild themselves; only re-key word-generated music.
         if (window.NumericProgression && window.NumericProgression.state.degrees.length) return;
         rekeyLastGeneration(key, scale);
@@ -107,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sel.__arcKeyFollow = true;
       sel.addEventListener('change', () => {
         if (!window.__lastGenInputs) return;
+        if (window.__arcSyncingStudioKey) return;
         if (window.NumericProgression && window.NumericProgression.state.degrees.length) return;
         rekeyLastGeneration(sel.value, null);
       });
@@ -165,9 +172,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // valence/arousal, tone, arc shape, time signature) actually reaches the
     // generators — previously only syllable heuristics survived to this point.
     if (!context || !arc) {
-      // Parse WITHOUT the variation seed: the same words should always map to the
-      // same key/scale/tone, while the seed varies the musical take (progression
-      // choice, approach strategies, melody rolls) downstream.
+      // Parsing is seed-free: a word's MEANING — its tone, valence, arousal,
+      // arc shape — is a property of the word and must not drift between takes.
+      // What the seed varies downstream is the interpretation: which key and
+      // scale inside the region that meaning implies, which progression
+      // template, which approach strategies, how the line scans. Pinning the
+      // key and scale to the words as well left every regeneration of a phrase
+      // identical, which read as the generator ignoring the request.
       let rich = null;
       try {
         if (typeof ContextEngine === 'function' && input && String(input).trim().length) {
@@ -197,10 +208,13 @@ document.addEventListener('DOMContentLoaded', () => {
         : null;
 
       // Key: derived from the words unless the user disabled key variety.
-      const derivedRoot = keyVariety ? deriveRootFromLexical(lexical, String(input || '')) : null;
-      // An explicitly chosen key wins over the word-derived one — once the user
-      // picks a key, later generations stay there.
-      const userKey = (typeof window !== 'undefined' && window.__userKeyOverride) ? window.__userKeyOverride.key : null;
+      const derivedRoot = keyVariety ? deriveRootFromLexical(lexical, String(input || ''), seed) : null;
+      // A key the user chose by hand outranks the word-derived one, but only
+      // for the TEXT they chose it against. Pinning it forever meant that once
+      // anyone touched the key control, every later phrase — however different
+      // its words — came out in that same key.
+      const ov = (typeof window !== 'undefined' && window.__userKeyOverride) || null;
+      const userKey = (ov && ov.forInput === String(input || '')) ? ov.key : null;
       const rootNote = userKey || derivedRoot || _studioKey;
 
       // Scale: prefer the curated ScaleIntelligenceEngine pick (playable 7-note
@@ -216,7 +230,13 @@ document.addEventListener('DOMContentLoaded', () => {
             avgValence: (lexical.avgValence || 0) * (0.5 + emotionalWeight * 1.5),
             avgArousal: (lexical.avgArousal || 0) * (0.5 + emotionalWeight * 1.5),
             forceTone: charTone || (rich && rich.emotionalTone) || null,
-            words: String(input || '').toLowerCase().split(/\s+/).filter(Boolean)
+            words: String(input || '').toLowerCase().split(/\s+/).filter(Boolean),
+            // The TONE stays word-derived, but which of the equally-fitting
+            // scales in that tone gets used is a per-take decision. Without the
+            // seed the ranked field was indexed by a pure hash of the words, so
+            // regenerating the same phrase returned the identical scale forever.
+            seed,
+            avoid: recentScalePicks()
           });
           if (sel && sel.name) scaleName = sel.name;
         }
@@ -225,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         || (rich && rich.harmonicProfile && rich.harmonicProfile.recommendedScale)
         || (profile && profile.recommendedScale)
         || _studioScale;
+      rememberScalePick(scaleName);
 
       let scaleNotes = [];
       try {
@@ -236,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (_) {}
       if (!scaleNotes.length) scaleNotes = _resolvedNotes;
 
-      const timeSignature = (rich && rich.timeSignature) || '4/4';
+      const timeSignature = chooseTimeSignature(rich, phraseChar, String(input || ''), seed);
       const tsMatch = String(timeSignature).match(/^(\d+)\s*\/\s*(\d+)$/);
       const beatsPerBar = tsMatch ? Math.max(2, Math.min(7, parseInt(tsMatch[1], 10) || 4)) : 4;
 
@@ -276,19 +297,32 @@ document.addEventListener('DOMContentLoaded', () => {
           metadata: (rich && rich.metadata) || null
       };
 
+      // FORM. Four bars is one phrase — nothing in it can be a return, an
+      // answer, or a contrast, so no amount of harmonic detail made the output
+      // read as composed. The planner sizes the piece from the text and names
+      // its sections; harmony and melody then build A / B / A' rather than four
+      // independent bars.
+      context.form = planFormFor(context, profile, seed, beatsPerBar);
+
       // Keep the studio scale library in sync with the generated key so the rest
       // of the app (fretboard, piano, sheet) reflects what was generated.
       try {
         if (_scaleLib && typeof _scaleLib.setKeyAndScale === 'function'
             && (rootNote !== _studioKey || scaleName !== _studioScale)) {
-          _scaleLib.setKeyAndScale(rootNote, scaleName);
+          // Flagged so the scaleChanged follower can tell this sync apart from
+          // the user turning the key knob; otherwise it re-enters generation
+          // and pins this key for every future phrase.
+          window.__arcSyncingStudioKey = true;
+          try { _scaleLib.setKeyAndScale(rootNote, scaleName); }
+          finally { window.__arcSyncingStudioKey = false; }
         }
-      } catch (_) {}
+      } catch (_) { window.__arcSyncingStudioKey = false; }
 
+      const formBars = (context.form && context.form.bars) || 4;
       arc = {
-          bars: 4,
+          bars: formBars,
           beatsPerBar,
-          totalBeats: 4 * beatsPerBar,
+          totalBeats: formBars * beatsPerBar,
           sample: (t) => {
               // A single point (or none) has no segment to interpolate across —
               // reading p1/p2 blindly threw here.
@@ -335,9 +369,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Ensure arc has sane defaults and a sample(t) function.
       if (!arc) arc = {};
-      if (!Number.isFinite(arc.bars)) arc.bars = 4;
       if (!Number.isFinite(arc.beatsPerBar)) arc.beatsPerBar = 4;
-      if (!Number.isFinite(arc.totalBeats)) arc.totalBeats = arc.bars * arc.beatsPerBar;
+      if (!context.form) {
+        context.form = planFormFor(context, profile, seed, arc.beatsPerBar);
+      }
+      // A caller-supplied bar count is a real instruction; only fill in from the
+      // form when nothing was specified.
+      if (!Number.isFinite(arc.bars)) arc.bars = (context.form && context.form.bars) || 4;
+      else if (context.form) context.form = rescaleFormToBars(context.form, arc.bars);
+      arc.totalBeats = arc.bars * arc.beatsPerBar;
       if (typeof arc.sample !== 'function') {
         const profile = Array.isArray(arc.energyProfile) ? arc.energyProfile : null;
         if (profile && profile.length > 1) {
@@ -404,11 +444,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const harmony = generateHarmony(context, arc, seed);
     const melody = generateMelody(context, arc, harmony, seed);
     revoiceHarmonyAgainstMelody(harmony, melody, context);
+    // Split into two hands. Until this ran, "the accompaniment" was a stack of
+    // chord tones drawn on the treble staff with the tune, which is a lead
+    // sheet rather than piano writing.
+    const piano = buildPianoTexture(context, arc, harmony, melody, seed);
     const scaleTimeline = buildScaleTimeline(context, arc, harmony);
 
     const generatedMusic = {
       harmony,
       melody,
+      piano,
       scaleTimeline,
       context,
       arc,
@@ -467,12 +512,55 @@ function rekeyLastGeneration(newKey, newScale) {
   hp.recommendedScale = scale;
   if (notes.length) hp.scaleNotes = notes;
 
-  // A key the user picked outranks the word-derived key on later generates too.
-  try { window.__userKeyOverride = { key, scale }; } catch (_) {}
+  // A key the user picked outranks the word-derived key — but only while the
+  // words are the same. New text gets its own key.
+  try { window.__userKeyOverride = { key, scale, forInput: String(inputs.input || '') }; } catch (_) {}
 
   return regenerateLastGeneration('key-change');
 }
 if (typeof window !== 'undefined') window.rekeyLastGeneration = rekeyLastGeneration;
+
+/**
+ * Rebuild the last take with a NEW form, keeping its words, key and seed.
+ *
+ * Changing the form changes the bar count, so the arc has to be resized with
+ * it — which `regenerateLastGeneration` deliberately does not do, because for
+ * every other setting the bar count must stay put.
+ */
+function recomposeLastGeneration(formKey, unitBars) {
+  const inputs = (typeof window !== 'undefined') ? window.__lastGenInputs : null;
+  if (!inputs || !inputs.context || !inputs.arc) return false;
+  try {
+    window.__formOverride = formKey && formKey !== 'auto'
+      ? { form: formKey, unitBars: unitBars || undefined }
+      : null;
+    const ctx = inputs.context;
+    const beatsPerBar = inputs.arc.beatsPerBar || 4;
+    const form = planFormFor(ctx, null, inputs.seed, beatsPerBar);
+    if (form) {
+      ctx.form = form;
+      inputs.arc.bars = form.bars;
+      inputs.arc.totalBeats = form.bars * beatsPerBar;
+      // The energy profile is indexed by beat, so it has to be re-sampled at
+      // the new length or the arc stops lining up with the music.
+      try {
+        const total = inputs.arc.totalBeats;
+        const prof = [];
+        for (let i = 0; i < total; i++) {
+          const t = total > 1 ? i / (total - 1) : 0;
+          const v = typeof inputs.arc.sample === 'function' ? Number(inputs.arc.sample(t)) : 0.5;
+          prof.push(Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5);
+        }
+        inputs.arc.energyProfile = prof;
+      } catch (_) {}
+    }
+    return regenerateLastGeneration('form-change');
+  } catch (err) {
+    console.warn('[ArcInit] recompose failed', err);
+    return false;
+  }
+}
+if (typeof window !== 'undefined') window.recomposeLastGeneration = recomposeLastGeneration;
 
 function regenerateLastGeneration(reason = 'settings-change') {
   const inputs = (typeof window !== 'undefined') ? window.__lastGenInputs : null;
@@ -486,9 +574,10 @@ function regenerateLastGeneration(reason = 'settings-change') {
     const harmony = generateHarmony(context, arc, seed);
     const melody = generateMelody(context, arc, harmony, seed);
     revoiceHarmonyAgainstMelody(harmony, melody, context);
+    const piano = buildPianoTexture(context, arc, harmony, melody, seed);
     const scaleTimeline = buildScaleTimeline(context, arc, harmony);
     const generatedMusic = {
-      harmony, melody, scaleTimeline, context, arc, seed,
+      harmony, melody, piano, scaleTimeline, context, arc, seed,
       traceId: `arc-${Date.now().toString(36)}`,
       input,
       regeneratedFor: reason,
@@ -626,6 +715,585 @@ function inferChordTypeFromRoman(roman, fallbackChordType = 'maj7') {
   return fallbackChordType;
 }
 
+/**
+ * Lay a chord progression out over the planned form, built from HARMONIC
+ * FUNCTION rather than from a table of roman-numeral strings.
+ *
+ * The core is deliberately plain: each section is a walk through
+ * tonic → predominant → dominant → tonic, using the degrees of whatever scale
+ * the piece is actually in, closing with the cadence its role calls for.
+ * Everything that makes a take distinctive — substitutions, borrowed colour,
+ * approach runs, a modulation in the bridge — is a departure applied ON TOP of
+ * that core, so there is always something recognisable to depart from.
+ *
+ * Rules that make the shape audible:
+ *   - sections sharing a LETTER share their harmonic plan, so a return is
+ *     heard as a return;
+ *   - a primed restatement (A', A'') substitutes one interior chord for a
+ *     functional equivalent, which is development rather than repetition;
+ *   - a departure section may MODULATE to a related key through a pivot chord
+ *     that is diatonic in both, and comes home for the return.
+ *
+ * @returns {{romans: string[], keyPlan: Array, modulations: Array}}
+ */
+function buildFormProgression({ form, barCount, toneTemplates, minorTone, rng, mt, key, scaleName, colour = 0.4, gate = null }) {
+  const allow = (k) => !gate || gate.allow[k];
+  const FH = (typeof FunctionalHarmony !== 'undefined') ? FunctionalHarmony : null;
+  const PL = (typeof ProgressionLibrary !== 'undefined') ? ProgressionLibrary : null;
+  const homeAnalysis = (FH && mt) ? FH.analyzeScale(mt, key, scaleName) : null;
+
+  // Without the functional module (or on a scale it cannot read) fall back to
+  // the tone templates, which is the previous behaviour.
+  if (!FH || !homeAnalysis || !homeAnalysis.degrees.length) {
+    return {
+      romans: legacyTemplateProgression({ form, barCount, toneTemplates, minorTone, rng }),
+      keyPlan: new Array(barCount).fill({ key, scaleName, home: true }),
+      modulations: [], sectionProgressions: {}, devices: []
+    };
+  }
+
+  const romans = new Array(barCount).fill(homeAnalysis.degrees[0].roman);
+  const keyPlan = new Array(barCount).fill(null);
+  const modulations = [];
+  // Cached by THEME, not by letter. The second subject appearing in the
+  // dominant in the exposition and in the tonic in the recapitulation is the
+  // SAME MUSIC TRANSPOSED — that resolution is what sonata form is for.
+  // Keying the cache on the letter plus the key meant those two sections
+  // missed each other and generated unrelated progressions, so the defining
+  // event of the form simply never happened. Roman numerals are already
+  // relative to whatever tonic is in force, so reusing the same romans in a
+  // different key IS the transposition.
+  const planByTheme = {};
+
+  // Substitutions have to respect the same degree gate the catalog does.
+  // Both the "vary a restatement" pass and the adjacent-repeat pass picked
+  // replacements straight out of the full degree list, which is how ♭III and
+  // ♭VII kept appearing in a take whose setting promised primary triads only —
+  // a theme-and-variations form fires that substitution on every restatement.
+  const gateDegrees = gate && Array.isArray(gate.degrees) ? gate.degrees : null;
+  const allowedRomans = (an) => {
+    if (!gateDegrees) return null;
+    return new Set(an.degrees.filter(d => gateDegrees.includes(d.degree)).map(d => d.roman));
+  };
+  const substituteFor = (an, roman, avoidA, avoidB) => {
+    const here = an.degrees.find(d => d.roman === roman);
+    if (!here) return null;
+    const fn = Object.keys(here.functions).sort((x, y) => here.functions[y] - here.functions[x])[0];
+    const ok = allowedRomans(an);
+    return FH.candidates(an, fn).find(d =>
+      d.roman !== roman && d.roman !== avoidA && d.roman !== avoidB &&
+      (!ok || ok.has(d.roman))) || null;
+  };
+  const sectionProgressions = {};
+  const devices = [];
+  let developmentSection = null;
+
+  if (!form) {
+    const p = FH.progression(homeAnalysis, { bars: barCount, cadence: 'authentic', rng, colour });
+    for (let b = 0; b < barCount; b++) {
+      romans[b] = p.romans[b] || homeAnalysis.degrees[0].roman;
+      keyPlan[b] = { key, scaleName, home: true };
+    }
+    return { romans, keyPlan, modulations, sectionProgressions, devices };
+  }
+
+  let prevRelation = null;
+  form.sections.forEach((section) => {
+    let analysis = homeAnalysis;
+    let sectionKey = key;
+    let sectionScale = scaleName;
+    let modulation = null;
+
+    // THE TONAL PLAN DECIDES THE KEY, NOT A DICE ROLL.
+    //
+    // v1 rolled for a modulation per section and picked a related key at
+    // random. That produces key changes, but not a tonal ARGUMENT: sonata form
+    // means nothing unless the second subject is in the dominant the first time
+    // and at home the second, and no amount of randomness will reliably do
+    // that. The form now states the key relation for every section, and this
+    // just realises it — including the case where the relation is 'unstable',
+    // which is what a development section is.
+    const rel = section.keyRelation || 'I';
+    // Only a CHANGE of key is a modulation. Consecutive sections sharing a
+    // relation (a second subject and its codetta are both in the dominant)
+    // must not each register a move and each drop a pivot chord — the second
+    // pivot landed in the previous section's final bar and dragged it back to
+    // the home key, cutting the second subject's cadence off from its own key.
+    const changesKey = rel !== prevRelation;
+    const wantsMove = rel !== 'I' && Number.isFinite(section.keyOffset) && allow('modulation');
+
+    if (wantsMove && mt && typeof mt.transposeNote === 'function') {
+      let targetKey = mt.transposeNote(key, section.keyOffset);
+      // Spell the new tonic to match the direction the home key leans. B major
+      // modulating to its dominant is F♯ major, not G♭ major — the pitch is the
+      // same and only one of them is readable next to five sharps.
+      try {
+        const homeIsFlat = /b/.test(String(key));
+        if (targetKey && mt.noteValues && typeof mt.spellSemitoneWithPreference === 'function') {
+          const v = mt.noteValues[targetKey];
+          if (Number.isFinite(v)) {
+            const respelled = mt.spellSemitoneWithPreference(v, homeIsFlat, null);
+            if (respelled) targetKey = respelled;
+          }
+        }
+      } catch (_) {}
+      // Keep the home mode unless the plan explicitly asks for major/minor —
+      // a bridge in the subdominant should still sound like the same piece.
+      const targetScale = section.keyMode === 'minor' ? 'aeolian'
+        : section.keyMode === 'major' ? 'major'
+        : scaleName;
+      const target = targetKey ? FH.analyzeScale(mt, targetKey, targetScale) : null;
+      if (target && target.degrees.length && target.functional) {
+        const pivot = FH.findPivot(mt, homeAnalysis, target);
+        analysis = target;
+        sectionKey = targetKey;
+        sectionScale = targetScale;
+        modulation = {
+          startBar: section.startBar,
+          endBar: section.endBar,
+          toKey: targetKey,
+          toScale: targetScale,
+          relation: section.keyLabel || rel,
+          planned: true,
+          pivotChord: pivot ? pivot.from.root : null,
+          pivotRomanHome: pivot ? pivot.from.roman : null,
+          pivotRomanNew: pivot ? pivot.to.roman : null,
+          section: section.label,
+          // Flagged so the provenance panel can say WHY: this is the moment
+          // the form was built around.
+          isStructural: !!section.resolvesTension
+        };
+        modulations.push(modulation);
+      }
+    } else if (rel === 'unstable') {
+      // A DEVELOPMENT does not modulate to somewhere; it refuses to settle.
+      // Sequencing the theme through a chain of related keys, none held long
+      // enough to become home, is what makes the eventual return feel like an
+      // arrival rather than just the next section.
+      developmentSection = section;
+    }
+
+    // Sections sharing a letter share their plan — that is the return.
+    let bars;
+    let progressionUsed = null;
+    const cached = planByTheme[section.theme];
+    // Deliberately NOT comparing keys: a different key is the whole point.
+    if (cached && cached.romans.length === section.bars) {
+      bars = cached.romans.slice();
+      progressionUsed = cached.progression || null;
+    } else {
+      // A NAMED PROGRESSION FIRST.
+      //
+      // "2 5 1" is the second, fifth and first chords of whatever scale is in
+      // force — in D Lydian that is E7–Amaj7–Dmaj7, which is a real 2-5-1 and
+      // nothing like the ii–V–I roman numerals would have forced. The standard
+      // progressions are what most music actually is, so they are the default
+      // material; the free functional walk is the fallback for the cases none
+      // of them fit.
+      const wantNamed = PL && rng() < 0.82;
+      if (wantNamed) {
+        const endsOn = FH.cadenceTargetDegree(section.cadence);
+        const chosen = PL.choose({
+          bars: section.bars,
+          endsOn,
+          rng,
+          colour,
+          // The dial filters which progressions exist at all.
+          // Overrides widen the pool too: forcing "all seven diatonic chords"
+          // on has to actually make ii/iii/vi available, not just leave the
+          // ladder's three-chord filter in place.
+          families: gate ? (allow('sequences') || allow('modulation') ? null : gate.families) : null,
+          degrees: gate ? (allow('fullDiatonic')
+            ? (allow('seventhChords') ? [1,2,3,4,5,6,7] : [1,2,3,4,5,6])
+            : [1,4,5]) : null,
+          // Different letters get different progressions so B is genuinely
+          // other material rather than the A progression rotated.
+          exclude: Object.values(planByTheme).map(p => p.progression && p.progression.id).filter(Boolean)
+        });
+        if (chosen) {
+          const degrees = PL.fitToBars(chosen.degrees, section.bars, rng);
+          bars = degrees.map(d => FH.romanForDegree(analysis, d));
+          progressionUsed = {
+            id: chosen.id, name: chosen.name, family: chosen.family,
+            degrees: chosen.degrees.slice(), fitted: degrees.slice()
+          };
+        }
+      }
+
+      if (!bars || !bars.length) {
+        const built = FH.progression(analysis, {
+          bars: section.bars,
+          cadence: section.cadence,
+          rng,
+          colour,
+          // The walk has to respect the same degree gate the catalog does, or
+          // a setting that promises primary triads still produces ♭III and ♭VII
+          // whenever no catalog entry happened to fit the section length.
+          allowedDegrees: gate ? gate.degrees : null,
+          // Only a first statement has to establish the tonic; a departure is
+          // free to open away from it.
+          // The opening of the piece, and the opening of any stable section
+          // that lives in the home key, has to state that key. Testing for
+          // letter 'A' worked only for the lettered forms — sonata's first
+          // section is 'P', so the piece opened on whatever degree the
+          // progression happened to start with.
+          startOnTonic: section.index === 0
+            || (section.stability === 'stable' && section.keyRelation === 'I')
+            || !!modulation
+        });
+        bars = built.romans.slice();
+        progressionUsed = { id: 'functional-walk', name: 'functional walk', family: 'generated' };
+      }
+      planByTheme[section.theme] = {
+        romans: bars.slice(), key: sectionKey, scaleName: sectionScale, progression: progressionUsed
+      };
+    }
+    // A DEVELOPMENT SEQUENCES rather than settles. Every couple of bars the
+    // same shape is restated a step or a third away, and because none of those
+    // keys is held long enough to become home, the return to the tonic reads as
+    // an arrival instead of merely the next thing.
+    if (section.stability === 'developmental' && bars.length >= 4 && mt && allow('modulation')) {
+      const legs = [0, 2, -3, 5];          // tonic, up a step, down a third, up a fourth
+      const legLen = Math.max(1, Math.floor(bars.length / legs.length));
+      for (let li = 1; li < legs.length; li++) {
+        const at = li * legLen;
+        if (at >= bars.length - 1) break;
+        const legKey = mt.transposeNote(sectionKey, legs[li]);
+        const legAnalysis = legKey ? FH.analyzeScale(mt, legKey, sectionScale) : null;
+        if (!legAnalysis || !legAnalysis.degrees.length) continue;
+        for (let b = at; b < Math.min(bars.length - 1, at + legLen); b++) {
+          const homeDeg = analysis.degrees.find(d => d.roman === bars[b]);
+          const idx = homeDeg ? analysis.degrees.indexOf(homeDeg) : 0;
+          bars[b] = legAnalysis.degrees[idx % legAnalysis.degrees.length].roman;
+          keyPlan[section.startBar + b] = {
+            key: legKey, scaleName: sectionScale, home: false, developmental: true
+          };
+        }
+        devices.push({
+          type: 'development-sequence', bar: section.startBar + at,
+          section: section.label, toKey: legKey,
+          explain: `Development: the theme restated in ${legKey}. None of these keys is held long `
+            + `enough to become home, which is what makes the recapitulation an arrival.`
+        });
+      }
+    }
+
+    sectionProgressions[section.label] = progressionUsed;
+
+    // ENFORCE THE SECTION'S OWN CADENCE — always, including when the material
+    // came from the shared-letter cache.
+    //
+    // Sections sharing a letter share their PROGRESSION, but they must not
+    // share their ending: in AABA the first A hangs open on the dominant and
+    // the last A is the one that closes the piece. Applying the cadence only
+    // when the progression was freshly built meant every restatement inherited
+    // the first statement's half cadence, so more than a third of pieces simply
+    // stopped on V and never resolved.
+    if (bars.length) {
+      const endsOnDeg = FH.cadenceTargetDegree(section.cadence);
+      const wantRoman = section.cadence === 'half'
+        ? FH.cadenceRomans(analysis, 'half', rng).last
+        : FH.romanForDegree(analysis, endsOnDeg);
+      if (bars[bars.length - 1] !== wantRoman) bars[bars.length - 1] = wantRoman;
+      // …and approach it from the right place: a cadence needs its dominant.
+      if (bars.length >= 2 && (section.cadence === 'authentic' || section.cadence === 'deceptive')) {
+        const dom = FH.cadenceRomans(analysis, 'authentic', rng).pre;
+        if (bars[bars.length - 2] === bars[bars.length - 1]) bars[bars.length - 2] = dom;
+      }
+    }
+
+    // Development: a restatement swaps one interior chord for another degree
+    // serving the SAME function, so the progression still means the same thing
+    // while sounding different.
+    // A restatement in a NEW KEY is already transformed — the transposition is
+    // the transformation, and it is the event the form was built around. Also
+    // altering a chord inside it destroys the recognition the recapitulation
+    // depends on. Only same-key restatements get the substitution.
+    const sameKeyRestatement = section.variation > 0
+      && cached && cached.key === sectionKey;
+    if (sameKeyRestatement && bars.length > 2) {
+      const start = 1 + Math.floor(rng() * (bars.length - 2));
+      for (let k = 0; k < bars.length - 2; k++) {
+        const at = 1 + ((start - 1 + k) % (bars.length - 2));
+        const alt = substituteFor(analysis, bars[at], bars[at - 1], bars[at + 1]);
+        if (alt) { bars[at] = alt.roman; break; }
+      }
+    }
+
+    // CHROMATIC MEDIANT. A root a third away with a quality the key does not
+    // supply — C major stepping to E major or A♭ major. There is no functional
+    // preparation and none is wanted: the effect is of the same music seen
+    // under a different light, and it works precisely because the surrounding
+    // progression is ordinary. Placed on an interior bar so it colours the
+    // section rather than derailing its cadence.
+    // Interior bars only: the opening establishes the key and the last two are
+    // the cadence, and a mediant landing on either undoes the thing it is
+    // supposed to be colouring.
+    if (PL && allow('chromaticMediants') && bars.length >= 4 && rng() < colour * 0.4) {
+      const at = 1 + Math.floor(rng() * Math.max(1, bars.length - 3));
+      const med = PL.chromaticMediant(rng);
+      // Expressed as an accidental roman so the existing resolver builds it.
+      const MEDIANT_ROMAN = { 4: 'III', 3: 'bIII', 8: 'bVI', 9: 'VI' };
+      const rom = MEDIANT_ROMAN[med.semitones];
+      if (rom && bars[at] !== rom) {
+        bars[at] = med.quality === 'min' ? rom.toLowerCase() : rom;
+        devices.push({
+          type: 'chromatic-mediant', bar: section.startBar + at,
+          name: med.name, relation: med.relation, section: section.label,
+          explain: `Chromatic mediant: ${med.name} — a root a third away with a quality the key `
+            + `does not contain, so it arrives with no preparation and two common tones`
+        });
+      }
+    }
+
+    // INTERVAL SEQUENCE. One cell transposed repeatedly by a fixed interval —
+    // planing when the quality is held constant, a diatonic sequence when each
+    // copy is refitted to the scale. Both are real compositional devices and
+    // both need room, so this only fires in a section long enough to state the
+    // cell and at least two copies of it.
+    // A sequence DECORATES a section; it must not become the section. An
+    // earlier version was allowed to start at bar 0 and run as long as it
+    // liked, which overwrote the named progression outright — the label said
+    // "iii–vi–ii–V" while the bars said something else entirely. It now leaves
+    // the opening tonic and the cadence alone and covers at most half the
+    // section, so the progression stays recognisable underneath it.
+    if (PL && allow('sequences') && bars.length >= 4 && rng() < 0.35 + colour * 0.4) {
+      const pat = PL.sequencePattern(rng, { allowChromatic: colour > 0.5 });
+      pat.length = Math.max(2, Math.min(pat.length, Math.floor((bars.length - 2) / 2)));
+      const start = Math.max(1, bars.length - 2 - pat.length);
+      const baseDeg = FH.degreeInfo(analysis, 1 + Math.floor(rng() * 7));
+      if (baseDeg && start >= 1 && start + pat.length <= bars.length - 1) {
+        const MAJOR_SEMIS = [0, 2, 4, 5, 7, 9, 11];
+        const baseSemi = baseDeg.interval;
+        for (let i = 0; i < pat.length && start + i < bars.length - 1; i++) {
+          const semi = ((baseSemi + pat.semitones * i) % 12 + 12) % 12;
+          if (pat.mode === 'diatonic') {
+            // Refit to the scale: the nearest degree the key actually has.
+            let best = analysis.degrees[0], bd = 12;
+            analysis.degrees.forEach(d => {
+              const dist = Math.min((d.interval - semi + 12) % 12, (semi - d.interval + 12) % 12);
+              if (dist < bd) { bd = dist; best = d; }
+            });
+            bars[start + i] = best.roman;
+          } else {
+            const natural = MAJOR_SEMIS.indexOf(semi);
+            const rom = natural >= 0
+              ? FunctionalHarmony.ROMAN_BY_INTERVAL[semi]
+              : FunctionalHarmony.ROMAN_BY_INTERVAL[semi];
+            if (rom) bars[start + i] = rom;
+          }
+        }
+        devices.push({
+          type: 'interval-sequence', bar: section.startBar + start,
+          length: pat.length, mode: pat.mode, name: pat.name, section: section.label,
+          explain: `${pat.mode === 'parallel' ? 'Planing' : 'Diatonic sequence'}: the same shape moved by `
+            + `${pat.name}, ${pat.length} times — the repetition is what makes it read as intent`
+        });
+      }
+    }
+
+    // The pivot is placed in the bar BEFORE the modulating section so the move
+    // is prepared rather than announced.
+    if (modulation && modulation.pivotRomanHome && section.startBar > 0 && changesKey) {
+      romans[section.startBar - 1] = modulation.pivotRomanHome;
+      keyPlan[section.startBar - 1] = { key, scaleName, home: true, pivot: true };
+    }
+
+    prevRelation = rel;
+    for (let i = 0; i < bars.length; i++) {
+      const b = section.startBar + i;
+      if (b >= barCount) break;
+      romans[b] = bars[i];
+      // A development leg already wrote the key it sequenced through; blanket
+      // assignment here erased it and the whole development reported as being
+      // at home, which is the one thing a development is not.
+      if (!(keyPlan[b] && keyPlan[b].developmental)) {
+        keyPlan[b] = { key: sectionKey, scaleName: sectionScale, home: !modulation };
+      }
+    }
+  });
+
+  for (let b = 0; b < barCount; b++) {
+    if (!keyPlan[b]) keyPlan[b] = { key, scaleName, home: true };
+  }
+
+  // --- FORESHADOWING ---------------------------------------------------
+  //
+  // A modulation announced by its own accidentals arriving early is a promise;
+  // the same modulation arriving unannounced is an edit. Before each planned
+  // key change the bars leading in take the SECONDARY DOMINANT of the target —
+  // V/V before a move to the dominant — which drags that key's leading tone
+  // into the music while the old key is still sounding. That single accidental
+  // is the whole mechanism: the ear registers something pulling before it can
+  // say toward what.
+  (allow('secondaryDominants') ? (form.foreshadow || []) : []).forEach((fs) => {
+    if (!Number.isFinite(fs.targetOffset) || !mt) return;
+    const bar = fs.toBar;
+    if (bar < 0 || bar >= barCount) return;
+    // Do not overwrite a cadence — the approach has to sit before it, not on it.
+    const sec = form.sectionOfBar && form.sectionOfBar[bar];
+    if (sec && bar === sec.endBar && bar !== fs.toBar) return;
+
+    try {
+      const targetRoot = mt.transposeNote(key, fs.targetOffset);
+      // The dominant OF the target key: a fifth above it.
+      const secondaryRoot = mt.transposeNote(targetRoot, 7);
+      if (!secondaryRoot) return;
+      const semis = ((FH_pcOf(mt, secondaryRoot) - FH_pcOf(mt, key)) % 12 + 12) % 12;
+      const MAJOR_SEMIS = [0, 2, 4, 5, 7, 9, 11];
+      const natural = MAJOR_SEMIS.indexOf(semis);
+      const roman = natural >= 0
+        ? FunctionalHarmony.ROMAN_BY_INTERVAL[semis]
+        : FunctionalHarmony.ROMAN_BY_INTERVAL[semis];
+      if (!roman) return;
+      // Already prepared by the bar before it — a second identical chord adds
+      // nothing and just reads as the harmony stalling.
+      if (bar > 0 && romans[bar - 1] === roman) return;
+      romans[bar] = roman;
+      keyPlan[bar] = { ...(keyPlan[bar] || { key, scaleName, home: true }), foreshadows: fs.targetRelation };
+      devices.push({
+        type: 'foreshadow', bar,
+        targetKey: targetRoot, targetRelation: fs.targetRelation,
+        secondary: `V/${fs.targetRelation}`,
+        explain: `${fs.explain} Here that is ${secondaryRoot}7 — the dominant of the key about to `
+          + `arrive, sounding while the old key is still in force.`
+      });
+    } catch (_) {}
+  });
+
+  // --- SUBVERSION ------------------------------------------------------
+  //
+  // Breaking a pattern requires having built one. The planner has already
+  // decided WHICH expectation is available and WHERE it is strongest; this
+  // realises the break in the chords.
+  (allow('subversions') ? (form.subversions || []) : []).forEach((sv) => {
+    const bar = sv.bar;
+    if (!Number.isFinite(bar) || bar < 0 || bar >= barCount) return;
+    const an = FH.analyzeScale(mt, keyPlan[bar].key, keyPlan[bar].scaleName) || homeAnalysis;
+    if (!an || !an.degrees.length) return;
+
+    switch (sv.kind) {
+      case 'deceptive': {
+        // The dominant is left in place; only its resolution changes.
+        const sub = FH.candidates(an, 'T').find(d => d.interval === 9 || d.interval === 8);
+        if (sub) romans[bar] = sub.roman;
+        break;
+      }
+      case 'modalFlip': {
+        // Same degree, opposite mode. Handled downstream by re-spelling the
+        // chord, so the roman is flipped in case rather than replaced.
+        const cur = String(romans[bar]);
+        romans[bar] = /[a-z]/.test(cur) ? cur.toUpperCase() : cur.toLowerCase();
+        break;
+      }
+      case 'evaded':
+      case 'interruption': {
+        // Stop ON the dominant: the expected resolution never comes.
+        const dom = FH.cadenceRomans(an, 'authentic', rng).pre;
+        romans[bar] = dom;
+        break;
+      }
+      case 'truncation':
+      case 'elision':
+      default:
+        // Rhythmic/phrase-level; the melody engine realises these.
+        break;
+    }
+    devices.push({ type: 'subversion', bar, kind: sv.kind, name: sv.name, explain: sv.explain });
+  });
+
+  // A chord repeated across two adjacent bars is one chord held for two bars,
+  // not a progression. These turn up most often at a section seam, where one
+  // section's cadence happens to land on the degree the next one opens with —
+  // so the pass runs over the whole piece rather than inside each section.
+  const FH2 = FH;
+  for (let b = 1; b < barCount - 1; b++) {
+    if (romans[b] !== romans[b - 1]) continue;
+    if (keyPlan[b].key !== keyPlan[b - 1].key) continue;   // a real key change, leave it
+    // A foreshadowing chord is placed deliberately and may legitimately repeat
+    // the bar before it; rewriting it here silently removed the preparation and
+    // the modulation went back to arriving unannounced.
+    if (keyPlan[b] && keyPlan[b].foreshadows) continue;
+    const an = FH2.analyzeScale(mt, keyPlan[b].key, keyPlan[b].scaleName) || homeAnalysis;
+    const alt = substituteFor(an, romans[b], romans[b - 1], romans[b + 1]);
+    if (alt) romans[b] = alt.roman;
+  }
+
+  return { romans, keyPlan, modulations, sectionProgressions, devices };
+}
+
+/** Pitch class of a note name, via the theory engine when it knows it. */
+function FH_pcOf(mt, name) {
+  const pc = String(name || '').replace(/-?\d+$/, '');
+  if (mt && mt.noteValues && Number.isFinite(mt.noteValues[pc])) return mt.noteValues[pc];
+  return ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'].indexOf(pc);
+}
+
+/** The pre-functional behaviour, kept as a fallback. */
+function legacyTemplateProgression({ form, barCount, toneTemplates, minorTone, rng }) {
+  const templates = Array.isArray(toneTemplates[0]) ? toneTemplates : [toneTemplates];
+  const pick = () => templates[Math.floor(rng() * templates.length)].slice();
+  const t = pick();
+  const out = [];
+  for (let b = 0; b < barCount; b++) out.push(t[b % t.length]);
+  if (!form) return out;
+  const tonic = minorTone ? 'i' : 'I';
+  form.sections.forEach((s) => {
+    const last = Math.min(barCount - 1, s.endBar);
+    out[last] = s.cadence === 'half' ? 'V' : tonic;
+  });
+  return out;
+}
+
+/**
+ * Is this voicing a faithful rendering of the chord?
+ *
+ * The old test demanded four DISTINCT pitch classes for a four-note chord,
+ * which rejects the single most common thing in four-part writing: doubling the
+ * root. Fourteen of every twenty-one voicings were being thrown away on that
+ * basis, so nearly all the voice-leading work was discarded and the
+ * accompaniment fell back to literal chord tones every time.
+ *
+ * What actually matters is that nothing OUTSIDE the chord sounds, and that the
+ * tones which define its quality are present. The fifth is the omissible one;
+ * the third and the seventh are what make a chord the chord it is.
+ */
+function voicingIsFaithful(mt, chordObj, voices) {
+  const tones = (chordObj && (chordObj.chordNotes || chordObj.diatonicNotes)) || [];
+  if (!tones.length || !voices) return false;
+  const pcOf = (n) => {
+    const nm = String(n).replace(/-?\d+$/, '');
+    return mt && mt.noteValues && Number.isFinite(mt.noteValues[nm]) ? mt.noteValues[nm] : null;
+  };
+  const chordPcs = tones.map(pcOf).filter(Number.isFinite).map(v => ((v % 12) + 12) % 12);
+  if (!chordPcs.length) return false;
+
+  const midis = Object.values(voices).filter(Number.isFinite);
+  if (midis.length < 3) return false;
+  const voicedPcs = midis.map(m => ((m % 12) + 12) % 12);
+
+  // 1. No note outside the chord.
+  if (!voicedPcs.every(pc => chordPcs.includes(pc))) return false;
+
+  // 2. The tones that define the quality must be there. Root and third always;
+  //    the seventh too when the chord has one. The fifth may be dropped.
+  const root = chordPcs[0];
+  const need = [root];
+  const third = chordPcs.find(pc => {
+    const iv = ((pc - root) % 12 + 12) % 12;
+    return iv === 3 || iv === 4;
+  });
+  if (Number.isFinite(third)) need.push(third);
+  const seventh = chordPcs.find(pc => {
+    const iv = ((pc - root) % 12 + 12) % 12;
+    return iv === 10 || iv === 11;
+  });
+  if (Number.isFinite(seventh)) need.push(seventh);
+
+  const have = new Set(voicedPcs);
+  return need.every(pc => have.has(pc));
+}
+
 function generateHarmony(context, arc, seed = 0) {
   const rng = createRNG(seed);
   const mt = window.modularApp && window.modularApp.musicTheory;
@@ -710,10 +1378,66 @@ function generateHarmony(context, arc, seed = 0) {
   };
 
   const toneTemplates = progressionLibrary[context.emotionalTone] || progressionLibrary.balanced;
-  let baseProg = Array.isArray(toneTemplates[0])
-    ? toneTemplates[Math.max(0, Math.min(toneTemplates.length - 1, Math.floor(rng() * toneTemplates.length)))]
-    : toneTemplates;
   const harmony = { chordSequence: [], context };
+  const minorTone = /dark|sad|angry|intense|mysterious/.test(String(context.emotionalTone || ''));
+
+  // THE FORM DECIDES THE PROGRESSION.
+  //
+  // Sections that share a letter share their chord template, which is what
+  // makes a return audible as a return; a primed restatement (A') varies an
+  // interior bar so it develops rather than loops. Every section closes with
+  // the cadence its role asks for — inner sections stay open on V, only the
+  // last one is allowed to resolve. Without this the piece was one four-chord
+  // loop repeated, and nothing in it could be heard as an arrival.
+  const form = (context.form && Array.isArray(context.form.sections) && context.form.sections.length)
+    ? context.form : null;
+  const ccProg = context.complexityControls || { color: 0.5 };
+  // ONE DIAL. Every harmonic device reads this instead of deciding for itself,
+  // so "primary triads only" genuinely means only primary triads rather than
+  // "primary triads plus whatever else happened to roll true this take".
+  const HC = (typeof HarmonyComplexity !== 'undefined') ? HarmonyComplexity : null;
+  const harmonyLevel = Number.isFinite(ccProg.harmony) ? ccProg.harmony
+    : (Number.isFinite(ccProg.color) ? ccProg.color : 0.5);
+  const gate = HC ? HC.gate(harmonyLevel) : null;
+
+  // PER-DEVICE OVERRIDES sit on top of the ladder. The dial sets a sensible
+  // baseline; an override pins one device on or off regardless of where the
+  // dial is, so you can take a plain I–IV–V–I and add ONLY approach chords, or
+  // run everything except modulation. Absent = follow the ladder.
+  const overrides = (typeof window !== 'undefined' && window.__harmonyOverrides) || {};
+  const allow = (k) => (Object.prototype.hasOwnProperty.call(overrides, k) && overrides[k] !== null)
+    ? !!overrides[k]
+    : (!gate || gate.allow[k]);
+
+  // Report the effective state so the UI can show which devices are on and
+  // which of those are ladder defaults versus deliberate overrides.
+  const effective = {};
+  if (gate) Object.keys(gate.allow).forEach(k => { effective[k] = allow(k); });
+  harmony.complexity = gate ? {
+    level: gate.level, label: gate.label,
+    ladder: gate.allow, effective, overrides: { ...overrides }
+  } : null;
+
+  const plan = buildFormProgression({
+    form, barCount, toneTemplates, minorTone, rng,
+    mt, key: currentKey, scaleName: currentScale,
+    colour: harmonyLevel,
+    // The EFFECTIVE gate, not the raw ladder one: passing the raw gate meant
+    // per-device overrides were ignored in here, so forcing modulation off
+    // switched it off everywhere except the one place that creates it.
+    gate: gate ? { ...gate, allow: effective } : null
+  });
+  let baseProg = plan.romans;
+  // Which key each bar is IN. A modulating bridge builds its chords in the new
+  // key, and the melody follows through the same plan.
+  const keyPlan = plan.keyPlan || [];
+  const keyAt = (bar) => keyPlan[bar] || { key: currentKey, scaleName: currentScale, home: true };
+  const sectionAt = (bar) => (form && form.sectionOfBar && form.sectionOfBar[bar]) || null;
+  harmony.form = form;
+  harmony.keyPlan = keyPlan;
+  harmony.modulations = plan.modulations || [];
+  harmony.sectionProgressions = plan.sectionProgressions || {};
+  harmony.devices = plan.devices || [];
 
   // MODAL-BLEND CADENCE ("the triumphant lift").
   //
@@ -725,19 +1449,17 @@ function generateHarmony(context, arc, seed = 0) {
   // per-bar dice roll, so the arrival is intentional and lands in the same
   // place every take at a given seed.
   const ccCad = context.complexityControls || { color: 0.5 };
-  const minorTone = /dark|sad|angry|intense|mysterious/.test(String(context.emotionalTone || ''));
   let picardyBar = -1;
   if (minorTone && barCount >= 3) {
     // Lifts are a payoff, so they want either an emotional arc that has been
     // building or an explicit appetite for colour.
     const lift = clamp01((context.globalTension || 0) * 0.5 + (ccCad.color || 0.5) * 0.5);
     if (rng() < lift * 0.75) {
-      const prog = baseProg.slice(0, Math.max(1, barCount));
-      while (prog.length < barCount) prog.push(baseProg[prog.length % baseProg.length]);
-      prog[barCount - 3] = 'bVI';
-      prog[barCount - 2] = 'bVII';
-      prog[barCount - 1] = 'I';
-      baseProg = prog;
+      // The lift belongs at the piece's real ending, which with a form is the
+      // final section's cadence rather than simply the last three bars.
+      baseProg[barCount - 3] = 'bVI';
+      baseProg[barCount - 2] = 'bVII';
+      baseProg[barCount - 1] = 'I';
       picardyBar = barCount - 1;
     }
   }
@@ -758,11 +1480,48 @@ function generateHarmony(context, arc, seed = 0) {
     // Modal Interchange Chance (Borrowed Chords)
     // Scales with tension and with the user's harmonic-color setting.
     const ccBorrow = context.complexityControls || { color: 0.5 };
-    const borrowChance = Math.max(0, Math.min(0.7, (context.globalTension || 0) * 0.45 + (ccBorrow.color || 0.5) * 0.35));
+    const barSection = sectionAt(bar);
+    const sectionTension = barSection ? (barSection.tensionBias || 0) : 0;
+    // Once the dial switches borrowing ON it has to be AUDIBLE. This used to be
+    // driven mostly by the text's tension, so a calm phrase produced roughly
+    // one borrowed chord per four takes — indistinguishable from the step below
+    // it, which defeats the point of a control that claims to have turned
+    // something on.
+    let borrowChance = allow('borrowedChords')
+      ? Math.max(0, Math.min(0.75,
+          0.25 + harmonyLevel * 0.4
+          + (context.globalTension || 0) * 0.2 + sectionTension * 0.3))
+      : 0;
+
+    // THE HEAD OF A RETURNING THEME IS WHAT IDENTIFIES IT. A theme is
+    // recognised from its first bar or two; vary those and the return stops
+    // being a return. Later bars are fair game — varying the approach to the
+    // cadence is how a restatement stays interesting — so the protection
+    // tapers rather than switching off.
+    if (barSection && barSection.themeOccurrence > 0) {
+      const intoSection = bar - barSection.startBar;
+      // Just the opening bar. Protecting half the section left a 4-bar
+      // restatement with almost nowhere a borrow could land, so the device was
+      // effectively off even when the dial said it was on.
+      if (intoSection === 0) borrowChance *= 0.25;
+    }
     // The modal-blend cadence is a composed gesture; a random substitution
     // landing on one of its three bars would break the ♭VI–♭VII–I shape that
-    // makes the lift work.
-    const inCadence = picardyBar >= 0 && bar >= picardyBar - 2;
+    // makes the lift work. A section's own cadence bar is protected for the
+    // same reason: a borrowed chord there undoes the arrival the form asked for.
+    // The cadence is the LAST TWO bars: the dominant and its resolution. An
+    // earlier version protected only the final bar, so a "V → I" close kept
+    // having its V borrowed away to ♭VII — which turns a perfect cadence into
+    // a backdoor one and quietly undoes the arrival the whole section was
+    // built toward.
+    // Protect the cadence goal always, and the bar before it only when that bar
+    // is actually the dominant setting it up. Blanket-protecting both removed
+    // half of every four-bar section from consideration.
+    const isCadenceGoal = barSection && bar === barSection.endBar;
+    const isCadentialDominant = barSection && bar === barSection.endBar - 1
+      && /^V$/i.test(String(baseProg[bar] || '').replace(/[^ivxIVX]/g, ''));
+    const inCadence = (picardyBar >= 0 && bar >= picardyBar - 2)
+      || isCadenceGoal || isCadentialDominant;
     if (!inCadence && rng() < borrowChance) {
         const tone = context.emotionalTone;
         let borrowMap = null;
@@ -779,12 +1538,24 @@ function generateHarmony(context, arc, seed = 0) {
             borrowMap = { 'IV': 'iv', 'V': 'bVII' };
             borrowType = 'color-borrow';
         }
-        const nextRoman = (borrowMap && borrowMap[roman]) || roman;
+        let nextRoman = (borrowMap && borrowMap[roman]) || roman;
+        // A borrow that lands on the chord already sounding in the previous bar
+        // is not colour, it is the same chord held for two bars — and because
+        // this step runs AFTER the progression's own adjacent-repeat pass, it
+        // was reintroducing exactly the repeats that pass had removed.
+        if (bar > 0 && nextRoman === baseProg[bar - 1]) nextRoman = roman;
         if (nextRoman !== roman) borrowedInfo = { type: borrowType, from: roman, to: nextRoman };
         roman = nextRoman;
+        baseProg[bar] = roman;
     }
 
     let chordObj = null;
+    // The bar's OWN key. A modulating section builds its chords in the key it
+    // moved to; using the home key throughout would print the right roman
+    // numerals over the wrong chords.
+    const barKeyPlan = keyAt(bar);
+    const barKey = barKeyPlan.key || currentKey;
+    const barScale = barKeyPlan.scaleName || currentScale;
     if (mt) {
       const degree = romanToDegree(roman);
 
@@ -794,11 +1565,11 @@ function generateHarmony(context, arc, seed = 0) {
         // current scale's diatonic degree would double-flatten in minor modes
         // (bVI of C aeolian must be Ab, not G).
         try {
-          const baseDiatonic = mt.getDiatonicChord(degree, currentKey, currentScale);
+          const baseDiatonic = mt.getDiatonicChord(degree, barKey, barScale);
           const majorDegSemis = [0, 2, 4, 5, 7, 9, 11];
           const semis = majorDegSemis[(degree - 1) % 7] + (roman.includes('b') ? -1 : 1);
           let alteredRoot = (typeof mt.transposeNote === 'function')
-            ? mt.transposeNote(currentKey, semis)
+            ? mt.transposeNote(barKey, semis)
             : baseDiatonic.root;
           // Flatted romans read better with flat spellings (Abmaj7, not G#maj7).
           if (roman.includes('b') && String(alteredRoot).includes('#')
@@ -847,12 +1618,42 @@ function generateHarmony(context, arc, seed = 0) {
             roman
           };
         } catch (e) {
-          chordObj = mt.getDiatonicChord(degree, currentKey, currentScale);
+          chordObj = mt.getDiatonicChord(degree, barKey, barScale);
         }
       } else {
-        chordObj = mt.getDiatonicChord(degree, currentKey, currentScale);
+        chordObj = mt.getDiatonicChord(degree, barKey, barScale);
         // Preserve the requested roman numeral for downstream logic (secondary dominants, etc.)
         try { if (chordObj) chordObj.roman = roman; } catch (_) {}
+
+        // SPELL THE CHORD THE WAY ITS KEY IS SPELLED. The theory engine hands
+        // back a pitch, not a spelling preference, so the fifth degree of B
+        // major came out as G♭maj7 — right note, wrong name, and unreadable
+        // next to five sharps. A sharp key gets sharp roots and a flat key
+        // flat ones.
+        try {
+          const keyIsFlat = /b/.test(String(barKey).slice(1));
+          const rootHasWrongAccidental = chordObj &&
+            (keyIsFlat ? /#/.test(String(chordObj.root)) : /b/.test(String(chordObj.root).slice(1)));
+          if (rootHasWrongAccidental && mt.noteValues
+              && typeof mt.spellSemitoneWithPreference === 'function') {
+            const v = mt.noteValues[chordObj.root];
+            const respelled = Number.isFinite(v) ? mt.spellSemitoneWithPreference(v, keyIsFlat, null) : null;
+            if (respelled && respelled !== chordObj.root) {
+              let notes = chordObj.chordNotes || chordObj.diatonicNotes || [];
+              if (typeof mt.spellNotesForRoot === 'function') {
+                const rn = mt.spellNotesForRoot(respelled, notes);
+                if (Array.isArray(rn) && rn.length === notes.length) notes = rn;
+              }
+              chordObj = {
+                ...chordObj,
+                root: respelled,
+                chordNotes: notes,
+                diatonicNotes: notes,
+                fullName: String(chordObj.fullName || '').replace(chordObj.root, respelled) || respelled
+              };
+            }
+          }
+        } catch (_) {}
         // Borrowed lowercase romans (iv, v) request minor quality even when the
         // diatonic chord at that degree is major — apply the interchange.
         try {
@@ -873,10 +1674,61 @@ function generateHarmony(context, arc, seed = 0) {
             }
           }
         } catch (_) {}
+
+        // THE MINOR-KEY DOMINANT. In aeolian, dorian and phrygian the fifth
+        // degree is a minor triad, which has no leading tone and therefore
+        // cannot cadence — asking for "V" and printing Gm7 in C minor is why
+        // minor-key endings never arrived. Real minor-key writing raises that
+        // third, and that raised note is the whole reason harmonic minor
+        // exists. An uppercase V is a request for the functioning dominant.
+        try {
+          const wantsMajorDominant = /^V7?$/.test(String(roman))
+            && chordObj && /^(m7|m|min|minor|m9|m6)$/.test(String(chordObj.chordType));
+          if (wantsMajorDominant && typeof mt.getChordNotes === 'function') {
+            const dNotes = mt.getChordNotes(chordObj.root, '7') || [];
+            if (dNotes.length) {
+              chordObj = {
+                ...chordObj,
+                chordType: '7',
+                chordNotes: dNotes,
+                diatonicNotes: dNotes,
+                fullName: `${chordObj.root}7`,
+                roman,
+                raisedLeadingTone: true
+              };
+            }
+          }
+        } catch (_) {}
       }
     }
-    
+
     if (!chordObj) chordObj = { root: currentKey, chordType: 'major', fullName: currentKey, roman: 'I' };
+
+    // PLAIN TRIADS BELOW THE SEVENTH-CHORD STEP. The generator is built around
+    // 7th chords throughout, which is right for most of its range and wrong at
+    // the bottom of it: someone learning what I–IV–V sounds like should hear
+    // I–IV–V, not Imaj7–IVmaj7–V7.
+    if (gate && !allow('seventhChords') && mt && typeof mt.getChordNotes === 'function') {
+      try {
+        const t = String(chordObj.chordType || '');
+        const triad = /^(m|min)/i.test(t) && !/maj/i.test(t) ? 'm'
+          : /dim|m7b5|°|ø/i.test(t) ? 'dim'
+          : /aug|\+/i.test(t) ? 'aug'
+          : 'maj';
+        const notes = mt.getChordNotes(chordObj.root, triad) || [];
+        if (notes.length) {
+          chordObj = {
+            ...chordObj,
+            chordType: triad,
+            chordNotes: notes,
+            diatonicNotes: notes,
+            fullName: triad === 'maj' ? String(chordObj.root)
+              : triad === 'm' ? `${chordObj.root}m`
+              : `${chordObj.root}${triad}`
+          };
+        }
+      } catch (_) {}
+    }
 
     // The picardy tonic: force major even though the parent scale says minor.
     // This one borrowed third is the whole point of the gesture — resolving to
@@ -959,9 +1811,7 @@ function generateHarmony(context, arc, seed = 0) {
             .filter(Number.isFinite));
           const midis = Object.values(v.voices).filter(Number.isFinite);
           const voicedPcs = midis.map(m => ((m % 12) + 12) % 12);
-          const ok = pcs.size > 0 && midis.length > 0
-            && voicedPcs.every(pc => pcs.has(pc))
-            && new Set(voicedPcs).size >= Math.min(4, pcs.size);
+          const ok = voicingIsFaithful(mt, chordObj, v.voices);
           if (!ok) { voicings[i] = null; rejected++; }
         });
         harmony.voicingSettings = { voicing: globalVoicing, register: globalRegister, overrides, rejected };
@@ -1003,13 +1853,22 @@ function generateHarmony(context, arc, seed = 0) {
     }
   } catch (_) {}
 
+  // The last bar that got an approach run, so the next one can be left plain.
+  let lastApproachBar = -2;
+
   for (let bar = 0; bar < barCount; bar++) {
     const chordObj = resolvedBarChords[bar];
     const voicing = voicings ? voicings[bar] : null;
     const borrowedInfo = borrowedFlags[bar] || null;
-    
+    const section = sectionAt(bar);
+    const eventKeyPlan = keyAt(bar);
+
     // Density logic: high energy or busy rhythm setting = two chords per bar.
-    const density = (context.overallEnergy > 0.8 || cc.rhythm > 0.72) ? 2 : 1;
+    // A section that is meant to lean (bridge, climax) takes the busier
+    // treatment even when the piece as a whole is calm — that contrast is what
+    // makes the return feel like a settling.
+    const sectionActivity = section ? (section.activityBias || 0) + (section.energyBias || 0) : 0;
+    const density = ((context.overallEnergy + sectionActivity) > 0.8 || cc.rhythm > 0.72) ? 2 : 1;
     const duration = beatsPerBar / density;
 
     for (let d = 0; d < density; d++) {
@@ -1031,10 +1890,58 @@ function generateHarmony(context, arc, seed = 0) {
         chordObj: chordObj,
         roman: chordObj.roman || baseProg[bar % baseProg.length],
         energy,
-        texture: energy > 0.7 ? 'PLUCKED' : 'PAD'
+        texture: energy > 0.7 ? 'PLUCKED' : 'PAD',
+        section: section ? section.label : null,
+        sectionRole: section ? section.role : null,
+        sectionStart: !!(section && bar === section.startBar && d === 0),
+        barKey: eventKeyPlan.key || currentKey,
+        barScale: eventKeyPlan.scaleName || currentScale,
+        inHomeKey: eventKeyPlan.home !== false,
+        // Which named progression this bar belongs to ("2-5-1", "vi–IV–I–V"),
+        // so the sheet and the provenance panel can say what is being played
+        // rather than only which chord.
+        progression: (section && harmony.sectionProgressions[section.label]) || null
       };
 
-      if (borrowedInfo && borrowedInfo.type === 'modal-blend') {
+      // Compositional devices land on specific bars and explain themselves.
+      const deviceHere = (harmony.devices || []).find(x => x.bar === bar);
+      if (deviceHere && d === 0) {
+        event.device = deviceHere.type;
+        event.explain = deviceHere.explain;
+      }
+
+      // When a bar is in a borrowed key, the melody and the scale timeline have
+      // to follow it there — otherwise the tune keeps playing the home scale
+      // over chords that left it.
+      if (eventKeyPlan.home === false && mt) {
+        try {
+          const evKey = eventKeyPlan.key || currentKey;
+          const evScale = eventKeyPlan.scaleName || currentScale;
+          const modNotes = (typeof mt.getScaleNotesWithKeySignature === 'function')
+            ? mt.getScaleNotesWithKeySignature(evKey, evScale)
+            : mt.getScaleNotes(evKey, evScale);
+          if (modNotes && modNotes.length) {
+            event.scaleHint = { root: evKey, scaleName: evScale, scaleNotes: modNotes, reason: 'modulation' };
+            event.scaleHintNotes = modNotes;
+          }
+        } catch (_) {}
+      }
+      const modHere = (harmony.modulations || []).find(m => m.startBar === bar);
+      if (modHere && d === 0) {
+        event.explain = `Modulation to ${modHere.toKey} ${formatScaleNameForDisplay(modHere.toScale)} `
+          + `(the ${modHere.relation})`
+          + (modHere.pivotChord
+              ? ` — pivoted through ${modHere.pivotChord}, which is ${modHere.pivotRomanHome} at home and `
+                + `${modHere.pivotRomanNew} there`
+              : '');
+      } else if (eventKeyPlan.pivot && d === 0) {
+        event.explain = `Pivot chord: diatonic in both keys, so the modulation is prepared rather than announced`;
+      }
+
+      // A modulation is the larger event and keeps its explanation.
+      if (event.explain) {
+        // already explained above
+      } else if (borrowedInfo && borrowedInfo.type === 'modal-blend') {
         event.explain = `Modal blend cadence: ♭VI–♭VII–${event.chord} — both approach triads are already in the minor scale; `
           + `only the final major third is borrowed, turning the ending triumphant`;
       } else if (borrowedInfo && borrowedInfo.to) {
@@ -1054,7 +1961,7 @@ function generateHarmony(context, arc, seed = 0) {
       // backdoor, octatonic dim7 planing, chromatic planing, or a walk borrowed
       // from another scale that shares the target chord. Each inserted chord
       // carries a scaleHint so melody + timeline follow the borrowed scale.
-      if (approachEngine && d === density - 1 && bar < barCount - 1) {
+      if (approachEngine && allow('approachChords') && d === density - 1 && bar < barCount - 1) {
           const nextChord = resolvedBarChords[bar + 1];
           if (nextChord) {
               const tension = clamp01(context.globalTension || 0);
@@ -1103,19 +2010,38 @@ function generateHarmony(context, arc, seed = 0) {
               else if (/^(ii|vi)$/i.test(tgtRoman)) functionalWeight = 0.34;
               else functionalWeight = 0.15;
 
+              // A section boundary is the strongest arrival in the piece:
+              // walking INTO the top of the next section is the moment the ear
+              // is already listening for, so it earns the approach outright.
+              const nextSection = sectionAt(bar + 1);
+              const crossesSection = !!(nextSection && section && nextSection !== section);
+              if (crossesSection) functionalWeight = Math.max(functionalWeight, 0.8);
+
               // The colour slider scales the whole appetite; emphasis and
               // tension nudge it. Function decides WHERE, the sliders decide
-              // HOW MUCH.
-              const prob = Math.min(0.95, functionalWeight
+              // HOW MUCH — and the form decides which passes get the lavish
+              // treatment, so a restatement is heard as a development of the
+              // plainer first statement rather than more of the same.
+              const sectionAppetite = Math.min(1.35, nextSection ? (nextSection.approachBias || 1) : 1);
+              let prob = Math.min(0.95, functionalWeight
                 * (0.45 + (cc.color || 0.5) * 0.85)
+                * sectionAppetite
                 + targetEmphasis * 0.2
                 + tension * 0.06);
+
+              // BREATHING ROOM. An approach into every bar is not a series of
+              // moments, it is the texture — and once it is the texture nothing
+              // in it can stand out. A decorated bar therefore suppresses the
+              // next one unless the next arrival is a section boundary, which
+              // outranks the spacing rule because it is the bigger event.
+              if (lastApproachBar === bar - 1 && !crossesSection) prob *= 0.28;
 
               if (rng() < prob) {
                   // Leave at least half the bar to the main chord; high color
                   // settings may steal up to half the bar for longer runs.
+                  const lavish = (cc.color || 0.5) > 0.7 || targetEmphasis > 0.6 || crossesSection;
                   const maxBeats = event.duration >= 4
-                    ? (((cc.color || 0.5) > 0.7 || targetEmphasis > 0.6) ? 2 : 1.5)
+                    ? (lavish ? 2 : 1.5)
                     : (event.duration >= 2 ? 1 : 0.5);
                   const plan = approachEngine.plan({
                       // Word-generated music takes only chords that are real
@@ -1131,11 +2057,15 @@ function generateHarmony(context, arc, seed = 0) {
                       energy: clamp01(context.overallEnergy || 0),
                       rng,
                       maxBeats,
-                      // Emphasised targets get spicier approaches.
-                      colorLevel: Math.min(1, (cc.color != null ? cc.color : 0.5) + targetEmphasis * 0.25)
+                      // Emphasised targets get spicier approaches, and so does
+                      // the run into a new section.
+                      colorLevel: Math.min(1, (cc.color != null ? cc.color : 0.5)
+                        + targetEmphasis * 0.25
+                        + (crossesSection ? 0.15 : 0))
                   });
 
                   if (plan && plan.events.length && event.duration > plan.steal) {
+                      lastApproachBar = bar;
                       event.duration -= plan.steal;
                       let apBeat = beatsPerBar - plan.steal;
                       for (const ap of plan.events) {
@@ -1151,6 +2081,9 @@ function generateHarmony(context, arc, seed = 0) {
                               explain: ap.explain || null,
                               approachStrategy: plan.strategy,
                               approachFamily: plan.family,
+                              approachTarget: nextChord.fullName,
+                              approachTargetRoman: nextChord.roman || null,
+                              intoSection: crossesSection && nextSection ? nextSection.label : null,
                               energy: Math.min(1, energy * 1.1),
                               texture: 'STACCATO'
                           });
@@ -1169,7 +2102,10 @@ function generateHarmony(context, arc, seed = 0) {
     const tone = String(context.emotionalTone || '').toLowerCase();
     const tension = clamp01(context.globalTension || 0);
     const allowColor = ['joyful', 'hopeful', 'playful', 'balanced', 'calm', 'dreamy'].includes(tone);
-    if (allowColor && tension > 0.45 && mt && barCount >= 2) {
+    // This borrows a whole scale for the last bar, so it belongs behind the
+    // borrowed-chord step like everything else. It was firing at every setting,
+    // including the one meant to produce nothing but primary triads.
+    if (allowColor && allow('borrowedChords') && tension > 0.45 && mt && barCount >= 2) {
       const tonic = currentKey;
       const borrowedScaleName = 'mixolydian_b6';
       const borrowedNotes = getScaleNotesSafe(tonic, borrowedScaleName);
@@ -1282,9 +2218,7 @@ function revoiceHarmonyAgainstMelody(harmony, melody, context) {
         .filter(Number.isFinite));
       const midis = Object.values(v.voices).filter(Number.isFinite);
       const voicedPcs = midis.map(m => ((m % 12) + 12) % 12);
-      const ok = pcs.size > 0 && midis.length > 0
-        && voicedPcs.every(pc => pcs.has(pc))
-        && new Set(voicedPcs).size >= Math.min(4, pcs.size);
+      const ok = voicingIsFaithful(mt, ev.chordObj, v.voices);
       if (ok) { ev.voicing = v.voices; kept++; }
     });
 
@@ -2142,12 +3076,25 @@ function buildScaleTimeline(context, arc, harmony) {
 /**
  * Derive a home key from the words themselves: positive valence lands on the
  * sharp side of the circle of fifths, negative on the flat side, and the word
- * hash + arousal pick the depth. Deterministic per input so the same words
- * always come back in the same key.
+ * hash + arousal pick the depth.
+ *
+ * The words choose the REGION of the circle; the take's seed chooses where in
+ * that region this particular generation lands, and the last few keys used are
+ * skipped. Keying purely off a hash of the input meant a phrase had exactly one
+ * key for all time, and — because the sharp/flat lists were six entries long —
+ * everything unrecognised by the lexicon (valence 0, arousal 0) collapsed onto
+ * the same six sharp keys.
  */
-function deriveRootFromLexical(lexical, input) {
-  const sharps = ['C', 'G', 'D', 'A', 'E', 'B'];
-  const flats = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'];
+function deriveRootFromLexical(lexical, input, seed) {
+  // Six accidentals is the practical limit in both directions; C♭ major's seven
+  // flats is legal and nothing anyone wants to read.
+  // Ordered by how many accidentals the key signature carries. Six-flat and
+  // six-sharp keys are legal and nobody wants to read them, so the lists stop
+  // at four and the far end of the circle is simply not reached — a generated
+  // piece in G♭ aeolian-harmonic prints an accidental on almost every note
+  // before a single borrowed chord has been added.
+  const sharps = ['C', 'G', 'D', 'A', 'E'];
+  const flats = ['C', 'F', 'Bb', 'Eb', 'Ab'];
   const valence = (lexical && Number.isFinite(lexical.avgValence)) ? lexical.avgValence : 0;
   const arousal = (lexical && Number.isFinite(lexical.avgArousal)) ? lexical.avgArousal : 0;
 
@@ -2158,9 +3105,184 @@ function deriveRootFromLexical(lexical, input) {
 
   const side = valence >= 0 ? sharps : flats;
   // Higher arousal pushes toward "hotter" keys (more accidentals).
-  const bias = Math.floor(Math.abs(arousal) * 2.5);
-  const idx = Math.min(side.length - 1, (Math.abs(hash) % (side.length - bias > 0 ? side.length - bias : side.length)) + bias);
-  return side[idx];
+  // Arousal pushes toward keys with more accidentals, but only a little: it
+  // used to reach a factor of 2.5, which parked high-energy words permanently
+  // at the sharp/flat extremes.
+  const bias = Math.floor(Math.abs(arousal) * 1.5);
+  const centre = Math.min(side.length - 1,
+    (Math.abs(hash) % Math.max(1, side.length - bias)) + bias);
+
+  // A window around the word-derived centre: the phrase still has a home
+  // region, but successive takes move within it.
+  const jitter = Number.isFinite(seed)
+    ? (Math.abs((Number(seed) ^ hash) >>> 0) % 3) - 1
+    : 0;
+  const recent = recentKeyPicks();
+  const order = [centre + jitter, centre, centre + 1, centre - 1, centre + 2, centre - 2]
+    .map(i => side[Math.max(0, Math.min(side.length - 1, i))]);
+
+  const pick = order.find(k => k && !recent.includes(k)) || order[0] || side[centre];
+  rememberKeyPick(pick);
+  return pick;
+}
+
+/**
+ * Split the finished harmony and melody into a left-hand accompaniment and a
+ * right-hand melody. Degrades to no piano part if the engine is unavailable,
+ * in which case the sheet falls back to its previous single-staff behaviour.
+ */
+function buildPianoTexture(context, arc, harmony, melody, seed) {
+  try {
+    if (typeof PianoTextureEngine === 'undefined') return null;
+    const mt = window.modularApp && window.modularApp.musicTheory;
+    const engine = new PianoTextureEngine(mt);
+    return engine.build({ harmony, melody, context, arc, seed });
+  } catch (err) {
+    console.warn('[ArcInit] piano texture failed', err);
+    return null;
+  }
+}
+
+/**
+ * Pick a metre for THIS take.
+ *
+ * ContextEngine derives one from the words with hard thresholds — anything
+ * whose horizontal motion clears 0.55 returns 5/4 — and because that function
+ * has no notion of a take, a phrase that tripped the threshold was locked in
+ * 5/4 permanently. Regenerating never released it, which is the same failure
+ * the key and scale had: word-derived meaning is right, but a single derived
+ * ANSWER is not, because metre is an interpretation of the words rather than a
+ * property of them.
+ *
+ * Explicit requests are still absolute. "waltz", "3/4", "in seven" are
+ * instructions, and instructions are obeyed every time.
+ */
+function chooseTimeSignature(rich, phraseChar, input, seed) {
+  const text = String(input || '').toLowerCase();
+
+  // 1. An explicit metre, or a word that names one, is binding.
+  const explicit = text.match(/\b([2-9]|1[0-2])\s*\/\s*([248])\b/);
+  if (explicit) return `${explicit[1]}/${explicit[2]}`;
+  if (/\bwaltz\b|\bthree[- ]?four\b/.test(text)) return '3/4';
+  if (/\bmarch\b|\bcut ?time\b/.test(text)) return '2/4';
+  if (/\bjig\b|\bsix[- ]?eight\b/.test(text)) return '6/8';
+
+  // 2. Otherwise the words set a TENDENCY and the take chooses inside it.
+  //    Common metres always keep some weight, so nothing is ever trapped in an
+  //    odd one; the unusual metres have to be actively earned.
+  const motion = phraseChar && Number.isFinite(phraseChar.motion) ? phraseChar.motion : 0.35;
+  const arousal = phraseChar && Number.isFinite(phraseChar.arousal) ? phraseChar.arousal : 0;
+  const sustain = phraseChar && Number.isFinite(phraseChar.sustain) ? phraseChar.sustain : 0.5;
+
+  const weights = {
+    '4/4': 1.0 + (1 - motion) * 0.4,
+    '3/4': 0.45 + sustain * 0.5 + Math.max(0, -arousal) * 0.4,
+    '6/8': 0.3 + Math.max(0, arousal) * 0.5 + motion * 0.25,
+    '2/4': 0.22 + Math.max(0, arousal) * 0.3,
+    '5/4': 0.10 + Math.max(0, motion - 0.55) * 0.9,
+    '7/8': 0.06 + Math.max(0, motion - 0.7) * 0.8
+  };
+
+  // The metre ContextEngine inferred keeps a thumb on the scale — the words
+  // did point that way — without being the only possible answer.
+  const inferred = rich && rich.timeSignature;
+  if (inferred && weights[inferred] !== undefined) weights[inferred] *= 1.8;
+
+  // Don't repeat the previous take's metre when something else is available.
+  const recent = (typeof window !== 'undefined' && window.__lastTimeSignature) || null;
+  if (recent && weights[recent] !== undefined) weights[recent] *= 0.35;
+
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+  if (Number.isFinite(seed)) {
+    hash = Math.imul(hash ^ Math.floor(seed), 0x27d4eb2d) | 0;
+    hash = (hash ^ (hash >>> 15)) | 0;
+  }
+  const total = Object.values(weights).reduce((a, b) => a + b, 0);
+  let r = (Math.abs(hash) % 10000) / 10000 * total;
+  let pick = '4/4';
+  for (const [sig, w] of Object.entries(weights)) {
+    if ((r -= w) < 0) { pick = sig; break; }
+  }
+  try { window.__lastTimeSignature = pick; } catch (_) {}
+  return pick;
+}
+
+/**
+ * Ask the form planner for a shape, sized from how much text there is to set.
+ * Falls back to the old single 4-bar phrase if the planner is unavailable, so
+ * a missing script degrades to the previous behaviour rather than throwing.
+ */
+function planFormFor(context, profile, seed, beatsPerBar) {
+  try {
+    if (typeof FormPlanner === 'undefined' || !FormPlanner || typeof FormPlanner.plan !== 'function') return null;
+    const tokens = Array.isArray(context.wordTokens) ? context.wordTokens : [];
+    const wordCount = tokens.length
+      || String((profile && profile.rawInput) || '').split(/\s+/).filter(Boolean).length
+      || 1;
+    const syllableCount = tokens.reduce((s, w) => s + ((w.syllables || []).length || 1), 0) || wordCount;
+    return FormPlanner.plan({
+      wordCount,
+      syllableCount,
+      energy: context.overallEnergy,
+      tension: context.globalTension,
+      tone: context.emotionalTone,
+      seed,
+      beatsPerBar
+    });
+  } catch (err) {
+    console.warn('[ArcInit] form planning failed', err);
+    return null;
+  }
+}
+
+/** Stretch/shrink a planned form onto a bar count someone else decided. */
+function rescaleFormToBars(form, bars) {
+  if (!form || !Array.isArray(form.sections) || !form.sections.length) return form;
+  if (form.bars === bars) return form;
+  const n = form.sections.length;
+  const unit = Math.max(1, Math.floor(bars / n));
+  let cursor = 0;
+  const sections = form.sections.map((s, i) => {
+    const len = (i === n - 1) ? Math.max(1, bars - cursor) : unit;
+    const out = { ...s, startBar: cursor, bars: len, endBar: cursor + len - 1 };
+    cursor += len;
+    return out;
+  });
+  const sectionOfBar = new Array(bars).fill(null);
+  sections.forEach((s) => {
+    for (let b = s.startBar; b <= s.endBar && b < bars; b++) sectionOfBar[b] = s;
+  });
+  return { ...form, bars, unitBars: unit, sections, sectionOfBar,
+    summary: sections.map(s => s.label).join(' ') + ` · ${bars} bars` };
+}
+
+// --- Recent-pick memory -----------------------------------------------------
+// Two consecutive generations landing on the same key/scale reads as "it isn't
+// listening", even when both picks are individually defensible. Keeping a short
+// history and stepping past it costs nothing musically and makes successive
+// takes audibly distinct.
+function recentKeyPicks() {
+  if (typeof window === 'undefined') return [];
+  return Array.isArray(window.__recentGenKeys) ? window.__recentGenKeys : [];
+}
+function rememberKeyPick(key) {
+  if (typeof window === 'undefined' || !key) return;
+  const list = recentKeyPicks().slice();
+  list.push(key);
+  while (list.length > 3) list.shift();
+  window.__recentGenKeys = list;
+}
+function recentScalePicks() {
+  if (typeof window === 'undefined') return [];
+  return Array.isArray(window.__recentGenScales) ? window.__recentGenScales : [];
+}
+function rememberScalePick(scale) {
+  if (typeof window === 'undefined' || !scale) return;
+  const list = recentScalePicks().slice();
+  list.push(scale);
+  while (list.length > 3) list.shift();
+  window.__recentGenScales = list;
 }
 
 /**

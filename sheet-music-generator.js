@@ -549,6 +549,15 @@ class SheetMusicGenerator {
 		this.state.barDurations = barDurations;  // NEW: Store durations for renderer
 		this.state.barBeatEvents = barBeatEvents; // NEW: Store beat events
 		this.state.barMode = 'per-bar';
+		this.state.form = phrase.form || null;
+
+		// Wrap systems at the section length so each line of the staff IS one
+		// section of the form. Generated pieces are now 8–24 bars, and the
+		// default 'auto' put all of them on one enormously wide scrolling
+		// system, where the shape is impossible to see.
+		if (phrase.form && Number.isFinite(phrase.form.unitBars) && !this.state.barsPerLineUserSet) {
+			this.state.barsPerLine = Math.max(2, Math.min(8, phrase.form.unitBars));
+		}
 
 		// Use the existing setBarChords pipeline for rendering.
 		// Flagged so the phrase we just installed isn't immediately retired.
@@ -743,6 +752,8 @@ class SheetMusicGenerator {
 		});
 		bplSelect.value = this.state.barsPerLine ? String(this.state.barsPerLine) : 'auto';
 		bplSelect.addEventListener('change', () => {
+			// Once chosen by hand, generation stops overriding it.
+			this.state.barsPerLineUserSet = true;
 			this.state.barsPerLine = bplSelect.value === 'auto' ? null : parseInt(bplSelect.value, 10);
 			try { localStorage.setItem('sheetBarsPerLine', bplSelect.value); } catch (_) {}
 			this._scheduleRender();
@@ -1926,10 +1937,30 @@ class SheetMusicGenerator {
                  svg.appendChild(dot);
              }
 
+             // Tenuto: hold the note its full value. Drawn as the standard
+             // short horizontal stroke on the side away from the stem.
+             if (options.articulation === 'tenuto') {
+                 const bar = document.createElementNS(svgNS, 'line');
+                 bar.setAttribute('x1', String(articulateX - 5));
+                 bar.setAttribute('y1', String(articulationY));
+                 bar.setAttribute('x2', String(articulateX + 5));
+                 bar.setAttribute('y2', String(articulationY));
+                 bar.setAttribute('stroke', color);
+                 bar.setAttribute('stroke-width', '1.5');
+                 bar.setAttribute('stroke-linecap', 'round');
+                 bar.style.pointerEvents = 'none';
+                 svg.appendChild(bar);
+             }
+
              if (options.accent) {
-                 // Accent wedge drawn as a path (font-independent)
+                 // Accent wedge drawn as a path (font-independent). Stacked
+                 // outside any staccato dot / tenuto stroke rather than on top
+                 // of it, which is also where an engraver puts it.
+                 const accentY = options.articulation
+                     ? (isUp ? articulationY + 8 : articulationY - 8)
+                     : articulationY;
                  const accent = document.createElementNS(svgNS, 'path');
-                 accent.setAttribute('d', `M ${articulateX - 5} ${articulationY - 3} L ${articulateX + 5} ${articulationY} L ${articulateX - 5} ${articulationY + 3}`);
+                 accent.setAttribute('d', `M ${articulateX - 5} ${accentY - 3} L ${articulateX + 5} ${accentY} L ${articulateX - 5} ${accentY + 3}`);
                  accent.setAttribute('stroke', color);
                  accent.setAttribute('stroke-width', '1.6');
                  accent.setAttribute('fill', 'none');
@@ -4830,11 +4861,95 @@ class SheetMusicGenerator {
 						// Track chord labels so we don't duplicate symbols every beat.
 						let __lastChordLabel = null;
 						let __chordLabelsDrawnInBar = 0;
+						// Right edge of the last chord symbol drawn, and which row it
+						// sat on. Approach runs put three or four symbols inside half
+						// a bar, and with each anchored at its own beat they
+						// overprinted into unreadable soup ("BmCm7Ebmaj7b5").
+						let __lastLabelRight = -1e9;
+						let __labelRow = 0;
                         const __barEVals = bar.beats.map(b => b.energy || 0);
                         const __barEMin = Math.min(...__barEVals).toFixed(3);
                         const __barEMax = Math.max(...__barEVals).toFixed(3);
 
                         console.log(`[Sheet] ━━━ Bar ${barIndex + 1} | key=${bar.key||phrase.startKey||'?'} scale=${bar.scale||'?'} | ${phraseBeatsPerBar}/${phrase.beatUnit||4} | events=${bar.beats.length} | energy=${__barEMin}→${__barEMax}`);
+
+                        // REHEARSAL LETTER. The form is the point of a piece
+                        // this long; without a mark on the staff the listener
+                        // has to infer where A ends and B begins from the music
+                        // alone, which is exactly what these letters exist to
+                        // spare a reader.
+                        if (bar.sectionStart && bar.sectionLabel && (rowTreble || rowBass)) {
+                            const boxY = (rowTreble || rowBass).topY - 30;
+                            const box = document.createElementNS(svgNS, 'rect');
+                            box.setAttribute('x', String(barX - 4));
+                            box.setAttribute('y', String(boxY - 12));
+                            box.setAttribute('width', String(14 + bar.sectionLabel.length * 5));
+                            box.setAttribute('height', '17');
+                            box.setAttribute('fill', 'none');
+                            box.setAttribute('stroke', '#22d3ee');
+                            box.setAttribute('stroke-width', '1.2');
+                            // The tooltip lives on the box, not on the <text>:
+                            // a <title> child of <text> gets concatenated into
+                            // its textContent, so the letter reads back as
+                            // "Astatement" to anything inspecting the SVG.
+                            if (bar.sectionRole) {
+                                const t = document.createElementNS(svgNS, 'title');
+                                t.textContent = `${bar.sectionLabel} — ${bar.sectionRole}`;
+                                box.appendChild(t);
+                            }
+                            svg.appendChild(box);
+
+                            const letter = document.createElementNS(svgNS, 'text');
+                            letter.setAttribute('x', String(barX + 3));
+                            letter.setAttribute('y', String(boxY));
+                            letter.setAttribute('fill', '#22d3ee');
+                            letter.setAttribute('font-size', '13');
+                            letter.setAttribute('font-weight', 'bold');
+                            letter.setAttribute('font-family', 'var(--font-tech, monospace)');
+                            letter.textContent = bar.sectionLabel;
+                            svg.appendChild(letter);
+                        }
+
+                        // ---- LEFT HAND on the bass staff ----
+                        // Drawn once per bar from the piano texture's own
+                        // events, so the accompaniment pattern (block, Alberti,
+                        // walking, waltz) reads as the shape it actually is
+                        // rather than as a column of chord tones.
+                        if (rowBass && Array.isArray(bar.leftHand) && bar.leftHand.length) {
+                            bar.leftHand.forEach((lh) => {
+                                const names = Array.isArray(lh.noteNames) ? lh.noteNames : [];
+                                if (!names.length) return;
+                                const lhX = barX + (Number(lh.beat) || 0) * beatSlotWidth + (beatSlotWidth * 0.15);
+                                const lhDur = lh.durationName || 'quarter';
+                                names.forEach((nm) => {
+                                    const spelled = (typeof convertToKeySignatureSpelling === 'function')
+                                        ? convertToKeySignatureSpelling(nm) : nm;
+                                    const shifted = this._shiftNoteOctave(String(spelled), this.state.octaveOffset || 0);
+                                    const pos = noteToStaffPosition(shifted, 'bass');
+                                    const y = staffPositionToY(pos, rowBass);
+                                    this._drawRhythmicNote(svg, lhX, y, lhDur, {
+                                        // A melody carried by the left hand (tenor
+                                        // lead) is stemmed and coloured as a tune,
+                                        // not as accompaniment.
+                                        direction: lh.isMelody ? 'up' : 'down',
+                                        color: lh.isMelody ? '#f97316' : '#93c5fd',
+                                        isChord: names.length > 1 && !lh.isMelody,
+                                        noteName: shifted,
+                                        sigData: sigData,
+                                        measureKey: `bass:${barIndex}`,
+                                        staffMeta: rowBass,
+                                        staffPosition: pos,
+                                        articulation: lh.articulation || null,
+                                        accent: !!lh.accent
+                                    });
+                                    recordRendered(
+                                        barIndex * phraseBeatsPerBar + (Number(lh.beat) || 0),
+                                        shifted,
+                                        this._durationToNumber(lhDur),
+                                        lh.isMelody ? 'melody' : 'chord');
+                                });
+                            });
+                        }
 
 						bar.beats.forEach((event, beatIndex) => {
                             // Position by musical time (fractional beat within bar), not by array index.
@@ -4871,6 +4986,17 @@ class SheetMusicGenerator {
                                 return;
                             }
                             
+                            // TWO HANDS, TWO STAVES.
+                            //
+                            // Everything used to be drawn on the treble staff —
+                            // tune and chord tones together — while the bass
+                            // staff of the grand staff was drawn and left empty.
+                            // When a piano texture exists the left hand owns the
+                            // bass staff and the chord stack is NOT duplicated
+                            // into the treble, because that stack is what the
+                            // left hand is now playing.
+                            const hasPianoPart = !!(phrase.piano && Array.isArray(phrase.piano.leftHand)
+                                && phrase.piano.leftHand.length && rowBass);
                             const clef = (treble ? 'treble' : 'bass');
                             const staffMeta = rowTreble || rowBass;
                             // Chord uses its own duration (e.g. whole note for a 4-beat chord);
@@ -4880,7 +5006,10 @@ class SheetMusicGenerator {
 
                             // 1. Draw Chord notes if present (with rhythm notation)
                             if (event.chordObj) renderAudit.chordsIntended += 1;
-                            if (event.chordObj && event.chordObj.diatonicNotes && event.chordObj.diatonicNotes.length > 0) {
+                            if (hasPianoPart) {
+                                // The left hand has the harmony; drawing it here
+                                // as well would print every chord twice.
+                            } else if (event.chordObj && event.chordObj.diatonicNotes && event.chordObj.diatonicNotes.length > 0) {
                                 console.log(`[Sheet]     Drawing chord: ${event.chordObj.root}${event.chordObj.chordType} with ${event.chordObj.diatonicNotes.length} notes`);
                                 renderAudit.chordsDrawn += 1;
 								const defaultOct = (clef === 'bass') ? 3 : 4;
@@ -4969,7 +5098,10 @@ class SheetMusicGenerator {
 										sigData: sigData,
 										measureKey: `${clef}:${barIndex}`,
 										staffMeta: staffMeta,
-										staffPosition: melodyPos
+										staffPosition: melodyPos,
+										// Performance marks the generator composed.
+										articulation: melodyNote.articulation || null,
+										accent: !!melodyNote.accent
                                     });
                                     recordRendered(
                                         barIndex * phraseBeatsPerBar + fracInBar + (melodyCumBeats - (this._durationToNumber(noteDuration) || 1)),
@@ -4997,9 +5129,25 @@ class SheetMusicGenerator {
 							// 3. Draw chord label when a chord is present.
 							// Only label when the chord changes (or first appearance) to avoid duplicates.
 							if (event.chord && event.chord !== __lastChordLabel) {
+                                // Approximate width at 14px monospace, then stagger
+                                // onto a second row when the previous symbol is still
+                                // occupying this space. Approach runs put three or
+                                // four symbols inside half a bar, and with each one
+                                // anchored at its own beat they overprinted into
+                                // unreadable soup ("BmCm7Ebmaj7b5").
+                                const __estW = String(event.chord).length * 9.2 + 6;
+                                if (x - __estW / 2 < __lastLabelRight) {
+                                    // Three rows: an approach run can put four
+                                    // symbols inside half a bar, and two rows
+                                    // still let the first and third collide.
+                                    __labelRow = (__labelRow + 1) % 3;
+                                } else {
+                                    __labelRow = 0;
+                                }
+                                __lastLabelRight = Math.max(__lastLabelRight, x + __estW / 2);
                                 const lbl = document.createElementNS(svgNS, 'text');
                                 lbl.setAttribute('x', String(x));
-                                lbl.setAttribute('y', String(staffMeta.topY - 10));
+                                lbl.setAttribute('y', String(staffMeta.topY - 10 - __labelRow * 13));
                                 lbl.setAttribute('fill', '#f59e0b');
                                 lbl.setAttribute('font-size', '14');
                                 lbl.setAttribute('font-family', 'var(--font-tech, monospace)');
@@ -5584,12 +5732,15 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 	(melody.notes || []).forEach((noteEvent) => {
 		const abs = toAbsoluteBeat(noteEvent);
 		if (!Number.isFinite(abs)) return;
-		// Snap to 0.5-beat grid so eighth-note off-beats land in their own slot.
+		// Snap DOWN to the 0.5-beat grid so eighth-note off-beats land in their
+		// own slot and a sixteenth stays grouped with the eighth it subdivides.
+		// Rounding to nearest pushed the second sixteenth of a pair forward into
+		// the next slot, where the renderer drew it at that slot's x — a
+		// sixteenth group came out spaced as if it were eighths.
 		// Clamp to the last renderable slot: a note on a sixteenth just before
-		// the end (e.g. 11.75 of 12) rounded UP to the phrase end, which is
-		// past the final bar, and was silently dropped.
+		// the end (e.g. 11.75 of 12) landed past the final bar and was dropped.
 		const lastSlot = Math.max(0, (barCount * beatsPerBar) - 0.5);
-		const beatIndex = Math.min(lastSlot, Math.max(0, Math.round(abs * 2) / 2));
+		const beatIndex = Math.min(lastSlot, Math.max(0, Math.floor(abs * 2) / 2));
 		const rawName = (noteEvent && (noteEvent.noteName || noteEvent.note)) ? String(noteEvent.noteName || noteEvent.note).trim() : '';
 		if (!rawName || noteEvent.isRest) return;
 
@@ -5598,12 +5749,29 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 		seq.push({
 			noteName: rawName,
 			duration: durName,
-			syllable: noteEvent.syllable || null
+			syllable: noteEvent.syllable || null,
+			// Performance marks travel with the note. Without these the staff
+			// showed pitches and lengths only, so every generated line read as
+			// unphrased no matter how it was composed.
+			articulation: noteEvent.articulation || null,
+			accent: !!noteEvent.accent,
+			slurStart: !!noteEvent.slurStart,
+			slurEnd: !!noteEvent.slurEnd,
+			slurred: !!noteEvent.slurred,
+			figure: noteEvent.figure || null,
+			role: noteEvent.role || null,
+			// Exact beat, kept because several notes can share one 0.5 slot.
+			absBeat: abs
 		});
+		// Keep a slot's notes in the order they actually sound; a sixteenth
+		// group lands in one slot and must not be reordered by insertion.
+		seq.sort((p, q) => (Number(p.absBeat) || 0) - (Number(q.absBeat) || 0));
 		melodySequenceByBeat.set(beatIndex, seq);
 
-		// Mark accents when generator signals peaks (helps arc feel punchier)
-		if (!accentByBeat.has(beatIndex) && (noteEvent.isPeak || (Number.isFinite(noteEvent.intensity) && noteEvent.intensity > 0.82))) {
+		// Mark accents when the generator asked for one, or when it signals a peak.
+		if (noteEvent.accent) {
+			accentByBeat.set(beatIndex, true);
+		} else if (!accentByBeat.has(beatIndex) && (noteEvent.isPeak || (Number.isFinite(noteEvent.intensity) && noteEvent.intensity > 0.82))) {
 			accentByBeat.set(beatIndex, true);
 		}
 	});
@@ -5658,13 +5826,15 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 				? melodySequence[0].noteName
 				: null;
             
-            // Update sustain timers
+            // Update sustain timers. A slot can hold several notes — a
+            // sixteenth group lands whole inside one — so the slot is occupied
+            // for the sum of them, not for the length of the first.
             if (melodyNote) {
-                const firstMel = melodySequence[0];
-                const durBeats = (typeof sheetGen._durationToNumber === 'function') 
-                    ? sheetGen._durationToNumber(firstMel.duration || defaultBeatDuration)
+                const durBeats = (typeof sheetGen._durationToNumber === 'function')
+                    ? melodySequence.reduce((s, m) =>
+                        s + (sheetGen._durationToNumber(m.duration || defaultBeatDuration) || 0), 0)
                     : 1;
-                melodyTimeRemaining = durBeats;
+                melodyTimeRemaining = durBeats || 1;
             } else {
                 melodyTimeRemaining = Math.max(0, melodyTimeRemaining - 0.5);
             }
@@ -5788,10 +5958,33 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 			});
 		}
 
+		// Which section of the form this bar belongs to, so the staff can be
+		// marked with rehearsal letters.
+		const formPlan = context.form || null;
+		const barSection = (formPlan && Array.isArray(formPlan.sectionOfBar))
+			? formPlan.sectionOfBar[barIndex] : null;
+
+		// Left-hand events belonging to this bar, in time order. Kept per bar so
+		// the renderer can walk them alongside the treble events.
+		// The duration NAME is resolved here rather than in the renderer, which
+		// has no access to durationBeatsToName — left to itself it fell back to
+		// "quarter" for everything and every accompaniment pattern came out as
+		// a row of identical quarter notes.
+		const lhEvents = (detail.piano && Array.isArray(detail.piano.leftHand))
+			? detail.piano.leftHand
+				.filter(e => e && e.bar === barIndex)
+				.sort((a, b) => (a.beat || 0) - (b.beat || 0))
+				.map(e => ({ ...e, durationName: durationBeatsToName(e.duration, defaultBeatDuration) }))
+			: [];
+
 		bars.push({
 			barNumber: barIndex + 1,
 			key: harmonicProfile.root || 'C',
 			scale: harmonicProfile.recommendedScale || context.emotionalTone || 'major',
+			leftHand: lhEvents,
+			sectionLabel: barSection ? barSection.label : null,
+			sectionRole: barSection ? barSection.role : null,
+			sectionStart: !!(barSection && barSection.startBar === barIndex),
 			beats,
 			rhythmRoadmap: {
 				accentBeats,
@@ -5809,6 +6002,10 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 		startKey: harmonicProfile.root || 'C',
 		endKey: harmonicProfile.root || 'C',
 		keyEvents: [],
+		form: context.form || null,
+		// The two-hand part. Bars carry their own left-hand events so the
+		// renderer can put them on the bass staff.
+		piano: detail.piano || null,
 		phaseStaging: {
 			rhythm: {
 				ready: true,
