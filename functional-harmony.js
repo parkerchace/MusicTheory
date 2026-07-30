@@ -150,36 +150,6 @@
         return tonicStable && canCadence && stable >= 4;
     }
 
-    /**
-     * How much the staff will have to fight this scale.
-     *
-     * A collection that is a rotation of the major scale is covered by an
-     * ordinary key signature, so nothing needs an accidental in front of it.
-     * Anything further out prints an accidental on every altered degree, in
-     * every bar — which is why generated music in the more exotic scales came
-     * back looking like a minefield regardless of how sensible the harmony was.
-     * Returned as a count of altered degrees, 0 for the church modes.
-     */
-    function notationCost(intervals) {
-        if (!Array.isArray(intervals) || intervals.length < 5) return 4;
-        // Counted the same way whatever the note count. Returning a flat 4 for
-        // anything that was not heptatonic buried every eight-note scale at the
-        // bottom of the ranking regardless of how it actually reads — and an
-        // octatonic that is a major scale plus one passing chromatic is far
-        // easier on the eye than a seven-note scale with four alterations.
-        // Eight notes must double one letter, so they carry one extra.
-        const MAJOR = [0, 2, 4, 5, 7, 9, 11];
-        const set = new Set(intervals);
-        let best = 7;
-        // Compare against every rotation (every mode of every major key).
-        for (let r = 0; r < 12; r++) {
-            const rotated = new Set(MAJOR.map(x => (x + r) % 12));
-            let diff = 0;
-            for (const i of set) if (!rotated.has(i)) diff++;
-            if (diff < best) best = diff;
-        }
-        return best + (intervals.length > 7 ? 1 : 0);
-    }
 
     /**
      * Describe every degree of the working scale: its interval above the tonic,
@@ -422,7 +392,7 @@
     }
 
     const api = {
-        analyzeScale, isFunctional, notationCost, progression, cadenceRomans,
+        analyzeScale, isFunctional, progression, cadenceRomans,
         candidates, pickFor, relatedKeys, findPivot, qualityOf,
         romanForDegree, degreeInfo, cadenceTargetDegree,
         FUNCTION_BY_INTERVAL, ROMAN_BY_INTERVAL

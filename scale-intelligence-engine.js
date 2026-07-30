@@ -236,29 +236,16 @@ class ScaleIntelligenceEngine {
             : this._catalog();
         const usable = catalog.length ? catalog : this._catalog();
 
-        // NOTATION COST. A scale that is a rotation of the major collection is
-        // covered by an ordinary key signature; anything further out prints an
-        // accidental on every altered degree in every bar, and the result looks
-        // like a minefield however sensible the harmony underneath it is. This
-        // is a preference, not a filter — the exotic scales stay reachable, and
-        // an explicit appetite for the outside (a high `exotic` target) buys
-        // them back — but the everyday default is something readable.
-        const notationOf = (intervals) => {
-            if (typeof FunctionalHarmony !== 'undefined' && FunctionalHarmony.notationCost) {
-                return FunctionalHarmony.notationCost(intervals);
-            }
-            return 0;
-        };
-        const readabilityWeight = wantFunctional ? Math.max(0, 1.1 - want.exotic) : 0;
-
+        // Ranked purely on musical character. There is no readability or
+        // note-count thumb on the scale: a scale that suits the words wins
+        // whether or not an ordinary key signature happens to cover it.
         const scored = usable.map((entry) => {
             const p = entry.prof;
             const cost =
                 Math.abs(p.brightness - want.brightness) * 2.4 +
                 Math.abs(p.tension - want.tension) * 1.7 +
                 Math.abs(p.exotic - want.exotic) * 1.1 +
-                Math.abs(p.density - want.density) * 0.6 +
-                notationOf(entry.intervals) * readabilityWeight;
+                Math.abs(p.density - want.density) * 0.6;
             return { ...entry, score: cost };
         });
         scored.sort((a, b) => a.score - b.score);
