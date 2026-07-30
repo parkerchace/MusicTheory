@@ -178,6 +178,69 @@
         })).filter(c => c.duration > 1e-6);
     }
 
+    /**
+     * INNER-VOICE MOTION — the thing that makes a held chord alive.
+     *
+     * A sustained chord is four notes struck together and then nothing, and
+     * four bars of that is wallpaper no matter how good the voicing is. What
+     * real keyboard writing does over a stationary harmony is move ONE inner
+     * voice: the chord stays put, the bass stays put, the melody stays put,
+     * and a middle note steps down (or up) partway through the bar. Nothing
+     * about the harmony changes and yet the bar goes somewhere.
+     *
+     * It is deliberately the INNER voice. Moving the bass would change the
+     * chord's inversion, and moving the top would compete with the melody —
+     * the whole reason this works is that the voice nobody is listening to is
+     * the one that moves, so the motion is felt rather than followed.
+     *
+     * The moved note is a chord tone wherever one is available a step away,
+     * and a scale tone otherwise, so the chord is still the chord throughout.
+     *
+     * @returns cells, possibly with a long cell split into "held" then "moved"
+     */
+    function withInnerVoiceMotion(cells, scalePcs, rng, chance) {
+        if (!Array.isArray(cells) || !cells.length) return cells;
+        if (!(rng() < chance)) return cells;
+        const out = [];
+        let moved = false;
+        cells.forEach((cell) => {
+            const notes = (cell.notes || []).filter(Number.isFinite).sort((a, b) => a - b);
+            // Only a genuinely sustained chord has room, and only a chord with
+            // an actual interior has an inner voice to move.
+            if (moved || !cell || cell.duration < 2 || notes.length < 3) { out.push(cell); return; }
+
+            // Pick an interior voice — never the lowest, never the highest.
+            const idx = 1 + Math.floor(rng() * (notes.length - 2));
+            const from = notes[idx];
+            const below = notes[idx - 1];
+            const above = notes[idx + 1];
+
+            // Step down by preference; the falling inner line is the more
+            // common and more plaintive gesture.
+            const candidates = [];
+            for (let d = 1; d <= 2; d++) {
+                if (scalePcs.includes((((from - d) % 12) + 12) % 12)) { candidates.push(from - d); break; }
+            }
+            for (let d = 1; d <= 2; d++) {
+                if (scalePcs.includes((((from + d) % 12) + 12) % 12)) { candidates.push(from + d); break; }
+            }
+            // Must not collide with or cross the voices on either side, or the
+            // "inner" voice stops being inner.
+            const legal = candidates.filter(m => m > below && m < above);
+            if (!legal.length) { out.push(cell); return; }
+            const to = legal[0];
+
+            const half = cell.duration / 2;
+            const after = notes.slice();
+            after[idx] = to;
+            out.push({ ...cell, duration: half });
+            out.push({ ...cell, notes: after, beat: cell.beat + half, duration: cell.duration - half,
+                       innerVoiceMove: { from, to } });
+            moved = true;
+        });
+        return out;
+    }
+
     function makeRng(seed) {
         let s = ((Number(seed) || 0) ^ 0x5bf03635) >>> 0;
         return () => {
@@ -759,6 +822,11 @@
             const notes = (melody && melody.notes) || [];
             const seq = (harmony && harmony.chordSequence) || [];
             const preferFlat = /b/.test(String(((context.harmonicProfile || {}).scaleNotes || []).join('')));
+            // Pitch classes an inner voice may step through, so a moving voice
+            // stays in the key rather than inventing a chromatic passing note
+            // nobody asked for.
+            const scalePcs = ((context.harmonicProfile || {}).scaleNotes || [])
+                .map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0);
 
             // Melody as MIDI, indexed by absolute beat, so the accompaniment can
             // be kept underneath whatever is actually sounding.
@@ -995,11 +1063,28 @@
                     // Chord THICKNESS follows the breath. Two notes in the quiet
                     // stretches, the full voicing at the top of a phrase — the
                     // difference between an accompaniment and a drone.
-                    const thickness = Math.max(2, (breath > 0.62 ? 4 : breath > 0.34 ? 3 : 2)
+                    // A chord that is going to be HELD needs an interior — two
+                    // notes have no inner voice to move, and a held two-note
+                    // chord is the most inert thing the texture can produce.
+                    // Thinning is right for quiet passages generally; it is
+                    // wrong for the long sustains that most need something
+                    // happening inside them.
+                    const sustainingHere = !!(pattern.sustains || ev.sustainedFromPrevBar);
+                    const thickness = Math.max(sustainingHere ? 3 : 2,
+                        (breath > 0.62 ? 4 : breath > 0.34 ? 3 : 2)
                         + logicProfile().thickness);
                     const voiced = tones.slice(0, Math.max(2, Math.min(tones.length, thickness)));
                     built = pattern.build(voiced, beats, { nextRoot: nextRootMidi });
                 }
+
+                // Give a stationary chord somewhere to go. Most likely where the
+                // harmony is genuinely sitting still — a chord held over from
+                // the previous bar has nothing else happening in it, so an inner
+                // voice stepping down is the only motion available and the most
+                // needed.
+                built = withInnerVoiceMotion(
+                    built, scalePcs, rng,
+                    ev.sustainedFromPrevBar ? 0.7 : 0.28);
 
                 built.forEach(cell => {
                     // A pattern asked to fill a one-beat span can compute a
@@ -1041,7 +1126,11 @@
                         section: sec.label,
                         breath: Number(breath.toFixed(2)),
                         voiceLed: !!ev.voicing,
-                        keptVoicing: useVoicing
+                        keptVoicing: useVoicing,
+                        // Carried through so the sheet and any analysis can see
+                        // that this attack is the SAME chord with one voice
+                        // moved, not a new harmony.
+                        innerVoiceMove: cell.innerVoiceMove || null
                     };
 
                     // Split at middle C. Below it is the left hand's; at or above

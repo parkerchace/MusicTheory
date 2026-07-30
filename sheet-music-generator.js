@@ -96,7 +96,9 @@ class SheetMusicGenerator {
 			// 'multi' will search multiple voicing styles + inversions to minimize movement
 			voiceLeadingMode: 'single',
 			// New system variant flag for VL Combos behavior
-			vlCombosVariant: 'v2'
+			vlCombosVariant: 'v2',
+			// Which synthesised voice playback uses. See SHEET_VOICES.
+			instrument: 'piano'
 		};
 
 		// Layout preferences (persisted): bar width and wrapping.
@@ -934,6 +936,39 @@ class SheetMusicGenerator {
 			}
 		});
 		midiWrap.appendChild(copyLogBtn);
+
+		// SOUND. Playback was a single triangle oscillator for everything; the
+		// voice list gives it an actual instrument. Sits with the transport
+		// because it is a playback property, not a notation one — changing it
+		// never touches a note.
+		const soundLabel = document.createElement('label');
+		soundLabel.textContent = 'Sound:';
+		soundLabel.style.fontSize = '0.7rem';
+		soundLabel.style.color = '#f9fafb';
+		soundLabel.style.marginLeft = '6px';
+		const soundSelect = document.createElement('select');
+		soundSelect.style.fontSize = '0.7rem';
+		soundSelect.title = 'Instrument used for playback';
+		Object.keys(SHEET_VOICES).forEach((key) => {
+			const o = document.createElement('option');
+			o.value = key;
+			o.textContent = SHEET_VOICES[key].label;
+			soundSelect.appendChild(o);
+		});
+		try {
+			const savedVoice = localStorage.getItem('sheetInstrument');
+			if (savedVoice && SHEET_VOICES[savedVoice]) this.state.instrument = savedVoice;
+		} catch (_) {}
+		soundSelect.value = this.state.instrument || 'piano';
+		soundSelect.addEventListener('change', () => {
+			this.state.instrument = soundSelect.value;
+			try { localStorage.setItem('sheetInstrument', soundSelect.value); } catch (_) {}
+			// Audible confirmation, so picking a sound tells you what it is
+			// without having to start playback.
+			try { this._playChordNotes(['C3', 'E3', 'G3', 'C4'], 0.2); } catch (_) {}
+		});
+		soundLabel.appendChild(soundSelect);
+		midiWrap.appendChild(soundLabel);
 		// Removed outputSelect & refreshBtn (server now handles selection)
 		controls.appendChild(midiWrap);
 
@@ -6663,6 +6698,118 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		});
 	};
 
+	/**
+	 * THE VOICES.
+	 *
+	 * Everything used to be one triangle oscillator with one envelope, so a
+	 * string pad and a Rhodes and a plucked guitar all came out as the same
+	 * beep at different pitches. An instrument is really four decisions —
+	 * which partials sound, how the note starts and ends, how bright it is,
+	 * and how much space is around it — so each voice states those four and
+	 * the player reads them rather than hard-coding one.
+	 *
+	 * `osc` is a small additive stack: [waveform, relative detune in cents,
+	 * relative level]. Two slightly detuned copies is what separates a warm
+	 * electric piano from a test tone.
+	 *
+	 * `env` times are in seconds, except `sustain` which is a level. Percussive
+	 * voices (piano, guitar, EP) decay toward silence whatever the written
+	 * duration says; sustained voices (strings, pads) hold.
+	 */
+	const SHEET_VOICES = {
+		piano: {
+			label: 'Piano',
+			osc: [['triangle', 0, 1], ['sine', 0, 0.5], ['sine', 1200, 0.12]],
+			env: { attack: 0.004, decay: 0.9, sustain: 0.0, release: 0.25 },
+			filter: { type: 'lowpass', freq: 4200, q: 0.6 }, reverb: 0.06, percussive: true
+		},
+		'piano-reverb': {
+			label: 'Piano + reverb',
+			osc: [['triangle', 0, 1], ['sine', 0, 0.5], ['sine', 1200, 0.12]],
+			env: { attack: 0.004, decay: 1.1, sustain: 0.0, release: 0.5 },
+			filter: { type: 'lowpass', freq: 3800, q: 0.6 }, reverb: 0.42, percussive: true
+		},
+		'piano-pad': {
+			label: 'Piano + pad',
+			osc: [['triangle', 0, 1], ['sine', 0, 0.45], ['sawtooth', -6, 0.1], ['sawtooth', 6, 0.1]],
+			env: { attack: 0.02, decay: 1.2, sustain: 0.28, release: 0.8 },
+			filter: { type: 'lowpass', freq: 3000, q: 0.7 }, reverb: 0.35
+		},
+		'piano-strings': {
+			label: 'Piano + strings',
+			osc: [['triangle', 0, 1], ['sawtooth', -7, 0.16], ['sawtooth', 7, 0.16]],
+			env: { attack: 0.05, decay: 0.9, sustain: 0.35, release: 0.7 },
+			filter: { type: 'lowpass', freq: 3400, q: 0.8 }, reverb: 0.3
+		},
+		strings: {
+			label: 'Strings',
+			osc: [['sawtooth', -8, 1], ['sawtooth', 8, 1], ['sawtooth', 0, 0.6]],
+			env: { attack: 0.18, decay: 0.3, sustain: 0.75, release: 0.6 },
+			filter: { type: 'lowpass', freq: 2600, q: 1.0 }, reverb: 0.35
+		},
+		guitar: {
+			label: 'Guitar',
+			osc: [['sawtooth', 0, 0.7], ['triangle', 0, 0.6], ['square', 1200, 0.06]],
+			env: { attack: 0.003, decay: 0.7, sustain: 0.0, release: 0.2 },
+			filter: { type: 'lowpass', freq: 3000, q: 1.4 }, reverb: 0.12, percussive: true
+		},
+		ep: {
+			label: 'Electric piano',
+			osc: [['sine', 0, 1], ['sine', 1200, 0.35], ['triangle', -4, 0.25]],
+			env: { attack: 0.006, decay: 1.0, sustain: 0.12, release: 0.4 },
+			filter: { type: 'lowpass', freq: 3200, q: 0.5 }, reverb: 0.2, percussive: true
+		},
+		'rnb-synth': {
+			label: 'R&B synth',
+			osc: [['sine', 0, 1], ['triangle', -5, 0.5], ['triangle', 5, 0.5], ['sine', 1200, 0.1]],
+			env: { attack: 0.05, decay: 0.6, sustain: 0.55, release: 0.7 },
+			filter: { type: 'lowpass', freq: 2200, q: 1.2 }, reverb: 0.4
+		},
+		'rnb-pad': {
+			label: 'R&B pad (smooth)',
+			osc: [['sine', -6, 1], ['sine', 6, 1], ['triangle', 0, 0.4]],
+			env: { attack: 0.35, decay: 0.5, sustain: 0.8, release: 1.2 },
+			filter: { type: 'lowpass', freq: 1800, q: 0.9 }, reverb: 0.55
+		}
+	};
+
+	/** The voice the sheet is currently playing through. */
+	SheetMusicGenerator.prototype._voice = function() {
+		return SHEET_VOICES[(this.state && this.state.instrument) || 'piano'] || SHEET_VOICES.piano;
+	};
+
+	/**
+	 * A reverb send, built once and reused. Convolution needs an impulse
+	 * response and there is no file to load here, so the impulse is generated:
+	 * exponentially decaying noise is a serviceable small room and costs
+	 * nothing to make.
+	 */
+	SheetMusicGenerator.prototype._reverbBus = function() {
+		if (!this._audioCtx) return null;
+		if (this._reverbSend && this._reverbCtx === this._audioCtx) return this._reverbSend;
+		try {
+			const ctx = this._audioCtx;
+			const seconds = 1.8;
+			const len = Math.floor(ctx.sampleRate * seconds);
+			const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+			for (let ch = 0; ch < 2; ch++) {
+				const data = buf.getChannelData(ch);
+				for (let i = 0; i < len; i++) {
+					// Decaying noise, steeper at the start — a room, not a hall.
+					data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
+				}
+			}
+			const convolver = ctx.createConvolver();
+			convolver.buffer = buf;
+			const send = ctx.createGain();
+			send.gain.value = 1;
+			send.connect(convolver).connect(ctx.destination);
+			this._reverbSend = send;
+			this._reverbCtx = ctx;
+			return send;
+		} catch (_) { return null; }
+	};
+
 	// Internal helper for scheduling a single synth note
 	SheetMusicGenerator.prototype._playSingleNote = function(noteStr, start, end, volume = 0.3) {
 		if (!this._audioCtx) return;
@@ -6675,23 +6822,66 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
 		const semitone = midiMap[letter] ?? 0;
 		const midi = (oct + 1) * 12 + semitone;
+		const freq = 440 * Math.pow(2, (midi - 69) / 12);
 
-		const osc = this._audioCtx.createOscillator();
-		const gain = this._audioCtx.createGain();
-		osc.type = 'triangle';
-		osc.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
-		osc.connect(gain).connect(this._audioCtx.destination);
+		const ctx = this._audioCtx;
+		const voice = this._voice();
+		const env = voice.env;
 
-		const attack = 0.015, decay = 0.1, sustain = 0.6, release = 0.2;
-		gain.gain.setValueAtTime(0.001, start);
-		gain.gain.exponentialRampToValueAtTime(volume, start + attack);
-		gain.gain.exponentialRampToValueAtTime(volume * sustain, start + attack + decay);
-		gain.gain.setValueAtTime(volume * sustain, Math.max(start, end - release));
-		gain.gain.exponentialRampToValueAtTime(0.001, end);
+		// One gain for the whole note, one filter, and however many oscillators
+		// the voice's partial stack asks for.
+		const gain = ctx.createGain();
+		let sink = gain;
+		if (voice.filter) {
+			const filt = ctx.createBiquadFilter();
+			filt.type = voice.filter.type || 'lowpass';
+			// Track the note: a low note through a fixed 4 kHz filter is dull
+			// while the same filter does nothing at the top of the keyboard.
+			filt.frequency.value = Math.max(400, Math.min(12000, voice.filter.freq + freq * 1.4));
+			filt.Q.value = voice.filter.q || 0.7;
+			gain.connect(filt);
+			sink = filt;
+		}
+		sink.connect(ctx.destination);
+		if (voice.reverb > 0) {
+			const bus = this._reverbBus();
+			if (bus) {
+				const wet = ctx.createGain();
+				wet.gain.value = voice.reverb;
+				sink.connect(wet).connect(bus);
+			}
+		}
 
-		osc.start(start);
-		osc.stop(end + 0.1);
-		this._midiSources.push(osc);
+		// A percussive instrument decays to nothing on its own; holding a piano
+		// note at full level for a whole note is the single biggest reason a
+		// synthesised piano reads as an organ.
+		const held = Math.max(0.08, end - start);
+		const attack = Math.min(env.attack, held * 0.5);
+		const peak = start + attack;
+		gain.gain.setValueAtTime(0.0001, start);
+		gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), peak);
+		if (voice.percussive || env.sustain <= 0.001) {
+			gain.gain.exponentialRampToValueAtTime(0.0001, peak + Math.max(0.12, env.decay));
+		} else {
+			const sustainLevel = Math.max(0.0002, volume * env.sustain);
+			gain.gain.exponentialRampToValueAtTime(sustainLevel, peak + env.decay);
+			gain.gain.setValueAtTime(sustainLevel, Math.max(peak, start + held - env.release));
+			gain.gain.exponentialRampToValueAtTime(0.0001, start + held + env.release * 0.5);
+		}
+
+		const stopAt = start + held + (voice.percussive ? Math.max(0.12, env.decay) : env.release) + 0.1;
+		(voice.osc || [['triangle', 0, 1]]).forEach(([type, detune, level]) => {
+			const osc = ctx.createOscillator();
+			osc.type = type;
+			osc.frequency.value = freq;
+			if (detune) osc.detune.value = detune;
+			const partial = ctx.createGain();
+			partial.gain.value = level;
+			osc.connect(partial).connect(gain);
+			osc.start(start);
+			osc.stop(stopAt);
+			this._midiSources.push(osc);
+		});
 	};
 
 	/**
