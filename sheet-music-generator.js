@@ -1635,7 +1635,12 @@ class SheetMusicGenerator {
 		head.style.cssText = 'font-size:0.75rem; color:#94a3b8;';
 		head.innerHTML = `<strong style="color:#e5e7eb;">Per-bar override</strong> `
 			+ `<span>sequence: ${settings.voicing || this.state.voicingStyle || 'close'}`
-			+ ` / ${settings.register || this.state.voicingRegister || 'mid'}</span>`;
+			+ ` / ${settings.register || this.state.voicingRegister || 'mid'}</span>`
+			// Worth stating on this panel: the voicing is not just how the chord
+			// is spelled, it is what the tune is written around.
+			+ (settings.melodyFollowsVoicing
+				? `<div style="color:#64748b; margin-top:2px;">Chord plays as voiced; melody is written above its top voice.</div>`
+				: '');
 		wrap.appendChild(head);
 
 		if (!window.__chordVoicingOverrides) window.__chordVoicingOverrides = {};
@@ -4782,6 +4787,44 @@ class SheetMusicGenerator {
                             });
                         }
 
+                        // ---- The rest of the voicing, on the treble staff ----
+                        // A drop-2 or a gospel shell reaches above middle C, and
+                        // the whole point of choosing it is to hear that chord
+                        // complete under the tune. Drawing only the notes that
+                        // happened to fall below middle C would print half of it.
+                        if (rowTreble && Array.isArray(bar.trebleHarmony) && bar.trebleHarmony.length) {
+                            bar.trebleHarmony.forEach((th) => {
+                                const names = Array.isArray(th.noteNames) ? th.noteNames : [];
+                                if (!names.length) return;
+                                const thX = barX + (Number(th.beat) || 0) * beatSlotWidth + (beatSlotWidth * 0.15);
+                                const thDur = th.durationName || 'quarter';
+                                names.forEach((nm) => {
+                                    const spelled = (typeof convertToKeySignatureSpelling === 'function')
+                                        ? convertToKeySignatureSpelling(nm) : nm;
+                                    const shifted = this._shiftNoteOctave(String(spelled), this.state.octaveOffset || 0);
+                                    const pos = noteToStaffPosition(shifted, 'treble');
+                                    const y = staffPositionToY(pos, rowTreble);
+                                    this._drawRhythmicNote(svg, thX, y, thDur, {
+                                        // Stems down, so the melody's up-stems
+                                        // stay readable as the separate voice.
+                                        direction: 'down',
+                                        color: '#93c5fd',
+                                        isChord: names.length > 1,
+                                        noteName: shifted,
+                                        sigData: sigData,
+                                        measureKey: `treble:${barIndex}`,
+                                        staffMeta: rowTreble,
+                                        staffPosition: pos
+                                    });
+                                    recordRendered(
+                                        barIndex * phraseBeatsPerBar + (Number(th.beat) || 0),
+                                        shifted,
+                                        this._durationToNumber(thDur),
+                                        'chord');
+                                });
+                            });
+                        }
+
 						bar.beats.forEach((event, beatIndex) => {
                             // Position by musical time (fractional beat within bar), not by array index.
                             // This ensures eighth-note off-beats land at the correct visual position.
@@ -4826,8 +4869,9 @@ class SheetMusicGenerator {
                             // bass staff and the chord stack is NOT duplicated
                             // into the treble, because that stack is what the
                             // left hand is now playing.
-                            const hasPianoPart = !!(phrase.piano && Array.isArray(phrase.piano.leftHand)
-                                && phrase.piano.leftHand.length && rowBass);
+                            const hasPianoPart = !!(phrase.piano && rowBass
+                                && ((Array.isArray(phrase.piano.leftHand) && phrase.piano.leftHand.length)
+                                    || (Array.isArray(phrase.piano.trebleHarmony) && phrase.piano.trebleHarmony.length)));
                             const clef = (treble ? 'treble' : 'bass');
                             const staffMeta = rowTreble || rowBass;
                             // Chord uses its own duration (e.g. whole note for a 4-beat chord);
@@ -5470,10 +5514,22 @@ function pushSheetTrace(traceId, stage, payload) {
 		if (!Array.isArray(voicedNotes) || voicedNotes.length === 0) return voicedNotes;
 		const len = voicedNotes.length;
 		const clone = voicedNotes.slice();
-		
+
 		// Debug logging (opt-in)
 		try { if (window.__sheetVerbose) console.log('applyVoicingStyle:', {style, inputNotes: clone, length: len}); } catch(_) {}
-		
+
+		// Hoisting this function out of render() left three of the shell cases
+		// calling `noteNameToMidi`, which is a const inside that method and so
+		// is not in scope here — those styles threw a ReferenceError, the
+		// callers swallowed it, and the voicing came out unchanged. Own helpers,
+		// so the styles work wherever the function is called from.
+		const PCS = { C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11 };
+		const midiOfName = (noteName) => {
+			const m = String(noteName || '').match(/^([A-G][#b]?)(-?\d+)$/);
+			if (!m || !Number.isFinite(PCS[m[1]])) return NaN;
+			return PCS[m[1]] + (parseInt(m[2], 10) + 1) * 12;
+		};
+
 		// Helper: shift octave for index by n (positive raises, negative lowers)
 		const shiftOctave = (noteStr, delta) => {
 			const m = noteStr.match(/^([A-G][#b]?)(\d+)$/);
@@ -5540,7 +5596,7 @@ function pushSheetTrace(traceId, stage, payload) {
 					if (seventh) result.push(seventh);
 					// Ensure ascending order (raise octaves of later voices until strictly above previous)
 					for (let i = 1; i < result.length; i++) {
-						while (noteNameToMidi(result[i]) <= noteNameToMidi(result[i - 1])) {
+						while (midiOfName(result[i]) <= midiOfName(result[i - 1])) {
 							result[i] = shiftOctave(result[i], 1);
 						}
 					}
@@ -5564,14 +5620,39 @@ function pushSheetTrace(traceId, stage, payload) {
 				for (let i=1;i<len;i+=2) clone[i] = shiftOctave(clone[i], 1);
 				return clone;
 			case 'cluster':
-				// Tight cluster around middle: bring notes toward the middle octave
-				const midIdx = Math.floor(len/2);
-				for (let i=0;i<len;i++) {
-					const delta = midIdx - i;
-					// move closer by shifting octave toward middle
-					if (Math.abs(delta) >= 1) clone[i] = shiftOctave(clone[i], delta>0? -1: 1);
+				// TIGHT: the closest packing of these pitch classes.
+				//
+				// This used to shift every voice AWAY from the middle by an
+				// octave — the octave signs were inverted against the comment —
+				// so "Cluster (tight)" returned the widest spacing in the menu.
+				// C3 E3 G3 B3 came out as C2 E2 G3 B4, a span of nearly three
+				// octaves. The tightest packing is the rotation with the
+				// smallest span: for a maj7 that is 7-1-3-5, B C E G.
+				{
+					const pcs = clone.map(n => ((midiOfName(n) % 12) + 12) % 12)
+						.filter((v, i, a) => Number.isFinite(v) && a.indexOf(v) === i);
+					if (pcs.length < 2) return clone;
+					const bottom = Math.min(...clone.map(midiOfName).filter(Number.isFinite));
+					if (!Number.isFinite(bottom)) return clone;
+					let best = null;
+					for (let r = 0; r < pcs.length; r++) {
+						const order = pcs.slice(r).concat(pcs.slice(0, r));
+						const stack = [];
+						let cursor = bottom - 1;
+						order.forEach((pc) => {
+							let m = cursor + 1;
+							while ((((m % 12) + 12) % 12) !== pc) m++;
+							stack.push(m);
+							cursor = m;
+						});
+						const span = stack[stack.length - 1] - stack[0];
+						if (!best || span < best.span) best = { stack, span };
+					}
+					const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+					const result = best.stack.map(m => `${names[((m % 12) + 12) % 12]}${Math.floor(m / 12) - 1}`);
+					try { if (window.__sheetVerbose) console.log('applyVoicingStyle output (cluster):', {style, outputNotes: result, span: best.span}); } catch(_) {}
+					return result;
 				}
-				return clone;
 			case 'gospel-shell':
 				// Common gospel shell voicing: low root, upper close cluster of 3rd/7th/9th
 				if (len >= 4) {
@@ -5584,13 +5665,12 @@ function pushSheetTrace(traceId, stage, payload) {
 				if (len >= 2) clone[1] = shiftOctave(clone[1], -1);
 				return clone;
 			case 'jazz-rootless':
-				// Remove the root (if present) and keep 3rd/7th in upper voices
-				{
-					const pcs = clone.map(n=>pitchClass(n));
-					// attempt to drop lowest voice
-					clone.shift();
-					return clone;
-				}
+				// Remove the root and keep 3rd/7th in the upper voices. (The
+				// pitch-class list this used to compute was never read, and
+				// `pitchClass` is not in scope here — it threw before it got as
+				// far as dropping the root.)
+				if (len > 1) clone.shift();
+				return clone;
 			case 'classical-balanced':
 				// "Classical Balanced" -> Keyboard style (Root in bass, chord in RH)
 				// Drop the lowest note (root) by 1 octave to create separation from the upper structure
@@ -5620,7 +5700,7 @@ function pushSheetTrace(traceId, stage, payload) {
 					if (fifth) result.push(fifth);
 					// Ensure ascending order by raising octaves as needed
 					for (let i = 1; i < result.length; i++) {
-						while (noteNameToMidi(result[i]) <= noteNameToMidi(result[i - 1])) {
+						while (midiOfName(result[i]) <= midiOfName(result[i - 1])) {
 							result[i] = shiftOctave(result[i], 1);
 						}
 					}
@@ -5641,7 +5721,7 @@ function pushSheetTrace(traceId, stage, payload) {
 					if (thirdHigh) result.push(thirdHigh);
 					// Ensure ascending order by raising octaves as needed
 					for (let i = 1; i < result.length; i++) {
-						while (noteNameToMidi(result[i]) <= noteNameToMidi(result[i - 1])) {
+						while (midiOfName(result[i]) <= midiOfName(result[i - 1])) {
 							result[i] = shiftOctave(result[i], 1);
 						}
 					}
@@ -6010,11 +6090,23 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 				.map(e => ({ ...e, durationName: durationBeatsToName(e.duration, defaultBeatDuration) }))
 			: [];
 
+		// The part of the voicing that sits at or above middle C. Under
+		// voicing-first the chord is played where it was voiced rather than
+		// being pushed into the bass staff, so a wide or high voicing has notes
+		// that belong on the treble staff with the tune.
+		const trebleHarmonyEvents = (detail.piano && Array.isArray(detail.piano.trebleHarmony))
+			? detail.piano.trebleHarmony
+				.filter(e => e && e.bar === barIndex)
+				.sort((a, b) => (a.beat || 0) - (b.beat || 0))
+				.map(e => ({ ...e, durationName: durationBeatsToName(e.duration, defaultBeatDuration) }))
+			: [];
+
 		bars.push({
 			barNumber: barIndex + 1,
 			key: harmonicProfile.root || 'C',
 			scale: harmonicProfile.recommendedScale || context.emotionalTone || 'major',
 			leftHand: lhEvents,
+			trebleHarmony: trebleHarmonyEvents,
 			sectionLabel: barSection ? barSection.label : null,
 			sectionRole: barSection ? barSection.role : null,
 			sectionStart: !!(barSection && barSection.startBar === barIndex),
@@ -6703,9 +6795,18 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 					const durTicks = Math.round(quarterBeats * ticksPerQuarter);
 					const beatEndTick = beatStartTick + Math.round(durTicks * 0.95);
 
-					// Harmony
-					if (event.chordObj && event.chordObj.chordNotes) {
-						event.chordObj.chordNotes.forEach((nn, i) => {
+					// Harmony. Prefer the VOICED notes: they carry their own
+					// octaves, so the export is the chord as voiced rather than
+					// a close stack rebuilt from bare tone names — which is the
+					// difference between exporting the drop-2 you chose and
+					// exporting a root-position triad.
+					const harmonyNotes = (event.chordObj
+						&& Array.isArray(event.chordObj.diatonicNotes)
+						&& event.chordObj.diatonicNotes.some(n => /-?\d/.test(String(n))))
+						? event.chordObj.diatonicNotes
+						: (event.chordObj && event.chordObj.chordNotes);
+					if (harmonyNotes && harmonyNotes.length) {
+						harmonyNotes.forEach((nn, i) => {
 							const midi = getMidi(nn, i === 0 ? 3 : 4);
 							if (midi !== null) {
 								rawEvents.push({ tick: beatStartTick, type: 0x90, note: midi, vel: 0x40 });

@@ -409,11 +409,48 @@
             return best;
         }
 
+        /** The voiced chord under an event, as sorted MIDI. */
+        voicedMidis(ev) {
+            if (!ev || !ev.voicing) return [];
+            return Object.values(ev.voicing)
+                .filter(Number.isFinite)
+                .sort((a, b) => a - b);
+        }
+
+        /**
+         * The highest note any voicing in the piece reaches, or null when the
+         * harmony is not voiced (the melody then keeps its own register).
+         */
+        voicingCeiling(harmony) {
+            if (typeof window !== 'undefined' && window.__voicingFirst === false) return null;
+            const seq = (harmony && harmony.chordSequence) || [];
+            let top = null;
+            seq.forEach((ev) => {
+                if (!ev || ev.approachStrategy) return;
+                this.voicedMidis(ev).forEach((m) => {
+                    if (top === null || m > top) top = m;
+                });
+            });
+            return top;
+        }
+
+        /**
+         * Chord tones available to the melody over this event.
+         *
+         * When the chord is voiced, the VOICING's pitch classes are the chord —
+         * a shell voicing is a 1-3-7 sound, and anchoring the tune on the fifth
+         * it deliberately omitted puts a note in the air that the harmony under
+         * it never states. Using the voicing here is what makes the line read as
+         * belonging to the chord that is actually sounding.
+         */
         chordMidis(ev, low, high) {
+            const voiced = this.voicedMidis(ev);
             const tones = (ev && ev.chordObj &&
                 ((ev.chordObj.chordNotes && ev.chordObj.chordNotes.length && ev.chordObj.chordNotes) ||
                  ev.chordObj.diatonicNotes)) || [];
-            const pcs = tones.map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0);
+            const pcs = voiced.length
+                ? voiced.map(m => ((m % 12) + 12) % 12)
+                : tones.map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0);
             const out = [];
             for (let m = low; m <= high; m++) {
                 if (pcs.includes(((m % 12) + 12) % 12)) out.push(m);
@@ -438,6 +475,56 @@
                 if (d < bd) { bd = d; best = v; }
             }
             return best;
+        }
+
+        /**
+         * Final pass: make every note sit WITH the chord under it.
+         *
+         * The contour, the rhythm and the word-setting are already decided and
+         * are not touched here — this only repairs the two things that make a
+         * tune fight its own accompaniment:
+         *
+         *   1. A note under the voicing's top voice. The line is meant to be
+         *      heard over the chord; a note buried inside it becomes an inner
+         *      voice, so it is lifted by whole octaves, which keeps the shape.
+         *   2. A minor ninth above a voiced note. That is the one interval that
+         *      reads as a mistake rather than as colour, and it is fixed by a
+         *      step within the scale, not by a leap.
+         */
+        fitAgainstVoicings(notes, harmony, beatsPerBar, opts = {}) {
+            if (typeof window !== 'undefined' && window.__voicingFirst === false) return 0;
+            const scaleNotes = opts.scaleNotes || [];
+            const preferFlat = !!opts.preferFlat;
+            const high = Number.isFinite(opts.high) ? opts.high : 91;
+            let fixed = 0;
+
+            const clashes = (midi, voiced) => voiced.some(v => midi - v === 13);
+
+            notes.forEach((n) => {
+                const midi = this.midiOf(n.noteName);
+                if (!Number.isFinite(midi)) return;
+                const beat = (Number(n.bar) || 0) * beatsPerBar + (Number(n.beat) || 0);
+                const ev = this.harmonyAt(harmony, beat, beatsPerBar);
+                const voiced = this.voicedMidis(ev);
+                if (!voiced.length) return;
+                const top = voiced[voiced.length - 1];
+
+                let m = midi;
+                let guard = 0;
+                while (m <= top && guard++ < 3 && m + 12 <= high) m += 12;
+
+                if (clashes(m, voiced)) {
+                    const pool = this.scaleMidis(scaleNotes, Math.max(top + 1, m - 3), Math.min(high, m + 3))
+                        .filter(c => !clashes(c, voiced) && c > top);
+                    if (pool.length) m = this.nearest(pool, m);
+                }
+
+                if (m !== midi) {
+                    n.noteName = this.nameOf(m, preferFlat);
+                    fixed++;
+                }
+            });
+            return fixed;
         }
 
         /**
@@ -472,7 +559,25 @@
                     return r === 'low' ? -5 : r === 'high' ? 7 : 0;
                 } catch (_) { return 0; }
             })();
-            const LOW = 60 + REGISTER_SHIFT, HIGH = 83 + REGISTER_SHIFT;
+            // …and the VOICING raises the bottom of it.
+            //
+            // The chords are voiced before this runs, and the point of choosing
+            // a voicing — drop 2, a gospel shell, quartal — is to hear that
+            // chord under the tune. So the line goes above the voicing's top
+            // voice rather than through the middle of it: a melody note inside
+            // the chord is heard as a chord tone, and the shape that was chosen
+            // stops being audible as a shape. Clearance is a whole step, not a
+            // semitone, because a tune sitting a semitone over an inner voice
+            // reads as a rub against the chord rather than as a line over it.
+            //
+            // Only the floor moves. Lifting the ceiling with it moved the centre
+            // of the window, which is where the contour actually puts the line,
+            // up into the top octave of the keyboard — the tune came out shrill
+            // for no reason beyond the chord having cleared out below it.
+            const voicingTop = this.voicingCeiling(harmony);
+            const LOW = Math.max(60 + REGISTER_SHIFT,
+                Number.isFinite(voicingTop) ? voicingTop + 2 : 0);
+            const HIGH = Math.max(83 + REGISTER_SHIFT, LOW + 12);
             const preferFlat = /b/.test(String(scaleNotes.join('')));
 
             // ---- 1. CONTOUR ----
@@ -1300,11 +1405,21 @@
             phraseArticulation(notes, phraseChar);
             notes.forEach(n => { delete n.__char; });
 
+            // The line is written above the voicing by construction; this is the
+            // check that it stayed there once the cadence and the ornaments had
+            // their say.
+            const refitted = this.fitAgainstVoicings(notes, harmony, beatsPerBar, {
+                scaleNotes, preferFlat, high: HIGH
+            });
+
             return {
                 notes,
                 contour,
                 anchors: anchors.map(a => ({ beat: a.beat, midi: a.midi })),
-                form: form || null
+                form: form || null,
+                voicingAware: Number.isFinite(voicingTop),
+                voicingFloor: Number.isFinite(voicingTop) ? voicingTop + 2 : null,
+                voicingRefits: refitted
             };
         }
     }

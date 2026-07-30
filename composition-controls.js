@@ -209,9 +209,19 @@
             const info = document.createElement('span');
             info.style.cssText = 'color:#64748b; font-size:10px;';
             if (p) {
-                info.textContent = p.mode === 'satb'
-                    ? Object.entries(p.lead || {}).map(x => x[0] + ':' + x[1]).join(' · ')
-                    : Object.values(p.sections || {}).map(x => x.name).filter((v, i, a) => a.indexOf(v) === i).join(' · ');
+                const patterns = () => Object.values(p.sections || {})
+                    .map(x => x.name).filter((v, i, a) => a.indexOf(v) === i).join(' · ');
+                if (p.mode === 'satb') {
+                    info.textContent = Object.entries(p.lead || {}).map(x => x[0] + ':' + x[1]).join(' · ');
+                } else if (p.mode === 'piano-voicing') {
+                    // Say which voicing is sounding, since that is now the thing
+                    // the whole texture is built around.
+                    info.textContent = `${p.voicingLabel || 'voicing'} held under the melody · ${patterns()}`;
+                    info.title = 'The chords are voiced first and played as voiced; the melody is written '
+                        + 'above the top voice. The pattern sets when the chord is struck, not which notes.';
+                } else {
+                    info.textContent = patterns();
+                }
             }
             wrap.appendChild(info);
             return wrap;

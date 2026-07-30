@@ -121,6 +121,58 @@
         }
     }
 
+    /**
+     * VOICING-FIRST. The chords were voiced before the melody was written, and
+     * the melody was written above them, so the accompaniment's job here is to
+     * PLAY that voicing — not to re-derive one.
+     *
+     * What this replaces: the voicing was octave-shifted down until it fitted
+     * under a ceiling, filtered to the left hand's range, thinned to two or
+     * three notes by the breath curve, and then broken into an Alberti or
+     * walking figure. Every one of those steps is reasonable piano writing and
+     * all of them together mean the chord you chose is not the chord you hear.
+     */
+    function voicingFirst() {
+        return typeof window === 'undefined' || window.__voicingFirst !== false;
+    }
+
+    /**
+     * The chord's own rhythm: WHEN the voicing is struck, taken from the
+     * section's pattern, with the notes left alone.
+     *
+     * The patterns stay in charge of density — a pad holds, a stride pattern
+     * re-articulates, a busy figure strikes more often — because that is the
+     * ebb and flow of the piece. What they no longer do is choose which notes
+     * sound, so every attack is the whole voicing.
+     *
+     * Attacks are thinned to match: a figure that strikes a single note on
+     * every beat is an accompaniment, and the same figure striking a whole
+     * six-note voicing on every beat is a chord chug. A minimum of two beats
+     * normally, a beat and a half where the passage is genuinely busy — which
+     * lands the extra strike off the beat, so a busy bar gets syncopation
+     * rather than more of the same hammering.
+     *
+     * The patterns still come out distinct: a pad strikes once, block and
+     * stride twice, Alberti and broken-chord figures three times.
+     */
+    function chordRhythm(pattern, tones, beats, breath) {
+        let cells = [];
+        try { cells = pattern.build(tones, beats, {}) || []; } catch (_) { cells = []; }
+        const minGap = (Number(breath) > 0.72 ? 1.5 : 2) - 1e-6;
+        const onsets = [];
+        cells.forEach((c) => {
+            const b = Number(c && c.beat);
+            if (!Number.isFinite(b) || b < 0 || b >= beats) return;
+            if (!onsets.length || b - onsets[onsets.length - 1] >= minGap) onsets.push(b);
+        });
+        if (!onsets.length || onsets[0] > 1e-6) onsets.unshift(0);
+        return onsets.map((b, i) => ({
+            notes: tones.slice(),
+            beat: b,
+            duration: (i + 1 < onsets.length ? onsets[i + 1] : beats) - b
+        })).filter(c => c.duration > 1e-6);
+    }
+
     function makeRng(seed) {
         let s = ((Number(seed) || 0) ^ 0x5bf03635) >>> 0;
         return () => {
@@ -347,6 +399,14 @@
             const names = preferFlat ? flats : this.chromatic;
             const pc = ((midi % 12) + 12) % 12;
             return `${names[pc]}${Math.floor(midi / 12) - 1}`;
+        }
+
+        /** The resolved voicing under an event, as ascending MIDI. */
+        voicedMidis(ev) {
+            if (!ev || !ev.voicing) return [];
+            return Object.values(ev.voicing)
+                .filter(Number.isFinite)
+                .sort((a, b) => a - b);
         }
 
         /**
@@ -625,6 +685,7 @@
                 return this.buildSATB({ harmony, melody, context, arc, seed });
             }
             const rng = makeRng(seed + 31);
+            const keepVoicing = voicingFirst();
             const beatsPerBar = (arc && arc.beatsPerBar) || 4;
             const barCount = (arc && arc.bars) || 4;
             const form = (context && context.form) || null;
@@ -689,7 +750,10 @@
                             + 'is no longer the top voice, and that is the point — the new line is heard '
                             + 'as arriving over something already established.'
                     });
-                } else if (isDeparture && roll < 0.42 && roll >= 0.28) {
+                } else if (isDeparture && roll < 0.42 && roll >= 0.28 && !keepVoicing) {
+                    // Voicing-first excludes this and the bass-melody texture:
+                    // both put the tune below the chord, and the melody has
+                    // already been written above it.
                     sections[s.label].lead = 'tenor';
                     exceptions.push({
                         section: s.label, type: 'tenorLead', startBar: s.startBar, endBar: s.endBar,
@@ -704,7 +768,7 @@
                         explain: 'Left-hand crossover: scalar octaves cross above the right hand for a bar. '
                             + 'Brief by design — it is a gesture, and it stops being one if it stays.'
                     });
-                } else if (i === 0 && roll >= 0.52 && roll < 0.6) {
+                } else if (i === 0 && roll >= 0.52 && roll < 0.6 && !keepVoicing) {
                     sections[s.label].bassMelody = true;
                     exceptions.push({
                         section: s.label, type: 'bassMelody', startBar: s.startBar, endBar: s.endBar,
@@ -719,11 +783,17 @@
                 return sectionList[0];
             };
 
-            // --- Left hand ---------------------------------------------------
+            // --- The accompaniment -------------------------------------------
+            // Under voicing-first, notes at or above middle C go to the treble
+            // staff with the tune and everything below it to the bass staff,
+            // which is how a chord that spans the break is actually written.
             const leftHand = [];
+            const trebleHarmony = [];
             const structural = seq.filter(ev => ev && !ev.approachStrategy && ev.chordObj);
             let prevBass = null;
             const breathPhase = rng() * 2;
+            const sv = sheetVoicing();
+            const settingsLabel = sv.style || (sv.logic ? `${sv.logic} voicing` : 'voicing');
 
             structural.forEach((ev, idx) => {
                 const bar = ev.bar;
@@ -735,37 +805,47 @@
                 const floor = melodyFloorInBar(bar);
                 const ceiling = Number.isFinite(floor) ? Math.min(floor, LH_TOP + 4) : LH_TOP;
 
-                // Prefer the voice-led voicing; fall back to stacking only when
-                // the engine had nothing usable for this chord.
-                const led = this.voiceFromVoiceLeading(ev.voicing, ceiling);
-                let tones = (led && led.length >= 2)
-                    ? led
-                    : this.voiceInLeftHand(ev.chordObj, ceiling, prevBass);
-                if (!tones.length) return;
+                // The voicing as resolved before the melody was written. Nothing
+                // is re-registered, re-styled or thinned: it is the chord the
+                // user asked to hear.
+                const asVoiced = keepVoicing ? this.voicedMidis(ev) : [];
+                const useVoicing = asVoiced.length >= 2;
 
-                // The named voicing style the user actually chose — drop2,
-                // shell, quartal, gospel-cluster and the rest — applied to the
-                // accompaniment rather than discarded.
-                const sv = sheetVoicing();
-                if (sv.style) {
-                    const styled = applyNamedStyle(tones, sv.style,
-                        (m, f) => this.nameOf(m, f), (n) => this.midiOf(n));
-                    // Keep it under the melody and inside the hand.
-                    const top = Number.isFinite(ceiling) ? ceiling - 2 : LH_TOP + 6;
-                    let fitted = styled.slice();
-                    let guard = 0;
-                    while (fitted.length && Math.max(...fitted) > top && guard++ < 3) {
-                        fitted = fitted.map(m => m - 12);
+                let tones;
+                if (useVoicing) {
+                    tones = asVoiced;
+                } else {
+                    // Prefer the voice-led voicing; fall back to stacking only
+                    // when the engine had nothing usable for this chord.
+                    const led = this.voiceFromVoiceLeading(ev.voicing, ceiling);
+                    tones = (led && led.length >= 2)
+                        ? led
+                        : this.voiceInLeftHand(ev.chordObj, ceiling, prevBass);
+                    if (!tones.length) return;
+
+                    // The named voicing style the user actually chose — drop2,
+                    // shell, quartal, gospel-cluster and the rest — applied to
+                    // the accompaniment rather than discarded.
+                    if (sv.style) {
+                        const styled = applyNamedStyle(tones, sv.style,
+                            (m, f) => this.nameOf(m, f), (n) => this.midiOf(n));
+                        // Keep it under the melody and inside the hand.
+                        const top = Number.isFinite(ceiling) ? ceiling - 2 : LH_TOP + 6;
+                        let fitted = styled.slice();
+                        let guard = 0;
+                        while (fitted.length && Math.max(...fitted) > top && guard++ < 3) {
+                            fitted = fitted.map(m => m - 12);
+                        }
+                        fitted = fitted.filter(m => m >= LH_LOW && m <= top);
+                        if (fitted.length >= 2) tones = fitted.sort((a, b) => a - b);
                     }
-                    fitted = fitted.filter(m => m >= LH_LOW && m <= top);
-                    if (fitted.length >= 2) tones = fitted.sort((a, b) => a - b);
-                }
-                // Inversion: rotate the lowest note up until the requested
-                // chord tone is in the bass.
-                for (let inv = 0; inv < sv.inversion && tones.length > 1; inv++) {
-                    const lo = tones.shift();
-                    tones.push(lo + 12);
-                    tones.sort((a, b) => a - b);
+                    // Inversion: rotate the lowest note up until the requested
+                    // chord tone is in the bass.
+                    for (let inv = 0; inv < sv.inversion && tones.length > 1; inv++) {
+                        const lo = tones.shift();
+                        tones.push(lo + 12);
+                        tones.sort((a, b) => a - b);
+                    }
                 }
                 prevBass = tones[0];
 
@@ -791,35 +871,86 @@
                 if (cfg.lead === 'tenor' || cfg.bassMelody) patternId = 'pad';
                 const pattern = LH_PATTERNS[patternId] || LH_PATTERNS.block;
 
-                // Chord THICKNESS follows the breath too. Two notes in the
-                // quiet stretches, the full voicing at the top of a phrase —
-                // this is the difference between an accompaniment and a drone.
-                const thickness = Math.max(2, (breath > 0.62 ? 4 : breath > 0.34 ? 3 : 2)
-                    + logicProfile().thickness);
-                const voiced = tones.slice(0, Math.max(2, Math.min(tones.length, thickness)));
+                let built;
+                if (useVoicing) {
+                    // The pattern decides the chord's rhythm; the voicing decides
+                    // its notes. Every attack is the complete chord.
+                    built = chordRhythm(pattern, tones, beats, breath);
+                } else {
+                    // Chord THICKNESS follows the breath. Two notes in the quiet
+                    // stretches, the full voicing at the top of a phrase — the
+                    // difference between an accompaniment and a drone.
+                    const thickness = Math.max(2, (breath > 0.62 ? 4 : breath > 0.34 ? 3 : 2)
+                        + logicProfile().thickness);
+                    const voiced = tones.slice(0, Math.max(2, Math.min(tones.length, thickness)));
+                    built = pattern.build(voiced, beats, { nextRoot: nextRootMidi });
+                }
 
-                const built = pattern.build(voiced, beats, { nextRoot: nextRootMidi });
                 built.forEach(cell => {
                     // A pattern asked to fill a one-beat span can compute a
                     // trailing cell of length zero (beats - 1). Those render as
                     // invisible noteheads and confuse the duration mapping.
                     if (!Number.isFinite(cell.duration) || cell.duration <= 0) return;
-                    const cellNotes = cell.notes.filter(Number.isFinite)
-                        .map(m => Math.max(LH_LOW, Math.min(LH_TOP + 6, m)));
+                    let cellNotes = useVoicing
+                        // Already placed. Clamping here is what used to drag a
+                        // wide voicing back into one hand and destroy its spacing.
+                        ? cell.notes.filter(Number.isFinite)
+                        : cell.notes.filter(Number.isFinite)
+                            .map(m => Math.max(LH_LOW, Math.min(LH_TOP + 6, m)));
                     if (!cellNotes.length) return;
-                    leftHand.push({
+
+                    // The chord's own top voice is allowed to land IN UNISON
+                    // with the melody now — that is a genuine, close block
+                    // chord, not a bug. But the melody is drawn separately
+                    // with its own notehead, so a chord tone at that exact
+                    // pitch on this exact attack would print a second
+                    // notehead stacked on the first. Drop only that one pitch,
+                    // never the whole chord: the other voices still sound the
+                    // rest of it.
+                    if (useVoicing && cellNotes.length > 1) {
+                        const soundingMelody = melodyAt(bar * beatsPerBar + (Number(ev.beat) || 0) + cell.beat);
+                        if (Number.isFinite(soundingMelody) && cellNotes.includes(soundingMelody)) {
+                            cellNotes = cellNotes.filter(m => m !== soundingMelody);
+                        }
+                    }
+                    if (!cellNotes.length) return;
+
+                    const base = {
                         bar,
                         beat: (Number(ev.beat) || 0) + cell.beat,
                         duration: cell.duration,
-                        midis: cellNotes,
-                        noteNames: cellNotes.map(m => this.nameOf(m, preferFlat)),
-                        pattern: patternId,
-                        patternName: pattern.name,
+                        pattern: useVoicing ? `voicing:${patternId}` : patternId,
+                        patternName: useVoicing
+                            ? `${settingsLabel} — struck as ${pattern.name}`
+                            : pattern.name,
                         section: sec.label,
                         breath: Number(breath.toFixed(2)),
-                        voiceLed: !!led,
-                        hand: 'left'
-                    });
+                        voiceLed: !!ev.voicing,
+                        keptVoicing: useVoicing
+                    };
+
+                    // Split at middle C. Below it is the left hand's; at or above
+                    // it belongs on the treble staff, where a reader expects it.
+                    const low = useVoicing ? cellNotes.filter(m => m < 60) : cellNotes;
+                    const high = useVoicing ? cellNotes.filter(m => m >= 60) : [];
+
+                    if (low.length) {
+                        leftHand.push({
+                            ...base,
+                            midis: low,
+                            noteNames: low.map(m => this.nameOf(m, preferFlat)),
+                            hand: 'left'
+                        });
+                    }
+                    if (high.length) {
+                        trebleHarmony.push({
+                            ...base,
+                            midis: high,
+                            noteNames: high.map(m => this.nameOf(m, preferFlat)),
+                            hand: 'right',
+                            voice: 'harmony'
+                        });
+                    }
                 });
             });
 
@@ -877,11 +1008,13 @@
 
             // --- Hand separation ----------------------------------------------
             // The left hand must not collide with the right. Crossovers are the
-            // exception and are left alone, because they are the point.
+            // exception and are left alone, because they are the point — and so
+            // is a kept voicing, which the melody was already written above;
+            // dropping it here would re-open the hole this all exists to close.
             let collisions = 0;
             leftHand.forEach((lh) => {
                 const sec = sections[lh.section] || {};
-                if (sec.lhCrossover || lh.isMelody) return;
+                if (sec.lhCrossover || lh.isMelody || lh.keptVoicing) return;
                 const abs = lh.bar * beatsPerBar + lh.beat;
                 const mel = melodyAt(abs);
                 if (!Number.isFinite(mel)) return;
@@ -895,14 +1028,22 @@
             });
 
             leftHand.sort((a, b) => (a.bar - b.bar) || (a.beat - b.beat));
+            trebleHarmony.sort((a, b) => (a.bar - b.bar) || (a.beat - b.beat));
 
             return {
-                mode: 'piano',
+                mode: keepVoicing ? 'piano-voicing' : 'piano',
+                voicingLabel: keepVoicing ? settingsLabel : null,
                 leftHand,
+                trebleHarmony,
                 rightHand,
                 sections,
                 exceptions,
-                stats: { collisionsFixed: collisions, lhEvents: leftHand.length, rhEvents: rightHand.length }
+                stats: {
+                    collisionsFixed: collisions,
+                    lhEvents: leftHand.length,
+                    rhEvents: rightHand.length,
+                    trebleHarmonyEvents: trebleHarmony.length
+                }
             };
         }
     }

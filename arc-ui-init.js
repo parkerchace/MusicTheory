@@ -443,7 +443,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const harmony = generateHarmony(context, arc, seed);
     const melody = generateMelody(context, arc, harmony, seed);
-    revoiceHarmonyAgainstMelody(harmony, melody, context);
+    // The line engine writes above the voicing; the legacy fallback does not,
+    // so that path still needs the chords bent under the tune instead.
+    if (!voicingFirst() || !melody.voicingAware) {
+      revoiceHarmonyAgainstMelody(harmony, melody, context);
+    } else {
+      const vs = harmony.voicingSettings || {};
+      const mtRef2 = window.modularApp && window.modularApp.musicTheory;
+      const alignedCount = alignVoicingToMelody(harmony, melody, arc.beatsPerBar || 4, mtRef2, vs.style, vs.overrides, vs.ceiling);
+      if (alignedCount) harmony.voicingSettings = { ...vs, melodyAlignedChords: alignedCount };
+    }
     // Split into two hands. Until this ran, "the accompaniment" was a stack of
     // chord tones drawn on the treble staff with the tune, which is a lead
     // sheet rather than piano writing.
@@ -573,7 +582,16 @@ function regenerateLastGeneration(reason = 'settings-change') {
 
     const harmony = generateHarmony(context, arc, seed);
     const melody = generateMelody(context, arc, harmony, seed);
-    revoiceHarmonyAgainstMelody(harmony, melody, context);
+    // The line engine writes above the voicing; the legacy fallback does not,
+    // so that path still needs the chords bent under the tune instead.
+    if (!voicingFirst() || !melody.voicingAware) {
+      revoiceHarmonyAgainstMelody(harmony, melody, context);
+    } else {
+      const vs = harmony.voicingSettings || {};
+      const mtRef2 = window.modularApp && window.modularApp.musicTheory;
+      const alignedCount = alignVoicingToMelody(harmony, melody, arc.beatsPerBar || 4, mtRef2, vs.style, vs.overrides, vs.ceiling);
+      if (alignedCount) harmony.voicingSettings = { ...vs, melodyAlignedChords: alignedCount };
+    }
     const piano = buildPianoTexture(context, arc, harmony, melody, seed);
     const scaleTimeline = buildScaleTimeline(context, arc, harmony);
     const generatedMusic = {
@@ -681,6 +699,143 @@ function queueChordOriginToasts(generatedMusic, { maxToasts = 6, perToastMs = 12
   };
 
   showNext();
+}
+
+/**
+ * The functional reading of a scale, memoised.
+ *
+ * Deterministic for a given key and scale, and each call costs one
+ * getDiatonicChord per degree, so it is worth not recomputing it per bar.
+ */
+const __scaleAnalysisCache = new Map();
+function scaleAnalysis(mt, key, scaleName) {
+  if (!mt || typeof FunctionalHarmony === 'undefined') return null;
+  const cacheKey = `${key}|${scaleName}`;
+  if (__scaleAnalysisCache.has(cacheKey)) return __scaleAnalysisCache.get(cacheKey);
+  let an = null;
+  try { an = FunctionalHarmony.analyzeScale(mt, key, scaleName); } catch (_) { an = null; }
+  __scaleAnalysisCache.set(cacheKey, an);
+  return an;
+}
+
+/**
+ * Is every note of this chord in the scale?
+ *
+ * The question the "chromatic colour" label was really asking, and never
+ * actually asked: it string-matched accidentals in the roman numeral instead,
+ * which says nothing about pitch content. Returns the notes that are outside,
+ * so the caller can name them rather than gesturing at "outside tension".
+ */
+function notesOutsideScale(mt, chordObj, scaleNotes) {
+  const tones = (chordObj && (chordObj.chordNotes || chordObj.diatonicNotes)) || [];
+  if (!tones.length || !Array.isArray(scaleNotes) || !scaleNotes.length || !mt || !mt.noteValues) return [];
+  const pcOf = (n) => {
+    const v = mt.noteValues[String(n).replace(/-?\d+$/, '')];
+    return Number.isFinite(v) ? ((v % 12) + 12) % 12 : null;
+  };
+  const inScale = new Set(scaleNotes.map(pcOf).filter(Number.isFinite));
+  const out = [];
+  tones.forEach((t) => {
+    const pc = pcOf(t);
+    if (Number.isFinite(pc) && !inScale.has(pc) && !out.includes(t)) out.push(t);
+  });
+  return out;
+}
+
+/**
+ * WHAT AN OUTSIDE NOTE IS ACTUALLY DOING.
+ *
+ * "Adds outside tension" is the sentence you write when you have not looked. It
+ * is true of every chromatic chord ever played and therefore says nothing about
+ * this one. Each branch below is a real harmonic reading and is only offered
+ * when it is actually the case; the last one still names the note and what it
+ * displaced, because that much is always knowable.
+ */
+function chromaticExplanation(mt, info) {
+  const { chord, outside, chordObj, scaleNotes, nextChord, key, scaleName } = info;
+  const pcOf = (n) => {
+    const v = mt && mt.noteValues ? mt.noteValues[String(n).replace(/-?\d+$/, '')] : null;
+    return Number.isFinite(v) ? ((v % 12) + 12) % 12 : null;
+  };
+  const noteList = outside.join(' and ');
+  const isAre = outside.length > 1 ? 'are' : 'is';
+  const keyLabel = `${key} ${formatScaleNameForDisplay(scaleName)}`;
+
+  const rootPc = pcOf(chordObj && chordObj.root);
+  const tones = (chordObj && (chordObj.chordNotes || chordObj.diatonicNotes)) || [];
+  const ivs = tones.map(pcOf).filter(Number.isFinite)
+    .map(p => ((p - rootPc) % 12 + 12) % 12);
+  const isDominantQuality = ivs.includes(4) && ivs.includes(10);
+
+  const nextRootPc = pcOf(nextChord && nextChord.root);
+  const nextTones = (nextChord && (nextChord.chordNotes || nextChord.diatonicNotes)) || [];
+
+  // 1. A dominant a fifth above what follows it. This is the single most
+  //    common reason a chord leaves the key, and it has a name.
+  if (isDominantQuality && Number.isFinite(rootPc) && Number.isFinite(nextRootPc)
+      && ((rootPc - nextRootPc) % 12 + 12) % 12 === 7) {
+    return `Secondary dominant: ${chord} is the dominant of ${nextChord.fullName}, `
+      + `so it is heard as pointing at the next bar rather than as a colour on this one. `
+      + `Its ${noteList} ${isAre} outside ${keyLabel} — that ${outside.length > 1 ? 'are' : 'is'} the leading tone `
+      + `borrowed from ${nextChord.root}'s own key to make the arrival land.`;
+  }
+
+  // 2. A semitone under (or over) something in the next chord: a leading tone,
+  //    whatever the chord's quality.
+  const leadings = [];
+  outside.forEach((n) => {
+    const p = pcOf(n);
+    if (!Number.isFinite(p)) return;
+    nextTones.forEach((t) => {
+      const tp = pcOf(t);
+      if (!Number.isFinite(tp)) return;
+      if (((tp - p) % 12 + 12) % 12 === 1) leadings.push(`${n} rises a semitone into ${t}`);
+      else if (((p - tp) % 12 + 12) % 12 === 1) leadings.push(`${n} falls a semitone into ${t}`);
+    });
+  });
+  if (leadings.length && nextChord) {
+    return `Chromatic approach: ${leadings[0]}, which is in ${nextChord.fullName} — `
+      + `the note is outside ${keyLabel} but it resolves by step, so it is heard as a lean toward the next chord.`;
+  }
+
+  // 3. An alteration of the chord the scale itself has on this root. Naming
+  //    what was displaced is what makes the alteration audible as a choice.
+  let displaced = null;
+  outside.forEach((n) => {
+    const p = pcOf(n);
+    if (!Number.isFinite(p) || displaced) return;
+    (scaleNotes || []).forEach((s) => {
+      const sp = pcOf(s);
+      if (!Number.isFinite(sp) || displaced) return;
+      const up = ((sp - p) % 12 + 12) % 12;
+      if (up === 1 || up === 11) displaced = { from: s, to: n, raised: up === 1 };
+    });
+  });
+  if (displaced) {
+    return `Altered chord tone: ${chord} ${displaced.raised ? 'lowers' : 'raises'} the scale's `
+      + `${displaced.from} to ${displaced.to}. Everything else in the chord is diatonic, so what you hear `
+      + `is that one note bending out of ${keyLabel} and the chord's quality changing with it.`;
+  }
+
+  // 4. Nothing structural to claim — so say only what is true.
+  return `Outside the key: ${noteList} ${isAre} not in ${keyLabel}, `
+    + `so ${chord} sits apart from the chords around it.`;
+}
+
+/** The scale actually in force for an event (a modulating bar has its own). */
+function activeScaleNotesFor(mt, event, fallbackNotes) {
+  if (event && event.scaleHint && Array.isArray(event.scaleHint.scaleNotes) && event.scaleHint.scaleNotes.length) {
+    return event.scaleHint.scaleNotes;
+  }
+  if (event && mt && event.barKey && event.barScale) {
+    try {
+      const notes = (typeof mt.getScaleNotesWithKeySignature === 'function')
+        ? mt.getScaleNotesWithKeySignature(event.barKey, event.barScale)
+        : mt.getScaleNotes(event.barKey, event.barScale);
+      if (notes && notes.length) return notes;
+    } catch (_) {}
+  }
+  return fallbackNotes || [];
 }
 
 function romanToDegree(roman) {
@@ -1134,29 +1289,59 @@ function buildFormProgression({ form, barCount, toneTemplates, minorTone, rng, m
     const sec = form.sectionOfBar && form.sectionOfBar[bar];
     if (sec && bar === sec.endBar && bar !== fs.toBar) return;
 
+    // A PROMISE ONLY COUNTS IF IT IS KEPT.
+    //
+    // The form plans a key for every section; whether that key is ever reached
+    // depends on the complexity gate, which switches modulation on well above
+    // the level that switches secondary dominants on. In the band between the
+    // two, this pass announced "foreshadowing the move to the relative minor"
+    // and then no move happened — the piece explained a modulation it never
+    // made, twice in twelve bars. So the promise is only made when the
+    // modulation it points at is actually in the plan.
+    const realised = (modulations || []).find(m =>
+      m.section === fs.targetSection || m.startBar === bar + 1);
+    if (!realised || !realised.toKey) return;
+
     try {
-      const targetRoot = mt.transposeNote(key, fs.targetOffset);
+      const targetRoot = realised.toKey;
+      // …and never foreshadow the key already sounding. "Foreshadowing the move
+      // to the tonic" in a bar that is in the tonic is not a subtle point, it is
+      // a contradiction.
+      const hereKey = (keyPlan[bar] && keyPlan[bar].key) || key;
+      if (FH_pcOf(mt, targetRoot) === FH_pcOf(mt, hereKey)) return;
+
       // The dominant OF the target key: a fifth above it.
       const secondaryRoot = mt.transposeNote(targetRoot, 7);
       if (!secondaryRoot) return;
       const semis = ((FH_pcOf(mt, secondaryRoot) - FH_pcOf(mt, key)) % 12 + 12) % 12;
-      const MAJOR_SEMIS = [0, 2, 4, 5, 7, 9, 11];
-      const natural = MAJOR_SEMIS.indexOf(semis);
-      const roman = natural >= 0
-        ? FunctionalHarmony.ROMAN_BY_INTERVAL[semis]
-        : FunctionalHarmony.ROMAN_BY_INTERVAL[semis];
+      const roman = FunctionalHarmony.ROMAN_BY_INTERVAL[semis];
       if (!roman) return;
       // Already prepared by the bar before it — a second identical chord adds
       // nothing and just reads as the harmony stalling.
       if (bar > 0 && romans[bar - 1] === roman) return;
       romans[bar] = roman;
-      keyPlan[bar] = { ...(keyPlan[bar] || { key, scaleName, home: true }), foreshadows: fs.targetRelation };
+      // The chord has to BE a dominant seventh, not whatever quality the home
+      // scale happens to put on that degree. The mechanism is the leading tone;
+      // a chord without it foreshadows nothing, and that is what produced a bar
+      // labelled "the dominant of the key about to arrive" while a DmMaj7 — no
+      // leading tone anywhere in it — was sounding.
+      keyPlan[bar] = {
+        ...(keyPlan[bar] || { key, scaleName, home: true }),
+        foreshadows: realised.relation || fs.targetRelation,
+        dominantOn: secondaryRoot
+      };
+      const leadingTone = mt.transposeNote(secondaryRoot, 4);
       devices.push({
         type: 'foreshadow', bar,
-        targetKey: targetRoot, targetRelation: fs.targetRelation,
-        secondary: `V/${fs.targetRelation}`,
-        explain: `${fs.explain} Here that is ${secondaryRoot}7 — the dominant of the key about to `
-          + `arrive, sounding while the old key is still in force.`
+        targetKey: targetRoot, targetRelation: realised.relation || fs.targetRelation,
+        secondary: `V/${realised.relation || fs.targetRelation}`,
+        explain: `Foreshadowing the move to ${targetRoot} (${realised.relation || fs.targetRelation}): `
+          + `${secondaryRoot}7 is that key's dominant, sounding a bar before the key itself arrives. `
+          + (leadingTone
+              ? `Its ${leadingTone} is the leading tone of ${targetRoot} and is outside the current key — `
+                + `that one note is the whole mechanism, and it is why the modulation is heard as promised `
+                + `rather than as an edit.`
+              : `The modulation is heard as promised rather than as an edit.`)
       });
     } catch (_) {}
   });
@@ -1257,8 +1442,14 @@ function legacyTemplateProgression({ form, barCount, toneTemplates, minorTone, r
  * What actually matters is that nothing OUTSIDE the chord sounds, and that the
  * tones which define its quality are present. The fifth is the omissible one;
  * the third and the seventh are what make a chord the chord it is.
+ *
+ * `opts.rootless` and `opts.minVoices` exist because some of the named styles
+ * ARE deliberate omissions. A jazz rootless voicing has no root and a shell has
+ * three notes; failing them for that is failing them for being what the user
+ * asked for, and the fallback silently replaced the chosen voicing with literal
+ * chord tones.
  */
-function voicingIsFaithful(mt, chordObj, voices) {
+function voicingIsFaithful(mt, chordObj, voices, opts = {}) {
   const tones = (chordObj && (chordObj.chordNotes || chordObj.diatonicNotes)) || [];
   if (!tones.length || !voices) return false;
   const pcOf = (n) => {
@@ -1269,7 +1460,7 @@ function voicingIsFaithful(mt, chordObj, voices) {
   if (!chordPcs.length) return false;
 
   const midis = Object.values(voices).filter(Number.isFinite);
-  if (midis.length < 3) return false;
+  if (midis.length < (Number(opts.minVoices) || 3)) return false;
   const voicedPcs = midis.map(m => ((m % 12) + 12) % 12);
 
   // 1. No note outside the chord.
@@ -1278,7 +1469,7 @@ function voicingIsFaithful(mt, chordObj, voices) {
   // 2. The tones that define the quality must be there. Root and third always;
   //    the seventh too when the chord has one. The fifth may be dropped.
   const root = chordPcs[0];
-  const need = [root];
+  const need = opts.rootless ? [] : [root];
   const third = chordPcs.find(pc => {
     const iv = ((pc - root) % 12 + 12) % 12;
     return iv === 3 || iv === 4;
@@ -1292,6 +1483,225 @@ function voicingIsFaithful(mt, chordObj, voices) {
 
   const have = new Set(voicedPcs);
   return need.every(pc => have.has(pc));
+}
+
+/**
+ * THE VOICING IS THE FRAME THE REST OF THE MUSIC IS WRITTEN INTO.
+ *
+ * Where the top of the chord sits, per Register setting. The melody goes above
+ * this, so the ceiling is really the seam between the two: at E4 the chord
+ * occupies roughly the octave below middle C and the tune sings from F4 up,
+ * which is the ordinary hand position for chord-under-melody playing. Raising
+ * it raises the whole texture rather than only the accompaniment.
+ */
+const VOICING_TOP_CEIL = { low: 59, mid: 64, high: 69 };
+const VOICING_BASS_FLOOR = 33;   // A1 — below this a chord is a growl
+
+/**
+ * Resolve every bar's voicing ONCE, before the melody exists.
+ *
+ * Two things used to happen to a chosen voicing after it was chosen. The
+ * voice-leading engine knows only `close` and `spread`, so fifteen of the
+ * eighteen manual styles reached it as one of those two; and the piano texture
+ * then re-applied the named style to whatever it had been handed, squashed it
+ * under the melody and thinned it to two or three notes. Nothing downstream
+ * ever played the voicing the user picked.
+ *
+ * Here a manual style is built from the chord's own tones in close position —
+ * which is the shape drop-2, shell and quartal are all defined against — and
+ * only then placed in a register. The intelligent modes keep the voice-leading
+ * engine's answer, because solving each chord against the last IS what they
+ * are for. Either way the result is the chord as it will actually sound, so the
+ * melody can be written above it and the texture can play it as written.
+ *
+ * @returns {Array<Object|null>} per-bar `voices` objects, null where unusable
+ */
+function resolveVoicings({ mt, chordObjs, led, style, register, overrides, inversion, voiceLeading, vlCombos, vlIntensity }) {
+  const CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const ceiling = VOICING_TOP_CEIL[register] || VOICING_TOP_CEIL.mid;
+  const styleFn = (typeof window !== 'undefined' && typeof window.applyVoicingStyleTo === 'function')
+    ? window.applyVoicingStyleTo : null;
+  // 0 = place every chord at its canonical register and ignore what came
+  // before; 1 = favour minimal motion from the previous chord strongly. This
+  // is the "VL Intensity" slider's only previous effect anywhere in the code
+  // was to sit in state and be read by nothing — it now scales the same
+  // movement term `place()` already computed against a fixed weight.
+  const intensity = Number.isFinite(vlIntensity) ? Math.max(0, Math.min(1, vlIntensity)) : 0.5;
+  const movementWeight = 0.15 + intensity * 1.35;
+
+  const pcOf = (n) => {
+    const nm = String(n).replace(/-?\d+$/, '');
+    const v = mt && mt.noteValues ? mt.noteValues[nm] : null;
+    return Number.isFinite(v) ? ((v % 12) + 12) % 12 : null;
+  };
+  const nameOf = (midi) => `${CHROMATIC[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
+  const midiOf = (name) => {
+    const m = String(name || '').match(/^([A-Ga-g][#b]?)(-?\d+)$/);
+    if (!m) return null;
+    const pc = pcOf(m[1]);
+    return Number.isFinite(pc) ? pc + (parseInt(m[2], 10) + 1) * 12 : null;
+  };
+
+  // The chord's pitch classes in the order its tones were given — root,
+  // third, fifth, seventh — before any inversion or style touches them.
+  const chordPcs = (chordObj) => {
+    const tones = (chordObj && (chordObj.chordNotes || chordObj.diatonicNotes)) || [];
+    const pcs = [];
+    tones.forEach((t) => {
+      const pc = pcOf(t);
+      if (Number.isFinite(pc) && !pcs.includes(pc)) pcs.push(pc);
+    });
+    return pcs;
+  };
+  // Stack a pitch-class list ascending from just under C3 — the input every
+  // named style assumes, and the shape "Root position" means before an
+  // inversion or a style is applied.
+  const stackFromPcs = (pcs) => {
+    if (!pcs.length) return null;
+    const out = [];
+    let cursor = 47;
+    pcs.forEach((pc) => {
+      let m = cursor + 1;
+      while ((((m % 12) + 12) % 12) !== pc) m++;
+      out.push(m);
+      cursor = m;
+    });
+    return out;
+  };
+  // INVERSION: which chord tone starts the stack. Rotating the pitch-class
+  // list before stacking and styling is what "1st inversion drop-2" means —
+  // the style is still built from this new bottom tone, not bolted on after.
+  const rotate = (arr, n) => {
+    if (!arr.length) return arr;
+    const k = ((n % arr.length) + arr.length) % arr.length;
+    return arr.slice(k).concat(arr.slice(0, k));
+  };
+
+  // Octave-place a stack without touching its internal spacing — the spacing
+  // IS the voicing — and report the cost so callers can compare candidates
+  // (different inversions, different sources) against each other, not just
+  // pick blindly.
+  //
+  // Placement is judged by the TOP of the chord, not the bottom: the top
+  // voice is the one the melody sits over, so a chord that hangs well below
+  // the ceiling leaves a hole in the middle of the texture. Judging by the
+  // bottom instead — trying to keep the bass near a comfortable A2 — dropped
+  // every thin voicing an octave, because a three-note rootless shape has its
+  // bass where a four-note one has its tenor.
+  const place = (midis, prevBottom) => {
+    const base = midis.slice().sort((a, b) => a - b);
+    let best = null;
+    [0, -12, 12, -24, 24].forEach((shift) => {
+      const cand = base.map(m => m + shift);
+      const top = cand[cand.length - 1];
+      const bottom = cand[0];
+      const cost = (top > ceiling ? (top - ceiling) * 4 : (ceiling - top) * 0.6)
+        + (bottom < VOICING_BASS_FLOOR ? (VOICING_BASS_FLOOR - bottom) * 4 : 0)
+        + (Number.isFinite(prevBottom) ? Math.abs(bottom - prevBottom) * movementWeight : 0);
+      if (!best || cost < best.cost) best = { cand, cost };
+    });
+    return best;
+  };
+
+  const VOICE_NAMES = ['bass', 'tenor', 'alto', 'soprano'];
+  const toVoices = (midis) => {
+    const voices = {};
+    midis.forEach((m, i) => {
+      voices[i < VOICE_NAMES.length ? VOICE_NAMES[i] : `upper${i}`] = m;
+    });
+    return voices;
+  };
+
+  // Build the styled, placed candidate for one inversion of one chord.
+  const buildCandidate = (chordObj, barStyle, invIdx, prevBottom) => {
+    const pcs = chordPcs(chordObj);
+    if (!pcs.length) return null;
+    const stack = stackFromPcs(rotate(pcs, invIdx));
+    if (!stack) return null;
+    let midis = null;
+    if (barStyle && styleFn) {
+      try {
+        const styled = styleFn(stack.map(nameOf), barStyle);
+        const asMidi = (Array.isArray(styled) ? styled : []).map(midiOf).filter(Number.isFinite);
+        if (asMidi.length >= 2) midis = asMidi;
+      } catch (_) { midis = null; }
+    }
+    if (!midis) midis = stack;
+    return place(Array.from(new Set(midis)), prevBottom);
+  };
+
+  const out = [];
+  let prevBottom = null;
+  let rejected = 0;
+  chordObjs.forEach((chordObj, i) => {
+    const barStyle = (overrides && overrides[i] && overrides[i].voicing) || style;
+    const maxInv = Math.max(0, chordPcs(chordObj).length - 1);
+    const pinned = Number.isFinite(inversion) ? Math.max(0, Math.min(Math.round(inversion), maxInv)) : 0;
+
+    // A pinned inversion (anything but "Root") is an explicit instruction and
+    // wins outright. Left at Root, Voice Leading and VL Combos are free to
+    // pick whichever inversion moves least from the previous chord — that is
+    // what "smooth inversions only" means when nothing has been pinned.
+    const searchInversions = pinned === 0 && (voiceLeading || vlCombos) && maxInv > 0;
+    const invCandidates = searchInversions
+      ? Array.from({ length: maxInv + 1 }, (_, k) => k)
+      : [pinned];
+
+    let best = null;
+    invCandidates.forEach((invIdx) => {
+      const cand = buildCandidate(chordObj, barStyle, invIdx, prevBottom);
+      if (cand && (!best || cand.cost < best.cost)) best = cand;
+    });
+
+    // VL COMBOS also weighs the intelligent voice-leading engine's own answer
+    // for this chord — a genuinely different voicing algorithm, which is the
+    // "multiple voicing types" the control promises, not just this chord's
+    // own inversions. It only enters the competition, never overrides a
+    // closer-fitting inversion of the requested style outright.
+    if (vlCombos) {
+      const v = led && led[i] && led[i].voices;
+      const vm = v ? Object.values(v).filter(Number.isFinite) : [];
+      if (vm.length >= 2) {
+        const ledCand = place(Array.from(new Set(vm)), prevBottom);
+        if (ledCand && (!best || ledCand.cost < best.cost)) best = ledCand;
+      }
+    }
+
+    // Nothing built from the style or its inversions: the voice-leading
+    // engine's own answer, same as when no style was requested at all.
+    if (!best) {
+      const v = led && led[i] && led[i].voices;
+      const vm = v ? Object.values(v).filter(Number.isFinite) : [];
+      if (vm.length >= 2) best = place(Array.from(new Set(vm)), prevBottom);
+    }
+    if (!best) { out.push(null); return; }
+
+    const voices = toVoices(best.cand);
+    const ok = voicingIsFaithful(mt, chordObj, voices, {
+      rootless: barStyle === 'jazz-rootless',
+      minVoices: barStyle ? 2 : 3
+    });
+    if (!ok) { out.push(null); rejected++; return; }
+    prevBottom = best.cand[0];
+    out.push(voices);
+  });
+
+  out.__rejected = rejected;
+  out.__ceiling = ceiling;
+  return out;
+}
+
+/** The top note any voicing reaches — the floor the melody has to clear. */
+function voicingTopOf(harmony) {
+  const seq = (harmony && harmony.chordSequence) || [];
+  let top = null;
+  seq.forEach((ev) => {
+    if (!ev || !ev.voicing) return;
+    Object.values(ev.voicing).forEach((m) => {
+      if (Number.isFinite(m) && (top === null || m > top)) top = m;
+    });
+  });
+  return top;
 }
 
 function generateHarmony(context, arc, seed = 0) {
@@ -1559,7 +1969,61 @@ function generateHarmony(context, arc, seed = 0) {
     if (mt) {
       const degree = romanToDegree(roman);
 
-      if (roman.includes('b') || roman.includes('#')) {
+      // IS THIS ROMAN ACTUALLY CHROMATIC, OR IS IT JUST WHAT THIS SCALE'S
+      // DEGREES ARE CALLED?
+      //
+      // Roman numerals are named against the major scale, so most modes name
+      // their own diatonic degrees with accidentals: the third degree of
+      // aeolian is ♭III, the fourth of the acoustic scale is ♯iv. Treating any
+      // accidental as an alteration sent those degrees down the chromatic path
+      // below, which rebuilds the chord from major-scale semitones and infers
+      // its quality from the numeral's CASE. In G acoustic that turned the
+      // scale's own C♯m7♭5 into C♯m7 — a G♯ that is in no scale in play — and
+      // then labelled the result "chromatic colour", which is how a diatonic
+      // chord ended up reported as outside tension in three bars out of twelve.
+      //
+      // So: if the active scale has a degree by this name, that degree IS the
+      // chord. Only a numeral the scale cannot account for is an alteration.
+      let scaleDegree = null;
+      {
+        const an = scaleAnalysis(mt, barKey, barScale);
+        if (an && Array.isArray(an.degrees)) {
+          scaleDegree = an.degrees.find(d =>
+            String(d.roman) === String(roman) || String(d.displayRoman) === String(roman)) || null;
+        }
+      }
+
+      // A foreshadowing bar was planned as a specific secondary dominant. That
+      // is a request for a chord, not for a degree, and it outranks the scale:
+      // the leading tone it drags in is the entire device.
+      const forcedDominant = barKeyPlan.dominantOn;
+
+      if (forcedDominant && typeof mt.getChordNotes === 'function') {
+        const dn = mt.getChordNotes(forcedDominant, '7') || [];
+        if (dn.length) {
+          chordObj = {
+            root: forcedDominant,
+            chordType: '7',
+            chordNotes: dn,
+            diatonicNotes: dn,
+            fullName: `${forcedDominant}7`,
+            roman,
+            secondaryDominant: true
+          };
+        }
+      }
+
+      if (chordObj) {
+        // already resolved by the foreshadowing request
+      } else if (scaleDegree) {
+        chordObj = mt.getDiatonicChord(scaleDegree.degree, barKey, barScale);
+        try {
+          if (chordObj) {
+            chordObj.roman = scaleDegree.displayRoman || roman;
+            chordObj.scaleDegree = scaleDegree.degree;
+          }
+        } catch (_) {}
+      } else if (roman.includes('b') || roman.includes('#')) {
         // Accidental romans (bVI, bVII, bII, #IV) are defined relative to the
         // MAJOR scale degrees, regardless of the current scale — flattening the
         // current scale's diatonic degree would double-flatten in minor modes
@@ -1754,11 +2218,15 @@ function generateHarmony(context, arc, seed = 0) {
     resolvedBarChords.push(chordObj);
   }
 
-  // Apply Voice Leading. The sheet's Voicing control is authoritative when the
-  // user has set one — previously these options were hardcoded from energy, so
-  // changing the dropdown had no effect on generated music at all.
+  // VOICE THE HARMONY FIRST, AND KEEP THAT ANSWER.
+  //
+  // The sheet's Voicing control is authoritative: a manual style is built from
+  // the chord's own tones so the style is exact, and the intelligent modes go
+  // through the voice-leading engine, which is what solves each chord against
+  // the last. Whatever comes out is the chord as it will sound — the melody is
+  // written above it and the piano texture plays it as written.
   let voicings = null;
-  if (vlEngine) {
+  {
       const sheet = (window.modularApp && window.modularApp.sheetMusicGenerator) || window.sheetMusicGenerator || null;
       const sheetState = (sheet && sheet.state) || {};
       const overrides = (typeof window !== 'undefined' && window.__chordVoicingOverrides) || {};
@@ -1766,59 +2234,79 @@ function generateHarmony(context, arc, seed = 0) {
       const autoVoicing = context.overallEnergy > 0.7 ? 'spread' : 'close';
       const autoRegister = context.overallEnergy > 0.8 ? 'high' : (context.overallEnergy < 0.3 ? 'low' : 'mid');
 
-      // 'smart/smooth/open/jazz/piano' are the intelligent modes; the manual
-      // styles map straight onto the engine's voicing argument.
+      // 'smart/smooth/open/jazz/piano' are the intelligent modes; the eighteen
+      // manual entries are named styles applied literally.
       const logicToVoicing = { smart: 'close', smooth: 'close', open: 'spread', jazz: 'spread', piano: 'close' };
+      const manualStyle = sheetState.autoVoicingAll ? null : (sheetState.voicingStyle || null);
       const globalVoicing = sheetState.autoVoicingAll
           ? (logicToVoicing[sheetState.voicingLogic] || autoVoicing)
-          : (sheetState.voicingStyle || autoVoicing);
+          : (manualStyle || autoVoicing);
       const globalRegister = sheetState.voicingRegister || autoRegister;
 
-      const symbols = resolvedBarChords.map(c => c.fullName);
-      voicings = vlEngine.generateVoiceLeading(symbols, {
-          voicing: globalVoicing,
-          register: globalRegister
-      });
-
-      // Per-chord overrides: re-voice just the bars the user pinned.
-      try {
-        const overrideBars = Object.keys(overrides);
-        if (voicings && overrideBars.length) {
-          overrideBars.forEach((barKey) => {
-            const bi = parseInt(barKey, 10);
-            if (!Number.isFinite(bi) || !resolvedBarChords[bi]) return;
-            const o = overrides[barKey] || {};
-            const single = vlEngine.generateVoiceLeading([resolvedBarChords[bi].fullName], {
-              voicing: o.voicing || globalVoicing,
-              register: o.register || globalRegister
-            });
-            if (single && single[0]) voicings[bi] = single[0];
+      // Voice-leading pass: the intelligent modes' answer, and the fallback for
+      // any bar whose named style comes out unusable.
+      let led = null;
+      if (vlEngine) {
+        try {
+          led = vlEngine.generateVoiceLeading(resolvedBarChords.map(c => c.fullName), {
+            voicing: globalVoicing,
+            register: globalRegister
           });
-        }
+        } catch (_) { led = null; }
+      }
+
+      // Per-bar register overrides still go through the engine, since register
+      // is the one thing a named style does not decide.
+      try {
+        Object.keys(overrides).forEach((barKey) => {
+          const bi = parseInt(barKey, 10);
+          if (!Number.isFinite(bi) || !resolvedBarChords[bi] || !vlEngine || !led) return;
+          const o = overrides[barKey] || {};
+          const single = vlEngine.generateVoiceLeading([resolvedBarChords[bi].fullName], {
+            voicing: o.voicing || globalVoicing,
+            register: o.register || globalRegister
+          });
+          if (single && single[0]) led[bi] = single[0];
+        });
       } catch (_) {}
 
-      // Validate before trusting: the engine can double a tone and drop the
-      // 7th, which silently changes the chord's quality on the staff. Anything
-      // that fails validation falls back to the literal chord tones.
-      try {
-        let rejected = 0;
-        (voicings || []).forEach((v, i) => {
-          if (!v || !v.voices) return;
-          const chordObj = resolvedBarChords[i];
-          const tones = (chordObj && (chordObj.chordNotes || chordObj.diatonicNotes)) || [];
-          const pcs = new Set(tones
-            .map(n => mt && mt.noteValues && mt.noteValues[String(n).replace(/-?\d+$/, '')])
-            .filter(Number.isFinite));
-          const midis = Object.values(v.voices).filter(Number.isFinite);
-          const voicedPcs = midis.map(m => ((m % 12) + 12) % 12);
-          const ok = voicingIsFaithful(mt, chordObj, v.voices);
-          if (!ok) { voicings[i] = null; rejected++; }
-        });
-        harmony.voicingSettings = { voicing: globalVoicing, register: globalRegister, overrides, rejected };
-        if (rejected) {
-          console.warn(`[ArcInit] ${rejected} voicing(s) rejected as incomplete/out-of-chord; literal tones kept.`);
-        }
-      } catch (_) {}
+      // The rest of the Voicing Options panel. These previously only reached
+      // the manual numeric-progression builder — word-generated music read
+      // none of them, so the Inversion dropdown and the three VL controls did
+      // nothing to a generated take no matter how they were set.
+      const inversion = Number.isFinite(parseInt(sheetState.inversion, 10)) ? parseInt(sheetState.inversion, 10) : 0;
+      const voiceLeading = !!sheetState.voiceLeading;
+      const vlCombos = sheetState.voiceLeadingMode === 'multi';
+      const vlIntensity = Number.isFinite(sheetState.vlIntensity) ? sheetState.vlIntensity : 0.5;
+
+      const resolved = resolveVoicings({
+        mt,
+        chordObjs: resolvedBarChords,
+        led,
+        style: manualStyle,
+        register: globalRegister,
+        overrides: Object.keys(overrides).reduce((acc, k) => {
+          const i = parseInt(k, 10);
+          if (Number.isFinite(i)) acc[i] = overrides[k];
+          return acc;
+        }, {}),
+        inversion, voiceLeading, vlCombos, vlIntensity
+      });
+      voicings = resolved.map(v => (v ? { voices: v } : null));
+
+      harmony.voicingSettings = {
+        voicing: globalVoicing,
+        style: manualStyle,
+        register: globalRegister,
+        inversion, voiceLeading, vlCombos, vlIntensity,
+        ceiling: resolved.__ceiling,
+        overrides,
+        rejected: resolved.__rejected || 0,
+        melodyFollowsVoicing: true
+      };
+      if (resolved.__rejected) {
+        console.warn(`[ArcInit] ${resolved.__rejected} voicing(s) rejected as out-of-chord; literal tones kept.`);
+      }
   }
 
   // One RNG stream for energy perturbation across all events — creating it per
@@ -1855,6 +2343,14 @@ function generateHarmony(context, arc, seed = 0) {
 
   // The last bar that got an approach run, so the next one can be left plain.
   let lastApproachBar = -2;
+
+  // Chromatic chords already explained, by chord name → the bar that explained
+  // them. A recurring colour chord is a recurrence, not a fresh departure, and
+  // repeating its explanation verbatim in three bars is what made the whole
+  // reading read as boilerplate.
+  const chromaticSeen = new Map();
+  const homeScaleNotes = (context.harmonicProfile && context.harmonicProfile.scaleNotes) || [];
+  const activeScaleNotes = (ev) => activeScaleNotesFor(mt, ev, homeScaleNotes);
 
   for (let bar = 0; bar < barCount; bar++) {
     const chordObj = resolvedBarChords[bar];
@@ -1947,8 +2443,40 @@ function generateHarmony(context, arc, seed = 0) {
       } else if (borrowedInfo && borrowedInfo.to) {
         const modeLabel = borrowedInfo.type === 'modal-interchange' ? 'Modal interchange' : 'Borrowed color';
         event.explain = `${modeLabel}: ${event.chord} (${formatScaleNameForDisplay(borrowedInfo.to)}) for contrast`;
-      } else if (event.roman && /[b#]/.test(String(event.roman))) {
-        event.explain = `Chromatic color: ${event.chord} (${event.roman}) adds outside tension`;
+      } else {
+        // CHROMATIC MEANS A NOTE OUTSIDE THE SCALE, and it is worth saying only
+        // when we can say which note and what it does.
+        //
+        // This used to fire on any accidental in the roman numeral, so the
+        // diatonic degrees of every non-major mode — ♭III in aeolian, ♯iv in
+        // the acoustic scale — were announced as "outside tension" in bar after
+        // bar with the same canned sentence, while the note supposedly causing
+        // the tension went unnamed. If nothing is outside the scale there is
+        // nothing to report, and the panel falls back to the degree reading,
+        // which is the true and more useful statement.
+        const outside = notesOutsideScale(mt, chordObj, activeScaleNotes(event));
+        if (outside.length) {
+          const already = chromaticSeen.get(event.chord);
+          if (already !== undefined) {
+            // Saying the same thing a third time teaches nothing. A returning
+            // chromatic chord is a RECURRENCE, and that is the fact about it.
+            event.explain = `${event.chord} returns — the same outside ${outside.length > 1 ? 'notes' : 'note'} `
+              + `(${outside.join(', ')}) as bar ${already + 1}, now heard as part of the piece's colour rather than as a departure`;
+          } else {
+            chromaticSeen.set(event.chord, bar);
+            event.explain = chromaticExplanation(mt, {
+              chord: event.chord,
+              roman: event.roman,
+              outside,
+              chordObj,
+              scaleNotes: activeScaleNotes(event),
+              nextChord: resolvedBarChords[bar + 1] || null,
+              key: event.barKey,
+              scaleName: event.barScale
+            });
+          }
+          event.chromaticNotes = outside;
+        }
       }
       
       if (voicing) {
@@ -2148,17 +2676,214 @@ function generateHarmony(context, arc, seed = 0) {
 }
 
 /**
- * Re-voice the accompaniment now that the melody exists.
+ * VOICING-FIRST: the chord is decided, then the melody is written above it.
  *
- * Harmony is voiced before the melody is written, so on the first pass the
- * voice-leading engine has no idea what the tune is doing — it picks a soprano
- * freely, and the result is two independent top lines that cross, double in
- * unison, and run in parallel octaves. Nothing in the texture connects.
+ * The opposite order — write the tune, then bend the harmony to fit under it —
+ * is the normal way round for song arranging, and it is what this file used to
+ * do. It also means the Voicing control never survives: whatever drop-2 or
+ * gospel shell was chosen gets re-solved against the melody and re-registered
+ * into the bass staff, so what you hear is a generic accompaniment. Since the
+ * point of picking a voicing is to HEAR that voicing under the tune, the
+ * voicing wins and the melody accommodates it.
  *
- * Running the voicer a second time with the melody supplied lets it keep the
- * accompaniment under the tune and treat the melody as a real voice when
- * checking parallels. Chords whose voicing fails validation keep their literal
- * tones, exactly as on the first pass.
+ * Set `window.__voicingFirst = false` for the old melody-first behaviour.
+ */
+function voicingFirst() {
+  return typeof window === 'undefined' || window.__voicingFirst !== false;
+}
+if (typeof window !== 'undefined') window.__voicingFirstActive = voicingFirst;
+
+/**
+ * SECOND PASS, VOICING-FIRST ONLY: rotate each bar's voicing so its own top
+ * note is the melody's pitch class, wherever the melody actually landed on a
+ * chord tone.
+ *
+ * The chord is voiced before the melody is written, so on the first pass
+ * there is no way to know which chord tone the tune will land on — the
+ * resolver picks a default rotation (root position, unless Inversion/Voice
+ * Leading said otherwise) and the melody is then written a clear step above
+ * whatever that rotation's top note happens to be. For a "close" Dm7 under an
+ * F melody, that is D F A C with the F sitting a step above the C — a doubled
+ * note floating over an unrelated top voice, not what "close voicing under
+ * this melody" means. The idiomatic answer is the SAME style's inversion
+ * whose own top note already is F — A C D F — so the melody reads as the
+ * chord's own soprano rather than as a separate line drawn over it.
+ *
+ * Only an actual chord tone qualifies. A passing or neighbour tone is not the
+ * chord, and forcing an inversion to chase it would fight the harmony instead
+ * of following it — those keep the whole-step clearance from the first pass.
+ *
+ * WHERE that rotation sits is a separate question from WHICH rotation it is,
+ * and it is chosen rather than fixed. Pinning the top an octave below the
+ * melody — the first version of this — puts a hole in the middle of every
+ * texture: under an E melody it writes G2 C3 E3 when the thing a pianist
+ * actually plays is G3 C4 E4, the melody note itself being the top of the
+ * chord. So the top voice may land ON the melody note, an octave below it, or
+ * two, and the placement is scored: closeness to the tune pulls the chord up,
+ * and a bass that would strand the left hand above middle C pulls it back
+ * down. A mid-register melody gets the close block chord; a high one gets the
+ * octave, because up there the close voicing would leave nothing underneath.
+ *
+ * When the top voice does land on the melody note they sound in unison — which
+ * is what a block chord IS, and is why the melody is doubled at the top of the
+ * chord rather than hovering above it.
+ */
+function alignVoicingToMelody(harmony, melody, beatsPerBar, mt, voicingStyle, overrides, ceiling) {
+  let aligned = 0;
+  const ceilingVal = Number.isFinite(ceiling) ? ceiling : VOICING_TOP_CEIL.mid;
+  try {
+    if (!mt || !harmony || !Array.isArray(harmony.chordSequence)) return 0;
+    const notes = (melody && melody.notes) || [];
+    if (!notes.length) return 0;
+
+    const CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const pcOf = (n) => {
+      const nm = String(n).replace(/-?\d+$/, '');
+      const v = mt.noteValues ? mt.noteValues[nm] : null;
+      return Number.isFinite(v) ? ((v % 12) + 12) % 12 : null;
+    };
+    const midiOfNote = (name) => {
+      const m = String(name || '').match(/^([A-Ga-g][#b]?)(-?\d+)$/);
+      if (!m) return null;
+      const pc = pcOf(m[1]);
+      return Number.isFinite(pc) ? pc + (parseInt(m[2], 10) + 1) * 12 : null;
+    };
+    const nameOfMidi = (midi) => `${CHROMATIC[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
+    const styleFn = (typeof window !== 'undefined' && typeof window.applyVoicingStyleTo === 'function')
+      ? window.applyVoicingStyleTo : null;
+
+    // The melody note actually sounding when a chord strikes — the note
+    // still ringing, not merely the next attack.
+    const soundingAt = (absBeat) => {
+      let best = null;
+      for (const n of notes) {
+        const start = n.bar * beatsPerBar + n.beat;
+        const end = start + (Number(n.duration) || 0);
+        if (start <= absBeat + 1e-6 && absBeat < end - 1e-6) return n;
+        if (start <= absBeat + 1e-6 && (!best || start > best.bar * beatsPerBar + best.beat)) best = n;
+      }
+      return best;
+    };
+
+    const chordPcs = (chordObj) => {
+      const tones = (chordObj && (chordObj.chordNotes || chordObj.diatonicNotes)) || [];
+      const pcs = [];
+      tones.forEach((t) => {
+        const pc = pcOf(t);
+        if (Number.isFinite(pc) && !pcs.includes(pc)) pcs.push(pc);
+      });
+      return pcs;
+    };
+    const stackFromPcs = (pcs) => {
+      if (!pcs.length) return null;
+      const out = [];
+      let cursor = 47;
+      pcs.forEach((pc) => {
+        let m = cursor + 1;
+        while ((((m % 12) + 12) % 12) !== pc) m++;
+        out.push(m);
+        cursor = m;
+      });
+      return out;
+    };
+    const rotate = (arr, n) => {
+      if (!arr.length) return arr;
+      const k = ((n % arr.length) + arr.length) % arr.length;
+      return arr.slice(k).concat(arr.slice(0, k));
+    };
+
+    harmony.chordSequence.forEach((ev) => {
+      if (!ev || ev.approachStrategy || !ev.voicing || !ev.chordObj) return;
+      const absBeat = (Number(ev.bar) || 0) * beatsPerBar + (Number(ev.beat) || 0);
+      const mNote = soundingAt(absBeat);
+      if (!mNote) return;
+      const melodyMidi = midiOfNote(mNote.noteName);
+      if (!Number.isFinite(melodyMidi)) return;
+      const melodyPc = ((melodyMidi % 12) + 12) % 12;
+
+      const pcs = chordPcs(ev.chordObj);
+      if (pcs.length < 2 || !pcs.includes(melodyPc)) return;   // not a chord tone — leave the clearance rule as is
+
+      const currentMidis = Object.values(ev.voicing).filter(Number.isFinite).sort((a, b) => a - b);
+      if (!currentMidis.length) return;
+
+      const barStyle = (overrides && overrides[ev.bar] && overrides[ev.bar].voicing) || voicingStyle || null;
+
+      // Every rotation of the SAME style, keeping only the ones whose own top
+      // voice comes out as the melody's pitch class. WHICH rotation is a
+      // separate question from WHERE it sits, so the octave is not fixed
+      // either — it is scored the same way the first pass scores register:
+      // close to the ceiling for THIS register setting, with a floor so the
+      // bass never strands the left hand. A mid-register melody pulls its
+      // chord tight underneath it — the register ceiling and the melody's own
+      // octave usually coincide there, so the closed voicing often lands in
+      // unison with the tune, which is what "the melody note IS the top of
+      // the chord" actually sounds like. A melody sitting high in the treble
+      // pulls the ceiling-optimal placement an octave or two below it instead,
+      // because stacking the chord up at the melody's own height would leave
+      // the left hand nothing to play. Never above the melody, in either case
+      // — offsets are 0 or negative only.
+      let best = null;
+      for (let k = 0; k < pcs.length; k++) {
+        const stack = stackFromPcs(rotate(pcs, k));
+        if (!stack) continue;
+        let midis = stack;
+        if (barStyle && styleFn) {
+          try {
+            const styled = styleFn(stack.map(nameOfMidi), barStyle);
+            const asMidi = (Array.isArray(styled) ? styled : []).map(midiOfNote).filter(Number.isFinite);
+            if (asMidi.length >= 2) midis = asMidi;
+          } catch (_) {}
+        }
+        const sorted = Array.from(new Set(midis)).sort((a, b) => a - b);
+        if (sorted.length < 2) continue;
+        const naturalTop = sorted[sorted.length - 1];
+        const topPc = ((naturalTop % 12) + 12) % 12;
+        if (topPc !== melodyPc) continue;
+
+        [0, -12, -24, -36].forEach((offset) => {
+          const shift = (melodyMidi + offset) - naturalTop;
+          if (shift % 12 !== 0) return;
+          const placed = sorted.map(m => m + shift);
+          const bass = placed[0];
+          const top = placed[placed.length - 1];
+          const ceilingCost = top > ceilingVal ? (top - ceilingVal) * 4 : (ceilingVal - top) * 0.6;
+          const bassCost = bass < VOICING_BASS_FLOOR ? (VOICING_BASS_FLOOR - bass) * 4 : 0;
+          const continuity = Math.abs(bass - currentMidis[0]) * 0.3;
+          const cost = ceilingCost + bassCost + continuity;
+          if (!best || cost < best.cost) best = { placed, cost };
+        });
+      }
+      if (!best) return;   // this style has no rotation that puts that tone on top
+
+      const unchanged = best.placed.length === currentMidis.length
+        && best.placed.every((m, i) => m === currentMidis[i]);
+      if (unchanged) return;
+
+      const VOICE_NAMES = ['bass', 'tenor', 'alto', 'soprano'];
+      const voices = {};
+      best.placed.forEach((m, i) => { voices[i < VOICE_NAMES.length ? VOICE_NAMES[i] : `upper${i}`] = m; });
+
+      if (!voicingIsFaithful(mt, ev.chordObj, voices, { minVoices: 2 })) return;
+      ev.voicing = voices;
+      aligned++;
+    });
+  } catch (err) {
+    console.warn('[ArcInit] voicing/melody alignment skipped', err);
+  }
+  return aligned;
+}
+
+/**
+ * Re-voice the accompaniment now that the melody exists. Melody-first path
+ * only — under voicing-first the melody has already been written to fit the
+ * voicing, and re-solving the chords here would throw that away.
+ *
+ * The voice-leading engine has no idea what the tune is doing on its first
+ * pass: it picks a soprano freely, and the result is two independent top lines
+ * that cross, double in unison, and run in parallel octaves. Running the voicer
+ * again with the melody supplied lets it keep the accompaniment under the tune
+ * and treat the melody as a real voice when checking parallels.
  */
 function revoiceHarmonyAgainstMelody(harmony, melody, context) {
   try {
@@ -2286,7 +3011,12 @@ function generateMelody(context, arc, harmony, seed = 0) {
           notes: line.notes,
           scaleUsed: (context.harmonicProfile && context.harmonicProfile.scaleNotes) || [],
           contour: line.contour,
-          anchors: line.anchors
+          anchors: line.anchors,
+          // Whether this line was written above the voicings. The legacy
+          // fallback below is not, and the caller has to know which it got.
+          voicingAware: !!line.voicingAware,
+          voicingFloor: line.voicingFloor || null,
+          voicingRefits: line.voicingRefits || 0
         };
       }
     }
