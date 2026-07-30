@@ -874,6 +874,12 @@
                 // A tenor lead or bass melody overrides the pattern: the left
                 // hand is carrying the tune, not accompanying.
                 if (cfg.lead === 'tenor' || cfg.bassMelody) patternId = 'pad';
+                // The same chord as the bar before is not a new harmonic event.
+                // Re-striking it in full turns a two-bar harmony into two
+                // identical attacks and erases the sense that anything is being
+                // held; a sustained treatment lets the tune move over stillness,
+                // which is what the harmony sitting still is FOR.
+                if (ev.sustainedFromPrevBar) patternId = beats >= 4 ? 'halfPad' : 'pad';
                 const pattern = LH_PATTERNS[patternId] || LH_PATTERNS.block;
 
                 let built;

@@ -2472,6 +2472,25 @@ function generateHarmony(context, arc, seed = 0) {
   // The last bar that got an approach run, so the next one can be left plain.
   let lastApproachBar = -2;
 
+  // THE SURPRISE BUDGET.
+  //
+  // Approach runs were rationed only by a per-bar probability, so on a piece
+  // of any length they arrived at a steady rate — and material that arrives at
+  // a steady rate stops being heard as an event at all. Spread evenly, the
+  // clever harmony becomes wallpaper.
+  //
+  // A fixed number of them per piece, spent where the tension curve is already
+  // asking for something, is what turns them back into rhetoric: most of the
+  // music is plainly diatonic, and the handful of decorated arrivals land at
+  // the moments the shape was building toward.
+  const surpriseBudget = Math.max(1, Math.round(barCount * (0.10 + (cc.color || 0.5) * 0.25)));
+  let surprisesSpent = 0;
+  const tensionAt = (bar) => {
+    if (!arc || typeof arc.sample !== 'function' || barCount <= 0) return 0.5;
+    const v = Number(arc.sample(bar / barCount));
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5;
+  };
+
   // Chromatic chords already explained, by chord name → the bar that explained
   // them. A recurring colour chord is a recurrence, not a fresh departure, and
   // repeating its explanation verbatim in three bars is what made the whole
@@ -2487,13 +2506,35 @@ function generateHarmony(context, arc, seed = 0) {
     const section = sectionAt(bar);
     const eventKeyPlan = keyAt(bar);
 
-    // Density logic: high energy or busy rhythm setting = two chords per bar.
-    // A section that is meant to lean (bridge, climax) takes the busier
-    // treatment even when the piece as a whole is calm — that contrast is what
-    // makes the return feel like a settling.
+    // HARMONIC RHYTHM IS PLANNED, NOT ROLLED PER BAR.
+    //
+    // This used to be a single global test — energetic piece, or busy rhythm
+    // slider, therefore two chords in EVERY bar for the whole piece. That is
+    // not a harmonic rhythm, it is a constant, and it is most of why the music
+    // felt like it was changing chords a million times: nothing was ever
+    // allowed to sit still, so nothing that moved meant anything.
+    //
+    // Real harmonic rhythm is mostly slow with a deliberate acceleration into
+    // the cadence. One chord per bar is the norm; the bar before a section's
+    // arrival gets two, because pushing the harmony there is what makes the
+    // arrival sound prepared. A genuine climax section can run at two
+    // throughout, and that contrast is now audible precisely because the rest
+    // of the piece is not doing it.
     const sectionActivity = section ? (section.activityBias || 0) + (section.energyBias || 0) : 0;
-    const density = ((context.overallEnergy + sectionActivity) > 0.8 || cc.rhythm > 0.72) ? 2 : 1;
+    const isCadenceApproach = !!(section && bar === section.endBar - 1 && section.endBar > section.startBar);
+    const isClimaxSection = !!(section && (section.energyBias || 0) > 0.15);
+    const density = (isCadenceApproach && (isClimaxSection || context.overallEnergy > 0.55))
+        || (isClimaxSection && cc.rhythm > 0.8)
+        ? 2 : 1;
     const duration = beatsPerBar / density;
+
+    // A bar whose chord is the one already sounding is not a new harmonic
+    // event — it is the same chord still going. Marked so the accompaniment
+    // can hold it rather than re-striking it, which is the other half of
+    // letting the harmony sit still.
+    const prevBarChord = bar > 0 ? resolvedBarChords[bar - 1] : null;
+    const sustainedFromPrevBar = !!(prevBarChord && chordObj
+        && prevBarChord.fullName === chordObj.fullName);
 
     for (let d = 0; d < density; d++) {
       const beat = d * duration;
@@ -2518,6 +2559,10 @@ function generateHarmony(context, arc, seed = 0) {
         section: section ? section.label : null,
         sectionRole: section ? section.role : null,
         sectionStart: !!(section && bar === section.startBar && d === 0),
+        // Same chord as the previous bar, still sounding — hold it rather than
+        // striking it again.
+        sustainedFromPrevBar: sustainedFromPrevBar && d === 0,
+        cadenceApproach: isCadenceApproach && d === 0,
         barKey: eventKeyPlan.key || currentKey,
         barScale: eventKeyPlan.scaleName || currentScale,
         inHomeKey: eventKeyPlan.home !== false,
@@ -2692,6 +2737,14 @@ function generateHarmony(context, arc, seed = 0) {
               // outranks the spacing rule because it is the bigger event.
               if (lastApproachBar === bar - 1 && !crossesSection) prob *= 0.28;
 
+              // SPEND THE BUDGET WHERE THE SHAPE IS ASKING. Below the halfway
+              // mark of the tension curve the appetite falls away sharply;
+              // above it, it is allowed. A section boundary is exempt because
+              // arriving somewhere new is itself the moment.
+              const localTension = tensionAt(bar + 1);
+              prob *= crossesSection ? 1 : (0.25 + localTension * 1.15);
+              if (surprisesSpent >= surpriseBudget && !crossesSection) prob = 0;
+
               if (rng() < prob) {
                   // Leave at least half the bar to the main chord; high color
                   // settings may steal up to half the bar for longer runs.
@@ -2722,6 +2775,7 @@ function generateHarmony(context, arc, seed = 0) {
 
                   if (plan && plan.events.length && event.duration > plan.steal) {
                       lastApproachBar = bar;
+                      surprisesSpent++;
                       event.duration -= plan.steal;
                       let apBeat = beatsPerBar - plan.steal;
                       for (const ap of plan.events) {

@@ -677,6 +677,83 @@
 
             const centre = (LOW + HIGH) / 2;
             const span = (HIGH - LOW) / 2;
+
+            // ---- 2b. THE PHRASE PLAN: decide where each phrase ARRIVES ----
+            //
+            // A phrase is a trajectory between two chosen pitches, not a walk
+            // that stops when it runs out of bars. Anchors used to be picked
+            // one at a time from a contour curve, so a phrase ended on whatever
+            // chord tone happened to sit nearest the curve at its last beat —
+            // which is exactly why the endings felt arbitrary and the line felt
+            // like it was wandering rather than going somewhere.
+            //
+            // So the two structural pitches are chosen FIRST. The goal note
+            // comes from the cadence the form asked this section to make: an
+            // authentic cadence wants the tonic under the melody, a half
+            // cadence wants to be left open on the fifth, a deceptive one turns
+            // toward the sixth. The opening note is chosen for its relationship
+            // to the previous phrase's ending — restate it, continue by step,
+            // or answer it by leaping the other way. Only then is the middle
+            // filled in, as an arch between the two with its high point placed
+            // late (60–70% through), which is where phrases actually peak.
+            const phrasePlan = (() => {
+                // `form` proper is resolved further down for the rhythm bank;
+                // the sections are read straight off the context here because
+                // the phrase plan has to exist before the first anchor is placed.
+                const planForm = (context && context.form) || null;
+                const secs = (planForm && Array.isArray(planForm.sections) && planForm.sections.length)
+                    ? planForm.sections
+                    : [{ label: '-', startBar: 0, endBar: Math.max(0, Math.ceil(totalBeats / beatsPerBar) - 1),
+                         cadence: 'authentic', letter: 'A' }];
+                const n = scaleNotes.length || 7;
+                const degreePc = (deg) => {
+                    const name = scaleNotes[(((deg - 1) % n) + n) % n];
+                    const pc = this.pcOf(name);
+                    return Number.isFinite(pc) ? ((pc % 12) + 12) % 12 : null;
+                };
+                // Which scale degrees a given cadence wants the TUNE to land on,
+                // best first. The bass makes the cadence; the melody either
+                // confirms it (tonic over an authentic cadence) or leaves it
+                // open (fifth over a half cadence).
+                const prefsFor = (cadence) => {
+                    switch (String(cadence || '').toLowerCase()) {
+                        case 'half':      return [5, 2, 7];
+                        case 'deceptive': return [6, 3, 1];
+                        case 'plagal':    return [1, 5, 3];
+                        default:          return [1, 3, 5];
+                    }
+                };
+                return secs.map((s, i) => {
+                    const cadence = s.cadence || (i === secs.length - 1 ? 'authentic' : 'half');
+                    return {
+                        index: i,
+                        startBeat: s.startBar * beatsPerBar,
+                        endBeat: (s.endBar + 1) * beatsPerBar,
+                        cadence,
+                        goalPcs: prefsFor(cadence).map(degreePc).filter(Number.isFinite),
+                        letter: s.letter || s.label || String(i),
+                        isLast: i === secs.length - 1,
+                        // The high point sits late in the phrase, and not at an
+                        // identical fraction every time.
+                        peakAt: 0.6 + ((i * 7) % 3) * 0.05
+                    };
+                });
+            })();
+            const phraseIndexAt = (beat) => {
+                for (let i = 0; i < phrasePlan.length; i++) {
+                    if (beat >= phrasePlan[i].startBeat - 1e-6 && beat < phrasePlan[i].endBeat - 1e-6) return i;
+                }
+                return Math.max(0, phrasePlan.length - 1);
+            };
+
+            // An arch that peaks exactly where the phrase wants it to, rather
+            // than always at the middle.
+            const archAt = (t01, peak) => {
+                const p = Math.min(0.95, Math.max(0.05, peak));
+                if (t01 <= p) return Math.sin((t01 / p) * Math.PI / 2);
+                return Math.sin((1 - (t01 - p) / (1 - p)) * Math.PI / 2);
+            };
+
             // Anchors are placed SEQUENTIALLY, each one near the last. Choosing
             // them independently from the contour let consecutive anchors sit a
             // ninth apart, which forced the connecting material into leaps and
@@ -685,49 +762,131 @@
             let prevAnchor = null;
             let sameDirRun = 0;
             let lastDir = 0;
-            anchorBeats.forEach((b, idx) => {
-                const t = totalBeats > 0 ? b / totalBeats : 0;
-                const ev = this.harmonyAt(harmony, b, beatsPerBar);
-                // The arc's tendency, widened: the old ×1.2 span combined with a
-                // ±7 cap per anchor meant the line could never actually traverse
-                // its range, so every phrase wobbled inside a third or a fourth.
-                const ideal = centre + (contourHeight(t) - 0.5) * span * 1.7;
 
-                // Anchors are CHORD TONES of the chord actually sounding — that
-                // is what makes the line read as harmony rather than as a walk
-                // over a scale that happens to fit.
-                let choices = this.chordMidis(ev, LOW, HIGH);
-                if (!choices.length) choices = this.scaleMidis(scaleNotes, LOW, HIGH);
+            // Group the anchor beats by phrase so each phrase can be planned
+            // end-first rather than left to land wherever it lands.
+            const byPhrase = [];
+            anchorBeats.forEach((b) => {
+                const pi = phraseIndexAt(b);
+                if (!byPhrase[pi]) byPhrase[pi] = [];
+                byPhrase[pi].push(b);
+            });
 
-                let midi;
-                if (prevAnchor === null) {
-                    midi = choices.length ? this.nearest(choices, ideal) : Math.round(ideal);
+            let prevPhraseGoal = null;
+            let prevPhraseLetter = null;
+            const phraseGoals = [];
+
+            byPhrase.forEach((beatsInPhrase, pi) => {
+                if (!beatsInPhrase || !beatsInPhrase.length) return;
+                const plan = phrasePlan[pi] || phrasePlan[phrasePlan.length - 1];
+                const lastBeat = beatsInPhrase[beatsInPhrase.length - 1];
+                const firstBeat = beatsInPhrase[0];
+
+                // --- the GOAL: a chord tone that also satisfies the cadence ---
+                const goalEv = this.harmonyAt(harmony, lastBeat, beatsPerBar);
+                let goalChoices = this.chordMidis(goalEv, LOW, HIGH);
+                if (!goalChoices.length) goalChoices = this.scaleMidis(scaleNotes, LOW, HIGH);
+                const goalIdeal = centre + (contourHeight(totalBeats > 0 ? lastBeat / totalBeats : 0) - 0.5) * span * 1.2;
+                // Preference ORDER, not preference absolutism: the first choice
+                // gets a head start, but a later one wins if the phrase's shape
+                // genuinely wants it. Taking the first match unconditionally
+                // made every half cadence in a piece land on the identical
+                // pitch, which is a different kind of arbitrary — correct by
+                // rule and monotonous by ear.
+                let goalMidi = null;
+                let bestGoalScore = Infinity;
+                (plan ? plan.goalPcs : []).forEach((pc, rank) => {
+                    const matching = goalChoices.filter(m => ((m % 12) + 12) % 12 === pc);
+                    if (!matching.length) return;
+                    const cand = this.nearest(matching, goalIdeal);
+                    const score = Math.abs(cand - goalIdeal) + rank * 3;
+                    if (score < bestGoalScore) { bestGoalScore = score; goalMidi = cand; }
+                });
+                if (goalMidi === null) goalMidi = this.nearest(goalChoices, goalIdeal);
+
+                // --- the OPENING: chosen against the previous phrase's ending ---
+                const startEv = this.harmonyAt(harmony, firstBeat, beatsPerBar);
+                let startChoices = this.chordMidis(startEv, LOW, HIGH);
+                if (!startChoices.length) startChoices = this.scaleMidis(scaleNotes, LOW, HIGH);
+                let startMidi;
+                if (prevPhraseGoal === null) {
+                    startMidi = this.nearest(startChoices,
+                        centre + (contourHeight(0) - 0.5) * span * 1.2);
+                } else if (plan && prevPhraseLetter && plan.letter === prevPhraseLetter) {
+                    // The same theme returning: begin where it began before, so
+                    // the return is heard AS a return.
+                    startMidi = this.nearest(startChoices, prevPhraseGoal);
+                } else if (plan && plan.index % 2 === 1) {
+                    // An answering phrase: leap away from where the last one
+                    // ended, in the opposite direction, so it reads as a reply.
+                    const dir = prevPhraseGoal > centre ? -1 : 1;
+                    startMidi = this.nearest(startChoices, prevPhraseGoal + dir * 5);
                 } else {
-                    // Reach further than a fifth when the shape genuinely calls
-                    // for it, and refuse to sit still: an anchor that repeats
-                    // the previous pitch three times running is what produced
-                    // the "A4 B4 A4 B4" wobble.
-                    const reach = 12;
-                    const desired = prevAnchor + Math.max(-reach, Math.min(reach, ideal - prevAnchor));
-                    let reachable = choices.filter(m => Math.abs(m - prevAnchor) <= reach);
-                    if (sameDirRun >= 2 && lastDir !== 0) {
-                        // Three anchors the same way is a gesture; a fourth is a
-                        // rut. Turn the line around.
-                        const against = reachable.filter(m => (m - prevAnchor) * lastDir < 0);
-                        if (against.length) reachable = against;
-                    }
-                    if (!reachable.length) reachable = choices;
-                    midi = this.nearest(reachable, desired);
-                    if (midi === prevAnchor && reachable.length > 1) {
-                        const moved = reachable.filter(m => m !== prevAnchor);
-                        if (moved.length) midi = this.nearest(moved, desired);
-                    }
-                    const dir = Math.sign(midi - prevAnchor);
-                    sameDirRun = (dir !== 0 && dir === lastDir) ? sameDirRun + 1 : 0;
-                    if (dir !== 0) lastDir = dir;
+                    // Continuation: pick up near where the last phrase left off.
+                    startMidi = this.nearest(startChoices, prevPhraseGoal + 2);
                 }
-                prevAnchor = midi;
-                anchors.push({ beat: b, midi, ev });
+
+                phraseGoals.push({ phrase: pi, startMidi, goalMidi, cadence: plan ? plan.cadence : null });
+
+                // --- fill the interior as an arch between them ---
+                const phraseSpanBeats = Math.max(1e-6, lastBeat - firstBeat);
+                const lift = span * 0.5;
+                beatsInPhrase.forEach((b, idx) => {
+                    const isFirst = idx === 0;
+                    const isLast = idx === beatsInPhrase.length - 1;
+                    const ev = this.harmonyAt(harmony, b, beatsPerBar);
+                    let choices = this.chordMidis(ev, LOW, HIGH);
+                    if (!choices.length) choices = this.scaleMidis(scaleNotes, LOW, HIGH);
+
+                    let midi;
+                    if (isLast) {
+                        // The arrival is not negotiable — this is the note the
+                        // whole phrase was heading for.
+                        midi = goalMidi;
+                    } else if (isFirst && prevAnchor === null) {
+                        midi = startMidi;
+                    } else {
+                        const t01 = (b - firstBeat) / phraseSpanBeats;
+                        const base = startMidi + (goalMidi - startMidi) * t01;
+                        const arch = archAt(t01, plan ? plan.peakAt : 0.65);
+                        const t = totalBeats > 0 ? b / totalBeats : 0;
+                        const drawn = centre + (contourHeight(t) - 0.5) * span * 1.7;
+                        // The phrase's own trajectory leads; the drawn arc still
+                        // colours it, but no longer outvotes the destination.
+                        const ideal = (base + arch * lift) * 0.75 + drawn * 0.25;
+
+                        if (prevAnchor === null) {
+                            midi = this.nearest(choices, ideal);
+                        } else {
+                            const reach = 12;
+                            const desired = prevAnchor + Math.max(-reach, Math.min(reach, ideal - prevAnchor));
+                            let reachable = choices.filter(m => Math.abs(m - prevAnchor) <= reach);
+                            if (sameDirRun >= 2 && lastDir !== 0) {
+                                // Three anchors the same way is a gesture; a
+                                // fourth is a rut. Turn the line around.
+                                const against = reachable.filter(m => (m - prevAnchor) * lastDir < 0);
+                                if (against.length) reachable = against;
+                            }
+                            if (!reachable.length) reachable = choices;
+                            midi = this.nearest(reachable, desired);
+                            if (midi === prevAnchor && reachable.length > 1) {
+                                const moved = reachable.filter(m => m !== prevAnchor);
+                                if (moved.length) midi = this.nearest(moved, desired);
+                            }
+                        }
+                    }
+
+                    if (prevAnchor !== null) {
+                        const dir = Math.sign(midi - prevAnchor);
+                        sameDirRun = (dir !== 0 && dir === lastDir) ? sameDirRun + 1 : 0;
+                        if (dir !== 0) lastDir = dir;
+                    }
+                    prevAnchor = midi;
+                    anchors.push({ beat: b, midi, ev, phrase: pi, cadence: isLast ? (plan ? plan.cadence : null) : null });
+                });
+
+                prevPhraseGoal = goalMidi;
+                prevPhraseLetter = plan ? plan.letter : null;
             });
 
             // ---- 5. DEVELOPMENT: capture bar 1's rhythmic idea ----
