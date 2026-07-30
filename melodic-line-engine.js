@@ -99,7 +99,7 @@
     //   functional  follow tendency: leading tone up, seventh down, the notes
     //               that "want" to go somewhere go there
     //   sequence    restate a stored shape from a new degree
-    const MOTIONS = ['stepwise', 'arpeggio', 'functional', 'sequence'];
+    const MOTIONS = ['stepwise', 'arpeggio', 'functional', 'sequence', 'run', 'neighbor'];
 
     function pickMotion({ rng, melodyC = 0.5, energy = 0.5, char, preferred, isCadenceSpan }) {
         // An explicit choice from the generation-logic selector wins most of
@@ -113,14 +113,28 @@
         const motion = char && Number.isFinite(char.motion) ? char.motion : 0.4;
         // Weights, not thresholds: energy and the word's own sense of movement
         // tilt the balance rather than switching it.
+        //
+        // `run` and `neighbor` are the two figures that carry most of the
+        // character in the simple-diatonic repertoire. A RUN is the Minuet in G
+        // gesture — four to six scale steps travelling in one direction, heard
+        // as a single sweep rather than as four separate choices. A NEIGHBOR is
+        // the Für Elise oscillation — a note and the step beside it, traded
+        // back and forth until the figure itself becomes the subject. Neither
+        // can emerge from picking each pitch by its distance to the next
+        // anchor, which is why a stepwise-only line still reads as wandering:
+        // stepwise motion is the material, but the FIGURE is the idea.
         const w = {
-            stepwise: 1.0 + (1 - energy) * 0.5 + (1 - motion) * 0.4,
-            arpeggio: 0.35 + energy * 0.7 + motion * 0.5 + melodyC * 0.3,
+            stepwise: 0.85 + (1 - energy) * 0.4 + (1 - motion) * 0.35,
+            run: 0.8 + motion * 0.7 + energy * 0.4,
+            neighbor: 0.3 + (1 - energy) * 0.35 + (1 - motion) * 0.2,
+            arpeggio: 0.35 + energy * 0.6 + motion * 0.45 + melodyC * 0.25,
             functional: 0.4 + melodyC * 0.3
         };
-        const total = w.stepwise + w.arpeggio + w.functional;
+        const total = w.stepwise + w.run + w.neighbor + w.arpeggio + w.functional;
         let r = rng() * total;
         if ((r -= w.stepwise) < 0) return 'stepwise';
+        if ((r -= w.run) < 0) return 'run';
+        if ((r -= w.neighbor) < 0) return 'neighbor';
         if ((r -= w.arpeggio) < 0) return 'arpeggio';
         return 'functional';
     }
@@ -895,6 +909,10 @@
             // …and its PITCH shape, as a list of intervals. Restating that shape
             // from a different degree is what a sequence is.
             let pitchMotif = [];
+            // Decided once for the whole line, then reused — see the neighbour
+            // figure in the connector.
+            let chromaticNeighborChoice = null;
+            let neighborChromatic = false;
 
             // ---- 6. BREATH: density plan per anchor span ----
             const notes = [];
@@ -1243,6 +1261,28 @@
                 walkDir = 0;
                 walkRun = 0;
 
+                // Per-span figure state. A run commits to one direction; a
+                // neighbour figure commits to one home note and one side.
+                let runDir = 0;
+                let neighborHome = null;
+                let neighborDir = 0;
+
+                // A CHROMATIC neighbour is the piece's signature colour, so it
+                // is decided once and then RE-USED, not re-rolled per span.
+                // Für Elise's E–D♯ works because that exact rub keeps coming
+                // back; the same interval sprinkled in fresh places each time
+                // would just read as sour notes. The first neighbour figure the
+                // piece reaches for decides whether this take has that colour
+                // at all, and every later neighbour figure then matches it.
+                if (motion === 'neighbor') {
+                    if (chromaticNeighborChoice === null) {
+                        chromaticNeighborChoice = rng() < (0.18 + melodyC * 0.3);
+                    }
+                    neighborChromatic = chromaticNeighborChoice;
+                } else {
+                    neighborChromatic = false;
+                }
+
                 // Where this phrase is headed. Taking the goal from the LAST
                 // real chord of the section gives the line something to arrive
                 // at, which is what separates a phrase from a list of notes.
@@ -1300,6 +1340,57 @@
                         midi = pool.length ? this.nearest(pool, want) : want;
                         if (Math.abs(midi - current) > 12) midi = current + (want > current ? 12 : -12);
                         role = 'sequence';
+                    } else if (motion === 'run'
+                        && ((count - i) > 1 || Math.abs(current - targetMidi) > 2)) {
+                        // A SCALE RUN, taken as one gesture: keep going in the
+                        // direction the run started, one scale step at a time,
+                        // and do not reconsider per note. That refusal to
+                        // reconsider is the whole point — the Minuet's opening
+                        // sweep is memorable because it commits to a direction
+                        // and completes it, where a walk that re-decides at
+                        // every step reads as indecision.
+                        const pool = scalePool.length ? scalePool : homePool;
+                        if (!runDir) runDir = (targetMidi >= current) ? 1 : -1;
+                        const ahead = pool.filter(m => (m - current) * runDir > 0);
+                        if (ahead.length) {
+                            midi = runDir > 0 ? Math.min(...ahead) : Math.max(...ahead);
+                        } else {
+                            // Ran out of room: turn the run around rather than
+                            // stalling on a repeated note at the top.
+                            runDir = -runDir;
+                            const back = pool.filter(m => (m - current) * runDir > 0);
+                            midi = back.length
+                                ? (runDir > 0 ? Math.min(...back) : Math.max(...back))
+                                : current;
+                        }
+                        role = 'run';
+                    } else if (motion === 'neighbor' && (count - i) > 1) {
+                        // NEIGHBOUR OSCILLATION. The figure is note → neighbour
+                        // → note; alternate so it actually oscillates instead of
+                        // drifting. The neighbour is diatonic by default and
+                        // chromatic only when the piece has budget for it, which
+                        // is what keeps a chromatic neighbour sounding like a
+                        // deliberate colour rather than an accident — and,
+                        // because the SAME figure is reused once established,
+                        // like a recurring idea rather than a one-off.
+                        const pool = scalePool.length ? scalePool : homePool;
+                        if (neighborHome === null) neighborHome = current;
+                        const away = (i % 2 === 1);
+                        if (!away) {
+                            midi = neighborHome;
+                        } else {
+                            const dir = neighborDir || (rng() < 0.55 ? 1 : -1);
+                            neighborDir = dir;
+                            if (neighborChromatic) {
+                                midi = neighborHome + dir;      // semitone: the Für Elise rub
+                            } else {
+                                const side = pool.filter(m => (m - neighborHome) * dir > 0);
+                                midi = side.length
+                                    ? (dir > 0 ? Math.min(...side) : Math.max(...side))
+                                    : neighborHome + dir;
+                            }
+                        }
+                        role = 'neighbor';
                     } else if (motion === 'arpeggio' && chordPool.length >= 3 && (count - i) > 1) {
                         // Outline the chord that is actually sounding. Moving to
                         // the NEXT chord tone in the direction of travel is what
