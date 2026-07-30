@@ -62,6 +62,46 @@
      * `close` or `spread` before, so three of the five options were duplicates
      * of another one and the menu was mostly decorative.
      */
+    /**
+     * Everything the sheet's Voicing Options panel is asking for.
+     *
+     * The generation path previously read only `voicingStyle`/`voicingRegister`
+     * and squashed them into close-or-spread. The eighteen manual styles, the
+     * Inversion selector, the Voice Leading and VL Combos checkboxes and the VL
+     * Intensity slider all existed and none of them reached generated music.
+     */
+    function sheetVoicing() {
+        const sheet = (typeof window !== 'undefined')
+            && ((window.modularApp && window.modularApp.sheetMusicGenerator) || window.sheetMusicGenerator);
+        const st = (sheet && sheet.state) || {};
+        return {
+            style: st.autoVoicingAll ? null : (st.voicingStyle || 'close'),
+            logic: st.autoVoicingAll ? (st.voicingLogic || 'smart') : null,
+            inversion: parseInt(st.inversion, 10) || 0,
+            voiceLeading: !!st.voiceLeading,
+            vlCombos: st.voiceLeadingMode === 'multi',
+            vlIntensity: Number.isFinite(st.vlIntensity) ? st.vlIntensity : 0.5,
+            register: st.voicingRegister || 'mid'
+        };
+    }
+
+    /**
+     * Re-voice a set of MIDI pitches through the selected named style.
+     * The shared implementation works on note names, so this converts across
+     * and back rather than duplicating eighteen cases.
+     */
+    function applyNamedStyle(midis, style, nameOf, midiOf) {
+        if (!style || style === 'close' || typeof window === 'undefined'
+            || typeof window.applyVoicingStyleTo !== 'function') return midis;
+        try {
+            const names = midis.slice().sort((a, b) => a - b).map(m => nameOf(m, false));
+            const styled = window.applyVoicingStyleTo(names, style);
+            if (!Array.isArray(styled) || !styled.length) return midis;
+            const out = styled.map(n => midiOf(n)).filter(Number.isFinite);
+            return out.length ? out.sort((a, b) => a - b) : midis;
+        } catch (_) { return midis; }
+    }
+
     function logicProfile() {
         const sheet = (typeof window !== 'undefined')
             && ((window.modularApp && window.modularApp.sheetMusicGenerator) || window.sheetMusicGenerator);
@@ -698,10 +738,35 @@
                 // Prefer the voice-led voicing; fall back to stacking only when
                 // the engine had nothing usable for this chord.
                 const led = this.voiceFromVoiceLeading(ev.voicing, ceiling);
-                const tones = (led && led.length >= 2)
+                let tones = (led && led.length >= 2)
                     ? led
                     : this.voiceInLeftHand(ev.chordObj, ceiling, prevBass);
                 if (!tones.length) return;
+
+                // The named voicing style the user actually chose — drop2,
+                // shell, quartal, gospel-cluster and the rest — applied to the
+                // accompaniment rather than discarded.
+                const sv = sheetVoicing();
+                if (sv.style) {
+                    const styled = applyNamedStyle(tones, sv.style,
+                        (m, f) => this.nameOf(m, f), (n) => this.midiOf(n));
+                    // Keep it under the melody and inside the hand.
+                    const top = Number.isFinite(ceiling) ? ceiling - 2 : LH_TOP + 6;
+                    let fitted = styled.slice();
+                    let guard = 0;
+                    while (fitted.length && Math.max(...fitted) > top && guard++ < 3) {
+                        fitted = fitted.map(m => m - 12);
+                    }
+                    fitted = fitted.filter(m => m >= LH_LOW && m <= top);
+                    if (fitted.length >= 2) tones = fitted.sort((a, b) => a - b);
+                }
+                // Inversion: rotate the lowest note up until the requested
+                // chord tone is in the bass.
+                for (let inv = 0; inv < sv.inversion && tones.length > 1; inv++) {
+                    const lo = tones.shift();
+                    tones.push(lo + 12);
+                    tones.sort((a, b) => a - b);
+                }
                 prevBass = tones[0];
 
                 const next = structural[idx + 1];

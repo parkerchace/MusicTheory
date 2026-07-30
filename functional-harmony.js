@@ -161,7 +161,13 @@
      * Returned as a count of altered degrees, 0 for the church modes.
      */
     function notationCost(intervals) {
-        if (!Array.isArray(intervals) || intervals.length !== 7) return 4;
+        if (!Array.isArray(intervals) || intervals.length < 5) return 4;
+        // Counted the same way whatever the note count. Returning a flat 4 for
+        // anything that was not heptatonic buried every eight-note scale at the
+        // bottom of the ranking regardless of how it actually reads — and an
+        // octatonic that is a major scale plus one passing chromatic is far
+        // easier on the eye than a seven-note scale with four alterations.
+        // Eight notes must double one letter, so they carry one extra.
         const MAJOR = [0, 2, 4, 5, 7, 9, 11];
         const set = new Set(intervals);
         let best = 7;
@@ -172,7 +178,7 @@
             for (const i of set) if (!rotated.has(i)) diff++;
             if (diff < best) best = diff;
         }
-        return best;
+        return best + (intervals.length > 7 ? 1 : 0);
     }
 
     /**

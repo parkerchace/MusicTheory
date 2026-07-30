@@ -334,6 +334,38 @@ class MusicTheoryEngine {
     }
 
     /**
+     * Spell a seven-note scale with one note per letter name.
+     *
+     * Returns null when a degree cannot be written within a double accidental,
+     * so callers can fall back rather than print nonsense.
+     */
+    spellHeptatonicByDegree(key, intervals) {
+        if (!Array.isArray(intervals) || intervals.length !== 7) return null;
+        const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+        const NATURAL = [0, 2, 4, 5, 7, 9, 11];
+        const root = String(key || 'C');
+        const rootLetter = root.charAt(0).toUpperCase();
+        const rootIdx = LETTERS.indexOf(rootLetter);
+        const rootPc = this.noteValues ? this.noteValues[root] : null;
+        if (rootIdx < 0 || !Number.isFinite(rootPc)) return null;
+
+        const out = [];
+        for (let i = 0; i < 7; i++) {
+            const li = (rootIdx + i) % 7;
+            const letter = LETTERS[li];
+            const targetPc = (((rootPc + intervals[i]) % 12) + 12) % 12;
+            // Deviation from the natural, folded into -6..+5 so the nearest
+            // spelling wins rather than an arbitrary octave's worth of sharps.
+            let dev = (((targetPc - NATURAL[li]) % 12) + 12) % 12;
+            if (dev > 6) dev -= 12;
+            if (dev < -2 || dev > 2) return null;      // needs a triple accidental
+            const acc = dev > 0 ? '#'.repeat(dev) : dev < 0 ? 'b'.repeat(-dev) : '';
+            out.push(letter + acc);
+        }
+        return out;
+    }
+
+    /**
      * Convert note name with octave (e.g., "C4") to MIDI number.
      * Exposed here so all modules can use a single canonical conversion.
      */
@@ -409,6 +441,31 @@ class MusicTheoryEngine {
             }
         } catch (e) { /* ignore and fall back to tonic */ }
 
+        // GENERAL HEPTATONIC SPELLING.
+        //
+        // Everything above is a hand-maintained allowlist of about thirty scale
+        // ids. Any seven-note scale outside it fell through to pitch-class
+        // spelling, which happily returns names like "A A#" — two notes on the
+        // same letter — and that is unreadable on a staff. Downstream code
+        // filtered those scales out rather than fixing them, which quietly cut
+        // the usable catalog from ~185 seven-note scales to 13: the six church
+        // modes and a handful of others that happened to be listed here.
+        //
+        // A seven-note scale has one note per letter name by definition. Walk
+        // the letters up from the tonic and let each note's accidental be its
+        // distance from that letter's natural pitch. This spells ANY heptatonic
+        // scale correctly, and only fails when a degree would need a triple
+        // accidental — at which point the allowlist result is no better.
+        // Spelled from the TONIC, not from the key-signature key. `keyForSignature`
+        // is the parent major used to pick sharps versus flats — for C dorian
+        // it is B♭ — and starting the letter walk there spells the scale from
+        // the wrong note entirely ("B♭ C D♭ E♭ F G A♭" for C dorian). This
+        // algorithm derives each accidental from its own letter's natural, so
+        // it needs no sharp/flat hint at all.
+        if (intervals.length === 7) {
+            const spelled = this.spellHeptatonicByDegree(key, intervals);
+            if (spelled) return spelled;
+        }
         return intervals.map(interval => this.getNoteFromIntervalInKey(key, interval, keyForSignature));
     }
 

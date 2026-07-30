@@ -779,8 +779,7 @@ class SheetMusicGenerator {
 		invSelect.addEventListener('change', () => {
 			this.state.inversion = Math.max(0, Math.min(3, parseInt(invSelect.value)));
 			// Reset voice leading state when inversion changes
-			this.previousVoicing = null;
-			this._scheduleRender();
+			this._applyVoicingChange();
 		});
 		invLabel.appendChild(invSelect);
 		controls.appendChild(invLabel);
@@ -1276,9 +1275,7 @@ class SheetMusicGenerator {
 				if (!this.state.voiceLeadingMode) {
 					this.state.voiceLeadingMode = 'single';
 				}
-				this.previousVoicing = null;
-				this._lastVLStyle = null;
-				this.render();
+				this._applyVoicingChange();
 			}
 		);
 		voicingPanel.appendChild(voiceLeadingWrap);
@@ -1300,8 +1297,7 @@ class SheetMusicGenerator {
 				// Add a fresh seed when toggling combos so variation kicks in
 				this.voicingRefreshSeed = Math.random() * 0.9 + 0.1;
 				this.previousVoicing = null;
-				this._lastVLStyle = null;
-				this.render();
+				this._applyVoicingChange();
 				// Emit a UI event so Save Interaction Log captures the state change
 				try {
 					const evt = new CustomEvent('sheetMusicUpdated', {
@@ -1379,9 +1375,7 @@ class SheetMusicGenerator {
 			updateVlText();
 			// Changing intensity conceptually changes the optimization objective;
 			// reset continuity so a fresh solution can be found.
-			this.previousVoicing = null;
-			this._lastVLStyle = null;
-			this.render();
+			this._applyVoicingChange();
 		});
 		vlIntRow.appendChild(vlIntSlider);
 		vlIntRow.appendChild(vlIntText);
@@ -2134,6 +2128,28 @@ class SheetMusicGenerator {
         // For Layer 1, overlapping stems is fine as they align perfectly.
 
     }
+
+	/**
+	 * A voicing control changed. Generated music bakes its voicing in when it is
+	 * generated, so re-rendering alone shows the previous voicing and the control
+	 * looks dead — the Inversion selector, the Voice Leading and VL Combos
+	 * checkboxes and the VL Intensity slider all did exactly that.
+	 */
+	_applyVoicingChange() {
+		this.previousVoicing = null;
+		this._lastVLStyle = null;
+		try {
+			if (window.NumericProgression && window.NumericProgression.state.degrees.length) {
+				window.NumericProgression.revoice();
+				return;
+			}
+			if (typeof window.regenerateLastGeneration === 'function' && window.__lastGenInputs) {
+				window.regenerateLastGeneration('voicing-control');
+				return;
+			}
+		} catch (_) {}
+		this.render();
+	}
 
 	_getDurationStyle(duration) {
 		// Convert duration name to visual rendering properties
@@ -3467,194 +3483,9 @@ class SheetMusicGenerator {
 		};
 
 		// Apply a named voicing transformation to an already-voiced ascending chord array
-		const applyVoicingStyle = (voicedNotes, style) => {
-			if (!Array.isArray(voicedNotes) || voicedNotes.length === 0) return voicedNotes;
-			const len = voicedNotes.length;
-			const clone = voicedNotes.slice();
-			
-			// Debug logging (opt-in)
-			try { if (window.__sheetVerbose) console.log('applyVoicingStyle:', {style, inputNotes: clone, length: len}); } catch(_) {}
-			
-			// Helper: shift octave for index by n (positive raises, negative lowers)
-			const shiftOctave = (noteStr, delta) => {
-				const m = noteStr.match(/^([A-G][#b]?)(\d+)$/);
-				if (!m) return noteStr;
-				const letter = m[1];
-				const oct = parseInt(m[2], 10) + delta;
-				return `${letter}${oct}`;
-			};
-
-				switch((style||'close')) {
-				case 'close':
-						try { if (window.__sheetVerbose) console.log('applyVoicingStyle output:', {style, outputNotes: clone}); } catch(_) {}
-					return clone;
-				case 'open':
-					// Simple open: raise top voice by an octave to create wider spacing
-					const openResult = clone.map((n, i) => i === len-1 ? shiftOctave(n, 1) : n);
-						try { if (window.__sheetVerbose) console.log('applyVoicingStyle output:', {style, outputNotes: openResult}); } catch(_) {}
-					return openResult;
-				case 'drop2':
-					if (len >= 2) clone[len-2] = shiftOctave(clone[len-2], -1);
-						try { if (window.__sheetVerbose) console.log('applyVoicingStyle output:', {style, outputNotes: clone}); } catch(_) {}
-					return clone;
-				case 'drop3':
-					if (len >= 3) clone[len-3] = shiftOctave(clone[len-3], -1);
-						try { if (window.__sheetVerbose) console.log('applyVoicingStyle output:', {style, outputNotes: clone}); } catch(_) {}
-					return clone;
-				case 'drop2+4':
-					if (len >= 2) clone[len-2] = shiftOctave(clone[len-2], -1);
-					if (len >= 4) clone[len-4] = shiftOctave(clone[len-4], -1);
-					return clone;
-				case 'drop3+5':
-					if (len >= 3) clone[len-3] = shiftOctave(clone[len-3], -1);
-					if (len >= 5) clone[len-5] = shiftOctave(clone[len-5], -1);
-					return clone;
-				case 'spread':
-					// "Spread" now implements a standard open voicing (Drop 2 or Drop 2+4)
-					// This creates a wide but playable spacing (unlike the previous >1 octave logic)
-					if (len >= 4) {
-						// Drop 2 and 4 (standard open 4-part voicing)
-						// Drop 2nd from top
-						clone[len-2] = shiftOctave(clone[len-2], -1);
-						// Drop 4th from top (which is index 0 if len=4)
-						clone[len-4] = shiftOctave(clone[len-4], -1);
-					} else if (len >= 3) {
-						// Drop 2 (standard open triad)
-						clone[len-2] = shiftOctave(clone[len-2], -1);
-					} else {
-						// For intervals, just separate them
-						clone[0] = shiftOctave(clone[0], -1);
-					}
-					return clone;
-				case 'shell':
-					// Shell voicing: prefer root, 3rd, and 7th (omit the 5th)
-					// If the chord has 3 or fewer voices, keep as-is. For 4+ voices,
-					// construct a 1-3-7 shell and ensure ascending order by octave.
-					if (len <= 3) return clone;
-					{
-						const root = clone[0];
-						const third = clone.length > 1 ? clone[1] : null;
-						// Prefer the conventional 7th position when available (index 3 for 4-note chords)
-						const seventh = clone.length >= 4 ? clone[3] : (clone.length > 2 ? clone[clone.length - 1] : null);
-						const result = [root];
-						if (third) result.push(third);
-						if (seventh) result.push(seventh);
-						// Ensure ascending order (raise octaves of later voices until strictly above previous)
-						for (let i = 1; i < result.length; i++) {
-							while (noteNameToMidi(result[i]) <= noteNameToMidi(result[i - 1])) {
-								result[i] = shiftOctave(result[i], 1);
-							}
-						}
-							try { if (window.__sheetVerbose) console.log('applyVoicingStyle output (shell):', {style, outputNotes: result}); } catch(_) {}
-						return result;
-					}
-				case 'quartal':
-					// Build stacked fourths
-					// For triads (1-3-5), drop 5th: 5-1-3 (P4, M3)
-					// For 7ths (1-3-5-7), drop 7th and raise root: 7-3-5-1 (P4, m3, P4)
-					if (len === 3) {
-						clone[2] = shiftOctave(clone[2], -1);
-					} else if (len >= 4) {
-						clone[len-1] = shiftOctave(clone[len-1], -1); // Drop top (7th)
-						clone[0] = shiftOctave(clone[0], 1); // Raise bottom (root)
-					}
-					return clone;
-				case 'quintal':
-					// Build stacked fifths/sixths by shifting alternate notes up an octave
-					// e.g. C-E-G-B -> C-G-E-B (P5, M6, P5)
-					for (let i=1;i<len;i+=2) clone[i] = shiftOctave(clone[i], 1);
-					return clone;
-				case 'cluster':
-					// Tight cluster around middle: bring notes toward the middle octave
-					const midIdx = Math.floor(len/2);
-					for (let i=0;i<len;i++) {
-						const delta = midIdx - i;
-						// move closer by shifting octave toward middle
-						if (Math.abs(delta) >= 1) clone[i] = shiftOctave(clone[i], delta>0? -1: 1);
-					}
-					return clone;
-				case 'gospel-shell':
-					// Common gospel shell voicing: low root, upper close cluster of 3rd/7th/9th
-					if (len >= 4) {
-						// lower second voice for punch
-						clone[1] = shiftOctave(clone[1], -1);
-					}
-					return clone;
-				case 'gospel-cluster':
-					// Cluster with second voice dropped an octave and others tightened
-					if (len >= 2) clone[1] = shiftOctave(clone[1], -1);
-					return clone;
-				case 'jazz-rootless':
-					// Remove the root (if present) and keep 3rd/7th in upper voices
-					{
-						const pcs = clone.map(n=>pitchClass(n));
-						// attempt to drop lowest voice
-						clone.shift();
-						return clone;
-					}
-				case 'classical-balanced':
-					// "Classical Balanced" -> Keyboard style (Root in bass, chord in RH)
-					// Drop the lowest note (root) by 1 octave to create separation from the upper structure
-					if (len > 1) {
-						clone[0] = shiftOctave(clone[0], -1);
-					}
-					return clone;
-				case 'add-tensions':
-					// If chord has <7, try to add 9/11/13 above
-					if (len >= 3) {
-						const last = clone[clone.length-1];
-						clone.push(shiftOctave(last, 1)); // simple placeholder: echo top as tension
-					}
-					return clone;
-				case 'shell-no3':
-					// Shell-no3: construct a 3-note shell where the 3rd is dropped an octave
-					// (resulting voicing: low 3rd, root, 5th) for a clear shell texture.
-					if (len <= 2) return clone;
-					{
-						const root = clone[0];
-						const third = clone.length > 1 ? clone[1] : null;
-						const fifth = clone.length > 2 ? clone[2] : null;
-						const thirdLow = third ? shiftOctave(third, -1) : null;
-						const result = [];
-						if (thirdLow) result.push(thirdLow);
-						result.push(root);
-						if (fifth) result.push(fifth);
-						// Ensure ascending order by raising octaves as needed
-						for (let i = 1; i < result.length; i++) {
-							while (noteNameToMidi(result[i]) <= noteNameToMidi(result[i - 1])) {
-								result[i] = shiftOctave(result[i], 1);
-							}
-						}
-						try { if (window.__sheetVerbose) console.log('applyVoicingStyle output (shell-no3):', {style, outputNotes: result}); } catch(_) {}
-						return result;
-					}
-				case 'shell-high3':
-					// Shell-high3: construct a 3-note shell where the 3rd is raised an octave
-					// (resulting voicing: root, 5th, 3rd_up) for a bright spread.
-					if (len <= 2) return clone;
-					{
-						const root = clone[0];
-						const third = clone.length > 1 ? clone[1] : null;
-						const fifth = clone.length > 2 ? clone[2] : null;
-						const thirdHigh = third ? shiftOctave(third, 1) : null;
-						const result = [root];
-						if (fifth) result.push(fifth);
-						if (thirdHigh) result.push(thirdHigh);
-						// Ensure ascending order by raising octaves as needed
-						for (let i = 1; i < result.length; i++) {
-							while (noteNameToMidi(result[i]) <= noteNameToMidi(result[i - 1])) {
-								result[i] = shiftOctave(result[i], 1);
-							}
-						}
-						try { if (window.__sheetVerbose) console.log('applyVoicingStyle output (shell-high3):', {style, outputNotes: result}); } catch(_) {}
-						return result;
-					}
-				default:
-					const result = clone;
-						try { if (window.__sheetVerbose) console.log('applyVoicingStyle output:', {style, outputNotes: result}); } catch(_) {}
-					return result;
-			}
-		};
+		// Delegates to the shared implementation (hoisted so generated
+		// music can use the same eighteen styles the manual sheet does).
+		const applyVoicingStyle = (voicedNotes, style) => applyVoicingStyleTo(voicedNotes, style);
 
 		// Unified auto-voicing chooser: evaluates styles once using composite scoring.
 		// Returns { notes, style, breakdown }
@@ -5623,6 +5454,208 @@ function pushSheetTrace(traceId, stage, payload) {
 		try { console.log(`[SheetTrace:${traceId}] ${stage}`, payload || ''); } catch (_) {}
 	}
 }
+
+
+/**
+ * Apply one of the named voicing styles (drop2, shell, quartal, gospel-cluster,
+ * add-tensions, …) to an ascending chord.
+ *
+ * This lived as a closure inside render(), which meant only the manually-driven
+ * sheet could reach it. Word-generated music collapsed all eighteen styles onto
+ * "close" or "spread" before handing them to the voice-leading engine, so
+ * fifteen of the entries in the Voicing menu did nothing at all once a piece had
+ * been generated. Hoisting it lets both paths share exactly one implementation.
+ */
+		function applyVoicingStyleTo(voicedNotes, style) {
+		if (!Array.isArray(voicedNotes) || voicedNotes.length === 0) return voicedNotes;
+		const len = voicedNotes.length;
+		const clone = voicedNotes.slice();
+		
+		// Debug logging (opt-in)
+		try { if (window.__sheetVerbose) console.log('applyVoicingStyle:', {style, inputNotes: clone, length: len}); } catch(_) {}
+		
+		// Helper: shift octave for index by n (positive raises, negative lowers)
+		const shiftOctave = (noteStr, delta) => {
+			const m = noteStr.match(/^([A-G][#b]?)(\d+)$/);
+			if (!m) return noteStr;
+			const letter = m[1];
+			const oct = parseInt(m[2], 10) + delta;
+			return `${letter}${oct}`;
+		};
+
+			switch((style||'close')) {
+			case 'close':
+					try { if (window.__sheetVerbose) console.log('applyVoicingStyle output:', {style, outputNotes: clone}); } catch(_) {}
+				return clone;
+			case 'open':
+				// Simple open: raise top voice by an octave to create wider spacing
+				const openResult = clone.map((n, i) => i === len-1 ? shiftOctave(n, 1) : n);
+					try { if (window.__sheetVerbose) console.log('applyVoicingStyle output:', {style, outputNotes: openResult}); } catch(_) {}
+				return openResult;
+			case 'drop2':
+				if (len >= 2) clone[len-2] = shiftOctave(clone[len-2], -1);
+					try { if (window.__sheetVerbose) console.log('applyVoicingStyle output:', {style, outputNotes: clone}); } catch(_) {}
+				return clone;
+			case 'drop3':
+				if (len >= 3) clone[len-3] = shiftOctave(clone[len-3], -1);
+					try { if (window.__sheetVerbose) console.log('applyVoicingStyle output:', {style, outputNotes: clone}); } catch(_) {}
+				return clone;
+			case 'drop2+4':
+				if (len >= 2) clone[len-2] = shiftOctave(clone[len-2], -1);
+				if (len >= 4) clone[len-4] = shiftOctave(clone[len-4], -1);
+				return clone;
+			case 'drop3+5':
+				if (len >= 3) clone[len-3] = shiftOctave(clone[len-3], -1);
+				if (len >= 5) clone[len-5] = shiftOctave(clone[len-5], -1);
+				return clone;
+			case 'spread':
+				// "Spread" now implements a standard open voicing (Drop 2 or Drop 2+4)
+				// This creates a wide but playable spacing (unlike the previous >1 octave logic)
+				if (len >= 4) {
+					// Drop 2 and 4 (standard open 4-part voicing)
+					// Drop 2nd from top
+					clone[len-2] = shiftOctave(clone[len-2], -1);
+					// Drop 4th from top (which is index 0 if len=4)
+					clone[len-4] = shiftOctave(clone[len-4], -1);
+				} else if (len >= 3) {
+					// Drop 2 (standard open triad)
+					clone[len-2] = shiftOctave(clone[len-2], -1);
+				} else {
+					// For intervals, just separate them
+					clone[0] = shiftOctave(clone[0], -1);
+				}
+				return clone;
+			case 'shell':
+				// Shell voicing: prefer root, 3rd, and 7th (omit the 5th)
+				// If the chord has 3 or fewer voices, keep as-is. For 4+ voices,
+				// construct a 1-3-7 shell and ensure ascending order by octave.
+				if (len <= 3) return clone;
+				{
+					const root = clone[0];
+					const third = clone.length > 1 ? clone[1] : null;
+					// Prefer the conventional 7th position when available (index 3 for 4-note chords)
+					const seventh = clone.length >= 4 ? clone[3] : (clone.length > 2 ? clone[clone.length - 1] : null);
+					const result = [root];
+					if (third) result.push(third);
+					if (seventh) result.push(seventh);
+					// Ensure ascending order (raise octaves of later voices until strictly above previous)
+					for (let i = 1; i < result.length; i++) {
+						while (noteNameToMidi(result[i]) <= noteNameToMidi(result[i - 1])) {
+							result[i] = shiftOctave(result[i], 1);
+						}
+					}
+						try { if (window.__sheetVerbose) console.log('applyVoicingStyle output (shell):', {style, outputNotes: result}); } catch(_) {}
+					return result;
+				}
+			case 'quartal':
+				// Build stacked fourths
+				// For triads (1-3-5), drop 5th: 5-1-3 (P4, M3)
+				// For 7ths (1-3-5-7), drop 7th and raise root: 7-3-5-1 (P4, m3, P4)
+				if (len === 3) {
+					clone[2] = shiftOctave(clone[2], -1);
+				} else if (len >= 4) {
+					clone[len-1] = shiftOctave(clone[len-1], -1); // Drop top (7th)
+					clone[0] = shiftOctave(clone[0], 1); // Raise bottom (root)
+				}
+				return clone;
+			case 'quintal':
+				// Build stacked fifths/sixths by shifting alternate notes up an octave
+				// e.g. C-E-G-B -> C-G-E-B (P5, M6, P5)
+				for (let i=1;i<len;i+=2) clone[i] = shiftOctave(clone[i], 1);
+				return clone;
+			case 'cluster':
+				// Tight cluster around middle: bring notes toward the middle octave
+				const midIdx = Math.floor(len/2);
+				for (let i=0;i<len;i++) {
+					const delta = midIdx - i;
+					// move closer by shifting octave toward middle
+					if (Math.abs(delta) >= 1) clone[i] = shiftOctave(clone[i], delta>0? -1: 1);
+				}
+				return clone;
+			case 'gospel-shell':
+				// Common gospel shell voicing: low root, upper close cluster of 3rd/7th/9th
+				if (len >= 4) {
+					// lower second voice for punch
+					clone[1] = shiftOctave(clone[1], -1);
+				}
+				return clone;
+			case 'gospel-cluster':
+				// Cluster with second voice dropped an octave and others tightened
+				if (len >= 2) clone[1] = shiftOctave(clone[1], -1);
+				return clone;
+			case 'jazz-rootless':
+				// Remove the root (if present) and keep 3rd/7th in upper voices
+				{
+					const pcs = clone.map(n=>pitchClass(n));
+					// attempt to drop lowest voice
+					clone.shift();
+					return clone;
+				}
+			case 'classical-balanced':
+				// "Classical Balanced" -> Keyboard style (Root in bass, chord in RH)
+				// Drop the lowest note (root) by 1 octave to create separation from the upper structure
+				if (len > 1) {
+					clone[0] = shiftOctave(clone[0], -1);
+				}
+				return clone;
+			case 'add-tensions':
+				// If chord has <7, try to add 9/11/13 above
+				if (len >= 3) {
+					const last = clone[clone.length-1];
+					clone.push(shiftOctave(last, 1)); // simple placeholder: echo top as tension
+				}
+				return clone;
+			case 'shell-no3':
+				// Shell-no3: construct a 3-note shell where the 3rd is dropped an octave
+				// (resulting voicing: low 3rd, root, 5th) for a clear shell texture.
+				if (len <= 2) return clone;
+				{
+					const root = clone[0];
+					const third = clone.length > 1 ? clone[1] : null;
+					const fifth = clone.length > 2 ? clone[2] : null;
+					const thirdLow = third ? shiftOctave(third, -1) : null;
+					const result = [];
+					if (thirdLow) result.push(thirdLow);
+					result.push(root);
+					if (fifth) result.push(fifth);
+					// Ensure ascending order by raising octaves as needed
+					for (let i = 1; i < result.length; i++) {
+						while (noteNameToMidi(result[i]) <= noteNameToMidi(result[i - 1])) {
+							result[i] = shiftOctave(result[i], 1);
+						}
+					}
+					try { if (window.__sheetVerbose) console.log('applyVoicingStyle output (shell-no3):', {style, outputNotes: result}); } catch(_) {}
+					return result;
+				}
+			case 'shell-high3':
+				// Shell-high3: construct a 3-note shell where the 3rd is raised an octave
+				// (resulting voicing: root, 5th, 3rd_up) for a bright spread.
+				if (len <= 2) return clone;
+				{
+					const root = clone[0];
+					const third = clone.length > 1 ? clone[1] : null;
+					const fifth = clone.length > 2 ? clone[2] : null;
+					const thirdHigh = third ? shiftOctave(third, 1) : null;
+					const result = [root];
+					if (fifth) result.push(fifth);
+					if (thirdHigh) result.push(thirdHigh);
+					// Ensure ascending order by raising octaves as needed
+					for (let i = 1; i < result.length; i++) {
+						while (noteNameToMidi(result[i]) <= noteNameToMidi(result[i - 1])) {
+							result[i] = shiftOctave(result[i], 1);
+						}
+					}
+					try { if (window.__sheetVerbose) console.log('applyVoicingStyle output (shell-high3):', {style, outputNotes: result}); } catch(_) {}
+					return result;
+				}
+			default:
+				const result = clone;
+					try { if (window.__sheetVerbose) console.log('applyVoicingStyle output:', {style, outputNotes: result}); } catch(_) {}
+				return result;
+		}
+	}
+
+if (typeof window !== 'undefined') window.applyVoicingStyleTo = applyVoicingStyleTo;
 
 function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 	if (!detail || !detail.harmony || !detail.melody) return null;

@@ -162,10 +162,13 @@ class ScaleIntelligenceEngine {
             // like "Cmodal(#11, add6, b5)" — spellings loaded with accidentals
             // that read as noise rather than intention. Only scales that can
             // actually support tertian harmony are eligible.
-            // Heptatonic only: standard notation is built around seven letter
-            // names, and eight-note scales inevitably double a letter.
+            // Five notes and up. There is no upper bound: an octatonic or a
+            // nine-note scale is a legitimate home, and a pentatonic can carry a
+            // whole song — as its chords, as a melody played over someone else's
+            // changes, or as an upper structure over a bass note. Below five
+            // there is not enough material to build a key from.
             const n = intervals.length;
-            if (n !== 7) continue;
+            if (n < 5) continue;
 
             const sorted = intervals.slice().sort((a, b) => a - b);
             let maxStep = 0, semitoneSteps = 0, ok = true;
@@ -179,15 +182,20 @@ class ScaleIntelligenceEngine {
             if (wrapStep > maxStep) maxStep = wrapStep;
             if (!ok) continue;
 
-            // No hole wider than an augmented second.
-            if (maxStep > 3) continue;
+            // Gapped scales are fine — a pentatonic's minor-third steps are the
+            // whole point of it — so the step width is not filtered either.
 
             // NOTATION LEGIBILITY. A heptatonic scale is readable only when it
             // uses each letter name once (A B C D E F G). Scales that repeat a
             // letter — "A A#", "D D#" — force clusters of sharps, flats and
             // naturals onto the staff that read as noise instead of intention.
-            if (!this._letterDistinct(intervals)) continue;
-            if (!this._spellsCleanly(id, n)) continue;
+            // The one-letter-per-note checks only mean anything for a
+            // seven-note scale; applying them to six or eight notes just
+            // rejects everything.
+            if (n === 7) {
+                if (!this._letterDistinct(intervals)) continue;
+                if (!this._spellsCleanly(id, n)) continue;
+            }
 
             const prof = this.profileScale(intervals);
             if (prof) out.push({ id, intervals, prof });
