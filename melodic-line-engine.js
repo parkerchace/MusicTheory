@@ -913,6 +913,12 @@
             // figure in the connector.
             let chromaticNeighborChoice = null;
             let neighborChromatic = false;
+            // A chromatic neighbour OWES a return to the note it decorated.
+            // E–D♯–E is the figure; E–D♯–anything-else is a wrong note. The
+            // existing resolution machinery only resolves downward, and a
+            // lower chromatic neighbour has to resolve UP, so it needs its
+            // own obligation.
+            let pendingNeighborReturn = null;
             // A sweep that is still travelling when its span runs out. Spans are
             // one bar of word-rhythm, which is too short to hold the four-to-six
             // note gesture the Minuet opens with, so a run that is still going
@@ -1274,6 +1280,7 @@
 
                 // Per-span figure state. A run commits to one direction; a
                 // neighbour figure commits to one home note and one side.
+                pendingNeighborReturn = null;
                 let runDir = continuingRun ? carriedRunDir : 0;
                 let neighborHome = null;
                 let neighborDir = 0;
@@ -1390,10 +1397,16 @@
                         if (!away) {
                             midi = neighborHome;
                         } else {
-                            const dir = neighborDir || (rng() < 0.55 ? 1 : -1);
+                            // A chromatic neighbour is a LOWER one. The
+                            // semitone below leans up into its home note like a
+                            // leading tone, which is why that version is
+                            // idiomatic and the upper chromatic neighbour
+                            // mostly is not.
+                            const dir = neighborChromatic ? -1 : (neighborDir || (rng() < 0.55 ? 1 : -1));
                             neighborDir = dir;
                             if (neighborChromatic) {
-                                midi = neighborHome + dir;      // semitone: the Für Elise rub
+                                midi = neighborHome - 1;        // semitone below: the Für Elise rub
+                                pendingNeighborReturn = neighborHome;
                             } else {
                                 const side = pool.filter(m => (m - neighborHome) * dir > 0);
                                 midi = side.length
@@ -1530,7 +1543,14 @@
                     if (pendingResolution === null && chordChanged && strength >= 0.5
                         && roomToResolve
                         && Number.isFinite(prevMidi) && melodyC > 0.35
-                        && !chordPool.includes(prevMidi) && rng() < 0.35 + melodyC * 0.3) {
+                        && !chordPool.includes(prevMidi)
+                        // The held note must belong to the key. Holding a
+                        // chromatic note across the change — the third of the
+                        // secondary dominant that just left, say — lands a
+                        // semitone against the new chord's root and reads as a
+                        // wrong note held on purpose rather than as a suspension.
+                        && scalePool.includes(prevMidi)
+                        && rng() < 0.35 + melodyC * 0.3) {
                         // The held note has to actually resolve somewhere.
                         const below = scalePool.filter(m => m < prevMidi && prevMidi - m <= 2);
                         if (below.length) {
@@ -1543,7 +1563,26 @@
                     // A dissonance owed a resolution gets it, before anything
                     // else is considered: that is what makes it a suspension
                     // rather than a wrong note left hanging.
-                    if (pendingResolution !== null && role !== 'suspension') {
+                    // The rub has to return home, and nothing else gets to speak
+                    // before it — that return is the whole reason the chromatic
+                    // note was allowed to sound at all. The note that CREATED
+                    // the obligation is exempt, or it would overwrite itself in
+                    // the same breath and the chromatic note would never sound.
+                    let neighborReturnHandled = false;
+                    if (pendingNeighborReturn !== null && role !== 'neighbor') {
+                        midi = pendingNeighborReturn;
+                        role = 'resolution';
+                        pendingNeighborReturn = null;
+                        neighborReturnHandled = true;
+                    } else if (pendingNeighborReturn !== null && midi === pendingNeighborReturn) {
+                        // The oscillation came home on its own.
+                        pendingNeighborReturn = null;
+                        neighborReturnHandled = true;
+                    }
+
+                    if (neighborReturnHandled) {
+                        // settled above
+                    } else if (pendingResolution !== null && role !== 'suspension') {
                         const target = scalePool.filter(m => m < pendingResolution && pendingResolution - m <= 2);
                         if (target.length) {
                             midi = Math.max(...target);
