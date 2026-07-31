@@ -94,4 +94,65 @@ check('scheduling a note builds a valid graph for every voice', function(){
     });
   gen.state.instrument='piano';
 });
+// The Voicing dropdown must report the state the music is actually in.
+//
+// It used to open showing "Close position" while no voicing had been chosen at
+// all — `voicingStyle` holds that as a fallback regardless. Because a <select>
+// fires `change` only when its value CHANGES, choosing the option it already
+// claimed was selected did nothing, and you had to pick Drop 2 first and then
+// Close to actually get Close.
+check('the voicing dropdown opens saying no voicing is chosen', function(){
+  window.__voicingUserChoice = false;
+  var fresh = new SheetMusicGenerator({ musicTheory: new MusicTheoryEngine() });
+  fresh.mount(el('div'));
+  var sel = fresh._voicingSelectEl;
+  if (!sel) throw new Error('no voicing select was built');
+  if (sel.value !== '__none') {
+    throw new Error('opened showing "'+sel.value+'" with nothing chosen');
+  }
+  if (fresh._voicingChosen()) throw new Error('_voicingChosen() disagrees with the dropdown');
+});
+
+check('choosing a style is therefore a real change, not a no-op', function(){
+  window.__voicingUserChoice = false;
+  var fresh = new SheetMusicGenerator({ musicTheory: new MusicTheoryEngine() });
+  fresh.mount(el('div'));
+  var sel = fresh._voicingSelectEl;
+  // Selecting "Close position" from the opening state is a genuine value
+  // change, so the browser fires `change` and the handler runs. That is the
+  // whole fix: before, this transition did not exist.
+  if (sel.value === 'close') throw new Error('"close" was already selected — the change would not fire');
+  fresh.state.voicingStyle = 'close';
+  window.__voicingUserChoice = true;
+  fresh._syncVoicingSelect();
+  if (sel.value !== 'close') throw new Error('after choosing Close the dropdown reads "'+sel.value+'"');
+});
+
+check('a voice-leading toggle stops the dropdown claiming "as generated"', function(){
+  window.__voicingUserChoice = false;
+  var fresh = new SheetMusicGenerator({ musicTheory: new MusicTheoryEngine() });
+  fresh.mount(el('div'));
+  var sel = fresh._voicingSelectEl;
+  if (sel.value !== '__none') throw new Error('setup: expected __none, got '+sel.value);
+  // What the Voice Leading checkbox does.
+  window.__voicingUserChoice = true;
+  fresh._syncVoicingSelect();
+  if (sel.value === '__none') {
+    throw new Error('still reads "as generated" after a voice-leading toggle took the texture over');
+  }
+});
+
+check('going back to "as generated" releases the texture', function(){
+  window.__voicingUserChoice = true;
+  var fresh = new SheetMusicGenerator({ musicTheory: new MusicTheoryEngine() });
+  fresh.mount(el('div'));
+  // What the handler does for the __none option.
+  fresh.state.autoVoicingAll = false;
+  window.__voicingUserChoice = false;
+  fresh._syncVoicingSelect();
+  if (fresh._voicingSelectEl.value !== '__none') throw new Error('did not return to "as generated"');
+  if (fresh._voicingChosen()) throw new Error('the texture is still handed over');
+});
+window.__voicingUserChoice = false;
+
 print(failures? ('FAILURES: '+failures) : 'all mount checks passed');

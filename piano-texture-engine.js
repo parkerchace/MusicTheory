@@ -179,6 +179,319 @@
     }
 
     /**
+     * PLAY THE CHOSEN VOICING AS A FIGURE, not as a block.
+     *
+     * `chordRhythm` above answers "when does this voicing strike" and sounds the
+     * whole stack every time. For a pad or a block chord that is exactly right.
+     * For an Alberti bass, a broken chord, a ground bass or the invariant figure
+     * it is not: those patterns ARE movement, and reducing them to onsets turns
+     * every one of them into the same repeated block. That is why choosing a
+     * voicing felt like it flattened the music — the voicing was honoured and
+     * the accompaniment's whole character was spent paying for it.
+     *
+     * Nothing about the two aims is actually in conflict. A voicing decides
+     * WHICH notes and in which registers; a figure decides in what ORDER and
+     * WHEN they sound. Breaking a chord into an arpeggio does not change the
+     * chord — it is the same notes, spread. So the figure runs on the voiced
+     * pitches directly.
+     *
+     * The one thing that must not happen is a voiced note going missing: the
+     * figures index the low three or four tones, so a five-note voicing would
+     * quietly lose its top. Any pitch the figure never reaches is added to the
+     * bar's longest cell, which is where a held chord lands — so the voicing is
+     * still complete over the bar even when it is heard spread across it.
+     */
+    function figuredVoicing(pattern, tones, beats) {
+        const voiced = tones.filter(Number.isFinite).slice().sort((a, b) => a - b);
+        if (voiced.length < 2) return null;
+
+        let cells = [];
+        try { cells = pattern.build(voiced, beats, {}) || []; } catch (_) { return null; }
+        cells = cells.filter(c => c && Number.isFinite(c.duration) && c.duration > 1e-6
+            && Array.isArray(c.notes) && c.notes.some(Number.isFinite));
+        if (!cells.length) return null;
+
+        // Which of the chosen notes never sound?
+        const heard = new Set();
+        cells.forEach(c => c.notes.forEach(m => { if (Number.isFinite(m)) heard.add(m); }));
+        const missing = voiced.filter(m => !heard.has(m));
+
+        if (missing.length) {
+            // The longest cell is the figure's resting point — the held chord an
+            // arpeggio gathers into, or the sustained half of a broken figure.
+            // That is where the rest of the voicing belongs; hanging it on a
+            // passing sixteenth would just be a wrong note in a fast place.
+            let best = 0;
+            cells.forEach((c, i) => { if (c.duration > cells[best].duration) best = i; });
+            cells = cells.map((c, i) => i === best
+                ? { ...c, notes: Array.from(new Set(c.notes.concat(missing))).sort((a, b) => a - b) }
+                : c);
+        }
+        return cells;
+    }
+
+    /**
+     * THE ANSWERING FILL — the left hand replies when the tune stops.
+     *
+     * This is the oldest device in music and the texture had none of it. When a
+     * phrase ended, the melody rested and the accompaniment simply carried on
+     * with whatever it was already doing: over 240 takes, 77% of the melody's
+     * rests had nothing whatever happening inside them. That is the sound of
+     * ONE part playing — a tune with chords under it — however good the tune
+     * and the chords are, and it is why nothing ever seemed to bridge the two
+     * staves.
+     *
+     * What makes a fill an ANSWER rather than more accompaniment:
+     *
+     *   it waits.       The gap opens in silence. The phrase has to be heard to
+     *                   end before anything can reply to it, so the fill takes
+     *                   the LATTER part of the rest, never the whole of it.
+     *   it arrives.     The notes step toward the melody's next entry and stop
+     *                   exactly where the tune comes back in. A flourish that
+     *                   merely happens in a gap is a doodle; one that hands over
+     *                   to the returning phrase is a reply.
+     *   it is rare.     Filling every rest is the same fault as filling none —
+     *                   it stops being a gesture and becomes texture. A budget
+     *                   per piece keeps it an event.
+     *
+     * Placed in the register between the accompaniment and the tune, because a
+     * reply nobody can pick out of the bass is not a reply.
+     *
+     * @returns array of left-hand-shaped cells to add
+     */
+    function answeringFills({ melodyEvents, chordPcsAt, scalePcs, beatsPerBar, totalBeats, rng, budget }) {
+        const out = [];
+        if (!melodyEvents.length || budget <= 0) return out;
+
+        const sorted = melodyEvents.slice().sort((a, b) => a.start - b.start);
+
+        // Where the tune actually stops for long enough to be answered.
+        const gaps = [];
+        for (let i = 0; i + 1 < sorted.length; i++) {
+            const from = sorted[i].end;
+            const to = sorted[i + 1].start;
+            if (to - from < 1 - 1e-6) continue;          // a breath, not a rest
+            gaps.push({ from, to, into: sorted[i + 1].midi, after: sorted[i].midi });
+        }
+        if (!gaps.length) return out;
+
+        // The longest rests first: those are the phrase endings, which is where
+        // a reply belongs. Spending the budget on the first gaps in the piece
+        // instead would answer wherever the tune happened to breathe early.
+        gaps.sort((a, b) => (b.to - b.from) - (a.to - a.from));
+
+        let spent = 0;
+        for (const gap of gaps) {
+            if (spent >= budget) break;
+
+            const span = gap.to - gap.from;
+            // Wait, then reply: at most half the rest, and never more than two
+            // beats of it. The silence is part of the gesture.
+            const replyLen = Math.min(2, Math.max(1, Math.floor(span) / 2));
+            const start = gap.to - replyLen;
+            if (start < gap.from - 1e-6) continue;
+
+            // Don't step over a bar line — the reply is one gesture in one bar.
+            if (Math.floor(start / beatsPerBar) !== Math.floor((gap.to - 1e-6) / beatsPerBar)) continue;
+
+            const pcs = chordPcsAt(start);
+            if (!pcs.length) continue;
+
+            const step = 0.5;
+            const count = Math.max(2, Math.min(4, Math.round(replyLen / step)));
+
+            // Step up into the note the melody comes back on, from a chord tone
+            // below it. Rising into the re-entry is what makes the hand-over
+            // audible: the reply runs out of notes exactly where the tune
+            // starts again.
+            const target = Number.isFinite(gap.into) ? gap.into : null;
+            if (target === null) continue;
+
+            const pool = scalePcs.length ? scalePcs : pcs;
+            const notes = [];
+            let cursor = target;
+            for (let k = 0; k < count; k++) {
+                // Walk down from the target by scale steps to find the start,
+                // then the reply plays that walk back up.
+                let next = cursor - 1;
+                let guard = 0;
+                while (guard++ < 12 && pool.indexOf(((next % 12) + 12) % 12) < 0) next--;
+                cursor = next;
+                notes.unshift(cursor);
+            }
+            // Keep the reply under the tune and out of the bass's way.
+            const ceiling = target - 1;
+            const floor = LH_LOW + 12;
+            if (notes.some(m => m > ceiling || m < floor)) continue;
+
+            // The first note of a reply lands on a chord tone, so it enters as
+            // part of the harmony rather than as a passing note from nowhere.
+            if (pcs.indexOf(((notes[0] % 12) + 12) % 12) < 0) continue;
+
+            notes.forEach((m, k) => {
+                out.push({
+                    notes: [m],
+                    beat: start + k * step,
+                    duration: step,
+                    answersRest: true
+                });
+            });
+            spent++;
+        }
+        return out;
+    }
+
+    /**
+     * THE CROSSING — the left hand goes over the top, once.
+     *
+     * This device already had an explanation ("scalar octaves cross above the
+     * right hand for a bar. Brief by design — it is a gesture, and it stops
+     * being one if it stays") and no implementation whatever. The flag it set
+     * was read in exactly one place, where it merely EXEMPTED the left hand
+     * from being pushed down; nothing ever sent it up. Measured over 240 takes,
+     * the left hand rose above the tune zero times.
+     *
+     * What it is: a scalar run that starts where the left hand lives, climbs
+     * past the melody, and lands above it. The two staves swap places for a
+     * moment. It is the most literal possible answer to "nothing bridges the
+     * staves", and it is deliberately one bar — a gesture that repeats is a
+     * texture, and this one is not meant to be.
+     *
+     * It takes over the bar rather than being layered on: a hand that is up
+     * there cannot also be playing the accompaniment down here.
+     *
+     * @returns {{bar:number, cells:Array}|null}
+     */
+    function crossingGesture({ bar, beatsPerBar, melodyCeil, scalePcs, chordPcs, rng }) {
+        if (!Number.isFinite(melodyCeil) || !scalePcs.length) return null;
+
+        // Land above the tune — far enough to be unmistakable, close enough to
+        // still be one texture rather than a squeal.
+        let landing = null;
+        for (let m = melodyCeil + 3; m <= Math.min(melodyCeil + 9, RH_HIGH); m++) {
+            const pc = ((m % 12) + 12) % 12;
+            // Arriving on a chord tone is what makes it a gesture that finishes
+            // rather than a run that stops.
+            if (chordPcs.length ? chordPcs.indexOf(pc) >= 0 : scalePcs.indexOf(pc) >= 0) { landing = m; break; }
+        }
+        if (landing === null) return null;
+
+        // Walk back down the scale to find where the run starts.
+        const step = 0.5;
+        const count = beatsPerBar >= 4 ? 6 : 4;
+        const pitches = [landing];
+        let cursor = landing;
+        for (let k = 1; k < count; k++) {
+            let next = cursor - 1;
+            let guard = 0;
+            while (guard++ < 12 && scalePcs.indexOf(((next % 12) + 12) % 12) < 0) next--;
+            cursor = next;
+            pitches.unshift(cursor);
+        }
+        // It has to actually begin in the left hand's own register, or it is
+        // not a crossing — just a high line that was always high.
+        if (pitches[0] > melodyCeil) return null;
+        if (pitches[0] < LH_LOW) return null;
+
+        // Finish on the bar's last beat so the run arrives rather than trailing.
+        const startBeat = Math.max(0, beatsPerBar - count * step);
+        const cells = pitches.map((m, k) => ({
+            notes: [m],
+            beat: startBeat + k * step,
+            duration: step,
+            crossesMelody: true
+        }));
+        return { bar, cells };
+    }
+
+    /**
+     * BREAK THE PARALLEL FIFTHS AND OCTAVES with the tune.
+     *
+     * Parallel thirds and sixths are good two-part writing. Parallel PERFECT
+     * consonances are the one thing every tradition that writes two parts
+     * forbids, and for a reason you can hear: two voices a fifth apart moving
+     * the same way by the same distance stop being two voices. The ear fuses
+     * them into one thickened line. Measured against the melody, 7.3% of all
+     * melody/bass motion was doing exactly this — which is a large part of why
+     * the texture read as a tune with chords rather than as two parts.
+     *
+     * The fix is the one a musician would make: keep the chord, change which of
+     * its notes is in the bass. Nothing about the harmony moves; only the
+     * inversion does, and the inversion was never load-bearing here.
+     *
+     * Patterns whose whole identity IS the bass line are left alone. A ground
+     * bass that steps deliberately toward the next root, or a walking figure,
+     * is not making an accident — repairing it would be overwriting the device
+     * with a rule.
+     */
+    const BASS_IS_THE_POINT = /groundBass|walking|octaveBass|crossover|answeringFill|tenorLead/i;
+
+    function breakParallels({ leftHand, melodyAt, chordPcsAt, beatsPerBar, nameOf }) {
+        // One entry per attack, lowest note first — the bass is what the ear
+        // pairs with the tune.
+        const attacks = leftHand
+            .filter(e => e && !e.isMelody && !BASS_IS_THE_POINT.test(String(e.pattern || ''))
+                && Array.isArray(e.midis) && e.midis.length)
+            .map(e => ({ e, beat: e.bar * beatsPerBar + e.beat }))
+            .sort((a, b) => a.beat - b.beat);
+
+        let fixed = 0;
+        for (let i = 1; i < attacks.length; i++) {
+            const prev = attacks[i - 1], cur = attacks[i];
+            const b1 = Math.min(...prev.e.midis), b2 = Math.min(...cur.e.midis);
+            const m1 = melodyAt(prev.beat), m2 = melodyAt(cur.beat);
+            if (!Number.isFinite(m1) || !Number.isFinite(m2)) continue;
+
+            const dm = m2 - m1, db = b2 - b1;
+            if (dm === 0 || db === 0) continue;            // oblique: fine
+            if ((dm > 0) !== (db > 0)) continue;           // contrary: fine
+
+            const i1 = Math.abs(m1 - b1) % 12, i2 = Math.abs(m2 - b2) % 12;
+            if (i1 !== i2 || (i1 !== 7 && i1 !== 0)) continue;   // parallel 3rds/6ths: fine
+
+            // A different chord tone in the bass, as close to the original as
+            // possible so the line keeps its shape.
+            const pcs = chordPcsAt(cur.beat);
+            if (!pcs.length) continue;
+
+            let best = null;
+            for (let m = LH_LOW; m <= LH_TOP; m++) {
+                const pc = ((m % 12) + 12) % 12;
+                if (pcs.indexOf(pc) < 0) continue;
+                if (m === b2) continue;
+                const ndb = m - b1;
+                if (ndb === 0) continue;                                    // now static, not fixed
+                const ni = Math.abs(m2 - m) % 12;
+                const stillParallel = ((dm > 0) === (ndb > 0)) && ni === i1 && (ni === 7 || ni === 0);
+                if (stillParallel) continue;
+                if (m >= m2) continue;                                      // must stay under the tune
+                const cost = Math.abs(m - b2) + Math.abs(m - b1) * 0.25;
+                if (!best || cost < best.cost) best = { midi: m, cost };
+            }
+            if (!best) continue;
+
+            // A DOUBLED bass moves as one thing. Escalation puts the bass note
+            // an octave below itself to add depth; moving only the lower of the
+            // pair would leave a stray note a seventh under the chord and
+            // destroy the doubling at the same time. If the two lowest notes
+            // are an octave apart, they are one voice written twice.
+            const sortedNow = cur.e.midis.slice().sort((a, b) => a - b);
+            const isDoubled = sortedNow.length >= 2 && sortedNow[1] - sortedNow[0] === 12;
+            const shift = best.midi - b2;
+            cur.e.midis = isDoubled
+                ? cur.e.midis.map(x => (x === b2 || x === b2 + 12 ? x + shift : x)).sort((a, b) => a - b)
+                : cur.e.midis.map(x => (x === b2 ? best.midi : x)).sort((a, b) => a - b);
+            // The NAMES are what gets drawn and played. Changing the MIDI and
+            // leaving these behind would have looked like a fix in every
+            // measurement that reads `midis` while the music went out unchanged.
+            cur.e.noteNames = cur.e.midis.map(m => nameOf(m));
+            cur.e.parallelBroken = true;
+            fixed++;
+        }
+        return fixed;
+    }
+
+    /**
      * INNER-VOICE MOTION — the thing that makes a held chord alive.
      *
      * A sustained chord is four notes struck together and then nothing, and
@@ -853,6 +1166,16 @@
                     .map(e => e.midi);
                 return lo.length ? Math.min(...lo) : null;
             };
+            // The HIGHEST melody note anywhere in a span. A voice meant to cover
+            // the tune has to clear the whole span, not just its first note —
+            // clearing only the downbeat leaves the melody poking out above its
+            // own cover halfway through the bar, which is neither texture.
+            const melodyCeilInSpan = (startBeat, endBeat) => {
+                const hi = melodyEvents
+                    .filter(e => e.start < endBeat - 1e-6 && e.end > startBeat + 1e-6)
+                    .map(e => e.midi);
+                return hi.length ? Math.max(...hi) : null;
+            };
 
             // --- Texture per section -----------------------------------------
             const sections = {};
@@ -884,18 +1207,112 @@
                 return null;
             })();
 
+            // A TEXTURE THE PIECE CAN RETURN TO.
+            //
+            // Committing to one figure for a whole piece covers the UNCHANGING
+            // half of the Gymnopédie lesson. The other half is the RETURN: a
+            // texture stated, departed from, and brought back, so that coming
+            // back is heard as coming back. That needs the texture to be
+            // attached to the MATERIAL rather than to the section — when the A
+            // material returns, the sound it arrived in returns with it.
+            //
+            // Without this, every section drew a fresh pattern from the same
+            // dice: an A B A form came out as three unrelated accompaniments
+            // under a tune that was audibly restating itself, which is the
+            // texture actively working against the form.
+            const textureByLetter = {};
+            // How many times each letter has been seen, which is what the
+            // escalation counts.
+            const letterCount = {};
+            // Which letters come back at all. A letter that will be restated has
+            // to present its figure cleanly from the FIRST statement, or the
+            // thing being returned to was never established: if the breath curve
+            // swaps statement one down to a pad and the later statements hold
+            // their figure, the return is a comparison between two different
+            // textures and the escalation reads backwards.
+            const recurringLetters = (() => {
+                const seen = {}, twice = {};
+                sectionList.forEach((s) => {
+                    if (!s || !s.letter) return;
+                    if (seen[s.letter]) twice[s.letter] = true;
+                    seen[s.letter] = true;
+                });
+                return twice;
+            })();
+
             sectionList.forEach((s, i) => {
                 const energy = Number(context.overallEnergy) || 0.5;
                 const activity = Math.max(0, Math.min(1,
                     energy * 0.6 + (s.activityBias || 0) + (rng() - 0.5) * 0.3));
-                const pattern = committedFigure || pickPattern(rng, {
-                    activity, beatsPerBar, energy,
-                    tone: context.emotionalTone, sectionRole: s.role
-                });
+
+                // ESCALATION — the Ellington device.
+                //
+                // A highlighted moment gets BUILT ON, not merely repeated and
+                // not replaced. Every climax treated identically is the failure
+                // mode; so is a return that is simply louder. What actually
+                // happens is that the same idea comes back carrying more each
+                // time: the figure is recognisable, and there is more of it.
+                //
+                // This is the exact complement of the texture return above, and
+                // the two only work together. The return supplies RECOGNITION —
+                // same figure, same density, same treatment — and the
+                // escalation supplies DEVELOPMENT: the third statement of a
+                // refrain is the same refrain, weightier. Either one alone is
+                // half a device: recognition without growth is a loop, growth
+                // without recognition is just three different sections.
+                const occurrence = s.letter ? (letterCount[s.letter] = (letterCount[s.letter] || 0) + 1) : 1;
+                const escalation = Math.max(0, occurrence - 1);
+
+                const remembered = s.letter ? textureByLetter[s.letter] : null;
+                const pattern = committedFigure
+                    || (remembered && remembered.pattern)
+                    || pickPattern(rng, {
+                        activity, beatsPerBar, energy,
+                        tone: context.emotionalTone, sectionRole: s.role
+                    });
+                // The density comes back too. The same figure played twice as
+                // busily is not the same texture returning; it is that figure
+                // being used for something else.
+                const heldActivity = remembered ? remembered.activity : activity;
+
+                // Remembered even when a committed figure already fixes the
+                // pattern: the DENSITY is half of what makes a texture
+                // recognisable, and a committed piece whose returns come back
+                // busier or thinner has changed the one thing it committed to
+                // not changing.
+                if (s.letter && !remembered) {
+                    textureByLetter[s.letter] = { pattern, activity };
+                }
+
                 sections[s.label] = {
-                    pattern, activity, name: LH_PATTERNS[pattern].name,
-                    committed: !!committedFigure
+                    pattern, activity: heldActivity, name: LH_PATTERNS[pattern].name,
+                    committed: !!committedFigure,
+                    returnsTexture: !!remembered,
+                    escalation,
+                    // Set on EVERY statement of a recurring letter, including
+                    // the first — that is the point.
+                    recurs: !!(s.letter && recurringLetters[s.letter])
                 };
+
+                if (escalation > 0) {
+                    exceptions.push({
+                        section: s.label, type: 'escalation', startBar: s.startBar, endBar: s.endBar,
+                        explain: `Escalation: statement ${occurrence} of the ${s.letter} material. The figure `
+                            + 'and its density are the ones it arrived in — that is what makes it '
+                            + 'recognisable — and it is carrying more weight than last time. The same idea '
+                            + 'built on, rather than every return treated identically or replaced outright.'
+                    });
+                }
+
+                if (remembered) {
+                    exceptions.push({
+                        section: s.label, type: 'textureReturn', startBar: s.startBar, endBar: s.endBar,
+                        explain: `Texture return: the ${LH_PATTERNS[pattern].name} this piece opened its `
+                            + `${s.letter} material with comes back with it, at the same density. The tune `
+                            + 'restating itself over a different accompaniment is a restatement you have to '
+                            + 'be told about; over the same one, it is a restatement you hear.'
+                    });
+                }
 
                 // --- The exceptions ------------------------------------------
                 // Each is a real orchestrational choice, so each gets a whole
@@ -903,6 +1320,19 @@
                 // A committed figure admits no exceptions either: a descant
                 // or a tenor lead partway through is exactly the change the
                 // commitment exists to refuse.
+                // A return brings back the treatment it had, rather than
+                // rolling a fresh one. An A section that comes back wearing a
+                // descant it did not have the first time is not a return — it
+                // is a third idea that happens to share a tune.
+                if (remembered) {
+                    ['lead', 'rhExtra', 'lhCrossover', 'bassMelody', 'coveredMelody'].forEach((k) => {
+                        if (remembered.extras && remembered.extras[k] !== undefined) {
+                            sections[s.label][k] = remembered.extras[k];
+                        }
+                    });
+                    return;
+                }
+
                 if (committedFigure) return;
                 const isClimax = (s.energyBias || 0) > 0.2;
                 const isFinal = !!s.isFinal;
@@ -928,11 +1358,21 @@
                             + 'hand holds sustained chords above it — the choral and cello-section texture. '
                             + 'The tune is the lowest moving voice rather than the highest.'
                     });
-                } else if (roll >= 0.42 && roll < 0.52 && activity > 0.55) {
+                } else if (roll >= 0.42 && roll < 0.52 && activity > 0.42) {
+                    // A crossing wants a section with forward motion, which is
+                    // what this threshold is for. It used to read 0.55, and
+                    // section activity has a median of 0.34 and a p90 of 0.52 —
+                    // so the gate sat ABOVE the range of the thing it tested and
+                    // opened for 6.8% of an already-10% roll band. Combined with
+                    // the device having no implementation at all, the crossover
+                    // was doubly absent. 0.42 is around the 70th percentile:
+                    // "one of the livelier sections", which is the actual
+                    // musical condition, rather than "the top of the range".
                     sections[s.label].lhCrossover = true;
                     exceptions.push({
                         section: s.label, type: 'crossover', startBar: s.startBar, endBar: s.endBar,
-                        explain: 'Left-hand crossover: scalar octaves cross above the right hand for a bar. '
+                        explain: 'Left-hand crossover: the left hand runs up the scale and over the top of '
+                            + 'the tune, landing above it for a moment before the two hands change back. '
                             + 'Brief by design — it is a gesture, and it stops being one if it stays.'
                     });
                 } else if (i === 0 && roll >= 0.52 && roll < 0.6 && !keepVoicing) {
@@ -942,6 +1382,38 @@
                         explain: 'Bass melody: the left-hand line carries the melodic interest, with the right '
                             + 'hand reduced to sustained harmony — an intro texture.'
                     });
+                } else if (i > 0 && !isClimax && roll >= 0.6 && roll < 0.72 && !keepVoicing) {
+                    // COVERED MELODY. One chord tone is held ABOVE the tune for
+                    // the section, so the melody is an interior voice of the
+                    // sonority rather than its top. The device is old and
+                    // specific: the chorale alto lead, Brahms burying a tune in
+                    // the middle of the hand, the "melody in the thumb" texture.
+                    // What it does to the ear is change how the tune is heard
+                    // without changing a note of it — the same line, no longer
+                    // the thing on the surface.
+                    //
+                    // Never the first section: the tune has to be heard plainly
+                    // before covering it means anything. Never the climax: the
+                    // top voice is where a climax lives, and burying the tune
+                    // there is the opposite gesture.
+                    sections[s.label].coveredMelody = true;
+                    exceptions.push({
+                        section: s.label, type: 'coveredMelody', startBar: s.startBar, endBar: s.endBar,
+                        explain: 'Covered melody: a chord tone is held above the tune, so the melody sits '
+                            + 'inside the chord instead of on top of it. The line is unchanged — only its '
+                            + 'position in the texture is, which is why it reads as the same idea heard from '
+                            + 'underneath.'
+                    });
+                }
+
+                // Remember how this letter was treated, so its return can
+                // arrive in the same clothes.
+                if (s.letter && textureByLetter[s.letter]) {
+                    const cfg = sections[s.label];
+                    textureByLetter[s.letter].extras = {
+                        lead: cfg.lead, rhExtra: cfg.rhExtra, lhCrossover: cfg.lhCrossover,
+                        bassMelody: cfg.bassMelody, coveredMelody: cfg.coveredMelody
+                    };
                 }
             });
 
@@ -957,6 +1429,20 @@
             const leftHand = [];
             const trebleHarmony = [];
             const structural = seq.filter(ev => ev && !ev.approachStrategy && ev.chordObj);
+            // The pitch classes of the chord sounding at a given beat. Any voice
+            // added above the tune has to answer to the harmony, not only to the
+            // melody note it is sitting over.
+            const chordPcsAt = (beat) => {
+                for (const ev of structural) {
+                    const st = ev.bar * beatsPerBar + (Number(ev.beat) || 0);
+                    const en = st + (Number(ev.duration) || beatsPerBar);
+                    if (beat >= st - 1e-6 && beat < en - 1e-6) {
+                        return (ev.chordObj.chordNotes || ev.chordObj.diatonicNotes || [])
+                            .map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0);
+                    }
+                }
+                return [];
+            };
             let prevBass = null;
             const breathPhase = rng() * 2;
             const sv = sheetVoicing();
@@ -1026,7 +1512,13 @@
                 // articulates, and the chord thins and thickens with it.
                 const breath = breathAt({ arc, bar, barCount, beatsPerBar, section: sec, phase: breathPhase });
                 let patternId = cfg.pattern;
+                // A statement that is being BUILT ON does not ebb. The breath
+                // curve's job is to let a texture breathe; letting it swap an
+                // escalating restatement down to a pad is the curve undoing the
+                // form, and it was the largest single reason later statements
+                // came back lighter than earlier ones.
                 const committed = !!(cfg.committed
+                    || cfg.recurs
                     || (LH_PATTERNS[patternId] && LH_PATTERNS[patternId].invariant));
                 if (!committed) {
                     // EBB AND FLOW — but only for figures that are supposed to
@@ -1056,9 +1548,18 @@
 
                 let built;
                 if (useVoicing) {
-                    // The pattern decides the chord's rhythm; the voicing decides
-                    // its notes. Every attack is the complete chord.
-                    built = chordRhythm(pattern, tones, beats, breath);
+                    // The voicing decides which notes; the pattern decides when
+                    // and in what order they sound.
+                    //
+                    // A pad or a block chord IS the stack sounding together, so
+                    // those keep striking it whole. Everything else is a figure
+                    // — Alberti, broken chord, ground bass, stride, the
+                    // invariant figure — and a figure played as a block is not
+                    // that figure at all. Choosing a voicing should change the
+                    // chord's notes, not delete the accompaniment's character.
+                    const isBlockLike = !!pattern.sustains || patternId === 'block';
+                    built = (!isBlockLike && figuredVoicing(pattern, tones, beats))
+                        || chordRhythm(pattern, tones, beats, breath);
                 } else {
                     // Chord THICKNESS follows the breath. Two notes in the quiet
                     // stretches, the full voicing at the top of a phrase — the
@@ -1070,9 +1571,20 @@
                     // wrong for the long sustains that most need something
                     // happening inside them.
                     const sustainingHere = !!(pattern.sustains || ev.sustainedFromPrevBar);
-                    const thickness = Math.max(sustainingHere ? 3 : 2,
+                    // Each restatement of a letter carries one more voice than
+                    // the last. Thickness rather than a new figure, because the
+                    // figure is what makes it the same idea — the growth has to
+                    // happen inside something recognisable or it is not growth,
+                    // it is a change of subject.
+                    // Escalation raises the FLOOR, not just the average. Added
+                    // only to the breath-derived value, it could still be
+                    // undercut by a quiet bar; as a floor it guarantees that a
+                    // later statement is never thinner than an earlier one.
+                    const esc = Math.min(2, cfg.escalation || 0);
+                    const thickness = Math.max((sustainingHere ? 3 : 2) + esc,
                         (breath > 0.62 ? 4 : breath > 0.34 ? 3 : 2)
-                        + logicProfile().thickness);
+                        + logicProfile().thickness
+                        + esc);
                     const voiced = tones.slice(0, Math.max(2, Math.min(tones.length, thickness)));
                     built = pattern.build(voiced, beats, { nextRoot: nextRootMidi });
                 }
@@ -1085,6 +1597,23 @@
                 built = withInnerVoiceMotion(
                     built, scalePcs, rng,
                     ev.sustainedFromPrevBar ? 0.7 : 0.28);
+
+                // WEIGHT UNDERNEATH. From the second statement onward the bass
+                // note of the bar's first attack is doubled an octave down —
+                // the oldest way to make the same thing bigger without making
+                // it different, and the reason it belongs to escalation rather
+                // than to thickness is that it adds depth rather than density.
+                if ((cfg.escalation || 0) >= 1 && built.length) {
+                    const first = built[0];
+                    const notes = (first.notes || []).filter(Number.isFinite);
+                    if (notes.length) {
+                        const low = Math.min(...notes);
+                        const doubled = low - 12;
+                        if (doubled >= LH_LOW && !notes.includes(doubled)) {
+                            built[0] = { ...first, notes: notes.concat([doubled]).sort((a, b) => a - b) };
+                        }
+                    }
+                }
 
                 built.forEach(cell => {
                     // A pattern asked to fill a one-beat span can compute a
@@ -1156,6 +1685,63 @@
                         });
                     }
                 });
+
+                // --- The covering voice -------------------------------------
+                // One chord tone, held for the chord's whole span, sitting above
+                // the tune. Held rather than articulated: a covering voice that
+                // moves in the melody's rhythm is heard as thickening the
+                // melody, and the point here is the opposite — a still upper
+                // voice the tune passes UNDER.
+                //
+                // Each condition below rejects rather than adjusts. A covering
+                // voice that has to be nudged to work is a different chord.
+                if (cfg.coveredMelody) {
+                    const start = bar * beatsPerBar + (Number(ev.beat) || 0);
+                    const melTop = melodyCeilInSpan(start, start + beats);
+                    const melHere = melodyAt(start);
+                    const chordPcs = (ev.chordObj.chordNotes || ev.chordObj.diatonicNotes || [])
+                        .map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0);
+                    const melPc = Number.isFinite(melHere) ? ((melHere % 12) + 12) % 12 : null;
+
+                    // The tune has to be a chord tone here for "the melody is
+                    // inside the chord" to be a true statement. Over a passing
+                    // note it would be a suspension with something parked on top
+                    // of it, which is a different (and worse) sound.
+                    const melodyIsChordTone = melPc !== null && chordPcs.includes(melPc);
+
+                    let cover = null;
+                    if (Number.isFinite(melTop) && chordPcs.length && melodyIsChordTone) {
+                        // A third clear of the tune's own ceiling at the closest,
+                        // an octave at the furthest: nearer than a third rubs,
+                        // and further than an octave stops being one texture and
+                        // becomes a separate high line.
+                        const highest = Math.min(melTop + 12, RH_HIGH);
+                        for (let m = melTop + 3; m <= highest; m++) {
+                            const pc = ((m % 12) + 12) % 12;
+                            // The melody's own pitch class an octave up is
+                            // doubling, not covering.
+                            if (pc === melPc) continue;
+                            if (chordPcs.includes(pc)) { cover = m; break; }
+                        }
+                    }
+
+                    if (cover !== null) {
+                        trebleHarmony.push({
+                            bar,
+                            beat: Number(ev.beat) || 0,
+                            duration: beats,
+                            midis: [cover],
+                            noteNames: [this.nameOf(cover, preferFlat)],
+                            pattern: 'coveredMelody',
+                            patternName: 'covering voice — the tune runs beneath it',
+                            section: sec.label,
+                            voiceLed: !!ev.voicing,
+                            hand: 'right',
+                            voice: 'harmony',
+                            coversMelody: true
+                        });
+                    }
+                }
             });
 
             // --- Right hand ---------------------------------------------------
@@ -1191,12 +1777,35 @@
                     voice: 'melody'
                 });
 
-                // Descant: a second right-hand voice ABOVE the melody, moving in
-                // thirds or sixths — consonant with the tune, which is what
-                // stops it competing with it.
+                // Descant: a second right-hand voice ABOVE the melody, a third to
+                // a sixth up — close enough to be heard as moving with the tune
+                // rather than competing with it.
+                //
+                // The interval is chosen from the CHORD, not measured off the
+                // melody note. Adding a fixed three or four semitones is right
+                // about half the time by luck and otherwise puts a note in the
+                // top voice that belongs to neither the key nor the chord — the
+                // loudest place in the texture to be wrong. Taking the nearest
+                // chord tone in the same window makes the descant move in thirds
+                // and sixths anyway, because that is what the chord spacing
+                // gives you; it just never lands outside the harmony.
                 if (cfg.rhExtra === 'descant' && (n.duration >= 0.5)) {
-                    const above = midi + (rng() < 0.5 ? 3 : 4) + ((rng() < 0.35) ? 5 : 0);
-                    if (above <= RH_HIGH) {
+                    const pcs = chordPcsAt(n.bar * beatsPerBar + n.beat);
+                    const melPc = ((midi % 12) + 12) % 12;
+                    let above = null;
+                    // A sixth is as far as this goes: beyond it the second voice
+                    // stops sounding like a descant on the tune and starts
+                    // sounding like the tune, with the real melody as its bass.
+                    for (let m = midi + 3; m <= Math.min(midi + 9, RH_HIGH); m++) {
+                        const pc = ((m % 12) + 12) % 12;
+                        if (pc === melPc) continue;          // octave doubling is not a second voice
+                        if (pcs.includes(pc)) { above = m; break; }
+                    }
+                    // No chord tone in the window is a real answer: this note of
+                    // the tune goes undescanted, and the voice rejoins on the
+                    // next one. A rest in one voice is ordinary; a wrong note on
+                    // top is not.
+                    if (above !== null) {
                         rightHand.push({
                             ...n,
                             noteName: this.nameOf(above, preferFlat),
@@ -1230,6 +1839,111 @@
                     lh.noteNames = lh.midis.map(m => this.nameOf(m, preferFlat));
                 }
             });
+
+            // --- Two parts, not one thickened line -------------------------------
+            // Before the crossing and the reply, both of which are deliberate
+            // bass gestures and are exempt: this repairs accidents, not devices.
+            const parallelsFixed = breakParallels({
+                leftHand, melodyAt, chordPcsAt, beatsPerBar,
+                nameOf: (m) => this.nameOf(m, preferFlat)
+            });
+
+            // --- The crossing ---------------------------------------------------
+            // One bar per section that asked for it, and the run replaces the
+            // accompaniment in that bar rather than joining it: the hand is up
+            // there, so it is not also down here.
+            let crossedBars = 0;
+            Object.keys(sections).forEach((label) => {
+                const cfg = sections[label];
+                if (!cfg || !cfg.lhCrossover) return;
+                const sec = sectionList.find(s => s.label === label);
+                if (!sec) return;
+
+                // A bar in the middle of the section: the first bar is where the
+                // section establishes itself and the last is where it cadences,
+                // and a gesture belongs in neither.
+                const lo = Number(sec.startBar) || 0;
+                const hi = Number.isFinite(sec.endBar) ? sec.endBar : lo;
+                if (hi - lo < 2) return;                 // too short to spare a bar
+                const bar = lo + 1 + Math.floor(rng() * Math.max(1, hi - lo - 1));
+
+                const ceil = melodyCeilInSpan(bar * beatsPerBar, (bar + 1) * beatsPerBar);
+                const ev = structural.find(e => e.bar === bar);
+                const pcs = ev ? (ev.chordObj.chordNotes || ev.chordObj.diatonicNotes || [])
+                    .map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0) : [];
+
+                const gesture = crossingGesture({
+                    bar, beatsPerBar, melodyCeil: ceil, scalePcs, chordPcs: pcs, rng
+                });
+                if (!gesture) return;
+
+                // Clear the bar's accompaniment — the hand cannot be in two places.
+                for (let i = leftHand.length - 1; i >= 0; i--) {
+                    if (leftHand[i].bar === bar && !leftHand[i].isMelody) leftHand.splice(i, 1);
+                }
+                gesture.cells.forEach((cell) => {
+                    leftHand.push({
+                        bar,
+                        beat: cell.beat,
+                        duration: cell.duration,
+                        midis: cell.notes,
+                        noteNames: cell.notes.map(m => this.nameOf(m, preferFlat)),
+                        pattern: 'crossover',
+                        patternName: 'left hand crossing above the tune',
+                        section: label,
+                        hand: 'left',
+                        crossesMelody: true
+                    });
+                });
+                crossedBars++;
+            });
+
+            // --- The reply ----------------------------------------------------
+            // Added AFTER hand separation, deliberately. Separation pushes the
+            // left hand under whatever the melody is doing, and during a rest
+            // "whatever the melody is doing" is the note that just finished —
+            // so running a reply through it would shove the answer an octave
+            // down into the bass, which is the one place it cannot be heard as
+            // an answer. Nothing is sounding in a gap; there is nothing to
+            // clear.
+            const fillBudget = Math.max(1, Math.min(3, Math.round(barCount / 5)));
+            const fills = answeringFills({
+                melodyEvents,
+                chordPcsAt,
+                scalePcs,
+                beatsPerBar,
+                totalBeats: barCount * beatsPerBar,
+                rng,
+                budget: fillBudget
+            });
+            let filled = 0;
+            fills.forEach((cell) => {
+                const bar = Math.floor(cell.beat / beatsPerBar);
+                const sec = sectionAtBar(bar) || sectionList[0];
+                leftHand.push({
+                    bar,
+                    beat: cell.beat - bar * beatsPerBar,
+                    duration: cell.duration,
+                    midis: cell.notes,
+                    noteNames: cell.notes.map(m => this.nameOf(m, preferFlat)),
+                    pattern: 'answeringFill',
+                    patternName: 'answering the phrase',
+                    section: sec.label,
+                    hand: 'left',
+                    answersRest: true
+                });
+                filled++;
+            });
+            if (filled) {
+                exceptions.push({
+                    section: '-', type: 'answeringFill',
+                    startBar: Math.floor(fills[0].beat / beatsPerBar),
+                    endBar: Math.floor(fills[fills.length - 1].beat / beatsPerBar),
+                    explain: 'Answering fill: where the tune stops, the left hand replies — a few steps '
+                        + 'rising into the note the melody comes back on, so the two hands hand over to '
+                        + 'each other instead of one accompanying the other throughout.'
+                });
+            }
 
             leftHand.sort((a, b) => (a.bar - b.bar) || (a.beat - b.beat));
             trebleHarmony.sort((a, b) => (a.bar - b.bar) || (a.beat - b.beat));

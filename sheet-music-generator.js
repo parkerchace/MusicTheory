@@ -86,6 +86,50 @@ const SHEET_VOICES = {
 	}
 };
 
+/**
+ * One spelling for every note value.
+ *
+ * This file grew two naming conventions for the same durations — the builders
+ * emit `dotted-quarter`, the lookup tables are keyed `quarter_dotted` — and the
+ * only normalisation between them replaced hyphens with underscores. That turns
+ * `dotted-quarter` into `dotted_quarter`, which matches no key at all, so every
+ * dotted value fell through to the `|| 1` default: a dotted quarter counted as
+ * one beat and a dotted eighth as one beat, in the numbers that drive PLAYBACK
+ * and MIDI EXPORT. The dot was drawn correctly the whole time, which is why it
+ * read as a rendering that was fine and an ear that disagreed.
+ *
+ * Everything funnels through here now, so a value can be written either way and
+ * still resolve.
+ */
+const DURATION_QUARTERS = {
+	whole: 4, whole_dotted: 6,
+	half: 2, half_dotted: 3,
+	quarter: 1, quarter_dotted: 1.5,
+	eighth: 0.5, eighth_dotted: 0.75,
+	sixteenth: 0.25, sixteenth_dotted: 0.375
+};
+
+function canonicalDurationName(name) {
+	const raw = String(name == null ? '' : name).toLowerCase().trim().replace(/-/g, '_');
+	if (!raw) return null;
+	if (DURATION_QUARTERS[raw] !== undefined) return raw;
+	// `dotted_quarter` → `quarter_dotted`, and any other order of the two words.
+	const m = raw.match(/^dotted_(.+)$/);
+	if (m && DURATION_QUARTERS[`${m[1]}_dotted`] !== undefined) return `${m[1]}_dotted`;
+	return null;
+}
+
+/** Quarter-note worth of a duration name, or null if it is not one. */
+function durationNameToQuarters(name) {
+	const key = canonicalDurationName(name);
+	return key ? DURATION_QUARTERS[key] : null;
+}
+
+if (typeof window !== 'undefined') {
+	window.canonicalDurationName = canonicalDurationName;
+	window.durationNameToQuarters = durationNameToQuarters;
+}
+
 class SheetMusicGenerator {
 	constructor(musicTheory) {
 		this.musicTheory = musicTheory;
@@ -156,6 +200,28 @@ class SheetMusicGenerator {
 			 */
 			selectedDegree: null,
 			currentChordLinkedToDegree: false,
+			// SWING as a performance feel: 0 straight, 1 a full 2:1 division of
+			// the beat. Never touches a written duration — the page keeps its
+			// straight eighths and says "Swing" at the top, which is what a
+			// chart does. Persisted, because it is a way of playing rather than
+			// a property of a particular take.
+			// RUBATO / agogic stress: 0 metronomic, 1 freely expressive. Like
+			// swing it is a performance property and never a written duration.
+			rubato: (() => {
+				try { const v = parseFloat(localStorage.getItem('sheet.rubato')); return Number.isFinite(v) ? v : 0; }
+				catch (_) { return 0; }
+			})(),
+			swing: (() => {
+				try { const v = parseFloat(localStorage.getItem('sheet.swing')); return Number.isFinite(v) ? v : 0; }
+				catch (_) { return 0; }
+			})(),
+			// What a chord click and playback light up on the instrument
+			// visualizers: 'both' | 'chords' | 'melody' | 'off'. Persisted,
+			// because it is a way of working rather than a per-take choice.
+			instrumentFocusMode: (() => {
+				try { return localStorage.getItem('sheet.instrumentFocusMode') || 'both'; }
+				catch (_) { return 'both'; }
+			})(),
 			// Piano popup positioning preferences
 			popupPinned: true, // when true, popup appears top-right of sheet area instead of near click
 			popupAnchor: 'top-right', // future: 'top-right' | 'bottom-right' | 'floating'
@@ -1056,6 +1122,7 @@ class SheetMusicGenerator {
 		
 		// Populate with OptGroups
 		voicSelect.innerHTML = `
+			<option value="__none">As generated (no voicing chosen)</option>
 			<optgroup label="Intelligent Logic (Auto)">
 				<option value="smart">Smart (Balanced)</option>
 				<option value="smooth">Smooth (Minimal Movement)</option>
@@ -1085,12 +1152,19 @@ class SheetMusicGenerator {
 			</optgroup>
 		`;
 
-		// Set initial value based on state
-		if (this.state.autoVoicingAll) {
-			voicSelect.value = this.state.voicingLogic || 'smart';
-		} else {
-			voicSelect.value = this.state.voicingStyle || 'close';
-		}
+		// SHOW WHAT IS ACTUALLY IN EFFECT.
+		//
+		// This used to open reading "Close position" while no voicing had been
+		// chosen at all — `voicingStyle` holds 'close' as a fallback, but until
+		// a voicing is picked the generated texture ignores it entirely. The
+		// control therefore displayed a setting that was not applied, and
+		// because a <select> fires `change` only when its value CHANGES,
+		// choosing the thing it already claimed to be selected did nothing: you
+		// had to pick Drop 2 first and then Close to actually get Close.
+		//
+		// So "no voicing chosen" is now a real, selectable state that says so.
+		this._voicingSelectEl = voicSelect;
+		this._syncVoicingSelect();
 
 		// Refresh button (only active for Intelligent Logic)
 		const refreshBtn = document.createElement('button');
@@ -1114,22 +1188,30 @@ class SheetMusicGenerator {
 		voicSelect.addEventListener('change', () => {
 			const val = voicSelect.value;
 			const logicOptions = ['smart', 'smooth', 'open', 'jazz', 'piano']; // must match values in first optgroup
-			
-			if (logicOptions.includes(val)) {
+
+			if (val === '__none') {
+				// Back to the arrangement the generator wrote. Everything the
+				// choice switched on goes off together, or the texture would be
+				// half-handed-over — which is the state that made these controls
+				// feel like they had a mind of their own.
+				this.state.autoVoicingAll = false;
+				try { window.__voicingUserChoice = false; } catch (_) {}
+			} else if (logicOptions.includes(val)) {
 				this.state.autoVoicingAll = true;
 				this.state.voicingLogic = val;
+				try { window.__voicingUserChoice = true; } catch (_) {}
 			} else {
 				this.state.autoVoicingAll = false;
 				this.state.voicingStyle = val;
+				// Picking a voicing by hand is what hands the texture over to
+				// that voicing. Until this is set, generated music keeps the
+				// ordinary arrangement — chords in their own register, melody
+				// above them.
+				try { window.__voicingUserChoice = true; } catch (_) {}
 			}
-			
+
 			updateRefreshState();
 			this.previousVoicing = null;
-			// Picking a voicing by hand is what hands the texture over to that
-			// voicing. Until this is set, generated music keeps the ordinary
-			// arrangement — chords in their own register, melody above them —
-			// instead of restating a block chord under every melody note.
-			try { window.__voicingUserChoice = true; } catch (_) {}
 			// Generated music bakes its voicing in at generation time, so the
 			// sheet must ask for a re-voice — re-rendering alone would keep
 			// showing the previous voicing and the control would look dead.
@@ -1194,6 +1276,113 @@ class SheetMusicGenerator {
 		controls.appendChild(voicLabel);
 
 		// (Removed separate Auto checkbox and Logic selector as they are now unified)
+
+		// --- Feel -----------------------------------------------------------
+		// Swing is a way of PLAYING the written rhythm, so it belongs with the
+		// transport rather than with the note values. The page never changes.
+		const feelWrap = document.createElement('label');
+		feelWrap.style.display = 'flex';
+		feelWrap.style.alignItems = 'center';
+		feelWrap.style.gap = '4px';
+		feelWrap.style.marginLeft = '10px';
+		feelWrap.style.fontSize = '0.7rem';
+		feelWrap.style.color = '#f9fafb';
+		feelWrap.title = 'How the written eighths are performed. The notation does not change.';
+		const feelText = document.createElement('span');
+		feelText.textContent = 'Feel:';
+		const feelSelect = document.createElement('select');
+		feelSelect.style.fontSize = '0.7rem';
+		feelSelect.style.padding = '1px 4px';
+		feelSelect.style.borderRadius = '4px';
+		feelSelect.style.border = '1px solid #475569';
+		feelSelect.style.background = '#1e293b';
+		feelSelect.style.color = '#e2e8f0';
+		feelSelect.innerHTML = `
+			<option value="0">Straight</option>
+			<option value="0.4">Light swing</option>
+			<option value="0.7">Swing</option>
+			<option value="1">Hard swing</option>
+		`;
+		feelSelect.value = String(this.state.swing || 0);
+		feelSelect.addEventListener('change', () => {
+			this.state.swing = parseFloat(feelSelect.value) || 0;
+			try { localStorage.setItem('sheet.swing', String(this.state.swing)); } catch (_) {}
+			// Re-render only to put the "Swing" indication on or off; no note
+			// value is touched, so nothing needs regenerating.
+			try { this.render(); } catch (_) {}
+		});
+		feelWrap.appendChild(feelText);
+		feelWrap.appendChild(feelSelect);
+
+		// Agogic stress sits beside swing because it is the same kind of thing:
+		// how the written rhythm is PLAYED. Separate control because they are
+		// independent — a straight feel can still breathe, and a swung one can
+		// still be metronomic.
+		const rubatoSelect = document.createElement('select');
+		rubatoSelect.style.fontSize = '0.7rem';
+		rubatoSelect.style.padding = '1px 4px';
+		rubatoSelect.style.marginLeft = '4px';
+		rubatoSelect.style.borderRadius = '4px';
+		rubatoSelect.style.border = '1px solid #475569';
+		rubatoSelect.style.background = '#1e293b';
+		rubatoSelect.style.color = '#e2e8f0';
+		rubatoSelect.title = 'Agogic stress: peaks and cadences get more TIME, which is how a '
+			+ 'player makes a note important without hitting it harder.';
+		rubatoSelect.innerHTML = `
+			<option value="0">In time</option>
+			<option value="0.5">Some give</option>
+			<option value="1">Expressive</option>
+		`;
+		rubatoSelect.value = String(this.state.rubato || 0);
+		rubatoSelect.addEventListener('change', () => {
+			this.state.rubato = parseFloat(rubatoSelect.value) || 0;
+			try { localStorage.setItem('sheet.rubato', String(this.state.rubato)); } catch (_) {}
+			this._clearRubatoCache();
+		});
+		feelWrap.appendChild(rubatoSelect);
+		controls.appendChild(feelWrap);
+
+		// --- What the instruments show ------------------------------------
+		// Chords and melody are different questions. Showing both at once is
+		// right for "what does this bar look like on a keyboard"; chords alone
+		// for learning the shapes; melody alone for following a line. Off is
+		// here because a lit keyboard following playback is a distraction when
+		// you are reading the page rather than the instrument.
+		const focusWrap = document.createElement('label');
+		focusWrap.style.display = 'flex';
+		focusWrap.style.alignItems = 'center';
+		focusWrap.style.gap = '4px';
+		focusWrap.style.marginLeft = '10px';
+		focusWrap.style.fontSize = '0.7rem';
+		focusWrap.style.color = '#f9fafb';
+		focusWrap.title = 'What a chord click and playback light up on the piano and fretboard';
+		const focusText = document.createElement('span');
+		focusText.textContent = 'Instruments:';
+		const focusSelect = document.createElement('select');
+		focusSelect.style.fontSize = '0.7rem';
+		focusSelect.style.padding = '1px 4px';
+		focusSelect.style.borderRadius = '4px';
+		focusSelect.style.border = '1px solid #475569';
+		focusSelect.style.background = '#1e293b';
+		focusSelect.style.color = '#e2e8f0';
+		focusSelect.innerHTML = `
+			<option value="both">Chords + melody</option>
+			<option value="chords">Chords only</option>
+			<option value="melody">Melody only</option>
+			<option value="off">Off (keep the scale)</option>
+		`;
+		focusSelect.value = this.state.instrumentFocusMode || 'both';
+		focusSelect.addEventListener('change', () => {
+			this.state.instrumentFocusMode = focusSelect.value;
+			try { window.__instrumentFocusMode = focusSelect.value; } catch (_) {}
+			try { localStorage.setItem('sheet.instrumentFocusMode', focusSelect.value); } catch (_) {}
+			// Changing the mode while something is lit must take effect now,
+			// not at the next chord — otherwise the control reads as dead.
+			this.broadcastInstrumentFocus({ source: 'mode-change' });
+		});
+		focusWrap.appendChild(focusText);
+		focusWrap.appendChild(focusSelect);
+		controls.appendChild(focusWrap);
 
 		// Popup positioning toggle
 		const popupWrap = document.createElement('label');
@@ -1393,6 +1582,7 @@ class SheetMusicGenerator {
 				// A voice-leading option is the other way of asking for the
 				// voicing to drive the texture — see the Voicing dropdown.
 				try { if (checked) window.__voicingUserChoice = true; } catch (_) {}
+				this._syncVoicingSelect();
 				// When simple VL is on and no explicit combo mode chosen,
 				// default to single-style voice leading.
 				if (!this.state.voiceLeadingMode) {
@@ -1414,6 +1604,7 @@ class SheetMusicGenerator {
 				// Combos implies voice leading is conceptually active
 				if (checked) this.state.voiceLeading = true;
 				try { if (checked) window.__voicingUserChoice = true; } catch (_) {}
+				this._syncVoicingSelect();
 				// Ensure new system is active
 				this.state.vlCombosVariant = 'v2';
                 // Fallback flag used by render() to enforce multi-mode if propagation fails
@@ -1880,6 +2071,7 @@ class SheetMusicGenerator {
 				else delete window.__chordVoicingOverrides[b.bar];
 				// Naming a voicing for one bar counts as choosing one.
 				try { if (sel.value) window.__voicingUserChoice = true; } catch (_) {}
+				this._syncVoicingSelect();
 				if (typeof window.revoiceLastGeneration === 'function') {
 					window.revoiceLastGeneration('per-chord-voicing');
 				}
@@ -1980,24 +2172,196 @@ class SheetMusicGenerator {
 
 
     /**
+     * SWING — a performance feel, not a rewritten rhythm.
+     *
+     * The device: in a pair of eighths, the first is played long and the second
+     * short, so the pair divides the beat 2:1 instead of 1:1. What a chart
+     * actually does is notate straight eighths and write "Swing" at the top —
+     * the notation stays readable and the FEEL is a property of the
+     * performance. Rewriting the durations to dotted-eighth/sixteenth would be
+     * a different (and wrong) rhythm, and triplet notation is unavailable
+     * anyway: the renderer's duration table is powers of two, so a true triplet
+     * has no glyph.
+     *
+     * Provenance rather than costume: this is what jazz and blues playing
+     * discovered, but the mechanism is general — it is the same unevenness a
+     * baroque player applies as notes inégales. It is offered as a feel, and
+     * named for what it does.
+     *
+     * @param {number} absBeat position in BEAT-UNITS
+     * @returns {number} where that position is actually performed
+     */
+    _swungBeat(absBeat) {
+        const amt = Number(this.state.swing) || 0;
+        if (!(amt > 0) || !Number.isFinite(absBeat)) return absBeat;
+        const frac = absBeat - Math.floor(absBeat);
+        // Only the off-beat eighth moves. The downbeat is the thing it is late
+        // against — moving both would just shift the music.
+        if (Math.abs(frac - 0.5) > 1e-6) return absBeat;
+        // Straight is 1/2 through the beat; full swing is 2/3. Everything
+        // between is a lighter or harder feel.
+        return absBeat + amt * (2 / 3 - 0.5);
+    }
+
+    /** How long an off-beat eighth actually lasts once the beat is swung. */
+    _swungDuration(absBeat, durationBeats) {
+        const amt = Number(this.state.swing) || 0;
+        if (!(amt > 0)) return durationBeats;
+        const shifted = this._swungBeat(absBeat) - absBeat;
+        // The note started late and the next downbeat did not move, so it is
+        // shorter by exactly what it was delayed by. Leaving the length alone
+        // would run it into the note after it.
+        return Math.max(0.05, durationBeats - shifted);
+    }
+
+    /**
+     * AGOGIC STRESS — the note that matters gets TIME, not volume.
+     *
+     * The device is old and specific, and it is the thing a metronomic
+     * performance most obviously lacks. A player does not make an important
+     * note important by hitting it harder; they arrive at it a fraction late
+     * and leave it a fraction long. The emphasis is in the DURATION. It is what
+     * "expressive" means before it means anything else, and it is why the same
+     * notes at the same volumes can sound either performed or typed out.
+     *
+     * Two places earn it, and they are the two places a phrase has a shape:
+     *
+     *   THE CADENCE  the arrival. The line has been going somewhere; broadening
+     *                into the note it was going to is how that is heard as
+     *                arriving rather than as stopping.
+     *   THE PEAK     the highest note of a phrase — the point the arch was
+     *                built to reach. Leaning on it in time is what makes the
+     *                shape audible as a shape.
+     *
+     * Everything after a stretched note is displaced by it: the map is
+     * cumulative, which is what makes this rubato rather than a note simply
+     * overlapping its neighbour. The written page never changes.
+     *
+     * @returns {Array<{at:number, extra:number}>} sorted stretch points
+     */
+    _rubatoPoints() {
+        const amt = Number(this.state.rubato) || 0;
+        if (!(amt > 0)) return [];
+        const drawn = Array.isArray(this.state.renderedNoteEvents) ? this.state.renderedNoteEvents : [];
+        if (!drawn.length) return [];
+
+        const melody = drawn
+            .filter(e => e && e.kind === 'melody' && Number.isFinite(e.absBeat))
+            .sort((a, b) => a.absBeat - b.absBeat);
+        if (melody.length < 3) return [];
+
+        const points = [];
+        const midiOf = (name) => {
+            const m = String(name || '').match(/^([A-Ga-g][#b]?)(-?\d+)$/);
+            if (!m) return null;
+            const SEMI = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5,
+                'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
+            const pc = SEMI[m[1].charAt(0).toUpperCase() + m[1].slice(1)];
+            return pc === undefined ? null : pc + (parseInt(m[2], 10) + 1) * 12;
+        };
+
+        // Phrases are delimited by the cadences themselves: the note that ends
+        // one phrase is the boundary of the next.
+        let phraseStart = 0;
+        const closePhrase = (endIdx) => {
+            let peak = -1, peakMidi = -Infinity;
+            for (let k = phraseStart; k <= endIdx; k++) {
+                const mv = midiOf(melody[k].noteName);
+                if (mv !== null && mv > peakMidi) { peakMidi = mv; peak = k; }
+            }
+            // A peak on the cadence note itself is one gesture, not two — it
+            // already gets the cadence's broadening and does not want both.
+            if (peak >= 0 && peak !== endIdx) {
+                points.push({ at: melody[peak].absBeat, extra: 0.06 * amt });
+            }
+            phraseStart = endIdx + 1;
+        };
+
+        melody.forEach((e, i) => {
+            if (e.role === 'cadence') {
+                points.push({ at: e.absBeat, extra: 0.14 * amt });
+                closePhrase(i);
+            }
+        });
+        if (phraseStart < melody.length) closePhrase(melody.length - 1);
+
+        points.sort((a, b) => a.at - b.at);
+        return points;
+    }
+
+    /**
+     * Where a beat is actually performed: the swing feel, then the rubato.
+     *
+     * Order matters and this is the musical order — swing is how the beat is
+     * DIVIDED, rubato is how the pulse itself bends. Bending first and dividing
+     * a bent beat afterwards would make the swing ratio depend on the rubato,
+     * which is not how either of them works.
+     */
+    _performedBeat(absBeat) {
+        const swung = this._swungBeat(absBeat);
+        const points = this._rubatoCache || (this._rubatoCache = this._rubatoPoints());
+        if (!points.length) return swung;
+        let extra = 0;
+        for (const p of points) {
+            // A note is displaced by every stretch that happened BEFORE it, and
+            // gets its own stretch as extra length rather than as a delay.
+            if (p.at < absBeat - 1e-9) extra += p.extra;
+        }
+        return swung + extra;
+    }
+
+    /** How long a note actually lasts: its written length, plus any stress on it. */
+    _performedDuration(absBeat, durationBeats) {
+        const base = this._swungDuration(absBeat, durationBeats);
+        const points = this._rubatoCache || (this._rubatoCache = this._rubatoPoints());
+        for (const p of points) {
+            if (Math.abs(p.at - absBeat) < 1e-9) return base + p.extra;
+        }
+        return base;
+    }
+
+    /** The stretch map depends on what was drawn, so a new render invalidates it. */
+    _clearRubatoCache() { this._rubatoCache = null; }
+
+    /**
+     * Has a voicing actually been chosen, or is the texture still the one the
+     * generator wrote?
+     *
+     * The single source of truth for that question — `state.voicingStyle` is
+     * NOT it, because it always holds a fallback value whether or not anything
+     * has been picked. Reading it as "the current voicing" is what let the
+     * dropdown display a setting that was not in effect.
+     */
+    _voicingChosen() {
+        try { return !!(typeof window !== 'undefined' && window.__voicingUserChoice); }
+        catch (_) { return false; }
+    }
+
+    /**
+     * Put the dropdown back in step with what is actually in effect.
+     *
+     * Voice Leading, VL Combos and Inversion also hand the texture over to a
+     * voicing, so after any of them the dropdown must stop saying "As
+     * generated" — otherwise it goes back to describing a state the music is
+     * no longer in, which is the whole fault this exists to close.
+     */
+    _syncVoicingSelect() {
+        const sel = this._voicingSelectEl;
+        if (!sel) return;
+        sel.value = this._voicingChosen()
+            ? (this.state.autoVoicingAll
+                ? (this.state.voicingLogic || 'smart')
+                : (this.state.voicingStyle || 'close'))
+            : '__none';
+    }
+
+    /**
      * Convert duration string to numeric value for backward compatibility
      */
     _durationToNumber(durStr) {
-        const durationMap = {
-            'whole': 4,
-            'whole_dotted': 6,
-            'half': 2,
-            'half_dotted': 3,
-            'quarter': 1,
-            'quarter_dotted': 1.5,
-            'eighth': 0.5,
-            'eighth_dotted': 0.75,
-            'sixteenth': 0.25,
-            'sixteenth_dotted': 0.375
-        };
         if (typeof durStr === 'string') {
-            const clean = durStr.toLowerCase().replace(/-/g, '_');
-            return durationMap[clean] || 1;
+            const q = durationNameToQuarters(durStr);
+            return q === null ? 1 : q;
         }
         return durStr || 1;
     }
@@ -2360,9 +2724,12 @@ class SheetMusicGenerator {
             'quarter_dotted': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, noteClass: 'note-quarter' },
             'eighth': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, flags: 1, noteClass: 'note-eighth' },
             'eighth_dotted': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, flags: 1, noteClass: 'note-eighth' },
-            'sixteenth': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, flags: 2, noteClass: 'note-sixteenth' }
+            'sixteenth': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, flags: 2, noteClass: 'note-sixteenth' },
+            'sixteenth_dotted': { fill: 'black', stroke: 'black', strokeWidth: 1, hasStem: true, flags: 2, noteClass: 'note-sixteenth' }
         };
-        const clean = (duration || '').toLowerCase().replace(/-/g, '_');
+        // Through the canonical name, so `dotted-half` gets the hollow notehead
+        // it needs instead of falling through to a filled quarter.
+        const clean = canonicalDurationName(duration);
         return durationStyles[clean] || durationStyles['quarter'];
     }
 
@@ -4871,13 +5238,21 @@ class SheetMusicGenerator {
                     // sheet rather than re-deriving notes from the phrase (which
                     // let un-drawn chord tones sound and collapsed off-beats).
                     this.state.renderedNoteEvents = [];
-                    const recordRendered = (absBeat, noteName, durBeats, kind) => {
+                    this._clearRubatoCache();
+                    const recordRendered = (absBeat, noteName, durBeats, kind, role) => {
                         if (!noteName || !Number.isFinite(absBeat)) return;
                         this.state.renderedNoteEvents.push({
                             absBeat,
                             noteName: String(noteName),
                             durationBeats: Number.isFinite(durBeats) && durBeats > 0 ? durBeats : 1,
-                            kind
+                            kind,
+                            // The composed ROLE travels with the note so the
+                            // performance can know which notes matter. Agogic
+                            // stress means giving the important note TIME, and
+                            // that requires knowing which note is important —
+                            // which the generator decided and the renderer was
+                            // throwing away.
+                            role: role || null
                         });
                     };
                     phrase.bars.forEach((bar, barIndex) => {
@@ -5175,7 +5550,8 @@ class SheetMusicGenerator {
                                         barIndex * phraseBeatsPerBar + fracInBar + (melodyCumBeats - (this._durationToNumber(noteDuration) || 1)),
                                         playableName,
                                         this._durationToNumber(noteDuration),
-                                        'melody');
+                                        'melody',
+                                        melodyNote.role || null);
 
                                     // Draw Syllable Label below staff
                                     if (melodyNote.syllable) {
@@ -5330,11 +5706,26 @@ class SheetMusicGenerator {
 			labels.forEach(lbl => {
 				lbl.addEventListener('click', (e) => {
 					const idx = parseInt(lbl.getAttribute('data-bar-index'), 10);
-					if (!isNaN(idx)) { 
-						try { 
+					if (!isNaN(idx)) {
+						try {
 							this.playSingleChord(idx);
 							this.showChordPianoPopup(idx, e);
-						} catch(err){ console.warn(err); } 
+							// ...and show it on the instruments. The sheet knows
+							// exactly which notes this chord is voiced with; the
+							// keyboard and fretboard were being left on the scale.
+							const voiced = (Array.isArray(this.state.lastRenderedChords)
+								&& this.state.lastRenderedChords[idx]) || [];
+							if (voiced.length) {
+								this.broadcastInstrumentFocus({ chordNotes: voiced, source: 'chord-click' });
+								// Clicking is a look, not a performance: it holds
+								// long enough to read and then gives the scale
+								// back on its own, so nothing has to be un-clicked.
+								if (this._chordClickFocusTimer) clearTimeout(this._chordClickFocusTimer);
+								this._chordClickFocusTimer = setTimeout(() => {
+									this.broadcastInstrumentFocus({ source: 'chord-click-end' });
+								}, 2600);
+							}
+						} catch(err){ console.warn(err); }
 					}
 				});
 				lbl.addEventListener('mouseenter', ()=>{ lbl.setAttribute('fill', '#bae6fd'); });
@@ -5372,6 +5763,30 @@ class SheetMusicGenerator {
 			console.warn('Ledger post-process skipped:', e);
 		}
 		*/
+
+		// SAY that it swings, rather than notating it.
+		//
+		// This is the whole point of treating swing as a feel: the eighths on
+		// the page stay even and readable, and one word at the top tells the
+		// player how to divide them. Writing dotted-eighth/sixteenth instead
+		// would be a different rhythm, and a true triplet has no glyph here at
+		// all — the duration table is powers of two.
+		try {
+			const amt = Number(this.state.swing) || 0;
+			if (amt > 0 && svg && typeof document.createElementNS === 'function') {
+				const label = document.createElementNS(svgNS, 'text');
+				label.setAttribute('x', String(12));
+				label.setAttribute('y', String(16));
+				label.setAttribute('fill', '#fbbf24');
+				label.setAttribute('font-size', '12');
+				label.setAttribute('font-style', 'italic');
+				label.setAttribute('class', 'sheet-feel-indication');
+				label.textContent = amt >= 0.9 ? 'Hard swing'
+					: amt >= 0.6 ? 'Swing'
+					: 'Light swing';
+				svg.appendChild(label);
+			}
+		} catch (_) { /* an indication is never worth breaking a render for */ }
 
 		// Update key pill text
 		const pill = this.controlsContainer && this.controlsContainer.querySelector('#sheet-music-key-pill');
@@ -5541,21 +5956,25 @@ function parseTimeSignatureSpec(timeSignature, fallbackBeatsPerBar = 4) {
 }
 
 function normalizeDurationName(duration, fallback = 'quarter') {
+	// A number here is already in QUARTERS — callers that count in beat-units
+	// convert before calling. Dotted halves and dotted wholes were missing from
+	// the ladder, so a three-quarter note reported as a half and a six as a
+	// whole; both are values the renderer can draw.
 	if (typeof duration === 'number' && Number.isFinite(duration)) {
+		if (duration >= 6) return 'whole_dotted';
 		if (duration >= 4) return 'whole';
+		if (duration >= 3) return 'half_dotted';
 		if (duration >= 2) return 'half';
-		if (duration >= 1.5) return 'dotted-quarter';
+		if (duration >= 1.5) return 'quarter_dotted';
 		if (duration >= 1) return 'quarter';
-		if (duration >= 0.75) return 'dotted-eighth';
+		if (duration >= 0.75) return 'eighth_dotted';
 		if (duration >= 0.5) return 'eighth';
+		if (duration >= 0.375) return 'sixteenth_dotted';
 		return 'sixteenth';
 	}
 
-	const value = String(duration || '').toLowerCase();
-	if (value === 'whole' || value === 'half' || value === 'quarter' || value === 'eighth' || value === 'sixteenth' || value === 'dotted-quarter' || value === 'dotted-eighth') {
-		return value;
-	}
-	return fallback;
+	// Either spelling is accepted; one comes back.
+	return canonicalDurationName(duration) || fallback;
 }
 
 function parseChordSymbolForPhrase(chordText, musicTheory) {
@@ -5974,29 +6393,54 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 	const chordByBeat = new Map();
 	const musicTheory = sheetGen ? sheetGen.musicTheory : null;
 
+	/**
+	 * A duration in BEATS, as the engines count them, to the note value that
+	 * lasts that long on the page.
+	 *
+	 * Two things this has to get right that it previously did not:
+	 *
+	 * 1. A BEAT IS A BEAT-UNIT, NOT A QUARTER. The engines fill `beatsPerBar`
+	 *    beats per bar whatever the metre, so in 6/8 a beat is an EIGHTH. Read
+	 *    as quarters, a six-beat bar of 6/8 came out notated as six quarters —
+	 *    twice the bar — and, because playback reads the drawn value back, every
+	 *    note also sounded twice as long as its slot.
+	 *
+	 * 2. NEVER ROUND UP. The old table had no dotted half, so a three-beat note
+	 *    took the nearest value available and was drawn as a WHOLE note: four
+	 *    quarters of ink for three quarters of music, overflowing the bar in
+	 *    4/4 and 3/4 alike. Rounding down is the safe direction — a bar can be
+	 *    short by a sixteenth without being wrong, but it cannot be long.
+	 */
 	const durationBeatsToName = (durationBeats, fallback) => {
 		const x = Number(durationBeats);
 		if (!Number.isFinite(x) || x <= 0) return fallback;
-		// generateMelody durations are in quarter-note beats (1=quarter, 0.5=eighth)
+		const quarters = x * (4 / beatUnit);
+
+		// Largest first: every value the renderer can actually draw.
 		const table = [
-			{ beats: 4, name: 'whole' },
-			{ beats: 2, name: 'half' },
-			{ beats: 1.5, name: 'dotted-quarter' },
-			{ beats: 1, name: 'quarter' },
-			{ beats: 0.75, name: 'dotted-eighth' },
-			{ beats: 0.5, name: 'eighth' },
-			{ beats: 0.25, name: 'sixteenth' }
+			{ q: 6, name: 'whole_dotted' },
+			{ q: 4, name: 'whole' },
+			{ q: 3, name: 'half_dotted' },
+			{ q: 2, name: 'half' },
+			{ q: 1.5, name: 'quarter_dotted' },
+			{ q: 1, name: 'quarter' },
+			{ q: 0.75, name: 'eighth_dotted' },
+			{ q: 0.5, name: 'eighth' },
+			{ q: 0.375, name: 'sixteenth_dotted' },
+			{ q: 0.25, name: 'sixteenth' }
 		];
-		let best = table[0];
-		let bestDist = Math.abs(x - best.beats);
-		for (let i = 1; i < table.length; i++) {
-			const d = Math.abs(x - table[i].beats);
-			if (d < bestDist) {
-				best = table[i];
-				bestDist = d;
-			}
+
+		// Exact wins outright.
+		for (const row of table) {
+			if (Math.abs(quarters - row.q) < 1e-6) return row.name;
 		}
-		return best && best.name ? best.name : fallback;
+		// Otherwise the largest value that still fits inside the real duration.
+		for (const row of table) {
+			if (row.q < quarters + 1e-6) return row.name;
+		}
+		// Shorter than a sixteenth: a sixteenth is the shortest thing drawable,
+		// so that is what it gets rather than the caller's unrelated fallback.
+		return 'sixteenth';
 	};
 
 	const toAbsoluteBeat = (noteEvent) => {
@@ -6918,21 +7362,26 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		const drawn = Array.isArray(this.state.renderedNoteEvents) ? this.state.renderedNoteEvents : null;
 		if (drawn && drawn.length) {
 			drawn.forEach((ev) => {
-				const noteStart = startTime + (ev.absBeat * secondsPerBeatUnit);
-				const noteEnd = noteStart + Math.max(0.05, ev.durationBeats * secondsPerQuarter * 0.95);
+				// Swing is applied HERE and nowhere in the notation: the page
+				// keeps its straight eighths, the performance is uneven.
+				const performedBeat = this._performedBeat(ev.absBeat);
+				const performedLen = this._performedDuration(ev.absBeat, ev.durationBeats);
+				const noteStart = startTime + (performedBeat * secondsPerBeatUnit);
+				const noteEnd = noteStart + Math.max(0.05, performedLen * secondsPerQuarter * 0.95);
 				this._playSingleNote(ev.noteName, noteStart, noteEnd, ev.kind === 'melody' ? 0.4 : 0.15);
 			});
+			// The instruments follow the same list the audio was scheduled from.
+			this._scheduleFocusFollow(drawn, secondsPerBeatUnit);
 			return;
 		}
 
-		const durationToQuarterBeats = {
-			'whole': 4,
-			'half': 2,
-			'quarter': 1,
-			'dotted-quarter': 1.5,
-			'eighth': 0.5,
-			'dotted-eighth': 0.75,
-			'sixteenth': 0.25
+		// Every value the renderer can draw, either spelling, dotted included.
+		// The local table this replaces was missing the dotted half and the
+		// dotted whole and was keyed in the opposite naming convention, so it
+		// answered 1 for anything dotted.
+		const durationToQuarterBeats = (name) => {
+			const q = durationNameToQuarters(name);
+			return q === null ? 0 : q;
 		};
 
 		// Schedule beats per bar. If beat-level data is missing, synthesize a simple bar.
@@ -6952,14 +7401,14 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 				const beatOffset = (beatNumber - 1) * secondsPerBeatUnit;
 				const noteStart = barStartTime + beatOffset;
 				const durationName = normalizeDurationName(event.duration, beatUnit === 8 ? 'eighth' : 'quarter');
-				const quarterBeats = durationToQuarterBeats[durationName] || (typeof event.duration === 'number' ? event.duration : 1);
+				const quarterBeats = durationToQuarterBeats(durationName) || (typeof event.duration === 'number' ? event.duration : 1);
 				const noteEnd = noteStart + (quarterBeats * secondsPerQuarter * 0.95);
 
 				// --- Play Harmony ---
 				if (event.chordObj && event.chordObj.chordNotes) {
                     // Use independent chord duration if available, else fallback to beat duration
                     const chordDurName = event.chordDuration || durationName;
-                    const chordQuarterBeats = durationToQuarterBeats[chordDurName] || (typeof event.chordDuration === 'number' ? event.chordDuration : quarterBeats);
+                    const chordQuarterBeats = durationToQuarterBeats(chordDurName) || (typeof event.chordDuration === 'number' ? event.chordDuration : quarterBeats);
                     const chordEnd = noteStart + (chordQuarterBeats * secondsPerQuarter * 0.98);
 
 					// Voicing: Use close position centered on C3/C4 for preview
@@ -6977,13 +7426,13 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 					let cursor = noteStart;
 					const totalQuarter = event.melodySequence.reduce((sum, n) => {
 						const dn = normalizeDurationName(n && n.duration, durationName);
-						return sum + (durationToQuarterBeats[dn] || (typeof (n && n.duration) === 'number' ? n.duration : 0));
+						return sum + (durationToQuarterBeats(dn) || (typeof (n && n.duration) === 'number' ? n.duration : 0));
 					}, 0);
 					const fallbackQuarterEach = (quarterBeats / Math.max(1, event.melodySequence.length));
 					event.melodySequence.forEach((n) => {
 						if (!n || !n.noteName) return;
 						const dn = normalizeDurationName(n.duration, durationName);
-						let q = durationToQuarterBeats[dn] || (typeof n.duration === 'number' ? n.duration : 0);
+						let q = durationToQuarterBeats(dn) || (typeof n.duration === 'number' ? n.duration : 0);
 						if (!q || !Number.isFinite(q) || q <= 0) q = (totalQuarter > 0 ? (quarterBeats * (1 / event.melodySequence.length)) : fallbackQuarterEach);
 						const end = Math.min(noteEnd, cursor + (q * secondsPerQuarter * 0.98));
 						this._playSingleNote(n.noteName, cursor, end, 0.4);
@@ -7002,6 +7451,12 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		}
 		this._midiSources = [];
 		this._isPlayingMidi = false;
+		// Stopping mid-phrase must release the instruments too, or they stay
+		// frozen on whichever chord happened to be sounding.
+		try {
+			this._clearFocusFollow();
+			this.broadcastInstrumentFocus({ source: 'stop' });
+		} catch (_) {}
 	};
 
 	// Build a simple Format 0 MIDI file from rendered chords
@@ -7044,7 +7499,8 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		})();
 		events.push({ delta: 0, data: [0xFF, 0x58, 0x04, beatsPerMeasure & 0xFF, denPow & 0xFF, 0x18, 0x08] });
 		
-		const durationMap = { 'whole': 4, 'half': 2, 'quarter': 1, 'eighth': 0.5, 'sixteenth': 0.25 };
+		// Same table as playback, dotted values included.
+		const durationMap = (name) => { const q = durationNameToQuarters(name); return q === null ? 0 : q; };
 		const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
 		const getMidi = (noteStr, defaultOct = 4) => {
 			const m = String(noteStr).match(/^([A-G][#b]?)(\d+)?$/);
@@ -7078,8 +7534,12 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 			drawnForExport.forEach((ev) => {
 				const midi = getMidi(ev.noteName);
 				if (midi === null) return;
-				const startTick = Math.round((Number(ev.absBeat) || 0) * ticksPerBeatUnit);
-				const lenTicks = Math.max(1, Math.round((Number(ev.durationBeats) || 1) * ticksPerQuarter * 0.95));
+				// The exported file has to swing too, or it is a different
+				// performance from the one the page plays.
+				const rawBeat = Number(ev.absBeat) || 0;
+				const startTick = Math.round(this._performedBeat(rawBeat) * ticksPerBeatUnit);
+					const lenTicks = Math.max(1, Math.round(
+						this._performedDuration(rawBeat, Number(ev.durationBeats) || 1) * ticksPerQuarter * 0.95));
 				const isMelody = ev.kind === 'melody';
 				const ch = isMelody ? 0 : 1;
 				rawEvents.push({ tick: startTick, type: 0x90 | ch, note: midi, vel: isMelody ? 0x64 : 0x50 });
@@ -7092,7 +7552,7 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 				bar.beats.forEach((event) => {
 					const beatStartTick = barStartTick + Math.round((event.beat - 1) * ticksPerBeatUnit);
 					const durationName = normalizeDurationName(event.duration, beatUnit === 8 ? 'eighth' : 'quarter');
-					const quarterBeats = durationMap[durationName] || (typeof event.duration === 'number' ? event.duration : 1);
+					const quarterBeats = durationMap(durationName) || (typeof event.duration === 'number' ? event.duration : 1);
 					const durTicks = Math.round(quarterBeats * ticksPerQuarter);
 					const beatEndTick = beatStartTick + Math.round(durTicks * 0.95);
 
@@ -7293,6 +7753,88 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 			osc.stop(t0 + dur + 0.05);
 			this._previewSources.push(osc);
 		});
+	};
+
+	/**
+	 * Tell the instrument visualizers what is sounding.
+	 *
+	 * The sheet knows exactly which notes a chord contains and which note of the
+	 * tune is on; the keyboard and the fretboard know how to draw them. Nothing
+	 * connected the two, so clicking a chord played it and left every instrument
+	 * showing the same undifferentiated scale.
+	 *
+	 * Broadcast rather than a direct call: the sheet has no business holding
+	 * references to instruments, and this way anything else that can display
+	 * notes can listen without the sheet learning about it.
+	 *
+	 * @param {{chordNotes?: string[], melodyNotes?: string[], source?: string}} detail
+	 *        Omit both lists to mean "nothing is sounding" and hand the scale back.
+	 */
+	SheetMusicGenerator.prototype.broadcastInstrumentFocus = function(detail = {}) {
+		try {
+			if (typeof window === 'undefined' || typeof CustomEvent !== 'function') return;
+			window.dispatchEvent(new CustomEvent('sheetInstrumentFocus', {
+				detail: {
+					chordNotes: Array.isArray(detail.chordNotes) ? detail.chordNotes.slice() : [],
+					melodyNotes: Array.isArray(detail.melodyNotes) ? detail.melodyNotes.slice() : [],
+					source: detail.source || 'sheet'
+				}
+			}));
+		} catch (_) { /* a visualiser that isn't listening must never break playback */ }
+	};
+
+	/**
+	 * Walk the visualizers through a performance in step with the audio.
+	 *
+	 * Driven off the SAME rendered-note list the audio is scheduled from, so
+	 * what lights up is what sounds — re-deriving it from the phrase is how the
+	 * old playback path drifted out of step with the page.
+	 */
+	SheetMusicGenerator.prototype._scheduleFocusFollow = function(drawn, secondsPerBeatUnit) {
+		this._clearFocusFollow();
+		if (!Array.isArray(drawn) || !drawn.length) return;
+
+		// One frame per attack point: everything starting at the same beat is
+		// one moment, and a moment is what a visualiser can show.
+		const byBeat = new Map();
+		drawn.forEach((ev) => {
+			if (!ev || !ev.noteName) return;
+			const key = Number(ev.absBeat) || 0;
+			if (!byBeat.has(key)) byBeat.set(key, { chordNotes: [], melodyNotes: [] });
+			const slot = byBeat.get(key);
+			(ev.kind === 'melody' ? slot.melodyNotes : slot.chordNotes).push(ev.noteName);
+		});
+
+		const beats = Array.from(byBeat.keys()).sort((a, b) => a - b);
+		this._focusTimers = [];
+		beats.forEach((beat) => {
+			const at = Math.max(0, this._performedBeat(beat) * secondsPerBeatUnit * 1000);
+			const slot = byBeat.get(beat);
+			this._focusTimers.push(setTimeout(() => {
+				this.broadcastInstrumentFocus({
+					chordNotes: slot.chordNotes,
+					melodyNotes: slot.melodyNotes,
+					source: 'playback'
+				});
+			}, at));
+		});
+
+		// Hand the scale back when the last note has had its length.
+		const last = drawn.reduce((end, ev) => {
+			const e = (Number(ev.absBeat) || 0) * secondsPerBeatUnit + (Number(ev.durationBeats) || 1) * secondsPerBeatUnit;
+			return Math.max(end, e);
+		}, 0);
+		this._focusTimers.push(setTimeout(() => {
+			this.broadcastInstrumentFocus({ source: 'playback-end' });
+		}, Math.max(0, last * 1000 + 120)));
+	};
+
+	/** Stop the follow and release the instruments. */
+	SheetMusicGenerator.prototype._clearFocusFollow = function() {
+		if (Array.isArray(this._focusTimers)) {
+			this._focusTimers.forEach(t => { try { clearTimeout(t); } catch (_) {} });
+		}
+		this._focusTimers = [];
 	};
 
 	// Return an array of chord objects suitable for BitwigMidi.playProgression.

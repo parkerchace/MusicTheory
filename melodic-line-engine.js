@@ -249,6 +249,22 @@
      */
     function layOutFigures(available, activity, rng, opts = {}) {
         const allowSixteenths = opts.allowSixteenths !== false;
+        // Where this span sits in the bar, so no single note is written across
+        // a bar line. Crossing one needs a TIE, and nothing downstream can draw
+        // a tie yet — so an overflowing note was simply drawn inside a bar it
+        // did not fit in, and that bar no longer added up. Fitting each figure
+        // to the distance remaining in the bar avoids the situation instead of
+        // patching it up afterwards; when ties arrive this cap can be lifted.
+        const spanStart = Number.isFinite(opts.spanStart) ? opts.spanStart : 0;
+        const beatsPerBar = Number.isFinite(opts.beatsPerBar) && opts.beatsPerBar > 0
+            ? opts.beatsPerBar : 0;
+        const roomInBar = (usedSoFar) => {
+            if (!beatsPerBar) return Infinity;
+            const abs = spanStart + usedSoFar;
+            const into = abs % beatsPerBar;
+            return into < 1e-6 ? beatsPerBar : beatsPerBar - into;
+        };
+
         const durations = [];
         const figures = [];
         const positions = [];
@@ -258,12 +274,13 @@
         let guard = 0;
 
         while (remaining > 0.24 && guard++ < 32) {
+            const room = Math.min(remaining, roomInBar(available - remaining));
             // Close longer than we opened: a phrase that ends on its shortest
             // value sounds cut off rather than finished.
             const isFinalRoom = remaining <= 2.01 && durations.length > 0;
             const vocab = figureVocabulary(
                 isFinalRoom ? Math.max(0, activity - 0.35) : activity,
-                remaining,
+                room,
                 allowSixteenths);
 
             let figure;
@@ -271,7 +288,7 @@
                 // Take the broadest thing that still fits.
                 figure = vocab.reduce((best, f) => (f.activity < best.activity ? f : best), vocab[0]);
                 repeats = 0;
-            } else if (previous && repeats < 2 && previous.span <= remaining + 1e-6 && rng() < 0.62) {
+            } else if (previous && repeats < 2 && previous.span <= room + 1e-6 && rng() < 0.62) {
                 // Say it again — this is what makes a grouping.
                 figure = previous;
                 repeats++;
@@ -282,16 +299,17 @@
 
             let beats = figure.beats.slice();
             const sum = beats.reduce((s, d) => s + d, 0);
-            if (sum > remaining + 1e-6) {
-                // Trim the figure to what is left rather than overflowing the bar.
+            if (sum > room + 1e-6) {
+                // Trim the figure to the room left in the bar rather than
+                // overflowing it.
                 const trimmed = [];
                 let acc = 0;
                 for (const d of beats) {
-                    if (acc + d > remaining + 1e-6) break;
+                    if (acc + d > room + 1e-6) break;
                     trimmed.push(d);
                     acc += d;
                 }
-                const leftover = remaining - acc;
+                const leftover = room - acc;
                 if (leftover >= 0.25) trimmed.push(leftover);
                 if (!trimmed.length) break;
                 beats = trimmed;
@@ -561,6 +579,20 @@
             const rng = makeRng(seed + 7);
             const beatsPerBar = arc.beatsPerBar || 4;
             const totalBeats = arc.totalBeats || (arc.bars || 4) * beatsPerBar;
+
+            // THE FINEST VALUE THIS METRE CAN WRITE.
+            //
+            // A beat here is a beat-UNIT. In 4/4 that is a quarter, so quartering
+            // it gives a sixteenth — the shortest note the renderer can draw. In
+            // 6/8 a beat is already an EIGHTH, so quartering it asks for a
+            // thirty-second, which has no glyph and no correct length: it came
+            // out drawn as a sixteenth, twice its value, in every compound bar.
+            //
+            // A quarter-beat is only available when a beat is a quarter note.
+            const beatUnit = Number(arc.beatUnit) || 4;
+            const MIN_DRAWABLE_QUARTERS = 0.25;                  // a sixteenth
+            const minBeat = MIN_DRAWABLE_QUARTERS * (beatUnit / 4);
+            const allowsSubBeat = minBeat <= 0.25 + 1e-6;
             const scaleNotes = (context.harmonicProfile && context.harmonicProfile.scaleNotes) || ['C','D','E','F','G','A','B'];
             const melodyC = Math.max(0, Math.min(1, Number(complexity.melody) || 0.5));
             const rhythmC = Math.max(0, Math.min(1, Number(complexity.rhythm) || 0.5));
@@ -913,11 +945,10 @@
             // figure in the connector.
             let chromaticNeighborChoice = null;
             let neighborChromatic = false;
-            // A chromatic neighbour OWES a return to the note it decorated.
-            // E–D♯–E is the figure; E–D♯–anything-else is a wrong note. The
-            // existing resolution machinery only resolves downward, and a
-            // lower chromatic neighbour has to resolve UP, so it needs its
-            // own obligation.
+            // A leading tone OWES its resolution. E–D♯–E is the figure;
+            // E–D♯–anything-else is a wrong note. The existing resolution
+            // machinery only resolves downward, and a leading tone has to
+            // resolve UP, so it needs its own obligation.
             let pendingNeighborReturn = null;
             // A sweep that is still travelling when its span runs out. Spans are
             // one bar of word-rhythm, which is too short to hold the four-to-six
@@ -1119,7 +1150,9 @@
                     // runs of eighths, sixteenth cells, dotted pairs — instead
                     // of the uniform tiling this produced before.
                     const laid = layOutFigures(available, spanActivity, rng, {
-                        allowSixteenths: rhythmC >= 0.3
+                        allowSixteenths: rhythmC >= 0.3 && allowsSubBeat,
+                        spanStart: cursor,
+                        beatsPerBar
                     });
                     durations = laid.durations;
                     figureIds = laid.figures;
@@ -1202,17 +1235,52 @@
                     if (!durations.length) { durations = [available]; figureIds = ['sustain']; figurePos = [0]; }
                 }
 
-                const quant = (v) => {
-                    const grid = rhythmC < 0.3 ? [1, 2, 4] : [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
-                    let best = grid[0], bd = Math.abs(v - best);
-                    for (const g of grid) { const d = Math.abs(v - g); if (d < bd) { bd = d; best = g; } }
+                // --- Fit the span's rhythm to the METRE --------------------
+                //
+                // Whatever chose these lengths — figures, the word's scansion,
+                // a restated motif — they now have to be values this metre can
+                // actually write, laid out so no note crosses a bar line and
+                // nothing overruns the span. Snapping to a grid was already
+                // happening; what it lacked was any knowledge of where the bar
+                // lines are or how short a note may be, so it could round a
+                // carefully bar-fitted length back out over the bar line, and
+                // in compound metre it happily produced values with no glyph.
+                //
+                // Everything on the grid is a whole multiple of the shortest
+                // drawable note, which is what lets bar lines and note ends
+                // keep landing on each other instead of drifting apart.
+                const grid = (rhythmC < 0.3 ? [1, 2, 4] : [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4])
+                    .map(g => g * (minBeat / 0.25))
+                    .filter(g => g >= minBeat - 1e-6);
+                const gridFloor = (v) => {
+                    let best = null;
+                    for (const g of grid) if (g <= v + 1e-6 && (best === null || g > best)) best = g;
                     return best;
                 };
-                durations = durations.map(quant);
-                // Only rescale when the material overruns the span.
-                const sum = durations.reduce((s, d) => s + d, 0) || 1;
-                if (sum > available + 1e-6) {
-                    durations = durations.map(d => Math.max(0.25, quant((d / sum) * available)));
+
+                {
+                    const fitted = [];
+                    let at = cursor;
+                    let left = available;
+                    for (const raw of durations) {
+                        if (left < minBeat - 1e-6) break;
+                        const into = beatsPerBar ? (at % beatsPerBar) : 0;
+                        const toBarLine = beatsPerBar
+                            ? (into < 1e-6 ? beatsPerBar : beatsPerBar - into)
+                            : Infinity;
+                        // Never longer than the note asked for, than the span has
+                        // left, or than the bar has room for.
+                        const cap = Math.min(Number(raw) || 0, left, toBarLine);
+                        const v = gridFloor(cap);
+                        // Below the shortest writable value: the span ends here
+                        // rather than carrying a note nothing can draw.
+                        if (v === null) break;
+                        fitted.push(v);
+                        at += v;
+                        left -= v;
+                    }
+                    if (fitted.length) durations = fitted;
+                    else durations = [Math.max(minBeat, gridFloor(Math.min(available, beatsPerBar || available)) || minBeat)];
                 }
                 while (figureIds.length < durations.length) figureIds.push(figureIds[figureIds.length - 1] || 'word');
                 while (figurePos.length < durations.length) figurePos.push(figurePos.length);
@@ -1334,6 +1402,26 @@
                     const hintNotes = (evHere && Array.isArray(evHere.scaleHintNotes) && evHere.scaleHintNotes.length)
                         ? evHere.scaleHintNotes : null;
                     const scalePool = hintNotes ? this.scaleMidis(hintNotes, LOW, HIGH) : homePool;
+
+                    // THE HARMONY THIS NOTE ANSWERS TO.
+                    //
+                    // The chord's ROOT is what makes a chromatic note legible:
+                    // the semitone under it is that chord's own leading tone,
+                    // and a leading tone resolving up to its root is the one
+                    // chromatic figure that explains itself. Everything else
+                    // out of the scale has to be a chord tone — a secondary
+                    // dominant's third, a borrowed sixth — which the harmony
+                    // has already decided and spelled.
+                    const scalePcsHere = scalePool.map(m => ((m % 12) + 12) % 12)
+                        .filter((pc, k, a) => a.indexOf(pc) === k);
+                    const chordRootPc = (() => {
+                        const tones = (evHere && evHere.chordObj
+                            && (evHere.chordObj.chordNotes || evHere.chordObj.diatonicNotes)) || [];
+                        if (!tones.length) return null;
+                        const pc = this.pcOf ? this.pcOf(tones[0]) : null;
+                        return Number.isFinite(pc) && pc >= 0 ? pc : null;
+                    })();
+
                     const isAnchor = (i === 0);
                     let midi;
                     let role = 'connect';
@@ -1392,21 +1480,71 @@
                         // because the SAME figure is reused once established,
                         // like a recurring idea rather than a one-off.
                         const pool = scalePool.length ? scalePool : homePool;
-                        if (neighborHome === null) neighborHome = current;
+
+                        // CHOOSE the note the figure decorates, rather than
+                        // hoping it lands somewhere useful.
+                        //
+                        // The Für Elise figure is root → the chord's leading
+                        // tone → root. That only exists if the note being
+                        // decorated IS the root of the sounding chord, so when
+                        // this take has the chromatic colour at all, the figure
+                        // goes and sits on the root instead of wherever the
+                        // line happened to be. Waiting for `current` to
+                        // coincide with the root produced the figure zero times
+                        // in 8,775 notes — the device was correct and never
+                        // reachable, which is the same as not existing.
+                        if (neighborHome === null) {
+                            let home = current;
+                            if (neighborChromatic && Number.isFinite(chordRootPc)
+                                && !scalePcsHere.includes(((chordRootPc - 1) % 12 + 12) % 12)) {
+                                const roots = [];
+                                for (let m = LOW; m <= HIGH; m++) {
+                                    if (((m % 12) + 12) % 12 === chordRootPc) roots.push(m);
+                                }
+                                // The nearest one, so the line steps to it
+                                // rather than leaping to reach its own ornament.
+                                const near = roots.filter(m => Math.abs(m - current) <= 4);
+                                if (near.length) home = this.nearest(near, current);
+                            }
+                            neighborHome = home;
+                        }
                         const away = (i % 2 === 1);
                         if (!away) {
                             midi = neighborHome;
                         } else {
-                            // A chromatic neighbour is a LOWER one. The
-                            // semitone below leans up into its home note like a
-                            // leading tone, which is why that version is
-                            // idiomatic and the upper chromatic neighbour
-                            // mostly is not.
-                            const dir = neighborChromatic ? -1 : (neighborDir || (rng() < 0.55 ? 1 : -1));
+                            // WHERE THE D♯ IN FÜR ELISE ACTUALLY COMES FROM.
+                            //
+                            // It is not "the semitone below E". Für Elise is in
+                            // A minor; E is the fifth degree, and at that moment
+                            // the music is spelling an E MAJOR chord — the
+                            // dominant of A minor, which needs a major third,
+                            // which is G♯. The melody outlines that chord, and
+                            // D♯ is E's own leading tone: the note a semitone
+                            // under the root of the chord being sounded, leaning
+                            // up into it. The famous rub is a piece of harmony,
+                            // not a piece of decoration.
+                            //
+                            // So the chromatic neighbour is available only when
+                            // the note being decorated IS the sounding chord's
+                            // root. Then the figure is root → its leading tone →
+                            // root, which is what E–D♯–E is, and the accidental
+                            // has a reason a musician would give for it. Taking
+                            // a semitone below whatever pitch the line happened
+                            // to be sitting on — which is what this did — is the
+                            // same interval with no such reason, and that is
+                            // exactly what it sounded like.
+                            const homePc = ((neighborHome % 12) + 12) % 12;
+                            const canLeadTone = neighborChromatic
+                                && Number.isFinite(chordRootPc)
+                                && homePc === chordRootPc
+                                && !scalePcsHere.includes(((homePc - 1) % 12 + 12) % 12);
+
+                            const dir = canLeadTone ? -1 : (neighborDir || (rng() < 0.55 ? 1 : -1));
                             neighborDir = dir;
-                            if (neighborChromatic) {
-                                midi = neighborHome - 1;        // semitone below: the Für Elise rub
+                            if (canLeadTone) {
+                                midi = neighborHome - 1;        // the chord's own leading tone
                                 pendingNeighborReturn = neighborHome;
+                                role = 'leadingTone';
                             } else {
                                 const side = pool.filter(m => (m - neighborHome) * dir > 0);
                                 midi = side.length
@@ -1414,7 +1552,7 @@
                                     : neighborHome + dir;
                             }
                         }
-                        role = 'neighbor';
+                        if (role !== 'leadingTone') role = 'neighbor';
                     } else if (motion === 'arpeggio' && chordPool.length >= 3 && (count - i) > 1) {
                         // Outline the chord that is actually sounding. Moving to
                         // the NEXT chord tone in the direction of travel is what
@@ -1492,15 +1630,21 @@
                             role = 'leap';
                         }
 
-                        // DECORATION: a non-chord tone must have a function and
-                        // resolve. Chromatic notes are only ever leading tones
-                        // into the following pitch — never free-floating colour.
-                        // Chromatic decoration is gated by the harmony dial, not
-                        // only by the melody slider: a piece set to plain triads
-                        // should not have chromatic neighbours wandering over it.
-                        const wantsDecoration = chromaticism > 0 && melodyC > 0.4
-                            && dur >= 0.5 && rng() < (melodyC - 0.3) * 0.5 * chromaticism;
-                        if (wantsDecoration && !chordPool.includes(midi)) {
+                        // A note that is already in the scale or the chord needs
+                        // no label to be legitimate. Labelling one 'passing' or
+                        // 'neighbor' used to be what MADE a chromatic note
+                        // legal — see the justification check below — so a dice
+                        // roll could authorise any pitch at all. That is the
+                        // "accidental" in the pejorative sense, and it is gone.
+                        //
+                        // Only a note with no function yet gets named here. A
+                        // role that already states one — a leading tone, a run,
+                        // an arpeggio — keeps it: overwriting `leadingTone` with
+                        // the generic `passing` here is what stopped the Für
+                        // Elise figure surviving to the page even once it was
+                        // being generated correctly.
+                        if (role === 'connect'
+                            && !chordPool.includes(midi) && !scalePool.includes(midi)) {
                             role = (Math.abs(midi - current) <= 2) ? 'passing' : 'neighbor';
                         }
                     }
@@ -1508,18 +1652,47 @@
                     if (pinnedPool && pinnedPool.length) midi = this.nearest(pinnedPool, midi);
                     midi = Math.max(LOW, Math.min(HIGH, midi));
 
-                    // INTENTION CHECK: every pitch must be justifiable — a tone
-                    // of the sounding chord, a member of the sounding scale, or
-                    // a decoration that resolves. Anything else is the "random
-                    // accidental" case, so pull it into the sounding scale.
+                    // INTENTION CHECK — there are no accidents in music.
+                    //
+                    // Every pitch outside the sounding scale has to name the
+                    // harmonic relationship it comes from. There are exactly
+                    // two, and both are relationships rather than decorations:
+                    //
+                    //   IT IS IN THE CHORD.  The harmony has already borrowed,
+                    //       tonicized or altered something, and spelled it. The
+                    //       third of a secondary dominant, a borrowed sixth: the
+                    //       melody is entitled to any note the chord contains.
+                    //
+                    //   IT IS THE CHORD'S LEADING TONE, resolving up into the
+                    //       root. This is the Für Elise case. In A minor, over
+                    //       an E major chord — the dominant, whose major third
+                    //       G♯ is itself borrowed — D♯ is E's leading tone, and
+                    //       E–D♯–E is a harmonic gesture rather than an
+                    //       ornament. The obligation to resolve is registered,
+                    //       so the figure has to complete.
+                    //
+                    // A LABEL IS NOT A REASON. `role === 'passing'` used to
+                    // satisfy this check on its own, which meant any pitch the
+                    // line happened to produce could be waved through by being
+                    // called a passing note. Nothing is justified here by what
+                    // it is called; only by where it stands in the harmony.
+                    const midiPc = ((midi % 12) + 12) % 12;
+                    const isChordLeadingTone = Number.isFinite(chordRootPc)
+                        && midiPc === ((chordRootPc - 1) % 12 + 12) % 12
+                        && !scalePcsHere.includes(midiPc);
+
                     const justified = chordPool.includes(midi)
                         || scalePool.includes(midi)
                         || (pinnedPool && pinnedPool.includes(midi))
-                        || role === 'passing' || role === 'neighbor'
-                        || role === 'resolution' || role === 'arpeggio';
+                        || isChordLeadingTone;
+
                     if (!justified) {
                         const pool = scalePool.length ? scalePool : chordPool;
                         if (pool.length) midi = this.nearest(pool, midi);
+                    } else if (isChordLeadingTone && !chordPool.includes(midi)) {
+                        // It leans up into the root, so it owes that resolution.
+                        role = 'leadingTone';
+                        pendingNeighborReturn = midi + 1;
                     }
 
                     // ---- METRE AND DISSONANCE ----
@@ -1568,8 +1741,14 @@
                     // note was allowed to sound at all. The note that CREATED
                     // the obligation is exempt, or it would overwrite itself in
                     // the same breath and the chromatic note would never sound.
+                    // `leadingTone` counts as "the note that created the
+                    // obligation" exactly as `neighbor` does — the exemption is
+                    // about which note owes the return, and naming the role for
+                    // its harmonic function rather than its shape must not
+                    // change who owes what.
                     let neighborReturnHandled = false;
-                    if (pendingNeighborReturn !== null && role !== 'neighbor') {
+                    if (pendingNeighborReturn !== null
+                        && role !== 'neighbor' && role !== 'leadingTone') {
                         midi = pendingNeighborReturn;
                         role = 'resolution';
                         pendingNeighborReturn = null;
@@ -1589,7 +1768,17 @@
                             role = 'resolution';
                         }
                         pendingResolution = null;
-                    } else if (chordPool.length && role !== 'suspension') {
+                    } else if (chordPool.length && role !== 'suspension' && role !== 'leadingTone') {
+                        // A leading tone is exempt for the same reason a
+                        // suspension is: it is a PREPARED dissonance, not an
+                        // unprepared one. The figure is root → the chord's
+                        // leading tone → root, so the note it leans on is the
+                        // note it just came from and the note it is going to.
+                        // Judged as a bare vertical interval it is a semitone
+                        // against the root and gets pulled to the nearest chord
+                        // tone — which is the root, which erases the figure
+                        // entirely. That is why E–D♯–E could fire and never once
+                        // reach the page.
                         const verdict = dissonanceVerdict({
                             midi, chordPool, strength, prevMidi, isFirstOfSpan: isAnchor
                         });
@@ -1617,7 +1806,8 @@
                     const atSectionEnd = sectionHere
                         && Math.floor(beat / beatsPerBar) === sectionHere.endBar;
                     if (goalMidi !== null && pendingResolution === null
-                        && role !== 'suspension'
+                        && role !== 'suspension' && role !== 'leadingTone'
+                        && pendingNeighborReturn === null
                         && i === count - 1 && (atSectionEnd || !to)) {
                         const near = chordPool.filter(m => Math.abs(m - goalMidi) <= 2);
                         if (near.length) { midi = this.nearest(near, goalMidi); role = 'approach'; }
@@ -1633,6 +1823,51 @@
                         midi = Math.max(LOW, Math.min(HIGH, midi));
                         lastLeap = midi - current;
                     }
+                    // ---- THE LAST WORD ON PITCH ----
+                    //
+                    // The intention check further up runs in the middle of the
+                    // pipeline, and half a dozen things after it can still move
+                    // the note: the suspension, the resolution, the goal
+                    // approach, and an octave clamp whose fallback is literally
+                    // `current ± 12` — a pitch chosen for its distance with no
+                    // reference to the harmony at all. Every accidental that
+                    // survived into the finished line came through one of those
+                    // doors, after the door that was supposed to stop it.
+                    //
+                    // So justification is settled HERE, at the point the note is
+                    // committed, and the reason it gives is computed from the
+                    // same evaluation — the two cannot disagree, because they
+                    // are the same decision.
+                    const finalPc = ((midi % 12) + 12) % 12;
+                    const finalIsChordTone = chordPool.includes(midi);
+                    const finalIsLeadingTone = Number.isFinite(chordRootPc)
+                        && finalPc === ((chordRootPc - 1) % 12 + 12) % 12
+                        && !scalePcsHere.includes(finalPc);
+                    const finalInScale = scalePcsHere.includes(finalPc);
+                    const finalPinned = !!(pinnedPool && pinnedPool.includes(midi));
+
+                    let chromaticReason = null;
+                    if (!finalInScale) {
+                        if (finalIsChordTone) {
+                            chromaticReason = `chord tone of ${(evHere && evHere.chord) || 'the sounding chord'}`;
+                        } else if (finalIsLeadingTone) {
+                            chromaticReason = `leading tone of ${(evHere && evHere.chord) || 'the sounding chord'}`
+                                + ' — resolves up into its root';
+                            if (role === 'connect' || role === 'neighbor') role = 'leadingTone';
+                            pendingNeighborReturn = midi + 1;
+                        } else if (finalPinned) {
+                            chromaticReason = 'belongs to the scale this word pinned';
+                        } else {
+                            // Nothing licenses it. Pull it to the nearest note
+                            // that IS licensed rather than shipping an accident.
+                            const licensed = (scalePool.length ? scalePool : chordPool);
+                            if (licensed.length) {
+                                midi = this.nearest(licensed, midi);
+                                if (role === 'passing' || role === 'neighbor') role = 'connect';
+                            }
+                        }
+                    }
+
                     const syl = nextSyllable();
                     // Where this note sits inside its figure decides how it is
                     // performed: the head of a group is leaned on, the tail is
@@ -1674,9 +1909,16 @@
                         chordTone: chordPool.includes(midi)
                             || this.chordMidis(from.ev, LOW, HIGH).includes(midi)
                             || (to && this.chordMidis(to.ev, LOW, HIGH).includes(midi)),
-                        chromatic: (role === 'passing' || role === 'neighbor')
-                            && !(hintNotes ? this.scaleMidis(hintNotes, midi, midi).length
-                                           : this.scaleMidis(scaleNotes, midi, midi).length)
+                        chromatic: !scalePcsHere.includes(((midi % 12) + 12) % 12),
+                        // WHY THIS NOTE IS ALLOWED TO BE OUT OF THE KEY.
+                        //
+                        // Not a label — a statement of the harmonic relationship
+                        // it comes from, carried on the note so the panel can
+                        // say it out loud. Decided at the point of commitment
+                        // just above; null here on a note outside the scale
+                        // would mean an accident got through, which is the one
+                        // thing this engine must not do.
+                        chromaticReason
                     });
                     if (!isAnchor) spanIntervals.push(midi - current);
                     lastChordEv = evHere;
@@ -1718,7 +1960,17 @@
                     last.chromatic = false;
                     last.articulation = 'tenuto';
                     last.accent = false;
-                    if (last.duration < 1) last.duration = Math.min(2, last.duration * 2);
+                    // Broaden the arrival — but only into room the bar actually
+                    // has. Doubling it blind was the single source of every note
+                    // that ran past a bar line: always the last note, always in
+                    // the last bar, in every metre where the final note did not
+                    // start early enough to absorb it.
+                    const roomLeft = Math.max(0, beatsPerBar - (Number(last.beat) || 0));
+                    if (last.duration < 1) {
+                        last.duration = Math.min(2, last.duration * 2, roomLeft);
+                    } else if (last.duration > roomLeft) {
+                        last.duration = roomLeft;
+                    }
                 }
             }
 

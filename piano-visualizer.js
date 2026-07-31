@@ -45,6 +45,8 @@ class PianoVisualizer {
             activeNotes: [],
             activeMidiNotes: null, // parallel array of midi numbers for voicing (optional)
             highlightedNotes: [],
+            focusNotes: [],  // when set, ONLY these light up — see setFocusNotes
+            focusKind: null, // 'chord' | 'melody', so the two are told apart by colour
             noteRoles: new Map(), // note -> role mapping
             noteDegrees: new Map(), // note -> scale degree mapping
             mode: 'scale', // scale, chord, degrees
@@ -1619,6 +1621,39 @@ class PianoVisualizer {
         this.applyState();
     }
 
+    /**
+     * FOCUS: show these notes and take the rest of the scale out of the way.
+     *
+     * The keyboard normally lights every note of the current scale, which is
+     * the right default for exploring a scale and the wrong one for answering
+     * "where is this chord". Against seven lit keys an extra highlight on three
+     * of them is a difference in shade; against a dark keyboard it is the
+     * answer. So focus does not add another colour on top — it takes the scale
+     * away for as long as the focus lasts, and puts it straight back after.
+     *
+     * Nothing here is persisted: the scale is still in `state.scaleNotes`, so
+     * clearing focus restores exactly what was showing before.
+     *
+     * @param {string[]} notes note names, with or without an octave
+     * @param {{kind?: string}} [opts] what is being focused, for colouring —
+     *        'melody' and 'chord' are drawn differently so that with both on
+     *        screen at once you can still tell which is which.
+     */
+    setFocusNotes(notes, opts = {}) {
+        const list = Array.isArray(notes) ? notes.filter(Boolean) : [];
+        this.state.focusNotes = list;
+        this.state.focusKind = opts.kind || 'chord';
+        this.applyState();
+    }
+
+    /** Give the scale back. */
+    clearFocusNotes() {
+        if (!this.state.focusNotes || !this.state.focusNotes.length) return;
+        this.state.focusNotes = [];
+        this.state.focusKind = null;
+        this.applyState();
+    }
+
     // Live MIDI feedback: light keys on MIDI note on/off
     midiNoteOn(midi) {
         if (typeof midi !== 'number') return;
@@ -1970,6 +2005,95 @@ class PianoVisualizer {
                 }
             });
         });
+
+        // ---- FOCUS -------------------------------------------------------
+        // Last, and deliberately so: everything above has already decided what
+        // the keyboard would normally show, and focus overrides all of it. A
+        // focused keyboard answers one question — where is THIS — so every key
+        // that is not part of it goes back to being an unlit key, whatever
+        // scale or grading colour it had a moment ago.
+        const focus = this.state.focusNotes || [];
+        if (focus.length) {
+            const kind = this.state.focusKind || 'chord';
+            // Melody and chord are told apart by colour, so both can be on the
+            // keyboard at once without becoming one undifferentiated block.
+            const paint = kind === 'melody'
+                ? { white: 'linear-gradient(180deg, #bfdbfe 0%, #3b82f6 100%)', black: 'linear-gradient(180deg, #60a5fa 0%, #2563eb 100%)',
+                    border: '#1d4ed8', glow: 'rgba(59,130,246,0.55)' }
+                : { white: 'linear-gradient(180deg, #fde047 0%, #f59e0b 100%)', black: 'linear-gradient(180deg, #fbbf24 0%, #d97706 100%)',
+                    border: '#b45309', glow: 'rgba(245,158,11,0.55)' };
+
+            const matches = (key) => focus.some(n => this._focusNoteMatchesKey(key, n));
+
+            this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key').forEach(key => {
+                const isWhite = key.classList.contains('piano-white-key');
+                if (matches(key)) {
+                    key.classList.add('focus-note');
+                    key.style.opacity = '1';
+                    key.style.background = isWhite ? paint.white : paint.black;
+                    key.style.borderColor = paint.border;
+                    key.style.boxShadow = `0 0 0 3px ${paint.glow}, 0 6px 10px rgba(0,0,0,0.35)`;
+                } else {
+                    // Not part of it: back to a plain key, and dimmed, so the
+                    // focused notes are the only thing with any light on them.
+                    key.classList.remove('focus-note', 'active', 'highlighted');
+                    key.style.background = isWhite
+                        ? 'linear-gradient(to bottom, #ffffff, #e0e0e0)'
+                        : 'linear-gradient(to bottom, #333333, #000000)';
+                    key.style.borderColor = isWhite ? 'var(--border-light)' : '#000000';
+                    key.style.boxShadow = isWhite
+                        ? 'inset 0 -1px 2px rgba(0,0,0,0.1)'
+                        : 'inset 0 0 2px rgba(255,255,255,0.2), 2px 2px 4px rgba(0,0,0,0.4)';
+                    key.style.opacity = '0.45';
+                }
+            });
+        } else {
+            // Focus is off: undo only the dimming, and leave every other
+            // decision above exactly as it was made.
+            this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key').forEach(key => {
+                if (key.style.opacity) key.style.opacity = '';
+                key.classList.remove('focus-note');
+            });
+        }
+    }
+
+    /** Is this MIDI pitch anywhere on the drawn keyboard? */
+    _focusRangeCovers(midi) {
+        if (!this.pianoElement) return false;
+        return !!this.pianoElement.querySelector(`[data-midi="${midi}"]`);
+    }
+
+    /**
+     * Does this key sound the given note? Accepts `C`, `C4` and enharmonics,
+     * because focus notes arrive from the sheet with octaves and from chord
+     * symbols without.
+     */
+    _focusNoteMatchesKey(key, note) {
+        const raw = String(note || '').trim();
+        if (!raw) return false;
+        const withOctave = raw.match(/^([A-Ga-g][#b]?)(-?\d+)$/);
+        if (withOctave) {
+            // An exact pitch: match the key at that octave, so a chord voiced
+            // low does not light the whole keyboard at every octave.
+            const SEMI = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5,
+                'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
+            const pcName = withOctave[1].replace(/^([a-g])/, (m) => m.toUpperCase());
+            const semi = SEMI[pcName];
+            if (semi !== undefined) {
+                const midi = semi + (parseInt(withOctave[2], 10) + 1) * 12;
+                const km = parseInt(key.dataset.midi, 10);
+                // Only decisive when the keyboard actually covers that pitch;
+                // otherwise fall through and match by name, so a chord written
+                // outside the visible range still shows where its notes are.
+                if (Number.isFinite(km) && this._focusRangeCovers(midi)) return km === midi;
+            }
+        }
+        const pc = (withOctave ? withOctave[1] : raw).replace(/^([a-g])/, (m) => m.toUpperCase());
+        const keyNote = key.dataset.correctNote || key.dataset.note;
+        const keyOrig = key.dataset.note;
+        if (keyNote === pc || keyOrig === pc) return true;
+        const eq = this.getEnharmonicEquivalent ? this.getEnharmonicEquivalent(pc) : null;
+        return !!eq && (keyNote === eq || keyOrig === eq);
     }
 
     /**

@@ -273,7 +273,61 @@ window.mountLearnModuleIfReady = function(instrument) {
                 });
             }
 
+            /**
+             * The sheet says what is sounding; the instruments show it.
+             *
+             * Wired here rather than inside either side, because neither should
+             * know about the other: the sheet broadcasts note names, and any
+             * instrument that can draw notes listens. The toggle lives on the
+             * sheet's toolbar and is read at delivery time, so switching it
+             * takes effect on whatever is already lit.
+             */
+            setupInstrumentFocus() {
+                const instruments = () => [this.pianoVisualizer, this.guitarFretboard]
+                    .filter(v => v && typeof v.setFocusNotes === 'function');
+
+                const release = () => instruments().forEach(v => {
+                    try { v.clearFocusNotes(); } catch (_) {}
+                });
+
+                window.addEventListener('sheetInstrumentFocus', (e) => {
+                    try {
+                        const d = (e && e.detail) || {};
+                        const mode = (this.sheetMusicGenerator
+                            && this.sheetMusicGenerator.state
+                            && this.sheetMusicGenerator.state.instrumentFocusMode) || 'both';
+
+                        if (mode === 'off') { release(); return; }
+
+                        const chord = Array.isArray(d.chordNotes) ? d.chordNotes : [];
+                        const melody = Array.isArray(d.melodyNotes) ? d.melodyNotes : [];
+
+                        // Melody first when both are wanted and both are present:
+                        // the tune is the thing being followed, and it is the one
+                        // note among several that would otherwise be lost in the
+                        // chord under it.
+                        let notes = [];
+                        let kind = 'chord';
+                        if (mode === 'chords') { notes = chord; }
+                        else if (mode === 'melody') { notes = melody; kind = 'melody'; }
+                        else {
+                            notes = melody.concat(chord);
+                            kind = melody.length ? 'melody' : 'chord';
+                        }
+
+                        if (!notes.length) { release(); return; }
+                        instruments().forEach(v => {
+                            try { v.setFocusNotes(notes, { kind }); } catch (_) {}
+                        });
+                    } catch (err) {
+                        console.warn('[App] instrument focus failed:', err);
+                    }
+                });
+            }
+
             setupModuleIntegration() {
+                this.setupInstrumentFocus();
+
                 // Connect number generator to container chord tool
                 this.numberGenerator.on('numbersChanged', (data) => {
                     const scaleNotes = this.scaleLibrary.getCurrentScaleNotes();
@@ -915,6 +969,21 @@ window.mountLearnModuleIfReady = function(instrument) {
                 this.numberGenerator.setNumbers(this.fullScaleDegrees(), this.numberGenerator.getNumberType());
                 // Re-render the number generator UI to reflect the explicit numbers
                 if (typeof this.numberGenerator.render === 'function') this.numberGenerator.render();
+
+                // ...AND TELL THE SHEET.
+                //
+                // The line above seeds every module from `numbersChanged` — except
+                // the sheet, which is fed from `displayTokensChanged` instead, and
+                // that only ever fired when a user committed something typed into
+                // the numbers box. So the studio opened with the degrees seeded,
+                // the piano and the explorer showing them, and the sheet blank
+                // until you cleared the box and typed the same degrees back in.
+                //
+                // The tokens are built with the generator's own numberToRoman, so
+                // what shows on load is exactly what typing those degrees produces
+                // — Imaj7 ii7 iii7 IVmaj7 V7 vi7 viiø7 in C major — rather than a
+                // second, nearly-identical spelling of the same idea.
+                this.seedSheetFromNumbers();
                 // Initialize solar system with current key/scale
                 if (this.solarSystem) {
                     this.solarSystem.updateSystem({
@@ -945,6 +1014,37 @@ window.mountLearnModuleIfReady = function(instrument) {
                 // this.setupPianoConnectors();
             }
             
+            /**
+             * Put the current degrees on the sheet, the way typing them would.
+             *
+             * Only when the sheet has nothing of its own: a user who has already
+             * built bars must not have them replaced by the default run, and a
+             * scale change re-seeds only what the seed put there.
+             */
+            seedSheetFromNumbers() {
+                try {
+                    const ng = this.numberGenerator;
+                    const sheet = this.sheetMusicGenerator;
+                    if (!ng || !sheet || typeof ng.numberToRoman !== 'function') return;
+
+                    const existing = (sheet.state && sheet.state.barChords) || [];
+                    if (existing.length && !this._sheetSeeded) return;   // the user's own bars win
+
+                    const numbers = ng.getCurrentNumbers ? ng.getCurrentNumbers() : [];
+                    if (!Array.isArray(numbers) || !numbers.length) return;
+
+                    const tokens = numbers
+                        .map(n => (typeof n === 'number' ? ng.numberToRoman(n) : String(n)))
+                        .filter(t => t && t !== '?');
+                    if (!tokens.length) return;
+
+                    this._sheetSeeded = true;
+                    ng.setDisplayTokens(tokens, { rawTokens: tokens.slice(), source: 'initial-seed' });
+                } catch (e) {
+                    console.warn('[App] could not seed the sheet from the current degrees:', e);
+                }
+            }
+
             /**
              * [1..N] for the loaded scale, where N is its actual note count.
              * Falls back to a seven-degree run if the scale isn't readable yet.

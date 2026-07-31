@@ -23,7 +23,9 @@ class GuitarFretboardVisualizer {
             currentScale: 'major',
             scaleNotes: [],
             highlightedNote: null, // specific note name to emphasize
-            focusMidi: null // specific midi to focus/scroll
+            focusMidi: null, // specific midi to focus/scroll
+            focusNotes: [],  // when set, ONLY these light up — see setFocusNotes
+            focusKind: null  // 'chord' | 'melody', so the two are told apart by colour
         };
 
         this.listeners = new Map();
@@ -566,6 +568,32 @@ class GuitarFretboardVisualizer {
         this.applyState();
     }
 
+    /**
+     * FOCUS: show these notes and take the rest of the scale off the neck.
+     *
+     * Same idea as the keyboard's. The fretboard normally glows on every scale
+     * tone, which on a guitar is most of the neck — so an extra highlight on a
+     * chord's three notes is lost among sixty lit dots. Focus dims everything
+     * that is not part of what is being shown, for as long as it is shown.
+     *
+     * @param {string[]} notes note names, with or without an octave
+     * @param {{kind?: string}} [opts] 'melody' or 'chord', drawn differently
+     */
+    setFocusNotes(notes, opts = {}) {
+        const list = Array.isArray(notes) ? notes.filter(Boolean) : [];
+        this.state.focusNotes = list.map(n => String(n).replace(/-?\d+$/, ''));
+        this.state.focusKind = opts.kind || 'chord';
+        this.applyState();
+    }
+
+    /** Give the neck back. */
+    clearFocusNotes() {
+        if (!this.state.focusNotes || !this.state.focusNotes.length) return;
+        this.state.focusNotes = [];
+        this.state.focusKind = null;
+        this.applyState();
+    }
+
     getEnharmonicEquivalent(note) {
         const pairs = { 'C#':'Db','Db':'C#','D#':'Eb','Eb':'D#','F#':'Gb','Gb':'F#','G#':'Ab','Ab':'G#','A#':'Bb','Bb':'A#' };
         return pairs[note] || note;
@@ -595,6 +623,13 @@ class GuitarFretboardVisualizer {
 
         const focusMidi = this.state.focusMidi;
         const highlightedNote = this.state.highlightedNote;
+
+        const focusNotes = this.state.focusNotes || [];
+        const focusPaint = (this.state.focusKind === 'melody')
+            ? { fill: 'radial-gradient(circle, rgba(96,165,250,1) 0%, rgba(37,99,235,0.85) 100%)',
+                glow: '0 0 18px rgba(59,130,246,0.95), inset 0 1px 4px rgba(255,255,255,0.5)' }
+            : { fill: 'radial-gradient(circle, rgba(253,224,71,1) 0%, rgba(245,158,11,0.9) 100%)',
+                glow: '0 0 18px rgba(245,158,11,0.95), inset 0 1px 4px rgba(255,255,255,0.5)' };
 
         const cells = Array.from(this.gridEl.querySelectorAll('.fret-cell'));
         for (const cell of cells) {
@@ -644,6 +679,33 @@ class GuitarFretboardVisualizer {
                 if (label) {
                     label.style.color = '#000';
                     label.style.fontWeight = '900';
+                }
+            }
+
+            // FOCUS overrides everything above, because it answers a different
+            // question: not "what is in this key" but "where is this chord".
+            // Every dot that is not part of it goes dark for the duration.
+            if (focusNotes.length) {
+                const inFocus = focusNotes.some(n =>
+                    n === note || this.getEnharmonicEquivalent(n) === note);
+                if (inFocus) {
+                    cell.style.opacity = '1';
+                    cell.style.background = focusPaint.fill;
+                    cell.style.boxShadow = focusPaint.glow;
+                    if (label) {
+                        label.style.color = '#000';
+                        label.style.fontWeight = '900';
+                        label.style.textShadow = '0 1px 2px rgba(255,255,255,0.5)';
+                    }
+                } else {
+                    cell.style.opacity = '0.12';
+                    cell.style.background = 'transparent';
+                    cell.style.boxShadow = 'none';
+                    if (label) {
+                        label.style.color = 'rgba(255,255,255,0.25)';
+                        label.style.fontWeight = '400';
+                        label.style.textShadow = 'none';
+                    }
                 }
             }
         }

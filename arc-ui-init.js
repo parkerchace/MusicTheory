@@ -260,6 +260,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const timeSignature = chooseTimeSignature(rich, phraseChar, String(input || ''), seed);
       const tsMatch = String(timeSignature).match(/^(\d+)\s*\/\s*(\d+)$/);
       const beatsPerBar = tsMatch ? Math.max(2, Math.min(7, parseInt(tsMatch[1], 10) || 4)) : 4;
+      // The DENOMINATOR, which used to be parsed and thrown away. Everything
+      // downstream counts in beats, and a beat is a beat-UNIT — in 6/8 it is an
+      // eighth, not a quarter. Without this the melody engine subdivides an
+      // eighth into thirty-second notes because it believes it is dividing a
+      // quarter, and the notation draws every value at twice its length.
+      const beatUnit = tsMatch ? (parseInt(tsMatch[2], 10) || 4) : 4;
 
       const profileEnergy = (profile && typeof profile.overallEnergy === 'number') ? profile.overallEnergy : 0.5;
       const profileTension = (profile && typeof profile.globalTension === 'number') ? profile.globalTension : 0.5;
@@ -322,6 +328,8 @@ document.addEventListener('DOMContentLoaded', () => {
       arc = {
           bars: formBars,
           beatsPerBar,
+          beatUnit,
+          timeSignature,
           totalBeats: formBars * beatsPerBar,
           sample: (t) => {
               // A single point (or none) has no segment to interpolate across —
@@ -739,8 +747,24 @@ function queueChordOriginToasts(generatedMusic, { maxToasts = 6, perToastMs = 12
   if (!generatedMusic || !generatedMusic.harmony || !Array.isArray(generatedMusic.harmony.chordSequence)) return;
   const seq = generatedMusic.harmony.chordSequence;
 
+  // The texture's own choices explain themselves too.
+  //
+  // The piano engine has always written an explanation for each of its
+  // orchestrational exceptions — descant, tenor lead, crossover, bass melody,
+  // covering voice — and every one of them was dropped on the floor: nothing
+  // in the app read `piano.exceptions`. A user could hear the tune disappear
+  // under a held chord tone and be told only which chord was sounding.
+  //
+  // They are keyed to the bar the exception STARTS on, and sorted in with the
+  // harmonic explanations, because from the listener's side they are the same
+  // kind of event: a reason why this bar sounds unlike the last one.
+  const textureEvents = (((generatedMusic.piano || {}).exceptions) || [])
+    .filter(x => x && typeof x.explain === 'string' && x.explain.trim().length)
+    .map(x => ({ bar: Number(x.startBar) || 0, beat: 0, chord: `texture:${x.type}`, explain: x.explain }));
+
   const specials = seq
     .filter(ev => ev && typeof ev.explain === 'string' && ev.explain.trim().length)
+    .concat(textureEvents)
     .sort((a, b) => (a.bar - b.bar) || (a.beat - b.beat));
 
   if (!specials.length) return;
