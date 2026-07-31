@@ -205,6 +205,11 @@ class SheetMusicGenerator {
 			// straight eighths and says "Swing" at the top, which is what a
 			// chart does. Persisted, because it is a way of playing rather than
 			// a property of a particular take.
+			// EXPAND: which multi-movement work, and how long. Empty means the
+			// material chooses — the generative default — and 1 means each
+			// movement runs at its form's natural length.
+			workChoice: '',
+			workLengthScale: 1,
 			// RUBATO / agogic stress: 0 metronomic, 1 freely expressive. Like
 			// swing it is a performance property and never a written duration.
 			rubato: (() => {
@@ -1517,6 +1522,116 @@ class SheetMusicGenerator {
 		simplifyWrap.appendChild(simplifyLabelText);
 		controls.appendChild(simplifyWrap);
 
+		// --- EXPAND: one take becomes a multi-movement work ------------------
+		//
+		// Generative by default and directable when you want it: leave the
+		// select on "auto" and the material chooses the work, exactly as it
+		// chooses the form one level down — a four-syllable phrase becomes a
+		// diptych, not a five-song cycle. Name one and it is honoured.
+		//
+		// Longer/shorter is separate from the choice on purpose. "Which work"
+		// and "how much of it" are different questions, and answering them with
+		// one control would mean you could not lengthen a work without also
+		// re-rolling which work it is.
+		const expandWrap = document.createElement('div');
+		expandWrap.style.display = 'flex';
+		expandWrap.style.alignItems = 'center';
+		expandWrap.style.gap = '4px';
+		expandWrap.style.marginLeft = '10px';
+		expandWrap.style.fontSize = '0.7rem';
+		expandWrap.style.color = '#f9fafb';
+
+		const expandLabel = document.createElement('span');
+		expandLabel.textContent = 'Expand:';
+
+		const expandSelect = document.createElement('select');
+		expandSelect.id = 'sheet-expand-select';
+		expandSelect.style.fontSize = '0.7rem';
+		expandSelect.style.padding = '1px 4px';
+		expandSelect.style.borderRadius = '4px';
+		expandSelect.style.border = '1px solid #475569';
+		expandSelect.style.background = '#1e293b';
+		expandSelect.style.color = '#e2e8f0';
+		expandSelect.title = 'Which multi-movement work to expand into. Auto lets the material decide.';
+		const autoOpt = document.createElement('option');
+		autoOpt.value = '';
+		autoOpt.textContent = 'Auto (let the words decide)';
+		expandSelect.appendChild(autoOpt);
+		// Filled from the catalogue, so adding a work to form-planner.js puts it
+		// in this menu without touching the UI.
+		try {
+			const FP = (typeof window !== 'undefined') && window.FormPlanner;
+			if (FP && typeof FP.listWorks === 'function') {
+				FP.listWorks().forEach((group) => {
+					const og = document.createElement('optgroup');
+					og.label = group.label;
+					group.works.forEach((w) => {
+						const opt = document.createElement('option');
+						opt.value = w.key;
+						opt.textContent = `${w.name} (${w.movementCount})`;
+						opt.title = w.description;
+						og.appendChild(opt);
+					});
+					expandSelect.appendChild(og);
+				});
+			}
+		} catch (e) { console.warn('[Expand] could not list works:', e); }
+		expandSelect.value = this.state.workChoice || '';
+		expandSelect.addEventListener('change', () => {
+			this.state.workChoice = expandSelect.value || '';
+		});
+
+		const mkLenBtn = (text, title, delta) => {
+			const b = document.createElement('button');
+			b.textContent = text;
+			b.title = title;
+			b.style.fontSize = '0.7rem';
+			b.style.padding = '1px 6px';
+			b.style.cursor = 'pointer';
+			b.style.borderRadius = '4px';
+			b.style.border = '1px solid #475569';
+			b.style.background = '#1e293b';
+			b.style.color = '#e2e8f0';
+			b.addEventListener('click', () => {
+				// Multiplicative, so "shorter" undoes "longer" exactly and the
+				// control cannot wander away from 1 by repeated rounding.
+				const now = Number(this.state.workLengthScale) || 1;
+				const next = Math.max(0.4, Math.min(3, delta > 0 ? now * 1.35 : now / 1.35));
+				this.state.workLengthScale = Math.abs(next - 1) < 0.02 ? 1 : next;
+				this._renderExpandLength();
+				this._runExpand();
+			});
+			return b;
+		};
+
+		const lenReadout = document.createElement('span');
+		lenReadout.id = 'sheet-expand-length';
+		lenReadout.style.minWidth = '32px';
+		lenReadout.style.textAlign = 'center';
+		lenReadout.style.opacity = '0.85';
+		this._expandLengthReadout = lenReadout;
+
+		const applyBtn = document.createElement('button');
+		applyBtn.textContent = 'Apply';
+		applyBtn.title = 'Expand the current piece into a work';
+		applyBtn.style.fontSize = '0.7rem';
+		applyBtn.style.padding = '1px 8px';
+		applyBtn.style.cursor = 'pointer';
+		applyBtn.style.borderRadius = '4px';
+		applyBtn.style.border = '1px solid #475569';
+		applyBtn.style.background = '#334155';
+		applyBtn.style.color = '#e2e8f0';
+		applyBtn.addEventListener('click', () => this._runExpand());
+
+		expandWrap.appendChild(expandLabel);
+		expandWrap.appendChild(expandSelect);
+		expandWrap.appendChild(applyBtn);
+		expandWrap.appendChild(mkLenBtn('−', 'Shorter', -1));
+		expandWrap.appendChild(lenReadout);
+		expandWrap.appendChild(mkLenBtn('+', 'Longer', +1));
+		controls.appendChild(expandWrap);
+		this._renderExpandLength();
+
 		// (Removed: single key pill. Per-chord voicing pills will be drawn under each chord.)
 
 		wrapper.appendChild(controls);
@@ -2322,6 +2437,66 @@ class SheetMusicGenerator {
 
     /** The stretch map depends on what was drawn, so a new render invalidates it. */
     _clearRubatoCache() { this._rubatoCache = null; }
+
+    /** Show the current length as a multiple, and "natural" when it is 1. */
+    _renderExpandLength() {
+        const el = this._expandLengthReadout;
+        if (!el) return;
+        const s = Number(this.state.workLengthScale) || 1;
+        el.textContent = Math.abs(s - 1) < 0.02 ? '1×' : (s.toFixed(1) + '×');
+        el.title = Math.abs(s - 1) < 0.02
+            ? 'The work runs at its natural length'
+            : `The work runs ${s > 1 ? 'longer' : 'shorter'} than its natural length`;
+    }
+
+    /**
+     * Expand the last generated piece into a work, at the current choice and
+     * length. Re-run whenever either changes, so the buttons act on the thing
+     * they appear to act on rather than only taking effect at the next Apply.
+     */
+    _runExpand() {
+        const inputs = (typeof window !== 'undefined') && window.__lastGenInputs;
+        if (!inputs || !inputs.context || !inputs.arc || typeof window.generateWork !== 'function') {
+            this._expandToast('Generate a piece from words first — expanding needs something to expand.');
+            return null;
+        }
+        let work = null;
+        try {
+            work = window.generateWork(inputs.context, inputs.arc, inputs.seed || 0, {
+                work: this.state.workChoice || null,
+                lengthScale: Number(this.state.workLengthScale) || 1
+            });
+        } catch (e) {
+            console.error('[Expand] failed:', e);
+        }
+        if (!work) { this._expandToast('Could not expand this take into a work.'); return null; }
+
+        try { window.__lastWork = work; } catch (_) {}
+        try {
+            window.dispatchEvent(new CustomEvent('workGenerated', { detail: work }));
+        } catch (_) {}
+
+        console.log('[Expand] ' + work.summary);
+        work.movements.forEach(m => console.log('  ' + m.explain));
+
+        this._expandToast(
+            '<strong>' + work.name + '</strong><br>'
+            + work.movements.map(m => `${m.title} — ${m.role} · ${m.form.bars} bars`).join('<br>')
+            + `<br><span style="opacity:.7">${work.totalBars} bars total</span>`);
+        return work;
+    }
+
+    _expandToast(html) {
+        try {
+            const t = document.createElement('div');
+            t.innerHTML = html;
+            t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1e293b;'
+                + 'color:#e2e8f0;padding:10px 14px;border-radius:6px;font-size:12px;z-index:10000;'
+                + 'border:1px solid #475569;max-width:340px;line-height:1.5;';
+            document.body.appendChild(t);
+            setTimeout(() => { try { t.remove(); } catch (_) {} }, 6000);
+        } catch (_) {}
+    }
 
     /**
      * Has a voicing actually been chosen, or is the texture still the one the

@@ -4369,6 +4369,7 @@ function generateWork(context, arc, seed, opts = {}) {
     const workPlan = FormPlanner.planWork({
       seed,
       work: opts.work || null,
+      lengthScale: Number.isFinite(opts.lengthScale) ? opts.lengthScale : 1,
       wordCount,
       syllableCount,
       energy: context.overallEnergy,

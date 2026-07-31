@@ -815,7 +815,31 @@
             return n;
         });
 
-        const MAX_BARS = 40;
+        // LONGER / SHORTER.
+        //
+        // Applied to the section weights rather than to the total, so the form
+        // keeps its proportions: a transition that is shorter than the theme it
+        // connects stays shorter at every length. Scaling the total afterwards
+        // would flatten those relationships the moment the rescale below had to
+        // round anything.
+        //
+        // The floor of 2 bars per section is what stops "shorter" from
+        // dissolving a seven-part rondo into fourteen bars of nothing — a form
+        // has a minimum size below which it is no longer that form.
+        const lenScale = Number.isFinite(opts.__scaleBars) && opts.__scaleBars > 0
+            ? Math.max(0.4, Math.min(3, opts.__scaleBars)) : 1;
+        if (lenScale !== 1) {
+            bars = 0;
+            for (let i = 0; i < lengths.length; i++) {
+                lengths[i] = Math.max(2, Math.round(lengths[i] * lenScale));
+                bars += lengths[i];
+            }
+        }
+
+        // A work asking for length gets more room than a single take: the
+        // ceiling exists to stop one piece sprawling, and a movement of a
+        // four-movement work is not one piece.
+        const MAX_BARS = Math.round(40 * Math.max(1, lenScale));
         if (bars > MAX_BARS) {
             const scale = MAX_BARS / bars;
             bars = 0;
@@ -1172,6 +1196,12 @@
      */
     function planWork(opts = {}) {
         const rng = rngFrom((opts.seed || 0) + 991);
+        // How much longer or shorter than its natural length the whole work
+        // should run. One work-level number rather than a per-movement one, so
+        // "longer" lengthens the WORK and leaves its proportions alone — a
+        // finale stays weightier than the dance before it.
+        const lengthScale = Number.isFinite(opts.lengthScale) && opts.lengthScale > 0
+            ? Math.max(0.4, Math.min(3, opts.lengthScale)) : 1;
         const energy = Math.max(0, Math.min(1, Number(opts.energy) || 0.5));
         const tension = Math.max(0, Math.min(1, Number(opts.tension) || 0.5));
         const words = Math.max(1, Number(opts.wordCount) || 1);
@@ -1215,7 +1245,8 @@
                 // The movement's form is named by the work, so the work's plan
                 // is what it says it is rather than a suggestion the picker can
                 // ignore.
-                __forceForm: mv.form
+                __forceForm: mv.form,
+                __scaleBars: lengthScale
             });
 
             const rel = KEY_RELATIONS[mv.key] || KEY_RELATIONS.I;
@@ -1251,6 +1282,7 @@
 
         return {
             workKey,
+            lengthScale,
             name: work.name,
             description: work.description,
             family: work.family,

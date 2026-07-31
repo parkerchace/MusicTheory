@@ -214,3 +214,109 @@ check('every work is reachable when not named', function(){
 
 print('');
 print(failures? ('FAILURES: '+failures) : 'the catalogue is complete, organised and reachable');
+
+// --- LONGER / SHORTER ----------------------------------------------------
+// A length control that quietly does nothing is the worst kind: the button
+// moves, the readout changes, and the music is identical. So: does it change
+// the bars, does it keep the form's proportions, and does shorter undo longer?
+print('');
+print('=== length ===');
+
+check('longer is longer and shorter is shorter, for every work', function(){
+  wkeys.forEach(function(k){
+    var natural=FP.planWork({seed:7,work:k,wordCount:12,syllableCount:30,
+                             energy:0.5,tension:0.5,beatsPerBar:4});
+    var longer=FP.planWork({seed:7,work:k,wordCount:12,syllableCount:30,
+                            energy:0.5,tension:0.5,beatsPerBar:4,lengthScale:1.8});
+    var shorter=FP.planWork({seed:7,work:k,wordCount:12,syllableCount:30,
+                             energy:0.5,tension:0.5,beatsPerBar:4,lengthScale:0.6});
+    assert(longer.totalBars>natural.totalBars,
+      k+': longer gave '+longer.totalBars+' bars against a natural '+natural.totalBars);
+    assert(shorter.totalBars<natural.totalBars,
+      k+': shorter gave '+shorter.totalBars+' bars against a natural '+natural.totalBars);
+  });
+});
+
+check('the work keeps its shape at any length', function(){
+  // Lengthening must not turn a four-movement work into a three-movement one,
+  // nor change which forms its movements use.
+  wkeys.forEach(function(k){
+    var a=FP.planWork({seed:7,work:k,wordCount:12,syllableCount:30,
+                       energy:0.5,tension:0.5,beatsPerBar:4});
+    [0.5,0.7,1.4,2.2].forEach(function(scale){
+      var b=FP.planWork({seed:7,work:k,wordCount:12,syllableCount:30,
+                         energy:0.5,tension:0.5,beatsPerBar:4,lengthScale:scale});
+      assert(b.movements.length===a.movements.length,
+        k+' at '+scale+'x lost a movement');
+      b.movements.forEach(function(m,i){
+        assert(m.form.formKey===a.movements[i].form.formKey,
+          k+' at '+scale+'x changed movement '+i+' from '+a.movements[i].form.formKey
+          +' to '+m.form.formKey);
+        assert(m.form.sections.length===a.movements[i].form.sections.length,
+          k+' at '+scale+'x changed movement '+i+"'s section count");
+      });
+    });
+  });
+});
+
+check('proportions survive: a transition stays shorter than its theme', function(){
+  // Scaling the TOTAL would flatten this the moment rounding got involved,
+  // which is why the scale is applied to the section weights instead.
+  window.__formOverride={form:'sonata'};
+  var natural=FP.plan({seed:4,wordCount:14,syllableCount:36,energy:0.6,tension:0.6,beatsPerBar:4});
+  var idxT=natural.sections.findIndex(function(s){return /transition/.test(s.role||'');});
+  var idxP=natural.sections.findIndex(function(s){return /first subject/.test(s.role||'');});
+  assert(idxT>=0&&idxP>=0,'could not find the sections to compare');
+  // Ordering alone is too weak a claim — adding a constant to every section
+  // keeps the transition shorter than the theme while flattening the
+  // difference between them, which is exactly what scaling the total does. The
+  // RATIO is the thing being preserved, so the ratio is what gets checked.
+  // Measured at the LONG end. Multiplicative and additive scaling look alike
+  // near 1x — the difference only opens up once there is real length to
+  // distribute — and at the SHORT end the two-bar floor legitimately compresses
+  // every ratio toward 1, so testing there would fail correct code.
+  var ratios=[];
+  [1,1.35,1.8,2.4,3].forEach(function(scale){
+    var p=FP.plan({seed:4,wordCount:14,syllableCount:36,energy:0.6,tension:0.6,
+                   beatsPerBar:4,__scaleBars:scale});
+    var t=p.sections[idxT], f=p.sections[idxP];
+    var tBars=t.endBar-t.startBar+1, fBars=f.endBar-f.startBar+1;
+    assert(tBars<=fBars, 'at '+scale+'x the transition ('+tBars+') is longer than the theme ('+fBars+')');
+    ratios.push({scale:scale, r:fBars/tBars});
+  });
+  var base=ratios[0].r;
+  ratios.forEach(function(x){
+    // Rounding to whole bars moves this a few percent; flattening moves it
+    // steadily further the longer the piece gets.
+    assert(Math.abs(x.r-base)/base <= 0.12,
+      'at '+x.scale+'x the theme:transition ratio is '+x.r.toFixed(2)
+      +' against '+base.toFixed(2)+' at natural length — the proportions were flattened');
+  });
+  window.__formOverride=null;
+});
+
+check('shorter cannot dissolve a form below its minimum', function(){
+  wkeys.forEach(function(k){
+    var w=FP.planWork({seed:7,work:k,wordCount:12,syllableCount:30,
+                       energy:0.5,tension:0.5,beatsPerBar:4,lengthScale:0.4});
+    w.movements.forEach(function(m,i){
+      m.form.sections.forEach(function(s,j){
+        assert(s.endBar-s.startBar+1>=2,
+          k+' movement '+i+' section '+j+' shrank below two bars');
+      });
+    });
+  });
+});
+
+check('the scale is clamped, so no input can produce nonsense', function(){
+  [0, -5, 99, NaN, null, undefined, 'x'].forEach(function(bad){
+    var w=FP.planWork({seed:7,work:'diptych',wordCount:12,syllableCount:30,
+                       energy:0.5,tension:0.5,beatsPerBar:4,lengthScale:bad});
+    assert(w && w.totalBars>0, 'lengthScale '+String(bad)+' produced '+(w?w.totalBars:'nothing')+' bars');
+    assert(w.lengthScale>=0.4 && w.lengthScale<=3,
+      'lengthScale '+String(bad)+' escaped the clamp as '+w.lengthScale);
+  });
+});
+
+print('');
+print(failures? ('FAILURES: '+failures) : 'the catalogue is complete, organised, reachable and resizable');
