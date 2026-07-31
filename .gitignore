@@ -32,3 +32,6 @@ logs/
 dist/
 build/
 node_modules
+
+# Local working notes, not for the repo
+PLAN.md
