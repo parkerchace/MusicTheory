@@ -11,6 +11,81 @@
  * @feature Integration with key/scale and chord selections
  */
 
+/**
+ * THE VOICES.
+ *
+ * Everything used to be one triangle oscillator with one envelope, so a
+ * string pad and a Rhodes and a plucked guitar all came out as the same
+ * beep at different pitches. An instrument is really four decisions —
+ * which partials sound, how the note starts and ends, how bright it is,
+ * and how much space is around it — so each voice states those four and
+ * the player reads them rather than hard-coding one.
+ *
+ * `osc` is a small additive stack: [waveform, relative detune in cents,
+ * relative level]. Two slightly detuned copies is what separates a warm
+ * electric piano from a test tone.
+ *
+ * `env` times are in seconds, except `sustain` which is a level. Percussive
+ * voices (piano, guitar, EP) decay toward silence whatever the written
+ * duration says; sustained voices (strings, pads) hold.
+ */
+const SHEET_VOICES = {
+	piano: {
+		label: 'Piano',
+		osc: [['triangle', 0, 1], ['sine', 0, 0.5], ['sine', 1200, 0.12]],
+		env: { attack: 0.004, decay: 0.9, sustain: 0.0, release: 0.25 },
+		filter: { type: 'lowpass', freq: 4200, q: 0.6 }, reverb: 0.06, percussive: true
+	},
+	'piano-reverb': {
+		label: 'Piano + reverb',
+		osc: [['triangle', 0, 1], ['sine', 0, 0.5], ['sine', 1200, 0.12]],
+		env: { attack: 0.004, decay: 1.1, sustain: 0.0, release: 0.5 },
+		filter: { type: 'lowpass', freq: 3800, q: 0.6 }, reverb: 0.42, percussive: true
+	},
+	'piano-pad': {
+		label: 'Piano + pad',
+		osc: [['triangle', 0, 1], ['sine', 0, 0.45], ['sawtooth', -6, 0.1], ['sawtooth', 6, 0.1]],
+		env: { attack: 0.02, decay: 1.2, sustain: 0.28, release: 0.8 },
+		filter: { type: 'lowpass', freq: 3000, q: 0.7 }, reverb: 0.35
+	},
+	'piano-strings': {
+		label: 'Piano + strings',
+		osc: [['triangle', 0, 1], ['sawtooth', -7, 0.16], ['sawtooth', 7, 0.16]],
+		env: { attack: 0.05, decay: 0.9, sustain: 0.35, release: 0.7 },
+		filter: { type: 'lowpass', freq: 3400, q: 0.8 }, reverb: 0.3
+	},
+	strings: {
+		label: 'Strings',
+		osc: [['sawtooth', -8, 1], ['sawtooth', 8, 1], ['sawtooth', 0, 0.6]],
+		env: { attack: 0.18, decay: 0.3, sustain: 0.75, release: 0.6 },
+		filter: { type: 'lowpass', freq: 2600, q: 1.0 }, reverb: 0.35
+	},
+	guitar: {
+		label: 'Guitar',
+		osc: [['sawtooth', 0, 0.7], ['triangle', 0, 0.6], ['square', 1200, 0.06]],
+		env: { attack: 0.003, decay: 0.7, sustain: 0.0, release: 0.2 },
+		filter: { type: 'lowpass', freq: 3000, q: 1.4 }, reverb: 0.12, percussive: true
+	},
+	ep: {
+		label: 'Electric piano',
+		osc: [['sine', 0, 1], ['sine', 1200, 0.35], ['triangle', -4, 0.25]],
+		env: { attack: 0.006, decay: 1.0, sustain: 0.12, release: 0.4 },
+		filter: { type: 'lowpass', freq: 3200, q: 0.5 }, reverb: 0.2, percussive: true
+	},
+	'rnb-synth': {
+		label: 'R&B synth',
+		osc: [['sine', 0, 1], ['triangle', -5, 0.5], ['triangle', 5, 0.5], ['sine', 1200, 0.1]],
+		env: { attack: 0.05, decay: 0.6, sustain: 0.55, release: 0.7 },
+		filter: { type: 'lowpass', freq: 2200, q: 1.2 }, reverb: 0.4
+	},
+	'rnb-pad': {
+		label: 'R&B pad (smooth)',
+		osc: [['sine', -6, 1], ['sine', 6, 1], ['triangle', 0, 0.4]],
+		env: { attack: 0.35, decay: 0.5, sustain: 0.8, release: 1.2 },
+		filter: { type: 'lowpass', freq: 1800, q: 0.9 }, reverb: 0.55
+	}
+};
+
 class SheetMusicGenerator {
 	constructor(musicTheory) {
 		this.musicTheory = musicTheory;
@@ -6698,80 +6773,6 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		});
 	};
 
-	/**
-	 * THE VOICES.
-	 *
-	 * Everything used to be one triangle oscillator with one envelope, so a
-	 * string pad and a Rhodes and a plucked guitar all came out as the same
-	 * beep at different pitches. An instrument is really four decisions —
-	 * which partials sound, how the note starts and ends, how bright it is,
-	 * and how much space is around it — so each voice states those four and
-	 * the player reads them rather than hard-coding one.
-	 *
-	 * `osc` is a small additive stack: [waveform, relative detune in cents,
-	 * relative level]. Two slightly detuned copies is what separates a warm
-	 * electric piano from a test tone.
-	 *
-	 * `env` times are in seconds, except `sustain` which is a level. Percussive
-	 * voices (piano, guitar, EP) decay toward silence whatever the written
-	 * duration says; sustained voices (strings, pads) hold.
-	 */
-	const SHEET_VOICES = {
-		piano: {
-			label: 'Piano',
-			osc: [['triangle', 0, 1], ['sine', 0, 0.5], ['sine', 1200, 0.12]],
-			env: { attack: 0.004, decay: 0.9, sustain: 0.0, release: 0.25 },
-			filter: { type: 'lowpass', freq: 4200, q: 0.6 }, reverb: 0.06, percussive: true
-		},
-		'piano-reverb': {
-			label: 'Piano + reverb',
-			osc: [['triangle', 0, 1], ['sine', 0, 0.5], ['sine', 1200, 0.12]],
-			env: { attack: 0.004, decay: 1.1, sustain: 0.0, release: 0.5 },
-			filter: { type: 'lowpass', freq: 3800, q: 0.6 }, reverb: 0.42, percussive: true
-		},
-		'piano-pad': {
-			label: 'Piano + pad',
-			osc: [['triangle', 0, 1], ['sine', 0, 0.45], ['sawtooth', -6, 0.1], ['sawtooth', 6, 0.1]],
-			env: { attack: 0.02, decay: 1.2, sustain: 0.28, release: 0.8 },
-			filter: { type: 'lowpass', freq: 3000, q: 0.7 }, reverb: 0.35
-		},
-		'piano-strings': {
-			label: 'Piano + strings',
-			osc: [['triangle', 0, 1], ['sawtooth', -7, 0.16], ['sawtooth', 7, 0.16]],
-			env: { attack: 0.05, decay: 0.9, sustain: 0.35, release: 0.7 },
-			filter: { type: 'lowpass', freq: 3400, q: 0.8 }, reverb: 0.3
-		},
-		strings: {
-			label: 'Strings',
-			osc: [['sawtooth', -8, 1], ['sawtooth', 8, 1], ['sawtooth', 0, 0.6]],
-			env: { attack: 0.18, decay: 0.3, sustain: 0.75, release: 0.6 },
-			filter: { type: 'lowpass', freq: 2600, q: 1.0 }, reverb: 0.35
-		},
-		guitar: {
-			label: 'Guitar',
-			osc: [['sawtooth', 0, 0.7], ['triangle', 0, 0.6], ['square', 1200, 0.06]],
-			env: { attack: 0.003, decay: 0.7, sustain: 0.0, release: 0.2 },
-			filter: { type: 'lowpass', freq: 3000, q: 1.4 }, reverb: 0.12, percussive: true
-		},
-		ep: {
-			label: 'Electric piano',
-			osc: [['sine', 0, 1], ['sine', 1200, 0.35], ['triangle', -4, 0.25]],
-			env: { attack: 0.006, decay: 1.0, sustain: 0.12, release: 0.4 },
-			filter: { type: 'lowpass', freq: 3200, q: 0.5 }, reverb: 0.2, percussive: true
-		},
-		'rnb-synth': {
-			label: 'R&B synth',
-			osc: [['sine', 0, 1], ['triangle', -5, 0.5], ['triangle', 5, 0.5], ['sine', 1200, 0.1]],
-			env: { attack: 0.05, decay: 0.6, sustain: 0.55, release: 0.7 },
-			filter: { type: 'lowpass', freq: 2200, q: 1.2 }, reverb: 0.4
-		},
-		'rnb-pad': {
-			label: 'R&B pad (smooth)',
-			osc: [['sine', -6, 1], ['sine', 6, 1], ['triangle', 0, 0.4]],
-			env: { attack: 0.35, decay: 0.5, sustain: 0.8, release: 1.2 },
-			filter: { type: 'lowpass', freq: 1800, q: 0.9 }, reverb: 0.55
-		}
-	};
 
 	/** The voice the sheet is currently playing through. */
 	SheetMusicGenerator.prototype._voice = function() {

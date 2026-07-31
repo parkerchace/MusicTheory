@@ -186,3 +186,23 @@ A number that measures the wrong thing is worse than no number. Two caught so
 far: counting run *role labels* (breaks at the bar line while the gesture
 continues), and judging modulated bars against the home key (manufactures
 failures that aren't there).
+
+---
+
+## Guarding against the last mistake
+
+A parse check proves a file is syntactically valid. It does not prove the code
+runs. `SHEET_VOICES` was declared `const` inside the
+`if (typeof SheetMusicGenerator !== 'undefined') { ... }` block that holds the
+playback helpers, which made it block-scoped and invisible to the class body
+that renders the toolbar. The file parsed perfectly and the sheet music panel
+was blank in the browser.
+
+`tools/mount-smoketest.js` exists so that cannot happen again quietly. It stubs
+a DOM and actually constructs and `mount()`s the generator, then exercises the
+voice layer through its public API. Run it with:
+
+    /System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc tools/mount-smoketest.js
+
+It was checked against the broken code first and reproduces exactly the browser
+error, which is the only way to know a regression test is load-bearing.
