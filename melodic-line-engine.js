@@ -575,7 +575,8 @@
          * Compose the line.
          * @returns {{notes: Array, contour: string, anchors: Array}}
          */
-        compose({ context, arc, harmony, seed = 0, syllables = [], complexity = {} }) {
+        compose(opts = {}) {
+            const { context, arc, harmony, seed = 0, syllables = [], complexity = {} } = opts;
             const rng = makeRng(seed + 7);
             const beatsPerBar = arc.beatsPerBar || 4;
             const totalBeats = arc.totalBeats || (arc.bars || 4) * beatsPerBar;
@@ -940,7 +941,26 @@
             let motifCaptured = false;
             // …and its PITCH shape, as a list of intervals. Restating that shape
             // from a different degree is what a sequence is.
-            let pitchMotif = [];
+            // THE THEME THIS MOVEMENT IS BUILT FROM.
+            //
+            // Normally a line discovers its own motif from its first span and
+            // then develops it. A MOVEMENT OF A WORK can be handed one instead:
+            // the finale of a cyclic work is not a new tune, it is the opening
+            // movement's material at a different speed, in a different form and
+            // often in a different mode, and that only means anything if it is
+            // literally the same shape.
+            //
+            // Handed in as INTERVALS rather than pitches, because the shape is
+            // what survives transposition and a change of mode — which is
+            // exactly what a quoting movement does to it.
+            let pitchMotif = Array.isArray(opts.motif)
+                ? opts.motif.filter(Number.isFinite).slice(0, 6)
+                : [];
+            const motifWasGiven = pitchMotif.length >= 2;
+            // How much of a handed-in theme has been announced so far. A theme
+            // half-stated is not a quotation, so the announcement continues
+            // across spans until the shape is complete.
+            let motifStated = !motifWasGiven;
             // Decided once for the whole line, then reused — see the neighbour
             // figure in the connector.
             let chromaticNeighborChoice = null;
@@ -950,6 +970,9 @@
             // machinery only resolves downward, and a leading tone has to
             // resolve UP, so it needs its own obligation.
             let pendingNeighborReturn = null;
+            // The exact pitch a discharged obligation resolved to, held so that
+            // nothing later in the pipeline can move it off the root.
+            let resolutionPin = null;
             // A sweep that is still travelling when its span runs out. Spans are
             // one bar of word-rhythm, which is too short to hold the four-to-six
             // note gesture the Minuet opens with, so a run that is still going
@@ -1312,9 +1335,44 @@
                 // already stated and moves it, so the ear hears the same idea
                 // from somewhere new.
                 let sequenceSteps = null;
-                if (pitchMotif.length >= 2 && count >= pitchMotif.length) {
-                    const wantSequence = rng() < (0.28 + melodyC * 0.35 +
-                        (sectionHere && sectionHere.variation > 0 ? 0.15 : 0));
+                // Where a sequence's shape is measured FROM, so a bent note
+                // does not drag the rest of the shape with it.
+                let seqAnchor = null;
+                // A QUOTED THEME IS ANNOUNCED, not alluded to.
+                //
+                // Left to the ordinary sequence machinery, a handed-in motif
+                // turns up somewhere in the movement about two thirds intact,
+                // which is a family resemblance rather than a quotation. Every
+                // cyclic work states its recalled theme plainly — usually at the
+                // opening of the movement doing the recalling — and then
+                // develops it. So the first span of a movement built on someone
+                // else's theme IS that theme, and the rest of the movement
+                // treats it the way it treats any other motif.
+                if (motifWasGiven && !motifStated && a === 0 && count >= 3) {
+                    // AT THE OPENING, truncated to fit — not deferred to the
+                    // first span roomy enough to hold all of it. A three-note
+                    // statement where the movement begins is heard as the theme
+                    // returning; a four-note one buried in bar five is not
+                    // heard as anything, and measured strictly it was landing
+                    // there about a quarter of the time.
+                    sequenceSteps = pitchMotif.slice(0, Math.min(pitchMotif.length, count - 1));
+                    motifStated = sequenceSteps.length >= 2;
+                    if (!motifStated) sequenceSteps = null;
+                } else if (motifWasGiven && !motifStated && count > pitchMotif.length) {
+                    // ONE span, whole. Splitting the announcement across spans
+                    // was tried and is worse: each span restarts the sequence
+                    // from its own anchor, so the theme arrives in pieces that
+                    // are individually right and collectively unrecognisable.
+                    // A shape has to be heard in one breath, so the movement
+                    // waits for the first span with room for all of it.
+                    sequenceSteps = pitchMotif.slice();
+                    motifStated = true;
+                } else if (pitchMotif.length >= 2 && count >= pitchMotif.length) {
+                    // A motif the movement was GIVEN is the reason the
+                    // movement exists, so it gets stated often rather than
+                    // occasionally.
+                    const wantSequence = rng() < (motifWasGiven ? 0.8 : (0.28 + melodyC * 0.35 +
+                        (sectionHere && sectionHere.variation > 0 ? 0.15 : 0)));
                     if (wantSequence) {
                         sequenceSteps = pitchMotif.slice();
                         // Invert it now and then: the same shape upside down is
@@ -1437,11 +1495,19 @@
                             if (near.length) midi = this.nearest(near, midi);
                         }
                     } else if (sequenceSteps && (i - 1) < sequenceSteps.length && (count - i) > 1) {
-                        // Restate the stored shape from wherever the line is now.
-                        // The final note of the span is left to the connector so
-                        // the sequence still lands on its anchor rather than
-                        // drifting off the harmony.
-                        const want = current + sequenceSteps[i - 1];
+                        // Restate the stored shape from where the sequence began.
+                        //
+                        // Measured from `current` — wherever the line actually
+                        // got to — every note snapped to the scale bends the
+                        // next one's starting point, so the errors COMPOUND and
+                        // a six-note shape arrives with its last steps in the
+                        // wrong places. Running the intended pitches from the
+                        // sequence's own anchor keeps each note's error local:
+                        // one bent step no longer drags the rest of the shape
+                        // with it.
+                        if (seqAnchor === null) seqAnchor = current;
+                        let want = seqAnchor;
+                        for (let k = 0; k <= i - 1 && k < sequenceSteps.length; k++) want += sequenceSteps[k];
                         const pool = scalePool.length ? scalePool : chordPool;
                         midi = pool.length ? this.nearest(pool, want) : want;
                         if (Math.abs(midi - current) > 12) midi = current + (want > current ? 12 : -12);
@@ -1537,7 +1603,16 @@
                             const canLeadTone = neighborChromatic
                                 && Number.isFinite(chordRootPc)
                                 && homePc === chordRootPc
-                                && !scalePcsHere.includes(((homePc - 1) % 12 + 12) % 12);
+                                && !scalePcsHere.includes(((homePc - 1) % 12 + 12) % 12)
+                                // ...and there is a note left in this span to
+                                // resolve it. A leading tone on the last note of
+                                // a span hands its obligation to the next span,
+                                // whose first note is a structural ANCHOR and is
+                                // not free to be the resolution — so the figure
+                                // is left hanging. Rare enough to hide until the
+                                // seeding fix produced two and a half times as
+                                // many leading tones, and then it showed.
+                                && (count - i) > 1;
 
                             const dir = canLeadTone ? -1 : (neighborDir || (rng() < 0.55 ? 1 : -1));
                             neighborDir = dir;
@@ -1753,6 +1828,12 @@
                         role = 'resolution';
                         pendingNeighborReturn = null;
                         neighborReturnHandled = true;
+                        // The resolution is a specific pitch — the root the
+                        // leading tone leant into. Anything downstream that
+                        // pulls it back to the leading tone has un-resolved it,
+                        // which is worse than never having leant at all, so it
+                        // is pinned here.
+                        resolutionPin = midi;
                     } else if (pendingNeighborReturn !== null && midi === pendingNeighborReturn) {
                         // The oscillation came home on its own.
                         pendingNeighborReturn = null;
@@ -1761,7 +1842,13 @@
 
                     if (neighborReturnHandled) {
                         // settled above
-                    } else if (pendingResolution !== null && role !== 'suspension') {
+                    } else if (pendingResolution !== null && role !== 'suspension'
+                               && pendingNeighborReturn === null) {
+                        // A downward suspension resolution cannot speak while an
+                        // upward leading-tone obligation is still outstanding.
+                        // Both are resolutions and both set role='resolution',
+                        // so the second one to fire silently satisfied the wrong
+                        // debt — a leading tone that "resolved" a semitone DOWN.
                         const target = scalePool.filter(m => m < pendingResolution && pendingResolution - m <= 2);
                         if (target.length) {
                             midi = Math.max(...target);
@@ -1807,6 +1894,7 @@
                         && Math.floor(beat / beatsPerBar) === sectionHere.endBar;
                     if (goalMidi !== null && pendingResolution === null
                         && role !== 'suspension' && role !== 'leadingTone'
+                        && role !== 'resolution'
                         && pendingNeighborReturn === null
                         && i === count - 1 && (atSectionEnd || !to)) {
                         const near = chordPool.filter(m => Math.abs(m - goalMidi) <= 2);
@@ -1838,6 +1926,8 @@
                     // committed, and the reason it gives is computed from the
                     // same evaluation — the two cannot disagree, because they
                     // are the same decision.
+                    if (resolutionPin !== null && role === 'resolution') midi = resolutionPin;
+                    resolutionPin = null;
                     const finalPc = ((midi % 12) + 12) % 12;
                     const finalIsChordTone = chordPool.includes(midi);
                     const finalIsLeadingTone = Number.isFinite(chordRootPc)
@@ -1850,7 +1940,12 @@
                     if (!finalInScale) {
                         if (finalIsChordTone) {
                             chromaticReason = `chord tone of ${(evHere && evHere.chord) || 'the sounding chord'}`;
-                        } else if (finalIsLeadingTone) {
+                        } else if (finalIsLeadingTone && (i < count - 1)) {
+                            // Same condition as the neighbour figure's: only
+                            // where a note follows inside this span to carry the
+                            // resolution. An obligation handed to the next span
+                            // lands on a structural anchor, which is not free to
+                            // discharge it.
                             chromaticReason = `leading tone of ${(evHere && evHere.chord) || 'the sounding chord'}`
                                 + ' — resolves up into its root';
                             if (role === 'connect' || role === 'neighbor') role = 'leadingTone';
@@ -1939,7 +2034,11 @@
 
                 // The first span that actually MOVES becomes the line's shape.
                 // Everything later can restate it from a new degree.
-                if (!pitchMotif.length && spanIntervals.length >= 2 &&
+                // A motif handed in by a work is the movement's subject and is
+                // not replaced by whatever the first span happened to do — that
+                // would quietly discard the cross-reference and leave the
+                // movement sounding like a new piece with the right title.
+                if (!motifWasGiven && !pitchMotif.length && spanIntervals.length >= 2 &&
                     spanIntervals.some(d => d !== 0)) {
                     pitchMotif = spanIntervals.slice(0, 6);
                 }

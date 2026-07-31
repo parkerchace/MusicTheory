@@ -333,6 +333,15 @@
                 <button id="word-randomize-btn" class="btn-icon" title="Randomize">🎲</button>
                 <button id="word-regenerate-btn" class="btn-icon" title="Regenerate">🔄</button>
                 <button id="word-send-sheet-btn" class="btn-icon" title="To Sheet Music">🎼</button>
+                <!-- Expand the current words into a multi-movement work. The
+                     select chooses a work; left on "Auto" the material decides,
+                     which is the same principle as form selection one level up. -->
+                <select id="word-expand-select" class="form-input"
+                    title="Expand into a multi-movement work"
+                    style="padding:4px 8px; font-size:0.7rem; border-radius:4px;">
+                    <option value="">Expand: auto</option>
+                </select>
+                <button id="word-expand-btn" class="btn-icon" title="Expand into a multi-movement work">⧉</button>
                 <button id="word-toggle-timeline-btn" class="btn-icon" title="Show timeline"
                     aria-pressed="false">⏱️</button>
                 <button id="word-settings-btn" class="btn-icon" title="Lexical weights &amp; options">⚙️</button>
@@ -3134,6 +3143,71 @@
                         window.compositionTimeline.analyzeAndRender(text);
                         window.compositionTimeline.triggerGeneration();
                     }
+                });
+            }
+
+            // --- EXPAND: one take becomes a multi-movement work ---------------
+            //
+            // The select is filled from the catalogue rather than hard-coded, so
+            // adding a work to form-planner.js puts it in the menu — the same
+            // reason the form picker draws from pools instead of a ladder.
+            // Left on "auto", the material chooses, which is what stops a
+            // four-syllable phrase becoming a five-song cycle.
+            const expandSelect = document.getElementById('word-expand-select');
+            const expandBtn = document.getElementById('word-expand-btn');
+
+            if (expandSelect && window.FormPlanner && typeof window.FormPlanner.listWorks === 'function') {
+                try {
+                    window.FormPlanner.listWorks().forEach((group) => {
+                        const og = document.createElement('optgroup');
+                        og.label = group.label;
+                        group.works.forEach((w) => {
+                            const opt = document.createElement('option');
+                            opt.value = w.key;
+                            opt.textContent = `${w.name} (${w.movementCount})`;
+                            opt.title = w.description;
+                            og.appendChild(opt);
+                        });
+                        expandSelect.appendChild(og);
+                    });
+                } catch (e) { console.warn('[Expand] could not list works:', e); }
+            }
+
+            if (expandBtn) {
+                expandBtn.addEventListener('click', () => {
+                    const inputs = window.__lastGenInputs;
+                    if (!inputs || !inputs.context || !inputs.arc || typeof window.generateWork !== 'function') {
+                        alert('Generate a piece from words first — expanding needs something to expand.');
+                        return;
+                    }
+                    const chosen = expandSelect ? (expandSelect.value || null) : null;
+                    let work = null;
+                    try {
+                        work = window.generateWork(inputs.context, inputs.arc, inputs.seed || 0,
+                            chosen ? { work: chosen } : {});
+                    } catch (e) {
+                        console.error('[Expand] failed:', e);
+                    }
+                    if (!work) { alert('Could not expand this take into a work.'); return; }
+
+                    // Kept where the rest of the app can reach it, and announced,
+                    // so the sheet and any panel can pick it up.
+                    window.__lastWork = work;
+                    try {
+                        window.dispatchEvent(new CustomEvent('workGenerated', { detail: work }));
+                    } catch (_) {}
+
+                    console.log('[Expand] ' + work.plan.summary);
+                    work.movements.forEach(m => console.log('  ' + m.explain));
+
+                    const toast = document.createElement('div');
+                    toast.innerHTML = '<strong>' + work.plan.name + '</strong><br>'
+                        + work.movements.map(m => m.title + ' — ' + m.role).join('<br>');
+                    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1e293b;'
+                        + 'color:#e2e8f0;padding:10px 14px;border-radius:6px;font-size:12px;z-index:10000;'
+                        + 'border:1px solid #475569;max-width:320px;line-height:1.5;';
+                    document.body.appendChild(toast);
+                    setTimeout(() => { try { toast.remove(); } catch (_) {} }, 6000);
                 });
             }
 

@@ -3351,7 +3351,7 @@ function revoiceHarmonyAgainstMelody(harmony, melody, context) {
   }
 }
 
-function generateMelody(context, arc, harmony, seed = 0) {
+function generateMelody(context, arc, harmony, seed = 0, extra = {}) {
   // Prefer the line-based composer: it builds the phrase from structural
   // anchors joined by stepwise motion, balances leaps, develops a motif, and
   // gives every non-chord tone a function that resolves. The older loop below
@@ -3398,7 +3398,9 @@ function generateMelody(context, arc, harmony, seed = 0) {
       const line = engine.compose({
         context, arc, harmony, seed,
         syllables: syls,
-        complexity: context.complexityControls || {}
+        complexity: context.complexityControls || {},
+        // A movement of a work can be handed the theme it is built from.
+        motif: Array.isArray(extra.motif) ? extra.motif : null
       });
       if (line && line.notes && line.notes.length) {
         return {
@@ -4337,6 +4339,195 @@ function chooseTimeSignature(rich, phraseChar, input, seed) {
  * Falls back to the old single 4-bar phrase if the planner is unavailable, so
  * a missing script degrades to the previous behaviour rather than throwing.
  */
+/**
+ * EXPAND — turn one take into a multi-movement work.
+ *
+ * The same words, several movements, each a complete piece with its own form,
+ * key, mode and character, and each planned so the set behaves as ONE thing.
+ * What makes it a work rather than a playlist is stated in the plan and honoured
+ * here: contrast between neighbours, a key plan that comes home, and at least
+ * one movement that takes its material from an earlier one.
+ *
+ * The cross-reference is the load-bearing part and the reason this is not just
+ * "generate four times". A quoting movement is generated from the SAME SEED as
+ * the movement it quotes, so the two share their thematic material outright,
+ * and the transformation is then applied by the character the work assigns —
+ * the finale of a Moonlight-shaped work is the opening movement's material at
+ * speed and in a different form, which is what makes the last movement sound
+ * like a consequence of the first rather than a fourth idea.
+ *
+ * @returns {{plan:Object, movements:Array}|null}
+ */
+function generateWork(context, arc, seed, opts = {}) {
+  try {
+    if (typeof FormPlanner === 'undefined' || typeof FormPlanner.planWork !== 'function') return null;
+
+    const tokens = Array.isArray(context.wordTokens) ? context.wordTokens : [];
+    const wordCount = tokens.length || 1;
+    const syllableCount = tokens.reduce((s, w) => s + ((w.syllables || []).length || 1), 0) || wordCount;
+
+    const workPlan = FormPlanner.planWork({
+      seed,
+      work: opts.work || null,
+      wordCount,
+      syllableCount,
+      energy: context.overallEnergy,
+      tension: context.globalTension,
+      tone: context.emotionalTone,
+      beatsPerBar: arc.beatsPerBar || 4
+    });
+    if (!workPlan || !workPlan.movements.length) return null;
+
+    // The theme of each movement, once it exists, so a later movement can be
+    // built from it. Intervals rather than pitches: the SHAPE is what survives
+    // a change of key, mode, tempo and form, and surviving all four is exactly
+    // what a cyclic reference has to do.
+    const themeOf = {};
+    const motifFrom = (melody) => {
+      const ns = (melody && melody.notes) || [];
+      const out = [];
+      // FOUR steps, not six. A theme has to be stateable inside one span of
+      // word-rhythm to be heard as one shape, and six rarely is. Four notes is
+      // not a small theme — most of the famous ones are four notes.
+      for (let i = 1; i < ns.length && out.length < 4; i++) {
+        const a = midiOfName(ns[i - 1].noteName);
+        const b = midiOfName(ns[i].noteName);
+        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+        const step = b - a;
+        if (Math.abs(step) > 12) continue;
+        out.push(step);
+      }
+      return out.length >= 2 ? out : null;
+    };
+
+    const movements = workPlan.movements.map((mv) => {
+      // Sharing a SEED does not share a theme: the form decides where the
+      // anchors are and the key decides what pitches are available, so the same
+      // seed under a different form produced a different tune and the
+      // cross-reference was a claim rather than a fact — measured at 26–48%
+      // shared contour, which is barely above chance. The material is handed
+      // over explicitly instead.
+      const movementSeed = seed + mv.index * 7919;
+      const quotedTheme = Number.isFinite(mv.quotes) ? (themeOf[mv.quotes] || null) : null;
+
+      // Its own context: the character IS the movement.
+      const mCtx = {
+        ...context,
+        overallEnergy: mv.energy,
+        globalTension: mv.tension,
+        form: mv.form
+      };
+
+      // Its own key, from the work's plan. Transposing the home tonic by the
+      // stated relation is what makes the key plan audible as a plan.
+      if (mv.keyOffset !== null && Number.isFinite(mv.keyOffset) && mv.keyOffset !== 0) {
+        const mt = window.modularApp && window.modularApp.musicTheory;
+        const homeRoot = (context.harmonicProfile && context.harmonicProfile.root) || 'C';
+        const moved = transposeRootBy(mt, homeRoot, mv.keyOffset);
+        if (moved) {
+          const scaleName = mv.mode === 'minor'
+            ? 'natural_minor'
+            : ((context.harmonicProfile && context.harmonicProfile.recommendedScale) || 'major');
+          let notes = null;
+          try { notes = mt && mt.getScaleNotesWithKeySignature(moved, scaleName); } catch (_) {}
+          if (!notes || !notes.length) {
+            try { notes = mt && mt.getScaleNotes(moved, scaleName); } catch (_) {}
+          }
+          if (notes && notes.length) {
+            mCtx.harmonicProfile = {
+              ...context.harmonicProfile,
+              root: moved,
+              recommendedScale: scaleName,
+              scaleNotes: notes
+            };
+          }
+        }
+      } else if (mv.mode === 'minor') {
+        // Same tonic, parallel minor — the other way a movement changes colour.
+        const mt = window.modularApp && window.modularApp.musicTheory;
+        const homeRoot = (context.harmonicProfile && context.harmonicProfile.root) || 'C';
+        let notes = null;
+        try { notes = mt && mt.getScaleNotesWithKeySignature(homeRoot, 'natural_minor'); } catch (_) {}
+        if (notes && notes.length) {
+          mCtx.harmonicProfile = {
+            ...context.harmonicProfile, recommendedScale: 'natural_minor', scaleNotes: notes
+          };
+        }
+      }
+
+      const mArc = {
+        ...arc,
+        bars: mv.form.bars,
+        totalBeats: mv.form.bars * (arc.beatsPerBar || 4),
+        sample: (t) => {
+          // Each movement has its own arc, shaped by what it is FOR: a still
+          // movement stays low however energetic the piece as a whole was.
+          const base = mv.energy;
+          return Math.max(0.05, Math.min(1, base * 0.7 + 0.3 * Math.sin(Math.PI * t) * (0.4 + mv.tension * 0.6)));
+        }
+      };
+
+      const harmony = generateHarmony(mCtx, mArc, movementSeed);
+      const melody = generateMelody(mCtx, mArc, harmony, movementSeed,
+        quotedTheme ? { motif: quotedTheme } : {});
+      const piano = buildPianoTexture(mCtx, mArc, harmony, melody, movementSeed);
+
+      // Remember this movement's own theme for anything that quotes it later.
+      themeOf[mv.index] = quotedTheme || motifFrom(melody);
+
+      return {
+        index: mv.index,
+        title: mv.title,
+        role: mv.role,
+        explain: mv.explain,
+        quotes: mv.quotes,
+        quoteHow: mv.quoteHow,
+        keyRelation: mv.keyRelation,
+        keyLabel: mv.keyLabel,
+        mode: mv.mode,
+        context: mCtx,
+        arc: mArc,
+        harmony,
+        melody,
+        piano,
+        seed: movementSeed
+      };
+    });
+
+    return { plan: workPlan, movements };
+  } catch (err) {
+    console.warn('[ArcInit] work generation failed', err);
+    return null;
+  }
+}
+
+/** A note name to MIDI, for reading a theme's shape back off a melody. */
+function midiOfName(name) {
+  const m = String(name || '').match(/^([A-Ga-g][#b]?)(-?\d+)$/);
+  if (!m) return null;
+  const SEMI = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5,
+    'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
+  const pc = SEMI[m[1].charAt(0).toUpperCase() + m[1].slice(1)];
+  return pc === undefined ? null : pc + (parseInt(m[2], 10) + 1) * 12;
+}
+
+/** Move a root name by a number of semitones, keeping a usable spelling. */
+function transposeRootBy(mt, root, semitones) {
+  try {
+    if (!mt || !mt.noteValues) return null;
+    const pc = mt.noteValues[String(root).replace(/-?\d+$/, '')];
+    if (!Number.isFinite(pc)) return null;
+    const SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+    const to = (((pc + semitones) % 12) + 12) % 12;
+    // Follow the spelling the home key already uses, so a work in a flat key
+    // does not acquire sharps halfway through for no reason.
+    const preferFlat = /b/.test(String(root)) || ['F'].includes(String(root));
+    return (preferFlat ? FLAT : SHARP)[to];
+  } catch (_) { return null; }
+}
+if (typeof window !== 'undefined') window.generateWork = generateWork;
+
 function planFormFor(context, profile, seed, beatsPerBar) {
   try {
     if (typeof FormPlanner === 'undefined' || !FormPlanner || typeof FormPlanner.plan !== 'function') return null;
