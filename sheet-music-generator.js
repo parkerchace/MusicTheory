@@ -7058,7 +7058,34 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		// --- Core Event Generation ---
 		const rawEvents = []; // { tick, type: 0x90|0x80, note, velocity }
 
-		if (hasPhrase) {
+		// EXPORT WHAT WAS ACTUALLY RENDERED.
+		//
+		// Playback already replays the notes the renderer drew, for the reason
+		// that anything else drifts from the page. The export did not: it
+		// re-derived its notes from the phrase's chord objects, which are the
+		// harmony BEFORE the piano texture gets to it. So a file could contain
+		// block chords where the sheet shows an Alberti figure or a ground
+		// bass, miss the inner-voice motion entirely, and place approach chords
+		// differently — the saved MIDI was a different arrangement from the one
+		// on screen and in your ears.
+		//
+		// Same source as playback now. Melody goes to channel 1 and harmony to
+		// channel 2 so the two parts land on separate tracks in a DAW instead
+		// of arriving as one merged blob.
+		const drawnForExport = Array.isArray(this.state.renderedNoteEvents)
+			? this.state.renderedNoteEvents : null;
+		if (drawnForExport && drawnForExport.length) {
+			drawnForExport.forEach((ev) => {
+				const midi = getMidi(ev.noteName);
+				if (midi === null) return;
+				const startTick = Math.round((Number(ev.absBeat) || 0) * ticksPerBeatUnit);
+				const lenTicks = Math.max(1, Math.round((Number(ev.durationBeats) || 1) * ticksPerQuarter * 0.95));
+				const isMelody = ev.kind === 'melody';
+				const ch = isMelody ? 0 : 1;
+				rawEvents.push({ tick: startTick, type: 0x90 | ch, note: midi, vel: isMelody ? 0x64 : 0x50 });
+				rawEvents.push({ tick: startTick + lenTicks, type: 0x80 | ch, note: midi, vel: 0x00 });
+			});
+		} else if (hasPhrase) {
 			// Rich Beat-Aware Export
 			phrase.bars.forEach((bar, barIdx) => {
 				const barStartTick = barIdx * measureTicks;
@@ -7114,7 +7141,12 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		}
 
 		// Sort and delta-encode events
-		rawEvents.sort((a, b) => a.tick - b.tick || b.type - a.type); // ON before OFF if simultaneous
+		// Note-OFF before note-ON when they land on the same tick. The old order
+		// was the other way round, which silently kills a repeated note: the
+		// accompaniment now strikes the same voicing twice in a bar, so the
+		// second attack's note-on was being cancelled by the first attack's
+		// note-off arriving immediately after it.
+		rawEvents.sort((a, b) => a.tick - b.tick || (a.type & 0xF0) - (b.type & 0xF0));
 		rawEvents.forEach(ev => {
 			const delta = ev.tick - currentTick;
 			events.push({ delta, data: [ev.type, ev.note & 0x7F, ev.vel & 0x7F] });
