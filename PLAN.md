@@ -132,6 +132,22 @@ repetition, and restraint.
   interior.
   → ~1.1 moves per piece, all in key and all still interior.
 
+### Playback
+
+- **Nine voices.** Piano, piano + reverb, piano + pad, piano + strings,
+  strings, guitar, electric piano, R&B synth, R&B pad. Everything was one
+  triangle oscillator with one envelope, so a string pad and a Rhodes were the
+  same beep at different pitches. A voice now states which partials sound, how
+  the note starts and ends, how bright it is, and how much space is around it.
+  Percussive voices decay to silence on their own whatever the written duration
+  says — that is the main reason a synthesised piano otherwise reads as an
+  organ. Reverb is a generated impulse (decaying noise); there is no file to
+  load. The selector sits with the transport because it is a playback property
+  and never touches a note; it previews on change and persists.
+  → 9 voices, none secretly identical, zero malformed audio events.
+
+### Controls
+
 - **Voicing controls reach generated music at all**, and a voicing-only change
   re-harmonizes the existing melody instead of regenerating it. Randomize
   actually randomizes (seeded, reproducible).
@@ -142,27 +158,22 @@ repetition, and restraint.
 
 In the order I'd do them.
 
-1. **Instrument / sound selection** — piano, piano + reverb, piano + pad,
-   piano + strings, strings, guitar, EP, smooth R&B synths. Currently playback
-   is a single triangle oscillator. Needs a voice layer in the audio path plus
-   a control in the sheet-music toolbar.
-
-2. **Melody not always the top voice.** Half done — inner-voice motion exists
+1. **Melody not always the top voice.** Half done — inner-voice motion exists
    now, but the other half of the Dm7/F example is still open: voicing the
    chord so the melody note sits *inside* it (F-A-C-D), or making D the melody
    while F moves underneath.
 
-3. **Genre rhythm vocabulary.** Baroque / romantic / impressionist / jazz /
+2. **Genre rhythm vocabulary.** Baroque / romantic / impressionist / jazz /
    blues / R&B / rock / pop-punk as style profiles driving figure choice,
    tuplets, and swing. The biggest remaining item — it's what would make a take
    sound like *a kind of music* rather than generically tonal.
 
-4. **Rubato and humanized timing** — micro-timing at phrase peaks and cadences.
+3. **Rubato and humanized timing** — micro-timing at phrase peaks and cadences.
 
-5. **A texture identity that returns.** Figure commitment covers the
+4. **A texture identity that returns.** Figure commitment covers the
    "unchanging" half of Gymnopédie; the recognisable *return* is still implicit.
 
-6. **Ellington-style escalation** — building on a highlighted moment
+5. **Ellington-style escalation** — building on a highlighted moment
    progressively instead of treating every climax equally.
 
 ---
