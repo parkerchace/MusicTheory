@@ -35,28 +35,8 @@ class ModuleSelector {
                     workspaceModules: ['piano-container'],
                     supportedInstruments: ['piano']
                 },
-                {
-                    id: 'chord-explorer',
-                    name: 'Chord Explorer',
-                    description: 'Discover all chord types, voicings, and how they relate to scales.',
-                    icon: '🎼',
-                    category: 'Learning',
-                    keywords: ['chords', 'voicing', 'harmony', 'learn'],
-                    workspaceModules: ['chord-explorer-container'],
-                    supportedInstruments: ['all']
-                }
             ],
             intermediate: [
-                {
-                    id: 'progression-builder',
-                    name: 'Progression Builder',
-                    description: 'Create and analyze chord progressions with voice leading and modal interchange.',
-                    icon: '⛓️',
-                    category: 'Composition',
-                    keywords: ['progression', 'chords', 'composition', 'voice leading', 'harmony'],
-                    workspaceModules: ['progression-builder-container'],
-                    supportedInstruments: ['all']
-                },
                 {
                     id: 'sheet-music',
                     name: 'Sheet Music Generator',
@@ -124,15 +104,15 @@ class ModuleSelector {
 
         // Intent matching keywords
         this.intentMap = {
-            'learn scales': ['scale-library', 'piano-visualizer'],
-            'learn chords': ['chord-explorer', 'container-chord'],
-            'learn harmony': ['chord-explorer', 'progression-builder'],
-            'improvise': ['scale-library', 'piano-visualizer', 'chord-explorer'],
-            'write music': ['progression-builder', 'sheet-music'],
-            'compose': ['progression-builder', 'sheet-music', 'number-generator'],
+            'learn scales': ['learn-scales', 'piano-visualizer'],
+            'learn chords': ['container-chord', 'container-chord'],
+            'learn harmony': ['learn-scales', 'container-chord'],
+            'improvise': ['learn-scales', 'piano-visualizer', 'container-chord'],
+            'write music': ['sheet-music', 'number-generator'],
+            'compose': ['sheet-music', 'number-generator'],
             'reharmonize': ['container-chord', 'scale-relationships'],
             'analyze chords': ['container-chord', 'scale-relationships'],
-            'analyze scales': ['scale-library', 'scale-relationships'],
+            'analyze scales': ['learn-scales', 'scale-relationships'],
             'play piano': ['piano-visualizer'],
             'guitar': ['guitar-fretboard'],
             'advanced': ['number-generator', 'solar-visualizer'],
@@ -402,7 +382,7 @@ class ModuleSelector {
                         this.launchLearnScales();
                     } else if (moduleId === 'piano-visualizer') {
                         this.launchLearnPiano();
-                    } else if (moduleId === 'chord-explorer') {
+                    } else if (moduleId === 'container-chord') {
                         this.launchLearnChords();
                     }
                 } else {

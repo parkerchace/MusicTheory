@@ -140,32 +140,9 @@ window.mountLearnModuleIfReady = function(instrument) {
                 
                 this.containerChordTool = new ContainerChordTool(this.musicTheory);
                 this.scaleRelationshipExplorer = new ScaleRelationshipExplorer(this.musicTheory);
-                this.progressionBuilder = new ProgressionBuilder(this.musicTheory);
                 this.scaleCircleExplorer = new ScaleCircleExplorer(this.musicTheory);
                 this.solarSystem = typeof SolarSystemVisualizer !== 'undefined' ? new SolarSystemVisualizer(this.musicTheory) : null;
                 this.audioVisualizer = typeof AudioVisualizer !== 'undefined' ? new AudioVisualizer() : null;
-                // Use UnifiedChordExplorer (new consolidated explorer). Keep tools wired to it.
-                try {
-                    this.chordExplorer = new UnifiedChordExplorer(this.musicTheory);
-                    // Wire number generator for progression highlighting and preferred notes
-                    if (typeof this.chordExplorer.connectNumberGenerator === 'function') {
-                        this.chordExplorer.connectNumberGenerator(this.numberGenerator);
-                    }
-                    // Wire scale library so explorer updates when key/scale change
-                    if (typeof this.chordExplorer.connectScaleLibrary === 'function') {
-                        this.chordExplorer.connectScaleLibrary(this.scaleLibrary);
-                    }
-                    // Initialize with current key/scale
-                    if (typeof this.chordExplorer.setKeyAndScale === 'function') {
-                        this.chordExplorer.setKeyAndScale(this.scaleLibrary.getCurrentKey(), this.scaleLibrary.getCurrentScale());
-                    }
-                    // Expose legacy mount compatibility if needed (UnifiedChordExplorer provides mount)
-                } catch (e) {
-                    // Fallback to original explorer if UnifiedChordExplorer missing
-                    console.warn('UnifiedChordExplorer not available, falling back to legacy ChordExplorer', e);
-                    this.chordExplorer = new ChordExplorer(this.musicTheory, this.scaleLibrary, this.numberGenerator);
-                }
-
                 // Generative Engines Initialization
                 this.intelligenceEngine = typeof ScaleIntelligenceEngine !== 'undefined' ? new ScaleIntelligenceEngine(this.musicTheory) : null;
 
@@ -336,10 +313,6 @@ window.mountLearnModuleIfReady = function(instrument) {
                     }
 
                     // Update progression builder with new key/scale context
-                    if (this.progressionBuilder && this.progressionBuilder.state) {
-                        this.progressionBuilder.state.currentKey = data.key;
-                        this.progressionBuilder.state.currentScale = data.scale;
-                    }
 
                     // Keep container chord tool in sync with key/scale context
                     if (this.containerChordTool && this.containerChordTool.setKeyAndScale) {
@@ -399,84 +372,6 @@ window.mountLearnModuleIfReady = function(instrument) {
                 });
 
                 // Connect progression builder to Solar System to highlight chosen/substituted chords
-                if (this.progressionBuilder && this.progressionBuilder.on) {
-                    this.progressionBuilder.on('progressionChanged', (data) => {
-                        if (this.solarSystem && typeof this.solarSystem.setChordHighlights === 'function') {
-                            this.solarSystem.setChordHighlights(data.meta || []);
-                        }
-
-                        // Also map progression output into the Sheet Music Generator so the
-                        // generated chord sequence is displayed as one chord per bar.
-                        try {
-                            const meta = data.meta || [];
-                            if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setBarMode === 'function' && Array.isArray(meta) && meta.length > 0 && this.sheetMusicGenerator.state && this.sheetMusicGenerator.state.followGenerated) {
-                                const chords = meta.map((m) => {
-                                    const root = m && m.chordRoot ? m.chordRoot : null;
-                                    const chordType = m && m.chordType ? m.chordType : '';
-                                    const fullName = m && m.fullName ? m.fullName : ((root || '') + (chordType || ''));
-                                    // Prefer diatonicNotes from metadata (scale-based stacking)
-                                    let chordNotes = [];
-                                    let diatonicNotes = null;
-                                    if (m && Array.isArray(m.diatonicNotes) && m.diatonicNotes.length > 0) {
-                                        diatonicNotes = m.diatonicNotes;
-                                        chordNotes = m.diatonicNotes; // Use as fallback for filtering
-                                    }
-                                    // Try formula-based notes as secondary option
-                                    if (!chordNotes.length) {
-                                        try {
-                                            if (root && this.musicTheory && typeof this.musicTheory.getChordNotes === 'function') {
-                                                chordNotes = this.musicTheory.getChordNotes(root, chordType) || [];
-                                            }
-                                        } catch (e) { /* ignore */ }
-                                    }
-                                    return {
-                                        root,
-                                        chordType,
-                                        chordNotes,
-                                        diatonicNotes,
-                                        fullName
-                                    };
-                                }).filter(c => c.root && (Array.isArray(c.chordNotes) && c.chordNotes.length > 0 || Array.isArray(c.diatonicNotes) && c.diatonicNotes.length > 0));
-
-                                // Parallel degrees array aligned with chords/meta
-                                const degrees = meta.map(m => (m && typeof m.degree === 'number') ? m.degree : null);
-
-                                if (chords.length > 0) {
-                                    // Replace the bar list and switch into per-bar mode using the public API
-                                    if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setBarMode === 'function') {
-                                        this.sheetMusicGenerator.setBarMode('per-bar');
-                                    }
-                                    // Pass harmonization mode to sheet music generator
-                                    if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setHarmonizationMode === 'function' && this.progressionBuilder) {
-                                        const mode = this.progressionBuilder.state.harmonizationMode || 'root';
-                                        this.sheetMusicGenerator.setHarmonizationMode(mode);
-                                        try {
-                                            if (!window.__interactionLog) window.__interactionLog = [];
-                                            window.__interactionLog.push({ type: 'sheetHarmonizationModeSet', details: { mode, source: 'progressionChanged' }, timestamp: new Date().toISOString() });
-                                        } catch (_) {}
-                                    }
-                                    if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setBarChords === 'function') {
-                                        this.sheetMusicGenerator.setBarChords(chords);
-                                        if (typeof this.sheetMusicGenerator.setBarDegrees === 'function') {
-                                            this.sheetMusicGenerator.setBarDegrees(degrees);
-                                        } else {
-                                            // Fallback: direct state write if API missing
-                                            this.sheetMusicGenerator.state.barDegrees = degrees;
-                                            try { this.sheetMusicGenerator.render(); } catch(_){}
-                                        }
-                                    } else if (this.sheetMusicGenerator) {
-                                        // Fallback: direct state write if API missing
-                                        this.sheetMusicGenerator.state.barChords = chords;
-                                        this.sheetMusicGenerator.state.barDegrees = degrees;
-                                        try { this.sheetMusicGenerator.render(); } catch(_){}
-                                    }
-                                }
-                            }
-                        } catch (e) {
-                            console.error('Error mapping progression to sheet music:', e);
-                        }
-                    });
-                }
 
                 // Connect number generator to circle explorer
                 this.numberGenerator.on('numbersChanged', (data) => {
@@ -512,7 +407,7 @@ window.mountLearnModuleIfReady = function(instrument) {
                             if (!window.__interactionLog) window.__interactionLog = [];
                             window.__interactionLog.push({
                                 type: 'displayTokensPropagation',
-                                details: { tokens: tokens.slice(), rawTokens: (rawTokens || tokens).slice(), harmonizationMode: (this.progressionBuilder && this.progressionBuilder.state) ? this.progressionBuilder.state.harmonizationMode : null },
+                                details: { tokens: tokens.slice(), rawTokens: (rawTokens || tokens).slice(), harmonizationMode: this._harmonizationMode() },
                                 timestamp: new Date().toISOString()
                             });
                         } catch(_) {}
@@ -612,8 +507,8 @@ window.mountLearnModuleIfReady = function(instrument) {
                         if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setBarMode === 'function') {
                             this.sheetMusicGenerator.setBarMode('per-bar');
                         }
-                        if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setHarmonizationMode === 'function' && this.progressionBuilder) {
-                            const mode = this.progressionBuilder.state && this.progressionBuilder.state.harmonizationMode ? this.progressionBuilder.state.harmonizationMode : 'root';
+                        if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setHarmonizationMode === 'function') {
+                            const mode = this._harmonizationMode();
                             this.sheetMusicGenerator.setHarmonizationMode(mode);
                             try {
                                 if (!window.__interactionLog) window.__interactionLog = [];
@@ -643,7 +538,12 @@ window.mountLearnModuleIfReady = function(instrument) {
                     const progression = data.progression.map(key => 
                         `${key}${this.scaleLibrary.getCurrentScale() === 'minor' ? 'm' : ''}maj7`
                     );
-                    this.progressionBuilder.buildProgressionFromChords(progression);
+                    // The progression builder used to receive this. With that
+                    // module gone the sheet is the thing that can actually show
+                    // a progression, so it goes there rather than nowhere.
+                    if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setBarChords === 'function') {
+                        this.sheetMusicGenerator.setBarChords(progression);
+                    }
                 });
 
                 this.scaleCircleExplorer.on('keySelected', (data) => {
@@ -651,134 +551,6 @@ window.mountLearnModuleIfReady = function(instrument) {
                 });
 
                 // Connect chord explorer / container chord tool to sheet music
-                if (this.chordExplorer && this.chordExplorer.on) {
-                    this.chordExplorer.on('chordSelected', (data) => {
-                        if (this.sheetMusicGenerator) {
-                            this.sheetMusicGenerator.setCurrentChord(data.chord, { appendToBars: true });
-                        }
-                    });
-                    
-                    // NEW: Listen for chord substitutions and update sheet music
-                    this.chordExplorer.on('substitutionSelected', (data) => {
-                        try {
-                            if (!data || !data.substitution) return;
-                            
-                            const sub = data.substitution;
-                            const original = data.original;
-                            
-                            // Build chord object from substitution
-                            let chordNotes = [];
-                            try {
-                                if (sub.notes && Array.isArray(sub.notes)) {
-                                    chordNotes = sub.notes;
-                                } else if (sub.root && this.musicTheory && typeof this.musicTheory.getChordNotes === 'function') {
-                                    chordNotes = this.musicTheory.getChordNotes(sub.root, sub.chordType || '') || [];
-                                }
-                            } catch (e) { /* ignore */ }
-                            
-                            const chordObj = {
-                                root: sub.root,
-                                chordType: sub.chordType || '',
-                                chordNotes: chordNotes,
-                                fullName: sub.fullName || ((sub.root || '') + (sub.chordType || ''))
-                            };
-                            
-                            // Update sheet music with the substituted chord
-                            if (this.sheetMusicGenerator) {
-                                // If we're in per-bar mode and following the generated progression,
-                                // trigger a full sequence update
-                                if (this.sheetMusicGenerator.state.barMode === 'per-bar' && 
-                                    this.sheetMusicGenerator.state.followGenerated) {
-                                    // Trigger sequence rebuild
-                                    if (typeof this.chordExplorer.ensureProgressionSequence === 'function') {
-                                        const sequence = this.chordExplorer.ensureProgressionSequence();
-                                        this.chordExplorer.emit('progressionSequenceChanged', { sequence });
-                                    }
-                                } else {
-                                    // In single mode, just set the current chord
-                                    this.sheetMusicGenerator.setCurrentChord(chordObj, { degree: original ? original.degree : null });
-                                }
-                            }
-                            
-                            console.log('[Substitution->Sheet] Updated sheet music:', chordObj.fullName);
-                        } catch (e) {
-                            console.warn('Failed to update sheet music from substitution:', e);
-                        }
-                    });
-                    
-                    // NEW: keep SheetMusicGenerator in sync with sequence edits (plus-left/right insertions)
-                    this.chordExplorer.on('progressionSequenceChanged', (evt) => {
-                        try {
-                            if (!evt || !Array.isArray(evt.sequence)) return;
-                            if (!this.sheetMusicGenerator || !this.sheetMusicGenerator.state.followGenerated) return;
-                            const seq = evt.sequence;
-                            const chords = seq.map(entry => {
-                                if (entry.type === 'degree') {
-                                    try {
-                                        const diat = this.musicTheory.getDiatonicChord(entry.degree, this.scaleLibrary.getCurrentKey(), this.scaleLibrary.getCurrentScale());
-                                        if (diat) {
-                                            const notes = this.musicTheory.getChordNotes(diat.root, diat.chordType) || [];
-                                            return { root: diat.root, chordType: diat.chordType, chordNotes: notes, fullName: diat.root + diat.chordType };
-                                        }
-                                    } catch(_) {}
-                                    return null;
-                                } else if (entry.type === 'inserted' && entry.substitution) {
-                                    const sub = entry.substitution;
-                                    try {
-                                        const notes = this.musicTheory.getChordNotes(sub.root, sub.chordType) || (sub.notes || []);
-                                        return { root: sub.root, chordType: sub.chordType, chordNotes: notes, fullName: (sub.root || '') + (sub.chordType || '') };
-                                    } catch(_) {
-                                        return null;
-                                    }
-                                }
-                                return null;
-                            }).filter(c => c && c.root && Array.isArray(c.chordNotes));
-                            // Degrees align to sequence entries: number for degree entries, null for inserted
-                            const degrees = seq.map(entry => (entry.type === 'degree' ? entry.degree : null));
-                            if (chords.length) {
-                                if (typeof this.sheetMusicGenerator.setBarMode === 'function') {
-                                    this.sheetMusicGenerator.setBarMode('per-bar');
-                                }
-                                // Pass harmonization mode to sheet music generator
-                                if (typeof this.sheetMusicGenerator.setHarmonizationMode === 'function' && this.progressionBuilder) {
-                                    const mode = this.progressionBuilder.state.harmonizationMode || 'root';
-                                    this.sheetMusicGenerator.setHarmonizationMode(mode);
-                                }
-                                if (typeof this.sheetMusicGenerator.setBarChords === 'function') {
-                                    this.sheetMusicGenerator.setBarChords(chords);
-                                    if (typeof this.sheetMusicGenerator.setBarDegrees === 'function') {
-                                        this.sheetMusicGenerator.setBarDegrees(degrees);
-                                    } else {
-                                        this.sheetMusicGenerator.state.barDegrees = degrees;
-                                        try { this.sheetMusicGenerator.render(); } catch(_) {}
-                                    }
-                                    try {
-                                        // Log harmonization mode when set via progressionSequenceChanged
-                                        const mode = this.progressionBuilder && this.progressionBuilder.state ? this.progressionBuilder.state.harmonizationMode : null;
-                                        if (!window.__interactionLog) window.__interactionLog = [];
-                                        window.__interactionLog.push({ type: 'sheetHarmonizationModeSet', details: { mode, source: 'progressionSequenceChanged' }, timestamp: new Date().toISOString() });
-                                    } catch(_) {}
-                                } else {
-                                    this.sheetMusicGenerator.state.barChords = chords;
-                                    this.sheetMusicGenerator.state.barDegrees = degrees;
-                                    try { this.sheetMusicGenerator.render(); } catch(_) {}
-                                }
-                            }
-                        } catch (e) {
-                            console.warn('SheetMusic sync (progressionSequenceChanged) failed', e);
-                        }
-                    });
-                    // Also respond to explicit passing chord insertion events (redundant but defensive)
-                    this.chordExplorer.on('passingChordInserted', (data) => {
-                        try {
-                            // Trigger a sequence rebuild handler above by emitting a faux progressionSequenceChanged
-                            if (this.chordExplorer && typeof this.chordExplorer.ensureProgressionSequence === 'function') {
-                                const sequence = this.chordExplorer.ensureProgressionSequence();
-                                this.chordExplorer.emit('progressionSequenceChanged', { sequence });
-                            }
-                        } catch(e) { console.warn('passingChordInserted sync failed', e); }
-                    });
-                }
                 if (this.containerChordTool && this.containerChordTool.on) {
                     this.containerChordTool.on('chordSelected', (data) => {
                         if (this.sheetMusicGenerator) {
@@ -788,9 +560,6 @@ window.mountLearnModuleIfReady = function(instrument) {
                 }
 
                 // Connect progression builder to number generator and scale library
-                if (this.progressionBuilder && this.progressionBuilder.connectModules) {
-                    this.progressionBuilder.connectModules(this.numberGenerator, this.scaleLibrary);
-                }
             }
 
             /**
@@ -799,14 +568,26 @@ window.mountLearnModuleIfReady = function(instrument) {
              * harmonization mode and regenerates the progression / updates the sheet.
              * @param {string} mode 'melody'|'harmony'|'root'
              */
+            /**
+             * The harmonization mode, from whoever actually owns it.
+             *
+             * This used to be read off the progression builder, which was only
+             * ever mirroring a value the number generator's own control sets.
+             * With that module gone the mode comes from its real owner, with
+             * the sheet as a second opinion and 'root' as the default.
+             */
+            _harmonizationMode() {
+                const ng = this.numberGenerator && this.numberGenerator.state;
+                if (ng && ng.harmonizationMode) return ng.harmonizationMode;
+                const sm = this.sheetMusicGenerator && this.sheetMusicGenerator.state;
+                if (sm && sm.harmonizationMode) return sm.harmonizationMode;
+                return 'root';
+            }
+
             harmonizeCurrentSequence(mode) {
                 try {
-                    const m = mode || (this.progressionBuilder && this.progressionBuilder.state && this.progressionBuilder.state.harmonizationMode) || 'root';
+                    const m = mode || this._harmonizationMode();
 
-                    // Propagate mode into progression builder (used when generating chords for degrees)
-                    if (this.progressionBuilder && this.progressionBuilder.state) {
-                        this.progressionBuilder.state.harmonizationMode = m;
-                    }
 
                     // Ensure progression builder has current numbers (it normally listens to numbersChanged).
                     // If the user has manually-entered display tokens (roman numerals/chord labels),
@@ -840,12 +621,6 @@ window.mountLearnModuleIfReady = function(instrument) {
                     const currentNumbers = (this.numberGenerator && typeof this.numberGenerator.getCurrentNumbers === 'function')
                         ? this.numberGenerator.getCurrentNumbers()
                         : [];
-                    if (this.progressionBuilder && Array.isArray(currentNumbers)) {
-                        this.progressionBuilder.state.inputNumbers = currentNumbers.slice();
-                        if (typeof this.progressionBuilder.generateProgression === 'function') {
-                            this.progressionBuilder.generateProgression();
-                        }
-                    }
 
                     // Also inform the sheet music generator of the requested harmonization mode
                     if (this.sheetMusicGenerator && typeof this.sheetMusicGenerator.setHarmonizationMode === 'function') {
@@ -941,15 +716,6 @@ window.mountLearnModuleIfReady = function(instrument) {
                     }
                 });
 
-                safe('ChordExplorer.events', () => {
-                    if (this.chordExplorer && typeof this.chordExplorer.on === 'function') {
-                        this.chordExplorer.on('radialMenuOpened', (data) => {
-                            if (this.audioEngine && data.chord && data.chord.chordNotes) {
-                                this.audioEngine.playChord(data.chord.chordNotes);
-                            }
-                        });
-                    }
-                });
 
                     // Mount number generator
                     safe('NumberGenerator.mount', () => {
@@ -1015,11 +781,6 @@ window.mountLearnModuleIfReady = function(instrument) {
                     });
 
                     // Mount progression builder
-                    safe('ProgressionBuilder.mount', () => {
-                        if (this.progressionBuilder && this.progressionBuilder.mount) {
-                            this.progressionBuilder.mount('#progression-builder-container');
-                        }
-                    });
 
                     // Mount scale circle explorer
                     safe('ScaleCircleExplorer.mount', () => {
@@ -1029,11 +790,6 @@ window.mountLearnModuleIfReady = function(instrument) {
                     });
 
                     // Mount chord explorer
-                    safe('UnifiedChordExplorer.mount', () => {
-                        if (this.chordExplorer && this.chordExplorer.mount) {
-                            this.chordExplorer.mount('#chord-explorer-container');
-                        }
-                    });
 
                     // Mount sheet music generator under chord explorer
                     safe('SheetMusicGenerator.mount', () => {
@@ -1630,7 +1386,6 @@ window.mountLearnModuleIfReady = function(instrument) {
             window.numberGenerator = window.modularApp.numberGenerator;
             window.scaleLibrary = window.modularApp.scaleLibrary;
             window.containerChordTool = window.modularApp.containerChordTool;
-            window.progressionBuilder = window.modularApp.progressionBuilder;
             // debugLog('Application started');
             
             // Initialize audio engine and show loading notification for samples
