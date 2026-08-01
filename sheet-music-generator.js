@@ -1599,7 +1599,12 @@ class SheetMusicGenerator {
 				const next = Math.max(0.4, Math.min(3, delta > 0 ? now * 1.35 : now / 1.35));
 				this.state.workLengthScale = Math.abs(next - 1) < 0.02 ? 1 : next;
 				this._renderExpandLength();
-				this._runExpand();
+				// Resizing keeps the work you are listening to. Re-rolling here
+				// would mean you could never lengthen the thing you just heard
+				// — every press would hand you a different piece at a different
+				// length, and you would never find out what the first one
+				// sounded like longer.
+				this._runExpand({ reroll: false });
 			});
 			return b;
 		};
@@ -2454,15 +2459,29 @@ class SheetMusicGenerator {
      * length. Re-run whenever either changes, so the buttons act on the thing
      * they appear to act on rather than only taking effect at the next Apply.
      */
-    _runExpand() {
+    _runExpand(opts = {}) {
         const inputs = (typeof window !== 'undefined') && window.__lastGenInputs;
         if (!inputs || !inputs.context || !inputs.arc || typeof window.generateWork !== 'function') {
             this._expandToast('Generate a piece from words first — expanding needs something to expand.');
             return null;
         }
+
+        // APPLY MEANS APPLY, every time.
+        //
+        // Pressing it twice with the same choice gave a byte-identical result,
+        // because the seed came straight from the last generation and nothing
+        // varied. "Auto" in particular was unusable: the whole point of auto is
+        // to hear what the words suggest, and it suggested the same thing
+        // forever. Each press advances a variation counter, so the same choice
+        // re-rolls — which is what pressing a button again means.
+        if (opts.reroll !== false) {
+            this._workVariation = (this._workVariation || 0) + 1;
+        }
+        const seed = (inputs.seed || 0) + (this._workVariation || 0) * 104729;
+
         let work = null;
         try {
-            work = window.generateWork(inputs.context, inputs.arc, inputs.seed || 0, {
+            work = window.generateWork(inputs.context, inputs.arc, seed, {
                 work: this.state.workChoice || null,
                 lengthScale: Number(this.state.workLengthScale) || 1
             });
@@ -2472,6 +2491,26 @@ class SheetMusicGenerator {
         if (!work) { this._expandToast('Could not expand this take into a work.'); return null; }
 
         try { window.__lastWork = work; } catch (_) {}
+
+        // ...AND PUT IT ON THE PAGE.
+        //
+        // Generating a work and announcing it on an event nothing listens to is
+        // the same as not generating it: the button lit up, a toast appeared,
+        // and the sheet went on showing the original single take. The sheet is
+        // driven by `musicGenerated` carrying one piece, so the work is laid out
+        // end to end and sent down that same path.
+        let applied = false;
+        try {
+            const piece = (typeof window.combineWorkIntoPiece === 'function')
+                ? window.combineWorkIntoPiece(work) : null;
+            if (piece) {
+                window.__lastMusicGenerated = piece;
+                document.dispatchEvent(new CustomEvent('musicGenerated', { detail: piece }));
+                applied = true;
+            }
+        } catch (e) {
+            console.error('[Expand] could not render the work:', e);
+        }
         try {
             window.dispatchEvent(new CustomEvent('workGenerated', { detail: work }));
         } catch (_) {}
@@ -2482,7 +2521,8 @@ class SheetMusicGenerator {
         this._expandToast(
             '<strong>' + work.name + '</strong><br>'
             + work.movements.map(m => `${m.title} — ${m.role} · ${m.form.bars} bars`).join('<br>')
-            + `<br><span style="opacity:.7">${work.totalBars} bars total</span>`);
+            + `<br><span style="opacity:.7">${work.totalBars} bars total`
+            + (applied ? '' : ' · could not be drawn') + '</span>');
         return work;
     }
 

@@ -261,3 +261,98 @@ check('choosing automatically still produces a work', function(){
 
 print('');
 print(failures? ('FAILURES: '+failures) : 'the movements are real pieces, and they belong to each other');
+
+// --- DOES IT REACH THE PAGE? ---------------------------------------------
+// The part that was missing. A work was generated, an event was dispatched
+// that nothing listened to, and the sheet went on showing the original single
+// take: the button lit up and the page did not change. Generation is only half
+// the feature — the other half is becoming something the renderer accepts.
+print('');
+print('=== the work reaches the page ===');
+
+check('a work combines into one renderable piece', function(){
+  var w=generateWork(baseContext(), baseArc(), 137, { work:'lifeSuite' });
+  var piece=combineWorkIntoPiece(w);
+  assert(piece, 'a work produced no combined piece');
+  // Exactly what the sheet path consumes.
+  assert(piece.harmony && piece.harmony.chordSequence.length, 'no harmony');
+  assert(piece.melody && piece.melody.notes.length, 'no melody');
+  assert(piece.piano && piece.piano.leftHand.length, 'no texture');
+  assert(piece.context && piece.context.form, 'no form');
+  assert(piece.arc && piece.arc.bars>0, 'no arc');
+});
+
+check('nothing is lost in the combining', function(){
+  works.forEach(function(k){
+    var w=built[k];
+    var piece=combineWorkIntoPiece(w);
+    var srcNotes=w.movements.reduce(function(n,m){return n+(m.melody.notes||[]).length;},0);
+    var srcChords=w.movements.reduce(function(n,m){return n+(m.harmony.chordSequence||[]).length;},0);
+    var srcLh=w.movements.reduce(function(n,m){return n+(m.piano.leftHand||[]).length;},0);
+    assert(piece.melody.notes.length===srcNotes,
+      k+': '+srcNotes+' melody notes went in and '+piece.melody.notes.length+' came out');
+    assert(piece.harmony.chordSequence.length===srcChords, k+' lost chords');
+    assert(piece.piano.leftHand.length===srcLh, k+' lost left-hand events');
+  });
+});
+
+check('the movements are laid end to end, not on top of each other', function(){
+  works.forEach(function(k){
+    var w=built[k];
+    var piece=combineWorkIntoPiece(w);
+    // Every movement's bars must occupy their own stretch. If bars were not
+    // re-based, all four movements would start at bar 0 and play at once.
+    var expected=w.movements.reduce(function(n,m){return n+m.context.form.bars;},0);
+    assert(piece.arc.bars===expected,
+      k+': '+expected+' bars of movements became '+piece.arc.bars);
+    var maxBar=0;
+    piece.melody.notes.forEach(function(n){ if(n.bar>maxBar) maxBar=n.bar; });
+    assert(maxBar>=w.movements[0].context.form.bars,
+      k+': every note landed inside the first movement — the bars were never offset');
+    assert(maxBar<expected, k+': a note landed past the end of the work');
+  });
+});
+
+check('the page can say where each movement starts', function(){
+  var w=built.lifeSuite;
+  var piece=combineWorkIntoPiece(w);
+  var titles={};
+  piece.context.form.sections.forEach(function(s){ if(s.movementTitle) titles[s.movementTitle]=true; });
+  assert(Object.keys(titles).length===w.movements.length,
+    'only '+Object.keys(titles).length+' of '+w.movements.length+' movements are named on the page');
+  // And every bar belongs to a section, or the renderer has holes.
+  for(var b=0;b<piece.context.form.bars;b++){
+    assert(piece.context.form.sectionOfBar[b], 'bar '+b+' belongs to no section');
+  }
+});
+
+check('pressing apply again gives a different work', function(){
+  // The other half of the report: with the seed taken straight from the last
+  // generation, pressing Apply twice produced a byte-identical result, and
+  // "auto" suggested the same thing forever.
+  var a=generateWork(baseContext(), baseArc(), 500);
+  var b=generateWork(baseContext(), baseArc(), 500 + 104729);
+  var c=generateWork(baseContext(), baseArc(), 500 + 2*104729);
+  var sig=function(w){
+    return w.plan.workKey+'|'+w.movements.map(function(m){
+      return (m.melody.notes||[]).map(function(n){return n.noteName;}).join(',');
+    }).join('|');
+  };
+  var s1=sig(a), s2=sig(b), s3=sig(c);
+  assert(s1!==s2 || s2!==s3, 'three presses of Apply produced identical music every time');
+});
+
+check('resizing keeps the same work rather than re-rolling it', function(){
+  // The length buttons must not hand you a different piece — you would never
+  // find out what the one you were listening to sounds like longer.
+  var a=generateWork(baseContext(), baseArc(), 500, { work:'moonlight', lengthScale:1 });
+  var b=generateWork(baseContext(), baseArc(), 500, { work:'moonlight', lengthScale:1.8 });
+  assert(a.plan.workKey===b.plan.workKey, 'resizing changed the work');
+  assert(a.movements.length===b.movements.length, 'resizing changed the movement count');
+  var longer=b.movements.reduce(function(n,m){return n+m.context.form.bars;},0);
+  var natural=a.movements.reduce(function(n,m){return n+m.context.form.bars;},0);
+  assert(longer>natural, 'resizing did not lengthen the music ('+longer+' vs '+natural+')');
+});
+
+print('');
+print(failures? ('FAILURES: '+failures) : 'the movements are real, belong together, and reach the page');

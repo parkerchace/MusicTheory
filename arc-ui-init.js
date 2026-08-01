@@ -4502,6 +4502,112 @@ function generateWork(context, arc, seed, opts = {}) {
   }
 }
 
+/**
+ * Lay a work's movements end to end as one piece the sheet can render.
+ *
+ * Generating a work and dispatching an event that nothing listens to produces
+ * exactly nothing: the button lights up, a toast appears, and the page is
+ * unchanged. (Which is what shipped — the same fault as the texture engine's
+ * explanations being written and never delivered, made twice in one session.)
+ * The sheet is driven by `musicGenerated` carrying one piece, so a work has to
+ * BECOME one piece to reach it.
+ *
+ * Bars are the only thing that needs re-basing: every movement counts its own
+ * from zero, so each is offset by the total that came before it. The form
+ * sections carry the movement titles, which is what puts the movement
+ * boundaries on the page as rehearsal marks rather than leaving four movements
+ * looking like one long undifferentiated take.
+ *
+ * KNOWN LIMIT: the sheet draws ONE key signature, so a work whose movements sit
+ * in different keys shows the first movement's signature throughout. The notes
+ * are still spelled correctly — each movement's accidentals travel with its
+ * notes — so it sounds right and reads as heavily accidental rather than as
+ * modulating. Per-movement key signatures need `keyEvents` support in the
+ * renderer, which is its own piece of work.
+ */
+function combineWorkIntoPiece(work) {
+  if (!work || !Array.isArray(work.movements) || !work.movements.length) return null;
+
+  const beatsPerBar = (work.movements[0].arc && work.movements[0].arc.beatsPerBar) || 4;
+  const chordSequence = [];
+  const melodyNotes = [];
+  const leftHand = [];
+  const rightHand = [];
+  const trebleHarmony = [];
+  const sections = [];
+  const sectionOfBar = [];
+  const exceptions = [];
+
+  let barOffset = 0;
+  work.movements.forEach((mv) => {
+    const bars = (mv.context.form && mv.context.form.bars) || mv.arc.bars || 0;
+    const shift = (e) => ({ ...e, bar: (Number(e.bar) || 0) + barOffset });
+
+    ((mv.harmony && mv.harmony.chordSequence) || []).forEach(e => chordSequence.push(shift(e)));
+    ((mv.melody && mv.melody.notes) || []).forEach(n => melodyNotes.push(shift(n)));
+    ((mv.piano && mv.piano.leftHand) || []).forEach(e => leftHand.push(shift(e)));
+    ((mv.piano && mv.piano.rightHand) || []).forEach(e => rightHand.push(shift(e)));
+    ((mv.piano && mv.piano.trebleHarmony) || []).forEach(e => trebleHarmony.push(shift(e)));
+    ((mv.piano && mv.piano.exceptions) || []).forEach(x => exceptions.push({
+      ...x,
+      startBar: (Number(x.startBar) || 0) + barOffset,
+      endBar: (Number(x.endBar) || 0) + barOffset
+    }));
+
+    // The movement's own sections, re-based, with the movement named on the
+    // first of them so the page says where each movement starts.
+    const mvSections = (mv.context.form && mv.context.form.sections) || [];
+    mvSections.forEach((s, si) => {
+      const moved = {
+        ...s,
+        startBar: (Number(s.startBar) || 0) + barOffset,
+        endBar: (Number(s.endBar) || 0) + barOffset,
+        label: si === 0 ? `${mv.title} · ${s.label}` : s.label,
+        movementTitle: mv.title,
+        movementIndex: mv.index
+      };
+      sections.push(moved);
+      for (let b = moved.startBar; b <= moved.endBar; b++) sectionOfBar[b] = moved;
+    });
+
+    barOffset += bars;
+  });
+
+  const totalBars = barOffset;
+  const first = work.movements[0];
+
+  return {
+    harmony: { ...first.harmony, chordSequence },
+    melody: { ...first.melody, notes: melodyNotes },
+    piano: {
+      ...(first.piano || {}),
+      leftHand, rightHand, trebleHarmony, exceptions,
+      stats: { lhEvents: leftHand.length, rhEvents: rightHand.length,
+               trebleHarmonyEvents: trebleHarmony.length, collisionsFixed: 0 }
+    },
+    context: {
+      ...first.context,
+      form: {
+        ...(first.context.form || {}),
+        formKey: 'work:' + work.workKey,
+        name: work.name,
+        description: work.description,
+        bars: totalBars,
+        sections,
+        sectionOfBar,
+        summary: work.summary
+      }
+    },
+    arc: { ...first.arc, bars: totalBars, totalBeats: totalBars * beatsPerBar },
+    seed: first.seed,
+    isWork: true,
+    work,
+    traceId: `work-${Date.now().toString(36)}`,
+    timestamp: new Date().toISOString()
+  };
+}
+if (typeof window !== 'undefined') window.combineWorkIntoPiece = combineWorkIntoPiece;
+
 /** A note name to MIDI, for reading a theme's shape back off a melody. */
 function midiOfName(name) {
   const m = String(name || '').match(/^([A-Ga-g][#b]?)(-?\d+)$/);
