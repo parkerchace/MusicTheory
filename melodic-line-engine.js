@@ -77,12 +77,34 @@
     // when the rhythm slider is low, so "simple" really is simple.
     const NEEDS_SIXTEENTHS = /sixteen|dottedPair|scotchSnap|syncopation|eighthTwoSix|twoSixEighth/i;
 
+    /**
+     * THE FIRST DRAW HAS TO BE AS GOOD AS THE TENTH.
+     *
+     * This was a bare LCG seeded with `seed ^ K`, and an LCG's first output is a
+     * near-linear function of its state: consecutive seeds moved it by about
+     * 0.0004. That would be harmless if nothing important were decided early —
+     * but the CONTOUR is chosen on draws 1 and 2, and the contour is a
+     * whole-piece property. Measured over consecutive seeds 0–239 (which is what
+     * pressing Apply repeatedly actually produces), every single take came out
+     * `ascending`. Not a tendency: 240 of 240, the same shape every time, with
+     * the tone's suggestion winning the `rng() < 0.55` coin toss on every seed
+     * because the coin was barely moving.
+     *
+     * Same fault and same repair as `form-planner.js`, where it was starving the
+     * form catalogue. Avalanche the seed so nearby seeds start far apart, then
+     * let the state settle before anyone reads it.
+     */
     function makeRng(seed) {
-        let s = (seed ^ 0x9e3779b9) >>> 0;
-        return () => {
+        let s = ((Number(seed) || 0) ^ 0x9e3779b9) >>> 0;
+        s = Math.imul(s ^ (s >>> 15), 0x2c1b3c6d) >>> 0;
+        s = Math.imul(s ^ (s >>> 12), 0x297a2d39) >>> 0;
+        s = (s ^ (s >>> 15)) >>> 0;
+        const next = () => {
             s = (s * 1664525 + 1013904223) >>> 0;
             return s / 4294967296;
         };
+        next(); next(); next();
+        return next;
     }
 
     // --- Motion modes -------------------------------------------------------
@@ -961,6 +983,28 @@
             // half-stated is not a quotation, so the announcement continues
             // across spans until the shape is complete.
             let motifStated = !motifWasGiven;
+            // THE ANNOUNCEMENT, as absolute pitches rather than as a shape to be
+            // re-derived per span.
+            //
+            // The announcement used to run through the ordinary sequence
+            // machinery, which measures a shape from whatever pitch the current
+            // span happens to start on. That is why splitting it across spans
+            // was tried and abandoned: each span re-anchored, so the theme
+            // arrived in pieces that were individually right and collectively
+            // unrecognisable. But the movement's FIRST span is one or two notes
+            // of word-rhythm, so a four-note theme did not fit in it, and the
+            // "state it at the opening" branch could almost never fire —
+            // measured, the quotation was landing somewhere around bar five in
+            // six movements of eight and not at all in the other two, which is
+            // why it scored as a family resemblance.
+            //
+            // Deciding the absolute pitches ONCE removes the objection: a queue
+            // of specific notes can be paused at a span boundary and resumed
+            // without re-anchoring, because there is no shape left to measure —
+            // only the next pitch. So the announcement is line-level state, and
+            // it takes the first notes of the movement whatever the spans do.
+            let announcePitches = null;
+            let announceIdx = 0;
             // Decided once for the whole line, then reused — see the neighbour
             // figure in the connector.
             let chromaticNeighborChoice = null;
@@ -1437,6 +1481,80 @@
                     if (goalPool.length) goalMidi = this.nearest(goalPool, from.midi);
                 }
 
+                // A QUOTATION IS TRANSPOSED TO WHERE IT FITS, then stated exactly.
+                //
+                // The announcement was being placed like any other sequence:
+                // start from wherever the line had got to, add the theme's
+                // intervals, and snap each result to the nearest scale note.
+                // Two things go wrong with that, and together they are why the
+                // quotation measured as a family resemblance — a ten-point gap
+                // over an unrelated movement instead of a plain restatement.
+                //
+                //   The anchor was an accident. The theme's absolute pitch is
+                //   free; only its shape is fixed. Starting it wherever the
+                //   previous phrase happened to end decides the whole
+                //   transposition by coincidence, and a transposition that
+                //   lands the theme's notes between the scale's is one every
+                //   note then has to be dragged out of.
+                //
+                //   Snapping bends the shape. A note pulled to the nearest
+                //   scale degree changes the interval that IS the theme.
+                //
+                // So the announcement chooses its level: of the chord tones
+                // near where the line is, take the one from which EVERY note of
+                // the theme exists in the sounding scale, and then state the
+                // intervals exactly with no snapping at all. This is what a
+                // composer does when recalling a theme in a new key — put it
+                // where it fits, and then leave it alone.
+                //
+                // If no such level exists — the two scales share too little —
+                // the announcement is not forced. It falls back to the ordinary
+                // snapped sequence, because a theme mangled into the key is
+                // less of a quotation than a plain diatonic restatement of its
+                // shape, and inventing accidentals to force an exact statement
+                // would make the melody's chromaticism unaccountable, which is
+                // the one thing this engine does not do.
+                if (motifWasGiven && !motifStated && announcePitches === null && a === 0) {
+                    const evAt = from.ev || this.harmonyAt(harmony, spanStart, beatsPerBar);
+                    const cPool = this.chordMidis(evAt, LOW, HIGH);
+                    const scalePcsAt = homePool.map(m => ((m % 12) + 12) % 12);
+                    // Candidates are chord tones of the opening chord, so the
+                    // theme's first note is consonant where it lands — an
+                    // announcement that opens on a dissonance gets pulled off
+                    // its own first note before it has stated anything.
+                    const cands = (cPool.length ? cPool : homePool)
+                        .filter(m => m >= LOW && m <= HIGH && Math.abs(m - from.midi) <= 7);
+                    let best = null;
+                    for (const cand of cands) {
+                        const line = [cand];
+                        let p = cand, fits = true;
+                        for (const st of pitchMotif) {
+                            p += st;
+                            if (p < LOW || p > HIGH || !scalePcsAt.includes(((p % 12) + 12) % 12)) {
+                                fits = false;
+                                break;
+                            }
+                            line.push(p);
+                        }
+                        if (!fits) continue;
+                        // Among levels that fit, the one nearest where the line
+                        // would otherwise have started — the quotation should
+                        // not also be a leap out of the register.
+                        const d = Math.abs(cand - from.midi);
+                        if (!best || d < best.d) best = { line, d };
+                    }
+                    if (best) {
+                        announcePitches = best.line;
+                        motifStated = true;
+                    }
+                    // No level fits: the movement's key shares too little with
+                    // the theme's. The announcement is NOT forced — the ordinary
+                    // sequence machinery still restates the shape diatonically
+                    // further in, which is a weaker reference than a plain
+                    // statement but a better one than a theme mangled to fit, and
+                    // far better than inventing accidentals nothing accounts for.
+                }
+
                 for (let i = 0; i < count; i++) {
                     const dur = durations[i];
                     if (cursor >= spanEnd - 1e-6 || cursor >= totalBeats - 1e-6) break;
@@ -1484,7 +1602,27 @@
                     let midi;
                     let role = 'connect';
 
-                    if (isAnchor) {
+                    if (announcePitches && announceIdx < announcePitches.length) {
+                        // THE SUBJECT, before anything else gets a say.
+                        //
+                        // This runs ahead of the anchor branch on purpose. A
+                        // structural anchor is chosen end-first, from the cadence
+                        // its phrase is heading for, and that is the right way to
+                        // begin a phrase that is inventing itself. A movement
+                        // built on another movement's theme is not inventing
+                        // itself: its opening IS the theme, and every cyclic work
+                        // states the recalled subject plainly before doing
+                        // anything with it. So for as long as the announcement
+                        // lasts, the theme decides the pitch and the anchor
+                        // machinery waits — including across a span boundary,
+                        // which is what a queue of absolute pitches makes safe.
+                        midi = announcePitches[announceIdx];
+                        // The first note is still an anchor: it was chosen from
+                        // the opening chord's tones, and the line has to be able
+                        // to leave it the way it leaves any other anchor.
+                        role = announceIdx === 0 ? 'anchor' : 'quotation';
+                        announceIdx++;
+                    } else if (isAnchor) {
                         midi = from.midi;
                         role = 'anchor';
                         // Guard the seam between spans: the previous span's last
@@ -1790,6 +1928,17 @@
                     const roomToResolve = i < count - 1;
                     if (pendingResolution === null && chordChanged && strength >= 0.5
                         && roomToResolve
+                        // …and not over a quotation. This does not judge the
+                        // note, it REPLACES it with the previous pitch, so
+                        // exempting the announcement from the dissonance guard
+                        // downstream is not enough on its own: a suspension
+                        // invented here overwrites the third note of the theme
+                        // before that guard is ever reached, and the resolution
+                        // it owes then overwrites the fourth. Measured, that was
+                        // bending one announcement in eight after everything
+                        // else had been fixed — the same shape of fault as the
+                        // four ways a leading tone's resolution was overridden.
+                        && role !== 'quotation'
                         && Number.isFinite(prevMidi) && melodyC > 0.35
                         && !chordPool.includes(prevMidi)
                         // The held note must belong to the key. Holding a
@@ -1855,7 +2004,24 @@
                             role = 'resolution';
                         }
                         pendingResolution = null;
-                    } else if (chordPool.length && role !== 'suspension' && role !== 'leadingTone') {
+                    } else if (chordPool.length && role !== 'suspension' && role !== 'leadingTone'
+                               && role !== 'quotation') {
+                        // A QUOTATION is exempt on the same grounds and for the
+                        // same reason the exemption had to be written for the
+                        // Für Elise figure: this guard judges a note as a bare
+                        // vertical interval, and both of those notes are
+                        // justified by something horizontal. A theme recalled
+                        // from another movement is not a dissonance the line
+                        // wandered into — it is the subject, and it is why the
+                        // movement exists. Pulling its third note to the nearest
+                        // chord tone changes the interval that IS the theme, and
+                        // it was doing so on every strong beat the quotation
+                        // touched. The note is still diatonic: the level was
+                        // chosen above so that every note of the statement
+                        // exists in the sounding scale, so what this exemption
+                        // permits is a non-chord tone on a strong beat, not an
+                        // unaccountable accidental.
+                        //
                         // A leading tone is exempt for the same reason a
                         // suspension is: it is a PREPARED dissonance, not an
                         // unprepared one. The figure is root → the chord's
@@ -1894,7 +2060,7 @@
                         && Math.floor(beat / beatsPerBar) === sectionHere.endBar;
                     if (goalMidi !== null && pendingResolution === null
                         && role !== 'suspension' && role !== 'leadingTone'
-                        && role !== 'resolution'
+                        && role !== 'resolution' && role !== 'quotation'
                         && pendingNeighborReturn === null
                         && i === count - 1 && (atSectionEnd || !to)) {
                         const near = chordPool.filter(m => Math.abs(m - goalMidi) <= 2);
@@ -2047,7 +2213,19 @@
             // ---- Cadence: the line must arrive, not stop ----
             if (notes.length) {
                 const last = notes[notes.length - 1];
-                const finalEv = evs.filter(e => e && !e.approachStrategy).pop();
+                // THE CHORD THAT IS ACTUALLY SOUNDING UNDER THIS NOTE.
+                //
+                // This took the last non-approach event in the whole sequence,
+                // which is not the same thing: the line's final note need not
+                // land in the final bar, and where it does not, the cadence was
+                // landing it on a tone of a chord that had not arrived yet. The
+                // note then reads as foreign over the chord beneath it — which
+                // is how it turned up in the accidentals harness as an
+                // unexplained F over Dm7 and G over Em7, both roled `cadence`.
+                // Arriving is landing on the harmony that is sounding.
+                const lastBeat = (Number(last.bar) || 0) * beatsPerBar + (Number(last.beat) || 0);
+                const finalEv = this.harmonyAt(harmony, lastBeat, beatsPerBar)
+                    || evs.filter(e => e && !e.approachStrategy).pop();
                 const pool = this.chordMidis(finalEv, LOW, HIGH);
                 if (pool.length) {
                     const lastMidi = this.midiOf(last.noteName);
@@ -2056,9 +2234,37 @@
                     last.role = 'cadence';
                     last.cadence = true;
                     last.chordTone = true;
-                    last.chromatic = false;
                     last.articulation = 'tenuto';
                     last.accent = false;
+                    // …AND SAY WHY, because this pass moves a pitch.
+                    //
+                    // `chromatic = false` was asserted rather than computed, and
+                    // no reason was recorded at all, because this runs OUTSIDE
+                    // the note loop — after the commitment point where every
+                    // other note settles its justification. So the final note of
+                    // a piece could be moved out of the key by the cadence and
+                    // arrive on the page carrying "not chromatic" and no reason,
+                    // which is exactly the shape of fault the commitment check
+                    // was written to end: a door after the door.
+                    //
+                    // It is nearly always legitimate — the landing is chosen
+                    // from the final chord's own tones, so where it leaves the
+                    // key it does so because the harmony did. That is a reason,
+                    // and it has to be stated like every other one rather than
+                    // assumed. Measured, three finals in ~9,700 notes reached
+                    // the page unexplained, and the harness had been reporting
+                    // them for a run without failing.
+                    const landPc = ((landing % 12) + 12) % 12;
+                    const finalScalePcs = (finalEv && Array.isArray(finalEv.scaleHintNotes)
+                        && finalEv.scaleHintNotes.length)
+                        ? this.scaleMidis(finalEv.scaleHintNotes, LOW, HIGH)
+                            .map(m => ((m % 12) + 12) % 12)
+                        : this.scaleMidis(scaleNotes, LOW, HIGH)
+                            .map(m => ((m % 12) + 12) % 12);
+                    last.chromatic = !finalScalePcs.includes(landPc);
+                    last.chromaticReason = last.chromatic
+                        ? `chord tone of ${(finalEv && finalEv.chord) || 'the final chord'}`
+                        : null;
                     // Broaden the arrival — but only into room the bar actually
                     // has. Doubling it blind was the single source of every note
                     // that ran past a bar line: always the last note, always in

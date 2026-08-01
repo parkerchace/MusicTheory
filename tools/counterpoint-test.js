@@ -212,3 +212,9 @@ want('the left hand crosses the tune somewhere', takesWithCrossing/takes*100, '>
 want('parallel 5ths/8ves with the tune stay rare', parallelPerfect/motionPairs*100, '<=', 7.0, '7.3%');
 print('');
 print(failures? ('FAILURES: '+failures) : 'the two hands answer each other');
+// A HARNESS THAT CANNOT GO RED IS NOT A HARNESS.
+// This printed its verdict and exited 0, so every runner that checks exit
+// status reported it as passing whatever it had just found. Discovered when
+// `accidentals-test.js` sat at 'FAILURES: 1' for a whole run without anyone
+// noticing, and true of six of the fifteen harnesses at the time.
+if (failures) throw new Error('counterpoint-test: '+failures+' failure(s)');

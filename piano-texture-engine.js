@@ -342,6 +342,126 @@
     }
 
     /**
+     * THE COUNTERLINE — a second voice with its own rhythm.
+     *
+     * The descant is a note above each note of the tune. That is HARMONIZATION:
+     * one rhythm, two pitches, and the ear hears a thickened melody rather than
+     * two voices, because two things that move together are one thing. Every
+     * device in this engine so far shares the melody's rhythm or the chord's,
+     * which is why the texture kept coming out as a tune with an accompaniment
+     * however good both were.
+     *
+     * What makes two parts two parts is COMPLEMENTARY RHYTHM: one moves while
+     * the other holds. So this voice is defined by where the tune is NOT — it
+     * enters inside a held melody note, moves while that note sustains, and
+     * stops when the tune moves again. It has no notes of its own anywhere the
+     * melody is busy, and that absence is the device. Bach's chorale writing,
+     * the Pachelbel upper voices and every countersubject ever written work the
+     * same way round.
+     *
+     * Three rules, and each of them is a refusal rather than an adjustment:
+     *
+     *   IT WAITS. The window starts a beat after the melody's attack, not on
+     *   it. A second voice entering with the tune is heard as part of the same
+     *   attack — a chord, not an answer. The tune has to be heard arriving
+     *   before anything can move against it.
+     *
+     *   IT STAYS INSIDE THE HARMONY. Every note is a chord tone of the chord
+     *   sounding under it, at least a third above the held melody note and
+     *   never doubling its pitch class. Above the tune is the loudest place in
+     *   the texture; the descant was rewritten for exactly this reason.
+     *
+     *   IT DECLINES. Where a window has no home for the voice — no chord tone
+     *   in the register above the tune — nothing is written, and where the walk
+     *   would produce one repeated pitch it is thrown away. A repeated note is
+     *   not a line, and a second voice that has to be nudged into existence is
+     *   an accompaniment.
+     *
+     * `step` is decided once per section rather than per window, so the voice
+     * has a rhythmic identity to recognise instead of a fresh guess each time.
+     */
+    function counterLine({ melodyEvents, chordPcsAt, beatsPerBar, fromBeat, toBeat, step, rng }) {
+        const out = [];
+        if (!melodyEvents.length) return out;
+
+        // A HOLD is where the tune stops moving without stopping. Anything
+        // shorter than a beat and a half is the melody's own rhythm, and a
+        // voice entering inside it competes rather than answers.
+        const holds = melodyEvents
+            .filter(e => e.start >= fromBeat - 1e-6 && e.start < toBeat - 1e-6
+                      && (e.end - e.start) >= 1.5 - 1e-6)
+            .sort((a, b) => a.start - b.start);
+        if (!holds.length) return out;
+
+        let dir = rng() < 0.5 ? 1 : -1;
+
+        for (const hold of holds) {
+            const start = hold.start + 1;                 // …it waits
+            const end = Math.min(hold.end, toBeat);
+            const room = end - start;
+            if (room < step * 2 - 1e-6) continue;
+
+            const count = Math.min(6, Math.floor(room / step + 1e-6));
+            if (count < 2) continue;
+
+            const floorM = hold.midi + 3;                 // a third clear of the tune
+            const ceilM = Math.min(hold.midi + 12, RH_HIGH);
+            const melPc = ((hold.midi % 12) + 12) % 12;
+
+            const optionsAt = (b) => {
+                const pcs = chordPcsAt(b);
+                const opts = [];
+                if (!pcs.length) return opts;
+                for (let m = floorM; m <= ceilM; m++) {
+                    const pc = ((m % 12) + 12) % 12;
+                    if (pc === melPc) continue;           // doubling is not a second voice
+                    if (pcs.indexOf(pc) >= 0) opts.push(m);
+                }
+                return opts;
+            };
+
+            const line = [];
+            let cur = null;
+            let abandoned = false;
+            for (let k = 0; k < count; k++) {
+                const b = start + k * step;
+                const opts = optionsAt(b);
+                if (!opts.length) { abandoned = true; break; }
+                if (cur === null) {
+                    cur = dir > 0 ? opts[0] : opts[opts.length - 1];
+                } else {
+                    // Commit to a direction, exactly as a scale run does, and
+                    // turn round only on running out of room. A voice that
+                    // re-decides at every note reads as indecision, which is the
+                    // same lesson the Minuet's opening sweep taught the melody.
+                    const ahead = opts.filter(m => (m - cur) * dir > 0);
+                    if (ahead.length) {
+                        cur = dir > 0 ? Math.min(...ahead) : Math.max(...ahead);
+                    } else {
+                        dir = -dir;
+                        const back = opts.filter(m => (m - cur) * dir > 0);
+                        if (back.length) cur = dir > 0 ? Math.min(...back) : Math.max(...back);
+                    }
+                }
+                line.push({ beat: b, duration: step, midi: cur });
+            }
+            if (abandoned || line.length < 2) continue;
+            if (line.every(x => x.midi === line[0].midi)) continue;   // not a line
+
+            // Arrive rather than stop: the last note takes whatever is left of
+            // the hold, so the voice runs out exactly where the tune moves again
+            // and the two hand over instead of overlapping.
+            const last = line[line.length - 1];
+            const leftover = end - (last.beat + last.duration);
+            if (leftover > 1e-6) last.duration += Math.min(leftover, step * 2);
+
+            out.push(...line);
+            dir = -dir;              // the next hold answers the last one
+        }
+        return out;
+    }
+
+    /**
      * THE CROSSING — the left hand goes over the top, once.
      *
      * This device already had an explanation ("scalar octaves cross above the
@@ -554,12 +674,27 @@
         return out;
     }
 
+    /**
+     * See the note on `makeRng` in `melodic-line-engine.js` — same generator,
+     * same fault, same repair. Here the early draw decides the COMMITTED FIGURE:
+     * whether this take is one of the minority that states a single
+     * accompaniment figure and never changes it. That is the Bach-prelude
+     * device, and the whole identity of the piece hangs on one number drawn
+     * first. Over consecutive seeds it changed on 0.4% of neighbouring pairs
+     * against the 11.7% an independent draw would give, and held one answer for
+     * 225 seeds in a row: press Apply, hear the same texture.
+     */
     function makeRng(seed) {
         let s = ((Number(seed) || 0) ^ 0x5bf03635) >>> 0;
-        return () => {
+        s = Math.imul(s ^ (s >>> 15), 0x2c1b3c6d) >>> 0;
+        s = Math.imul(s ^ (s >>> 12), 0x297a2d39) >>> 0;
+        s = (s ^ (s >>> 15)) >>> 0;
+        const next = () => {
             s = (s * 1664525 + 1013904223) >>> 0;
             return s / 4294967296;
         };
+        next(); next(); next();
+        return next;
     }
 
     /**
@@ -1325,7 +1460,8 @@
                 // descant it did not have the first time is not a return — it
                 // is a third idea that happens to share a tune.
                 if (remembered) {
-                    ['lead', 'rhExtra', 'lhCrossover', 'bassMelody', 'coveredMelody'].forEach((k) => {
+                    ['lead', 'rhExtra', 'lhCrossover', 'bassMelody', 'coveredMelody',
+                     'counterStep'].forEach((k) => {
                         if (remembered.extras && remembered.extras[k] !== undefined) {
                             sections[s.label][k] = remembered.extras[k];
                         }
@@ -1358,16 +1494,29 @@
                             + 'hand holds sustained chords above it — the choral and cello-section texture. '
                             + 'The tune is the lowest moving voice rather than the highest.'
                     });
-                } else if (roll >= 0.42 && roll < 0.52 && activity > 0.42) {
+                } else if (roll >= 0.42 && roll < 0.52 && activity > 0.34) {
                     // A crossing wants a section with forward motion, which is
                     // what this threshold is for. It used to read 0.55, and
                     // section activity has a median of 0.34 and a p90 of 0.52 —
                     // so the gate sat ABOVE the range of the thing it tested and
                     // opened for 6.8% of an already-10% roll band. Combined with
                     // the device having no implementation at all, the crossover
-                    // was doubly absent. 0.42 is around the 70th percentile:
-                    // "one of the livelier sections", which is the actual
-                    // musical condition, rather than "the top of the range".
+                    // was doubly absent.
+                    //
+                    // 0.42 — the 70th percentile — fixed the absence but left
+                    // the device on the edge of it. This is the ONLY exception
+                    // carrying a second condition on top of its roll band, so
+                    // where the others fire on their full 10%, the crossing
+                    // fired on a tenth of a third of it. Measured, that was 14
+                    // takes in 240 against a harness floor of 12, and a small
+                    // shift in the seeding took it to 10 — a device rare enough
+                    // that ordinary variation decides whether it exists.
+                    //
+                    // The median is the honest reading of the musical condition
+                    // anyway: the crossing is a burst of movement, and what it
+                    // needs is a section with MORE forward motion than the
+                    // average one, not one of the few liveliest in the piece.
+                    // → 19 takes in 240, with room above the floor.
                     sections[s.label].lhCrossover = true;
                     exceptions.push({
                         section: s.label, type: 'crossover', startBar: s.startBar, endBar: s.endBar,
@@ -1404,6 +1553,31 @@
                             + 'position in the texture is, which is why it reads as the same idea heard from '
                             + 'underneath.'
                     });
+                } else if (i > 0 && roll >= 0.72 && roll < 0.84) {
+                    // THE COUNTERLINE. See `counterLine` above for what it is
+                    // and why it is not the descant.
+                    //
+                    // No activity gate, deliberately. The crossing carries one
+                    // and that is what made it marginal enough for ordinary
+                    // variation to decide whether it existed. This device gates
+                    // itself on something real instead: it can only write notes
+                    // where the tune actually holds, so a section whose melody
+                    // never stops moving simply gets nothing, and that is the
+                    // correct answer rather than a missed one.
+                    //
+                    // Never the first section, for the same reason the covered
+                    // melody is not: a second voice against the tune only reads
+                    // as a second voice once there is a tune to be against.
+                    sections[s.label].rhExtra = 'counterline';
+                    // Its rhythm, chosen once for the section so the voice has an
+                    // identity rather than a fresh guess at every entry.
+                    sections[s.label].counterStep = rng() < 0.55 ? 0.5 : 1;
+                    exceptions.push({
+                        section: s.label, type: 'counterline', startBar: s.startBar, endBar: s.endBar,
+                        explain: 'Countermelody: a second voice moves above the tune wherever the tune is '
+                            + 'holding, and rests wherever it moves. It is not a harmony line — it has its '
+                            + 'own rhythm, and the two parts take turns.'
+                    });
                 }
 
                 // Remember how this letter was treated, so its return can
@@ -1412,7 +1586,11 @@
                     const cfg = sections[s.label];
                     textureByLetter[s.letter].extras = {
                         lead: cfg.lead, rhExtra: cfg.rhExtra, lhCrossover: cfg.lhCrossover,
-                        bassMelody: cfg.bassMelody, coveredMelody: cfg.coveredMelody
+                        bassMelody: cfg.bassMelody, coveredMelody: cfg.coveredMelody,
+                        // The counterline's rhythm travels with it: a return
+                        // that brings the voice back at a different speed is a
+                        // different voice.
+                        counterStep: cfg.counterStep
                     };
                 }
             });
@@ -1819,6 +1997,44 @@
                 }
             });
 
+            // --- The counterline ------------------------------------------------
+            // A whole-section pass rather than a per-note one, because the voice
+            // is defined by where the melody ISN'T: it has to see the tune's
+            // shape over the section to know where the holds are. The descant is
+            // written inside the melody loop above precisely because it is not
+            // an independent voice — it has one note per melody note and can be.
+            let counterlineNotes = 0;
+            sectionList.forEach((s) => {
+                const cfg = sections[s.label];
+                if (!cfg || cfg.rhExtra !== 'counterline') return;
+                const from = (Number(s.startBar) || 0) * beatsPerBar;
+                const lastBar = Number.isFinite(s.endBar) ? s.endBar : (Number(s.startBar) || 0);
+                const to = (lastBar + 1) * beatsPerBar;
+                const line = counterLine({
+                    melodyEvents, chordPcsAt, beatsPerBar,
+                    fromBeat: from, toBeat: to,
+                    step: Number(cfg.counterStep) || 0.5,
+                    rng
+                });
+                line.forEach((c) => {
+                    counterlineNotes++;
+                    rightHand.push({
+                        bar: Math.floor(c.beat / beatsPerBar),
+                        beat: c.beat % beatsPerBar,
+                        duration: c.duration,
+                        noteName: this.nameOf(c.midi, preferFlat),
+                        midi: c.midi,
+                        hand: 'right',
+                        voice: 'counterline',
+                        section: s.label,
+                        syllable: null,
+                        word: null,
+                        articulation: null,
+                        accent: false
+                    });
+                });
+            });
+
             // --- Hand separation ----------------------------------------------
             // The left hand must not collide with the right. Crossovers are the
             // exception and are left alone, because they are the point — and so
@@ -1947,6 +2163,10 @@
 
             leftHand.sort((a, b) => (a.bar - b.bar) || (a.beat - b.beat));
             trebleHarmony.sort((a, b) => (a.bar - b.bar) || (a.beat - b.beat));
+            // The counterline is written after the melody, so the right hand
+            // arrives out of order otherwise — and the renderer, playback and
+            // MIDI export all read this list in the order it is given.
+            rightHand.sort((a, b) => (a.bar - b.bar) || (a.beat - b.beat));
 
             return {
                 mode: keepVoicing ? 'piano-voicing' : 'piano',
@@ -1960,7 +2180,8 @@
                     collisionsFixed: collisions,
                     lhEvents: leftHand.length,
                     rhEvents: rightHand.length,
-                    trebleHarmonyEvents: trebleHarmony.length
+                    trebleHarmonyEvents: trebleHarmony.length,
+                    counterlineNotes
                 }
             };
         }

@@ -213,3 +213,9 @@ print('');
 var bad=cover.foreign+cover.notClear+cover.tooFar+cover.doubling+desc.foreign+desc.doubling+desc.tooFar+melodyMoved;
 print(bad===0?'PASS — every added voice is a chord tone, clear of the tune, and the tune is untouched.'
              :'FAIL — '+bad+' violations.');
+// A HARNESS THAT CANNOT GO RED IS NOT A HARNESS.
+// This printed its verdict and exited 0, so every runner that checks exit
+// status reported it as passing whatever it had just found. Discovered when
+// `accidentals-test.js` sat at 'FAILURES: 1' for a whole run without anyone
+// noticing, and true of six of the fifteen harnesses at the time.
+if (bad) throw new Error('covered-melody-test: '+bad+' violation(s)');

@@ -68,14 +68,21 @@ notes.forEach(function(n){ print('  tick '+String(n.tick).padStart(4)+'  ch'+n.c
 
 var chOf={}; notes.forEach(function(n){ chOf[n.name]=n.ch; });
 print('');
-print('melody F4/E4 on channel 0: '+(chOf['F4']===0&&chOf['E4']===0));
-print('harmony D3/A3/F3 on channel 1: '+(chOf['D3']===1&&chOf['A3']===1&&chOf['F3']===1));
+// A HARNESS THAT CANNOT GO RED IS NOT A HARNESS.
+// Every claim below was printed as 'true' or 'false' and the process exited 0
+// either way, so a runner checking exit status reported a broken MIDI export as
+// passing. `want` states the same claims to the process as well as the reader.
+var failures=0;
+function want(name, ok){ print((ok?'  OK   ':'  FAIL ')+name); if(!ok) failures++; }
 // channel 0 is falsy — test membership, not truthiness
 var has=function(n){ return Object.prototype.hasOwnProperty.call(chOf,n); };
-print('contains the RENDERED notes: '+(has('D3')&&has('F4')&&has('A3')&&has('F3')&&has('E4')));
-print('does NOT contain the phrase stub (C5 melody / C-E-G chord): '+
-  (!has('C5')&&!has('C4')&&!has('G3')));
-print('repeated A3 kept both attacks: '+(notes.filter(function(n){return n.name==='A3';}).length===2));
+want('melody F4/E4 on channel 0', chOf['F4']===0&&chOf['E4']===0);
+want('harmony D3/A3/F3 on channel 1', chOf['D3']===1&&chOf['A3']===1&&chOf['F3']===1);
+want('contains the RENDERED notes', has('D3')&&has('F4')&&has('A3')&&has('F3')&&has('E4'));
+want('does NOT contain the phrase stub (C5 melody / C-E-G chord)',
+  !has('C5')&&!has('C4')&&!has('G3'));
+want('repeated A3 kept both attacks',
+  notes.filter(function(n){return n.name==='A3';}).length===2);
 
 print('');
 print('=== fallback when nothing has been rendered yet ===');
@@ -87,5 +94,10 @@ g2.state.musicalPhrase={ timeSignature:'4/4', beatsPerBar:4, beatUnit:4,
     chordObj:{root:'C',chordType:'maj',chordNotes:['C','E','G'],diatonicNotes:['C3','E3','G3']},melody:'C5'}]}] };
 try {
   var b2=g2.buildMidiFile({tempo:100});
-  print('  still exports: '+(b2.length>20)+'  ('+b2.length+' bytes)');
-} catch(e){ print('  FAILED: '+e); }
+  print('  ('+b2.length+' bytes)');
+  want('still exports from the phrase when nothing has been rendered', b2.length>20);
+} catch(e){ want('still exports from the phrase when nothing has been rendered — threw: '+e, false); }
+
+print('');
+print(failures? ('FAILURES: '+failures) : 'the export is what the sheet is showing');
+if (failures) throw new Error('midi-export-test: '+failures+' failure(s)');

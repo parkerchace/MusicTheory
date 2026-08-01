@@ -85,7 +85,7 @@ var leadingTones=0, leadingResolved=0;
 var examples=[];
 
 KEYS.forEach(function(K){
-  for(var s=0;s<30;s++){
+  for(var s=0;s<90;s++){
     var r;
     try{ r=build(K[0],K[1],s*43+7, s%2?0.65:0.35); }catch(e){ continue; }
     var scalePcs=(r.c.harmonicProfile.scaleNotes||[]).map(pcOf);
@@ -165,21 +165,37 @@ function want(name, ok, detail){
   else { failures++; print('  FAIL '+name+(detail?' — '+detail:'')); }
 }
 want('no accidental is unexplained', unexplainedCount===0, unexplainedCount+' unexplained');
-// 97%, not 100%, and stated as such rather than rounded up.
+// 100%, and the sample was TRIPLED before saying so.
 //
 // Four separate things were overriding the obligation and each was found and
 // fixed: the goal approach overwriting the resolution, a downward suspension
 // resolution satisfying the upward debt, the figure being created on a span's
 // last note with nothing left to resolve it, and the resolution pitch being
-// pulled off the root downstream. What remains is a single note in ~8,800 —
-// a leading tone whose resolution is displaced by machinery that has not been
-// traced yet. Asserting 100% here would mean deleting the device the moment it
-// gets rare rather than fixing it; asserting 95% keeps the guarantee load-
-// bearing while saying plainly that it is not absolute.
+// pulled off the root downstream. One note in ~8,800 was still displaced by
+// machinery that had not been traced, so this asserted 95% rather than pretend
+// otherwise.
+//
+// It no longer reproduces — and the honest account is that it was not traced.
+// It stopped appearing after the melody engine's seeding was repaired, which
+// redistributed every decision downstream of it. That is a reason to distrust
+// the disappearance, not to celebrate it, so the sample here went from 30 seeds
+// per mode to 90: 65 of 65 leading tones resolve across ~29,000 notes, where
+// the failing sample was one in 33 across ~9,700. At 100% a single regression
+// now fails this outright, which is the point of raising it; if it comes back,
+// it comes back visibly rather than inside a tolerance.
 want('leading tones resolve up into their root',
-     leadingTones===0 || (leadingResolved/leadingTones) >= 0.95,
+     leadingTones===0 || (leadingResolved/leadingTones) >= 1,
      leadingResolved+'/'+leadingTones);
 want('accidentals stay a colour, not a habit', (outOfScale/total) <= 0.05,
      pct(outOfScale,total)+' of notes');
 print('');
 print(failures? ('FAILURES: '+failures) : 'every accidental names the relationship it comes from');
+// …and SAY SO to the process, not only to the reader.
+//
+// This printed 'FAILURES: 1' and exited 0, so any runner that checks exit
+// status — which is every runner — reported it as passing while it was telling
+// anyone who read the output that an accidental was unexplained. A check that
+// cannot go red is not a check, and this one had gone red without being
+// noticed. Found while tracing the last unresolved leading tone, which is
+// itself asserted here.
+if (failures) throw new Error('accidentals-test: '+failures+' failure(s)');

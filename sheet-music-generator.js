@@ -6740,8 +6740,64 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 			accentByBeat.set(beatIndex, true);
 		}
 	});
+	// THE RIGHT HAND'S OTHER VOICES — the descant and the counterline.
+	//
+	// BUILT AND NEVER DELIVERED, again. The piano engine has written a descant
+	// for a long time; the covered-melody harness checks every one of its notes
+	// against the chord over it; the explanation says out loud that "the melody
+	// is no longer the top voice, and that is the point". And `piano.rightHand`
+	// was read by nothing in the whole app except the code that concatenates the
+	// movements of a work. The bars carry `leftHand` and `trebleHarmony`; there
+	// was no path at all for a second treble voice, so the descant has never
+	// been drawn, played or exported. It was correct, tested, explained, and
+	// silent.
+	//
+	// This is the third time the same fault has been found — the texture
+	// engine's exceptions were written and never read, and Expand generated a
+	// work and left the sheet showing the old take. Building the thing and
+	// announcing the thing are not the same as delivering it.
+	//
+	// A treble slot already holds several notes (a sixteenth group lands in
+	// one), and `_drawMelodySequence` draws each of them, so a second voice
+	// needs no new machinery — it needs to be put in the list.
+	let extraVoiceNotes = 0;
+	const rhVoices = (detail.piano && Array.isArray(detail.piano.rightHand))
+		? detail.piano.rightHand : [];
+	rhVoices.forEach((ev) => {
+		if (!ev || ev.voice === 'melody') return;          // the tune is mapped above
+		const name = String(ev.noteName || '').trim();
+		if (!name) return;
+		const abs = toAbsoluteBeat(ev);
+		if (!Number.isFinite(abs)) return;
+		const lastSlot = Math.max(0, (barCount * beatsPerBar) - 0.5);
+		const beatIndex = Math.min(lastSlot, Math.max(0, Math.floor(abs * 2) / 2));
+		const seq = melodySequenceByBeat.get(beatIndex) || [];
+		// Don't state the same pitch twice in one slot: the descant is written
+		// per melody note and can coincide with a note the tune already put here.
+		if (seq.some(n => n.noteName === name && Math.abs((Number(n.absBeat) || 0) - abs) < 1e-6)) return;
+		extraVoiceNotes++;
+		seq.push({
+			noteName: name,
+			duration: durationBeatsToName(ev.duration, defaultBeatDuration),
+			syllable: null,
+			articulation: ev.articulation || null,
+			accent: !!ev.accent,
+			slurStart: false, slurEnd: false, slurred: false,
+			figure: null,
+			// The voice travels with the note so the renderer, playback and the
+			// instrument follow can all tell the tune from what is written
+			// against it.
+			role: ev.voice || 'inner',
+			voice: ev.voice || 'inner',
+			absBeat: abs
+		});
+		seq.sort((p, q) => (Number(p.absBeat) || 0) - (Number(q.absBeat) || 0));
+		melodySequenceByBeat.set(beatIndex, seq);
+	});
+
 	pushSheetTrace(traceId, 'buildPhrase.melodyGridMapped', {
 		mappedMelodyBeats: melodySequenceByBeat.size,
+		extraVoiceNotes,
 		mappedAccentBeats: accentByBeat.size
 	});
 

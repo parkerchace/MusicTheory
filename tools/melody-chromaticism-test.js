@@ -46,7 +46,22 @@ for(var s=0;s<25;s++){
       okChord=t.indexOf(pc)>=0;
     }
     if(ev&&ev.scaleHintNotes) okHint=ev.scaleHintNotes.map(pcOf).indexOf(pc)>=0;
-    if(okChord||okHint) justified++;
+    // THE SECOND DOOR: the chord's own LEADING TONE.
+    //
+    // This section knew only one of the two relationships that license a note
+    // outside the scale, so it reported the Fur Elise figure itself as an
+    // accident — 'G#4 over A7 role=leadingTone', which is precisely the
+    // semitone under that chord's root leaning up into it. A metric that calls
+    // the device it exists to protect a fault is measuring the wrong thing, and
+    // it had been printing that count with nothing reading it.
+    // `accidentals-test.js` has always known both doors and also checks the
+    // resolution; this only has to stop contradicting it.
+    var okLeading=false;
+    if(!okChord&&!okHint&&ev&&ev.chordObj){
+      var rootPc=pcOf(ev.chordObj.root||(ev.chordObj.chordNotes||[])[0]);
+      if(rootPc!==null) okLeading=(pc===((rootPc-1)%12+12)%12);
+    }
+    if(okChord||okHint||okLeading) justified++;
     else {
       var k=n.noteName+' over '+(ev?ev.chord:'?')+'  role='+(n.role||'?');
       unjustified[k]=(unjustified[k]||0)+1;
@@ -59,6 +74,7 @@ print('  melody notes: '+total);
 print('  out of scale: '+out+' ('+(out/total*100).toFixed(1)+'%)');
 print('  ...of those, justified by the sounding chord or a scale hint: '+justified);
 print('  ...UNJUSTIFIED: '+(out-justified));
+var FIRST_UNJUSTIFIED=out-justified;
 print('  unjustified by role: '+JSON.stringify(roleOf));
 print('  top offenders:');
 Object.keys(unjustified).sort(function(a,b){return unjustified[b]-unjustified[a];}).slice(0,10)
@@ -67,6 +83,7 @@ Object.keys(unjustified).sort(function(a,b){return unjustified[b]-unjustified[a]
 
 print('');
 print('=== across keys/modes, and is the chromatic NEIGHBOUR still alive? ===');
+var UNJUSTIFIED_TOTAL=0;
 [['D','dorian'],['C','major'],['A','aeolian'],['G','major'],['F','lydian'],['E','phrygian']].forEach(function(cfg){
   var tot=0,o=0,unj=0,neighbors=0,resolved=0;
   for(var s=0;s<15;s++){
@@ -105,7 +122,19 @@ print('=== across keys/modes, and is the chromatic NEIGHBOUR still alive? ===');
       if(!ok) unj++;
     });
   }
+  UNJUSTIFIED_TOTAL+=unj;
   print('  '+(cfg[0]+' '+cfg[1]).padEnd(12)+' notes='+tot+'  outOfScale='+(o/tot*100).toFixed(1)+'%'
     +'  UNJUSTIFIED='+unj
     +'  chromatic neighbours='+neighbors+' (resolved immediately: '+resolved+')');
 });
+
+// A HARNESS THAT CANNOT GO RED IS NOT A HARNESS.
+// This printed 'UNJUSTIFIED=n' per mode and exited 0 regardless, so a runner
+// checking exit status called it passing whatever n was. The whole claim of
+// this file is that n is zero, and it was not stated to anything but a reader.
+print('');
+print((UNJUSTIFIED_TOTAL+FIRST_UNJUSTIFIED)===0
+  ? 'every accidental belongs to the chord, the sounding scale, or is the chord\'s leading tone'
+  : 'FAIL — '+(UNJUSTIFIED_TOTAL+FIRST_UNJUSTIFIED)+' unjustified');
+if (UNJUSTIFIED_TOTAL+FIRST_UNJUSTIFIED) throw new Error('melody-chromaticism-test: '
+  +(UNJUSTIFIED_TOTAL+FIRST_UNJUSTIFIED)+' unjustified accidental(s)');

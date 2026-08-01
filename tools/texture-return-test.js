@@ -235,3 +235,9 @@ want('...while staying the same figure', sameFigureThroughout/groups*100, 99, '2
 want('escalating statements gain weight underneath', escBars? escBarsDoubled/escBars*100 : 100, 40, 'never');
 print('');
 print(failures? ('FAILURES: '+failures) : 'the texture returns, and it grows');
+// A HARNESS THAT CANNOT GO RED IS NOT A HARNESS.
+// This printed its verdict and exited 0, so every runner that checks exit
+// status reported it as passing whatever it had just found. Discovered when
+// `accidentals-test.js` sat at 'FAILURES: 1' for a whole run without anyone
+// noticing, and true of six of the fifteen harnesses at the time.
+if (failures) throw new Error('texture-return-test: '+failures+' failure(s)');

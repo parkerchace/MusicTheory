@@ -186,3 +186,9 @@ totalBad+=nameBad;
 print('');
 print(totalBad===0?'PASS — every bar adds up, in every metre, and every value lasts what it says.'
                   :'FAIL — '+totalBad+' problems.');
+// A HARNESS THAT CANNOT GO RED IS NOT A HARNESS.
+// This printed its verdict and exited 0, so every runner that checks exit
+// status reported it as passing whatever it had just found. Discovered when
+// `accidentals-test.js` sat at 'FAILURES: 1' for a whole run without anyone
+// noticing, and true of six of the fifteen harnesses at the time.
+if (totalBad) throw new Error('rhythm-meter-test: '+totalBad+' problem(s)');
