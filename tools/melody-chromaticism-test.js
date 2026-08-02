@@ -119,6 +119,16 @@ var UNJUSTIFIED_TOTAL=0;
       var ok=false;
       if(ev&&ev.chordObj) ok=(ev.chordObj.chordNotes||ev.chordObj.diatonicNotes||[]).map(pcOf).indexOf(pc)>=0;
       if(!ok&&ev&&ev.scaleHintNotes) ok=ev.scaleHintNotes.map(pcOf).indexOf(pc)>=0;
+      // THE SECOND DOOR AGAIN — the chord's own leading tone. Taught to the
+      // section above and not to this one, so this half went on contradicting
+      // the engine's rule and reported the Fur Elise figure as an accident the
+      // moment the metric work made leading tones more common. Fixing one of
+      // two copies of a rule is the same as fixing neither; there is one rule
+      // and `accidentals-test.js` is where it is stated in full.
+      if(!ok&&ev&&ev.chordObj){
+        var rp=pcOf(ev.chordObj.root||(ev.chordObj.chordNotes||[])[0]);
+        if(rp!==null) ok=(pc===((rp-1)%12+12)%12);
+      }
       if(!ok) unj++;
     });
   }

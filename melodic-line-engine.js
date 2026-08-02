@@ -188,7 +188,7 @@
      * metres (6/8, 12/8) group in threes, so their strong points are the heads
      * of each group.
      */
-    function metricStrength(beatInBar, beatsPerBar) {
+    function metricStrength(beatInBar, beatsPerBar, barInPhrase) {
         const eps = 1e-6;
         const onBeat = Math.abs(beatInBar - Math.round(beatInBar)) < eps;
         if (!onBeat) {
@@ -197,13 +197,26 @@
             return Math.abs(frac - 0.5) < eps ? 0.2 : 0.1;
         }
         const b = Math.round(beatInBar);
-        if (b === 0) return 1.0;                                  // downbeat
-        if (beatsPerBar % 3 === 0 && beatsPerBar > 3) {
-            return (b % 3 === 0) ? 0.7 : 0.35;                    // compound groupings
+        if (b === 0) {
+            // THE LEVEL ABOVE THE BAR LINE. Nothing in this engine had ever
+            // looked higher than a bar, so every downbeat in a piece was the
+            // same weight and the top of the hierarchy — the one a listener
+            // tracks most strongly — did not exist. Counted from the start of
+            // the PHRASE rather than from bar zero, because a new phrase
+            // restarts the count: that is how the grouping is actually heard,
+            // and a section beginning on an odd bar would otherwise have its
+            // hypermeter inverted for its whole length.
+            const h = Number.isFinite(barInPhrase) ? ((barInPhrase % 4) + 4) % 4 : 0;
+            if (h === 0) return 1.0;                              // the hyperdownbeat
+            if (h === 2) return 0.85;                             // the half of the group
+            return 0.72;                                          // bars 2 and 4 of it
         }
-        if (beatsPerBar === 4 && b === 2) return 0.7;             // the other strong beat
-        if (beatsPerBar === 6 && b === 3) return 0.7;
-        return 0.4;
+        if (beatsPerBar % 3 === 0 && beatsPerBar > 3) {
+            return (b % 3 === 0) ? 0.55 : 0.38;                   // compound groupings
+        }
+        if (beatsPerBar === 4 && b === 2) return 0.55;            // the other strong beat
+        if (beatsPerBar === 6 && b === 3) return 0.55;
+        return 0.38;
     }
 
     /**
@@ -226,10 +239,58 @@
     function dissonanceVerdict({ midi, chordPool, strength, prevMidi, isFirstOfSpan }) {
         const consonant = chordPool.includes(midi);
         if (consonant) return { ok: true, role: null };
-        if (strength < 0.5) return { ok: true, role: 'passing' };      // weak beat: free
-        // Strong beat: only if this pitch was already sounding.
+
+        // THE FREEST LEVEL — the upbeats and anything finer. Genuinely free:
+        // this is where passing notes and neighbours live and they need no
+        // preparation at all.
+        if (strength < 0.3) return { ok: true, role: 'passing' };
+
+        // A SUSPENSION is available anywhere, because being already sounding IS
+        // the preparation, and that is what makes an accented dissonance
+        // meaningful rather than wrong.
         if (Number.isFinite(prevMidi) && prevMidi === midi && !isFirstOfSpan) {
             return { ok: true, role: 'suspension', mustResolveDown: true };
+        }
+
+        // A LADDER, NOT A THRESHOLD. The permission widens one rung at a time as
+        // the position weakens, which is what "nested hierarchy" means and what
+        // a single `strength < 0.5` test cannot express however many levels the
+        // strength itself has. Written as one threshold, beats 2 and 4 sat in
+        // the same bucket as the sixteenths above it and in the same bucket as
+        // the DOWNBEAT below it, depending which side of 0.5 they landed —
+        // measured, the half-bar came out either the most consonant place in
+        // the bar or the least, and never in between where it belongs.
+        const steppedInto = Number.isFinite(prevMidi)
+            && Math.abs(midi - prevMidi) <= 2 && !isFirstOfSpan;
+
+        // THE HYPERDOWNBEAT — the head of the four-bar group, the top of the
+        // hierarchy. A suspension and nothing else: this is the beat the whole
+        // grouping is measured from, and an accented passing note here does not
+        // read as passing, it reads as the harmony being wrong.
+        if (strength >= 0.95) return { ok: false, role: null };
+
+        // THE OTHER DOWNBEATS AND THE HALF-BAR. A passing note may sound here,
+        // but only as a genuine passage between two stable points: the note
+        // before it has to have been a chord tone, so the dissonance is heard as
+        // motion through the harmony rather than as the line simply being off
+        // it.
+        if (strength >= 0.45) {
+            if (steppedInto && chordPool.includes(prevMidi)) {
+                return { ok: true, role: 'approach', approachDir: Math.sign(midi - prevMidi) };
+            }
+            return { ok: false, role: null };
+        }
+
+        // THE WEAK SIDE — beats 2 and 4, and the weak bars of the group.
+        //
+        // "Think of a walking bassline — your chromatic approach notes would
+        // typically go on 2 and 4, while chord tones would go on 1 and 3."
+        // Dissonance belongs here, and it needs only to be stepped into: an
+        // approach note arriving from anywhere by step is going somewhere, which
+        // is the whole difference between that and a note that merely is not a
+        // chord tone.
+        if (steppedInto) {
+            return { ok: true, role: 'approach', approachDir: Math.sign(midi - prevMidi) };
         }
         return { ok: false, role: null };
     }
@@ -1127,6 +1188,61 @@
             let lastLeap = 0;
             // A dissonance sounded on a strong beat owes a downward step.
             let pendingResolution = null;
+            // AN APPROACH NOTE OWES THE BEAT IT IS WALKING INTO. Non-zero means
+            // the previous note was a dissonance on the weak side, travelling in
+            // this direction, and the next note has to carry on that way.
+            let pendingApproachDir = 0;
+            // A LEAP OWES AN ANSWER. Non-zero means the line has just jumped a
+            // fifth or more in this direction and the next note steps back the
+            // other way. Registered at the point of COMMITMENT rather than
+            // inside the one branch that used to set it — measured, only 22% of
+            // leaps were being answered, because five other branches (the
+            // anchors above all, which produced 59% of them) made leaps the
+            // recovery machinery never heard about.
+            let leapDebt = 0;
+            // THE PITCH THE LINE ACTUALLY LAST SOUNDED, across span boundaries.
+            //
+            // `current` is reset to the anchor's own pitch at the top of every
+            // span, so every guard that asks "how far is this from where the
+            // line was" answers ZERO at precisely the moment the line crosses a
+            // seam. The anchor's wide-seam guard has therefore never fired at an
+            // anchor, and the leap registration could not see the one place most
+            // leaps come from: measured, 59% of all leaps of a fifth or more
+            // land on an anchor — they are the joins between phrases, not
+            // gestures anyone chose.
+            let lastEmitted = null;
+
+            // SUBVERTING THE HIERARCHY — "losing the 1, but knowing exactly
+            // where it is."
+            //
+            // Everything above builds an expectation: the hyperdownbeat is where
+            // the chord tone goes, and across a piece it goes there every time.
+            // A rule obeyed without exception is not heard as a rule, it is
+            // heard as a limitation — and the post is emphatic that the point of
+            // the hierarchy is that it can be departed from. Charlie Parker
+            // turning a rhythm section around is not the absence of the beat, it
+            // is the beat being held by everyone while the line lands off it.
+            //
+            // So once in a piece, the strongest beat in the bar takes a
+            // dissonance instead of the chord tone, and the chord tone arrives
+            // one note LATE. That is an appoggiatura, which is the oldest name
+            // for this and exactly what it is: the expected note displaced, not
+            // abandoned.
+            //
+            // Three conditions, and each of them is what makes it audible rather
+            // than merely irregular:
+            //   it is NOT in the first section — the pattern has to be plainly
+            //     stated before departing from it means anything;
+            //   at least three hyperdownbeats have already arrived on the chord
+            //     tone, so there is an expectation on the table;
+            //   it RESOLVES down by step onto a chord tone inside the same span,
+            //     so the note that was expected actually turns up. A dissonance
+            //     on the beat that never resolves is not a subverted expectation,
+            //     it is a wrong note.
+            // Refused where any of the three cannot be met, rather than adjusted.
+            let hyperdownbeatsHeard = 0;
+            let subversionsSpent = 0;
+            const subversionBudget = rng() < 0.55 ? 1 : 0;
             // The chord under the previous note, for spotting a change.
             let lastChordEv = null;
             // Direction of the current stepwise walk, and how long it has run.
@@ -1625,11 +1741,33 @@
                     } else if (isAnchor) {
                         midi = from.midi;
                         role = 'anchor';
-                        // Guard the seam between spans: the previous span's last
-                        // note may sit far from this anchor.
-                        if (notes.length && Math.abs(midi - current) > 12) {
+                        // GUARD THE SEAM — against where the line actually IS,
+                        // which is `lastEmitted` and not `current`.
+                        //
+                        // The anchor's DEGREE is a structural decision, taken
+                        // end-first from the cadence the phrase is heading for,
+                        // and it is not up for negotiation. Its OCTAVE is not a
+                        // decision at all — it fell out of an arch drawn over
+                        // the phrase — so where the join would be a leap, the
+                        // same degree is taken in whichever register is nearest
+                        // the note just sounded. The phrase still begins on the
+                        // note it was going to begin on; it simply does not
+                        // arrive there by jumping.
+                        if (lastEmitted !== null && Math.abs(midi - lastEmitted) >= 5) {
+                            const registers = [midi - 24, midi - 12, midi, midi + 12, midi + 24]
+                                .filter(m => m >= LOW && m <= HIGH);
+                            if (registers.length) {
+                                const nearer = this.nearest(registers, lastEmitted);
+                                if (Math.abs(nearer - lastEmitted) < Math.abs(midi - lastEmitted)) {
+                                    midi = nearer;
+                                }
+                            }
+                        }
+                        // …and the old wide-seam backstop, now against a pitch
+                        // that can actually differ from the anchor's.
+                        if (lastEmitted !== null && Math.abs(midi - lastEmitted) > 12) {
                             const near = (chordPool.length ? chordPool : scalePool)
-                                .filter(m => Math.abs(m - current) <= 9);
+                                .filter(m => Math.abs(m - lastEmitted) <= 9);
                             if (near.length) midi = this.nearest(near, midi);
                         }
                     } else if (sequenceSteps && (i - 1) < sequenceSteps.length && (count - i) > 1) {
@@ -1806,14 +1944,14 @@
                         const gap = targetMidi - current;
                         const idealStep = gap / Math.max(1, remaining);
 
-                        if (lastLeap !== 0) {
-                            // Answer a leap with contrary stepwise motion.
-                            const dir = lastLeap > 0 ? -1 : 1;
-                            const stepped = scalePool.filter(m => (m - current) * dir > 0);
-                            midi = stepped.length ? this.nearest(stepped, current + dir * 2) : current;
-                            role = 'recovery';
-                            lastLeap = 0;
-                        } else if (Math.abs(idealStep) <= 2.5) {
+                        // The connector used to answer its own leaps here, and
+                        // only its own — `lastLeap` was set in one branch and
+                        // read in one branch, so a leap made by an anchor, a run,
+                        // an arpeggio or a sequence was never answered at all.
+                        // That is now settled at the point of commitment for
+                        // every leap however it arose, so this branch is gone
+                        // rather than duplicated.
+                        if (Math.abs(idealStep) <= 2.5) {
                             // Stepwise connection — the default motion.
                             //
                             // The direction has to PERSIST. Taking it from the
@@ -1909,7 +2047,15 @@
                     }
 
                     // ---- METRE AND DISSONANCE ----
-                    const strength = metricStrength(beat % beatsPerBar, beatsPerBar);
+                    // The bar's place in its PHRASE, not in the piece: a new
+                    // phrase restarts the hypermetric count, which is how the
+                    // grouping is heard and what stops a section beginning on an
+                    // odd bar having its hypermeter inverted throughout.
+                    const barNow = Math.floor(beat / beatsPerBar);
+                    const phraseStartBar = sectionHere && Number.isFinite(sectionHere.startBar)
+                        ? sectionHere.startBar : 0;
+                    const strength = metricStrength(
+                        beat % beatsPerBar, beatsPerBar, barNow - phraseStartBar);
                     const prevNote = notes.length ? notes[notes.length - 1] : null;
                     const prevMidi = prevNote ? this.midiOf(prevNote.noteName) : null;
 
@@ -1970,6 +2116,116 @@
                     // about which note owes the return, and naming the role for
                     // its harmonic function rather than its shape must not
                     // change who owes what.
+                    // A LEAP IS ANSWERED, and an APPROACH ARRIVES.
+                    //
+                    // Both are debts the previous note ran up, and both are paid
+                    // before the branch above gets to keep what it chose —
+                    // because whichever branch made the leap is precisely the
+                    // one that was not thinking about answering it. The
+                    // exemptions are the notes that are themselves a decision:
+                    // the subject of a quotation, an obligation already
+                    // outstanding, and the cadence.
+                    const owedExempt = role === 'quotation' || role === 'leadingTone'
+                        || role === 'neighbor' || role === 'cadence'
+                        || pendingNeighborReturn !== null || pendingResolution !== null;
+                    if (leapDebt !== 0 && !owedExempt) {
+                        // Step back the other way. Contrary stepwise motion after
+                        // a leap is the oldest rule there is about leaps and the
+                        // reason a wide interval reads as a shape rather than as
+                        // a rupture: the ear hears the line reach and then
+                        // recover, which is one gesture, instead of two
+                        // unrelated registers.
+                        const dir = leapDebt > 0 ? -1 : 1;
+                        const from2 = lastEmitted === null ? current : lastEmitted;
+                        const stepBack = (pool) => pool
+                            .filter(m => (m - from2) * dir > 0 && Math.abs(m - from2) <= 2);
+                        // ON A STRONG POSITION, STEP BACK ONTO A CHORD TONE.
+                        //
+                        // Written against the scale alone, the answer was
+                        // repeatedly a non-chord tone on a beat, so the
+                        // dissonance guard below pulled it straight off again
+                        // and the leap went unanswered after all — the recovery
+                        // and the hierarchy each undoing the other's work.
+                        // Answering onto a chord tone satisfies both, and it is
+                        // also the better note: a leap recovered onto the
+                        // harmony is heard as landing rather than as sliding.
+                        const preferred = strength >= 0.45 && chordPool.length
+                            ? stepBack(chordPool) : [];
+                        // …AND IF NO CHORD TONE IS A STEP AWAY, TAKE A THIRD.
+                        //
+                        // A step is the ideal answer and a third is the honest
+                        // fallback: both are contrary motion smaller than the
+                        // leap, which is what makes the pair read as one
+                        // gesture. Without it the answer was a scale tone the
+                        // dissonance guard then pulled to whatever chord tone
+                        // was nearest — often further away than the leap itself,
+                        // so the recovery undid the leap and then undid itself.
+                        // Measured, 59% of leaps that scored as unanswered were
+                        // in fact followed by a note this engine had roled
+                        // `recovery`; they had simply been moved afterwards.
+                        const thirdBack = (strength >= 0.45 && chordPool.length && !preferred.length)
+                            ? chordPool.filter(m => (m - from2) * dir > 0 && Math.abs(m - from2) <= 4)
+                            : [];
+                        const back = preferred.length ? preferred
+                            : (thirdBack.length ? thirdBack
+                               : stepBack(scalePool.length ? scalePool : homePool));
+                        if (back.length) {
+                            midi = dir > 0 ? Math.min(...back) : Math.max(...back);
+                            role = 'recovery';
+                        }
+                        leapDebt = 0;
+                    } else if (pendingApproachDir !== 0 && !owedExempt) {
+                        // The approach carries on into the beat it was walking
+                        // towards. A dissonance on 2 or 4 that then goes
+                        // somewhere else was never an approach note.
+                        const dir = pendingApproachDir;
+                        const from2 = lastEmitted === null ? current : lastEmitted;
+                        const on = (chordPool.length ? chordPool : scalePool)
+                            .filter(m => (m - from2) * dir > 0 && Math.abs(m - from2) <= 2);
+                        if (on.length) {
+                            midi = dir > 0 ? Math.min(...on) : Math.max(...on);
+                            role = 'arrival';
+                        }
+                        pendingApproachDir = 0;
+                    }
+                    if (leapDebt !== 0 && owedExempt) leapDebt = 0;
+                    if (pendingApproachDir !== 0 && owedExempt) pendingApproachDir = 0;
+
+                    // LOSE THE 1 — see the note on `subversionBudget`.
+                    //
+                    // IT HAS TO CHOOSE ITS MOMENT. Written the other way round —
+                    // waiting for a note that already wanted to be a dissonance
+                    // on the hyperdownbeat and letting that one through — it
+                    // fired zero times in 8,000 notes, because the hyperdownbeat
+                    // is where the anchors are and the anchors are chord tones
+                    // by construction. Correct and unreachable is the same as
+                    // absent, which is the exact trap the Für Elise figure fell
+                    // into and had to be pulled out of the same way.
+                    //
+                    // So it takes the chord tone the beat was going to have and
+                    // puts the note a step above it there instead, with the
+                    // chord tone following one note later. The expected note is
+                    // displaced, not abandoned — which is the difference between
+                    // losing the 1 and not knowing where it is.
+                    if (subversionsSpent < subversionBudget
+                        && strength >= 0.95
+                        && hyperdownbeatsHeard >= 3
+                        && sectionHere && Number(sectionHere.startBar) > 0
+                        && i < count - 1
+                        && pendingResolution === null && pendingNeighborReturn === null
+                        && leapDebt === 0 && pendingApproachDir === 0
+                        && role !== 'quotation' && role !== 'cadence'
+                        && chordPool.includes(midi)) {
+                        const above = (scalePool.length ? scalePool : homePool)
+                            .filter(m => m > midi && m - midi <= 2);
+                        if (above.length) {
+                            midi = Math.min(...above);
+                            role = 'appoggiatura';
+                            pendingResolution = midi;   // it owes the note it displaced
+                            subversionsSpent++;
+                        }
+                    }
+
                     let neighborReturnHandled = false;
                     if (pendingNeighborReturn !== null
                         && role !== 'neighbor' && role !== 'leadingTone') {
@@ -1992,6 +2248,17 @@
                     if (neighborReturnHandled) {
                         // settled above
                     } else if (pendingResolution !== null && role !== 'suspension'
+                               // …and not the appoggiatura that just created the
+                               // obligation. Without this it resolved ITSELF in
+                               // the same breath — the note was written, the debt
+                               // registered, and the very next statement in the
+                               // chain saw an outstanding debt and paid it by
+                               // overwriting the note that owed it. The device
+                               // fired 45 times and reached the page zero times.
+                               // Exactly the fault the leading-tone figure had,
+                               // for exactly the same reason: whoever creates an
+                               // obligation has to be exempt from discharging it.
+                               && role !== 'appoggiatura'
                                && pendingNeighborReturn === null) {
                         // A downward suspension resolution cannot speak while an
                         // upward leading-tone obligation is still outstanding.
@@ -2005,7 +2272,7 @@
                         }
                         pendingResolution = null;
                     } else if (chordPool.length && role !== 'suspension' && role !== 'leadingTone'
-                               && role !== 'quotation') {
+                               && role !== 'quotation' && role !== 'appoggiatura') {
                         // A QUOTATION is exempt on the same grounds and for the
                         // same reason the exemption had to be written for the
                         // Für Elise figure: this guard judges a note as a bare
@@ -2044,6 +2311,15 @@
                         } else if (verdict.role === 'suspension') {
                             role = 'suspension';
                             pendingResolution = midi;    // must fall by step next
+                        } else if (verdict.role === 'approach') {
+                            // AN APPROACH ON THE WEAK SIDE owes the strong beat
+                            // it is walking into. A dissonance on 2 or 4 that
+                            // then goes somewhere else is not an approach note,
+                            // it is a note that was not a chord tone — the same
+                            // distinction as a chromatic neighbour that never
+                            // comes home.
+                            if (role === 'connect') role = 'approach';
+                            pendingApproachDir = verdict.approachDir || 0;
                         } else if (verdict.role === 'passing' && role === 'connect') {
                             role = 'passing';
                         }
@@ -2061,10 +2337,29 @@
                     if (goalMidi !== null && pendingResolution === null
                         && role !== 'suspension' && role !== 'leadingTone'
                         && role !== 'resolution' && role !== 'quotation'
+                        && role !== 'appoggiatura'
                         && pendingNeighborReturn === null
                         && i === count - 1 && (atSectionEnd || !to)) {
-                        const near = chordPool.filter(m => Math.abs(m - goalMidi) <= 2);
-                        if (near.length) { midi = this.nearest(near, goalMidi); role = 'approach'; }
+                        // THE GOAL'S DEGREE IS THE DECISION; ITS REGISTER IS NOT.
+                        //
+                        // Same fault as the anchor seam and the same repair. The
+                        // goal tone is taken from the section's last chord and
+                        // the line leans toward it — but leaning toward a pitch
+                        // chosen without reference to where the line actually is
+                        // produced a leap into one phrase ending in five, and
+                        // those showed up in the leap census as `approach`.
+                        // Arriving is landing on the goal DEGREE in whichever
+                        // octave the line can reach by leaning rather than by
+                        // jumping.
+                        const anchorTo = lastEmitted === null ? goalMidi : lastEmitted;
+                        const goalHere = (() => {
+                            const regs = [goalMidi - 24, goalMidi - 12, goalMidi,
+                                          goalMidi + 12, goalMidi + 24]
+                                .filter(m => m >= LOW && m <= HIGH);
+                            return regs.length ? this.nearest(regs, anchorTo) : goalMidi;
+                        })();
+                        const near = chordPool.filter(m => Math.abs(m - goalHere) <= 2);
+                        if (near.length) { midi = this.nearest(near, goalHere); role = 'approach'; }
                     }
                     // Absolute ceiling on melodic distance: a leap wider than an
                     // octave is never "sparing emphasis", it is a rupture.
@@ -2093,6 +2388,22 @@
                     // same evaluation — the two cannot disagree, because they
                     // are the same decision.
                     if (resolutionPin !== null && role === 'resolution') midi = resolutionPin;
+                    // WHAT THIS NOTE OWES THE NEXT ONE, settled here for the
+                    // same reason justification is: half a dozen things above
+                    // can still move a pitch, so a debt registered mid-pipeline
+                    // is a debt against a note that may no longer exist. A
+                    // fifth is where a skip becomes a leap — a third is inside
+                    // the chord and needs no answering, and treating one as an
+                    // event would make every arpeggio a problem.
+                    if (lastEmitted !== null && Math.abs(midi - lastEmitted) >= 5
+                        && role !== 'cadence') {
+                        leapDebt = midi - lastEmitted;
+                    } else if (role !== 'recovery') {
+                        leapDebt = 0;
+                    }
+                    lastEmitted = midi;
+                    // An expectation is only built by notes that MET it.
+                    if (strength >= 0.95 && chordPool.includes(midi)) hyperdownbeatsHeard++;
                     resolutionPin = null;
                     const finalPc = ((midi % 12) + 12) % 12;
                     const finalIsChordTone = chordPool.includes(midi);
