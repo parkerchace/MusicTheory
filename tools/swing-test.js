@@ -247,6 +247,286 @@ check('the written page is still identical under any feel', function(){
   }
 });
 
-gen.state.swing=0; gen.state.rubato=0;
+gen.state.swing=0; gen.state.rubato=0; gen._clearRubatoCache();
+
+print('');
+print('=== the feel follows the form ===');
+//
+// The complaint this answers: swing and agogic stress were too RIGID. One
+// amount from the first bar to the last is not a feel, it is a genre label —
+// real playing is straight through the first statement, loosens a little, gets
+// expressive where the music opens up, and squares off at the end. So the
+// control sets the MOST the piece swings, and the amount steps at section
+// boundaries.
+//
+// Measured on a four-section form of the shape almost every song has: a
+// statement, a restatement of it, a bridge, and a final return.
+var FORM={
+  sections:[
+    {label:'A1', letter:'A', stability:'stable',        startBar:0,  endBar:3},
+    {label:'A2', letter:'A', stability:'stable',        startBar:4,  endBar:7},
+    {label:'B',  letter:'B', stability:'transitional',  startBar:8,  endBar:11, isClimax:true},
+    {label:'A3', letter:'A', stability:'stable',        startBar:12, endBar:15, isFinal:true}
+  ]
+};
+// The off-beat delay actually applied inside each section, which is the thing a
+// listener hears — not the setting, and not the multiplier.
+function delayIn(bar){ var b=bar*4+0.5; return gen._swungBeat(b)-b; }
+
+check('the feel is not one number for the whole piece', function(){
+  gen.state.form=FORM;
+  gen.state.musicalPhrase={beatsPerBar:4};
+  gen.state.swing=1; gen._clearRubatoCache();
+  var d=[delayIn(1),delayIn(5),delayIn(9),delayIn(13)];
+  var distinct=d.filter(function(v,i){ return d.indexOf(v)===i; });
+  assert(distinct.length>=3, 'only '+distinct.length+' distinct feels across four sections: '+d.join(', '));
+});
+
+check('the first statement is straighter than the bridge', function(){
+  gen.state.swing=1; gen._clearRubatoCache();
+  assert(delayIn(1) < delayIn(9),
+    'the opening ('+delayIn(1).toFixed(4)+') swings at least as hard as the bridge ('+delayIn(9).toFixed(4)+')');
+});
+
+check('the restatement loosens on the statement', function(){
+  gen.state.swing=1; gen._clearRubatoCache();
+  assert(delayIn(5) > delayIn(1),
+    'the second A ('+delayIn(5).toFixed(4)+') is no looser than the first ('+delayIn(1).toFixed(4)+')');
+});
+
+check('the last section squares off again', function(){
+  gen.state.swing=1; gen._clearRubatoCache();
+  assert(delayIn(13) < delayIn(9),
+    'the final return ('+delayIn(13).toFixed(4)+') is as loose as the bridge ('+delayIn(9).toFixed(4)+')');
+});
+
+check('the control still means the most it swings', function(){
+  // Somewhere in the piece the chosen amount is delivered in full, or the
+  // control has quietly become a suggestion.
+  gen.state.swing=1; gen._clearRubatoCache();
+  var full=(2/3)-0.5;
+  var best=Math.max(delayIn(1),delayIn(5),delayIn(9),delayIn(13));
+  assert(close(best, full, 1e-9), 'the hardest the piece swings is '+best.toFixed(4)+', not '+full.toFixed(4));
+});
+
+check('...and straight is still straight everywhere', function(){
+  gen.state.swing=0; gen._clearRubatoCache();
+  [1,5,9,13].forEach(function(bar){
+    assert(close(delayIn(bar),0), 'bar '+bar+' moved with the feel off');
+  });
+});
+
+check('expressive weight goes where swing does NOT', function(){
+  // The two curves are deliberately different: swing is EASE and belongs in the
+  // middle, agogic stretching is WEIGHT and belongs at the close. Tying both to
+  // one number made every piece do them together, which is the rigidity the
+  // whole change is about.
+  gen.state.swing=1; gen._clearRubatoCache();
+  var f0=gen._feelAt(1*4+0.5), fEnd=gen._feelAt(13*4+0.5), fMid=gen._feelAt(9*4+0.5);
+  assert(fEnd.rubato > fEnd.swing,
+    'the final section is looser than it is broad — it should be the other way round');
+  assert(fEnd.rubato > f0.rubato, 'the close carries no more weight than the opening');
+  assert(fMid.swing > fEnd.swing, 'the bridge does not swing harder than the close');
+});
+
+check('no form plan means the control is a constant, exactly as before', function(){
+  gen.state.form=null; gen._clearRubatoCache();
+  gen.state.swing=1;
+  assert(close(gen._swungBeat(0.5), 2/3, 1e-9), 'got '+gen._swungBeat(0.5));
+  assert(close(gen._swungBeat(41.5), 41+2/3, 1e-9), 'got '+gen._swungBeat(41.5));
+});
+
+gen.state.swing=0; gen.state.rubato=0; gen.state.form=null; gen._clearRubatoCache();
+
+print('');
+print('=== displaced accent ===');
+//
+// Syncopation is usually built the wrong way round — put an accent off the beat
+// and call it syncopated. What a listener actually hears is a placement they
+// were already expecting being MISSED, so the expectation has to be built first
+// and the device belongs to a phrase rather than to a note.
+//
+// So the load-bearing check is not "does something land off the beat" but "was
+// the placement it departs from stated twice before it was departed from".
+// Everything else here exists to stop the device becoming a different tempo.
+
+// TWELVE BARS OF THE SAME FIGURE, then two of another.
+//
+// Dense on purpose — eighth-note attacks, so the gap between them is half a
+// beat and the shift cap actually BINDS. The first attempt at this used two
+// attacks per bar, and with that much space a displacement four times too large
+// still did not collide with anything: three of four deliberate breakages went
+// undetected, and the checks looked exactly as green as they do now. Test data
+// that cannot express the failure is the same as no check.
+function figure(bar, offs){
+  return offs.map(function(o){
+    return {absBeat:bar*4+o, noteName:'C5', durationBeats:0.5, kind:'melody', role:null};
+  });
+}
+var EIGHTHS=[0,0.5,1,1.5,2,2.5,3,3.5];
+var DRAWN=[];
+for(var __b=0;__b<12;__b++) DRAWN=DRAWN.concat(figure(__b,EIGHTHS));
+[12,13].forEach(function(b){ DRAWN=DRAWN.concat(figure(b,[0,2])); });
+
+function withDisplace(amt){
+  gen.state.swing=0; gen.state.rubato=0; gen.state.form=null;
+  gen.state.displace=amt;
+  gen.state.musicalPhrase={beatsPerBar:4};
+  gen.state.renderedNoteEvents=DRAWN;
+  gen._clearRubatoCache();
+  return gen._displacementPoints();
+}
+// The attack pattern of a bar, read off the drawn notes rather than off the
+// engine's own bookkeeping.
+function patternOf(bar){
+  return DRAWN.filter(function(e){ return Math.floor(e.absBeat/4)===bar; })
+              .map(function(e){ return (e.absBeat-bar*4).toFixed(2); })
+              .join(',');
+}
+
+check('on the grid is the identity — nothing moves at all', function(){
+  withDisplace(0);
+  DRAWN.forEach(function(e){
+    assert(close(gen._performedBeat(e.absBeat), e.absBeat),
+      'beat '+e.absBeat+' moved with displacement off');
+  });
+});
+
+check('the placement is ESTABLISHED before it is departed from', function(){
+  // The claim, checked against the notes: the two bars before a displaced one
+  // must state the same figure, and must not themselves have been displaced —
+  // a bar that moved cannot be what taught the ear where the beat was.
+  var pts=withDisplace(1);
+  assert(pts.length>0, 'nothing was displaced at all');
+  var moved={}; pts.forEach(function(p){ moved[Math.round(p.from/4)]=true; });
+  pts.forEach(function(p){
+    var bar=Math.round(p.from/4);
+    assert(bar>=2, 'bar '+bar+' has no room for two statements before it');
+    [bar-1, bar-2].forEach(function(b){
+      assert(patternOf(b)===patternOf(bar),
+        'bar '+bar+' was displaced but bar '+b+' states a different figure');
+      assert(!moved[b],
+        'bar '+bar+' was displaced against bar '+b+', which was displaced too');
+    });
+  });
+});
+
+check('a figure heard only twice is left alone', function(){
+  // Bars 12-13 state their own figure exactly twice: enough to establish a
+  // placement, never enough to have departed from one.
+  var pts=withDisplace(1);
+  pts.forEach(function(p){
+    assert(Math.round(p.from/4) < 12, 'the two-bar figure at the end was displaced');
+  });
+});
+
+check('it happens twice at most — a push everywhere is a different tempo', function(){
+  var pts=withDisplace(1);
+  assert(pts.length<=2, pts.length+' displacements in fourteen bars');
+});
+
+check('and it does happen more than once when there is room', function(){
+  // The other failure mode: a device so rare it may as well not exist. Twelve
+  // statements of one figure should be departed from more than once.
+  var pts=withDisplace(1);
+  assert(pts.length===2, 'only '+pts.length+' displacement in twelve statements of one figure');
+});
+
+check('the displaced figure comes back — nothing after it is moved', function(){
+  var pts=withDisplace(1);
+  var last=pts[pts.length-1];
+  DRAWN.filter(function(e){ return e.absBeat>=last.to-1e-9; }).forEach(function(e){
+    assert(close(gen._performedBeat(e.absBeat), e.absBeat),
+      'beat '+e.absBeat+', after the displacement, was moved too');
+  });
+});
+
+check('the whole bar moves together, not one voice of it', function(){
+  var pts=withDisplace(1);
+  pts.forEach(function(p){
+    var inSpan=DRAWN.filter(function(e){ return e.absBeat>=p.from-1e-9 && e.absBeat<p.to-1e-9; });
+    assert(inSpan.length>1,'span had nothing in it');
+    var shifts=inSpan.map(function(e){ return gen._performedBeat(e.absBeat)-e.absBeat; });
+    shifts.forEach(function(sh){
+      assert(close(sh, shifts[0], 1e-9), 'the bar was pulled apart: '+shifts.join(', '));
+    });
+  });
+});
+
+check('the shift never reaches the attack it is moving towards', function(){
+  // Stated directly rather than left to the monotonicity check to notice: the
+  // cap is half the gap, and half a gap of half a beat is a quarter.
+  var pts=withDisplace(1);
+  pts.forEach(function(p){
+    assert(Math.abs(p.shift) <= 0.25 + 1e-9,
+      'a shift of '+p.shift.toFixed(3)+' against attacks half a beat apart');
+  });
+});
+
+check('a displaced bar never runs into the bar beside it', function(){
+  withDisplace(1);
+  var played=DRAWN.map(function(e){ return gen._performedBeat(e.absBeat); });
+  for(var i=1;i<played.length;i++){
+    assert(played[i] > played[i-1] - 1e-9,
+      'the performed timeline ran backwards at '+DRAWN[i].absBeat);
+  }
+});
+
+check('a note crossing the edge of a displaced bar does not overrun the next', function(){
+  var pts=withDisplace(1);
+  assert(pts.length>0,'nothing displaced');
+  pts.forEach(function(p){
+    // The last attack of the displaced bar, given a length that reaches the
+    // next bar's downbeat as written.
+    var last=null;
+    DRAWN.forEach(function(e){ if(e.absBeat>=p.from-1e-9&&e.absBeat<p.to-1e-9) last=e.absBeat; });
+    var writtenLen=p.to-last;
+    var end=gen._performedBeat(last)+gen._performedDuration(last, writtenLen);
+    var nextStart=gen._performedBeat(p.to);
+    assert(end <= nextStart + 1e-9,
+      'a note from the displaced bar ended at '+end.toFixed(3)
+      +', past the next bar starting at '+nextStart.toFixed(3));
+  });
+});
+
+check('a lighter setting displaces less', function(){
+  var hard=withDisplace(1).map(function(p){ return Math.abs(p.shift); });
+  var soft=withDisplace(0.5).map(function(p){ return Math.abs(p.shift); });
+  assert(hard.length && soft.length, 'one of the settings displaced nothing');
+  assert(soft[0] < hard[0], 'the lighter setting moved as far: '+soft[0]+' vs '+hard[0]);
+});
+
+check('the written page is untouched by any of the three feels', function(){
+  var names=['whole','half','quarter','eighth','sixteenth','quarter_dotted'];
+  gen.state.swing=0; gen.state.rubato=0; gen.state.displace=0;
+  var plain=names.map(function(n){ return gen._durationToNumber(n); });
+  gen.state.swing=1; gen.state.rubato=1; gen.state.displace=1;
+  var played=names.map(function(n){ return gen._durationToNumber(n); });
+  for(var i=0;i<names.length;i++){
+    assert(plain[i]===played[i], names[i]+' changed on the page');
+  }
+});
+
+check('the three feels compose without any of them cancelling another', function(){
+  gen.state.swing=1; gen.state.rubato=1; gen.state.displace=1;
+  gen.state.renderedNoteEvents=DRAWN; gen._clearRubatoCache();
+  var pts=gen._displacementPoints();
+  assert(pts.length>0,'nothing displaced with all three on');
+  // The off-beat still swings inside a displaced bar: its distance from that
+  // bar's downbeat is the swung distance, not the straight one.
+  var p=pts[0];
+  var down=gen._performedBeat(p.from);
+  var off=gen._performedBeat(p.from+0.5);
+  assert(close(off-down, 2/3, 1e-6),
+    'the swing inside a displaced bar came out '+(off-down).toFixed(4)+', not 2/3');
+  // …and the timeline is still strictly increasing under all three at once.
+  var played=DRAWN.map(function(e){ return gen._performedBeat(e.absBeat); });
+  for(var i=1;i<played.length;i++){
+    assert(played[i] > played[i-1] - 1e-9, 'timeline ran backwards at '+DRAWN[i].absBeat);
+  }
+});
+
+gen.state.swing=0; gen.state.rubato=0; gen.state.displace=0; gen.state.form=null;
+gen.state.renderedNoteEvents=null; gen._clearRubatoCache();
 print('');
 print(failures? ('FAILURES: '+failures) : 'the feel is in the performance; the page is untouched');

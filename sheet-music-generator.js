@@ -220,6 +220,13 @@ class SheetMusicGenerator {
 				try { const v = parseFloat(localStorage.getItem('sheet.swing')); return Number.isFinite(v) ? v : 0; }
 				catch (_) { return 0; }
 			})(),
+			// DISPLACED ACCENT: 0 on the grid, 1 a full push or lay-back. The
+			// third member of the same family — a way of playing the written
+			// rhythm, never a rewriting of it.
+			displace: (() => {
+				try { const v = parseFloat(localStorage.getItem('sheet.displace')); return Number.isFinite(v) ? v : 0; }
+				catch (_) { return 0; }
+			})(),
 			// What a chord click and playback light up on the instrument
 			// visualizers: 'both' | 'chords' | 'melody' | 'off'. Persisted,
 			// because it is a way of working rather than a per-take choice.
@@ -1345,6 +1352,32 @@ class SheetMusicGenerator {
 			this._clearRubatoCache();
 		});
 		feelWrap.appendChild(rubatoSelect);
+
+		// Displaced accent, the third of the same family. Separate again,
+		// because a piece can push without swinging and swing without pushing.
+		const displaceSelect = document.createElement('select');
+		displaceSelect.style.fontSize = '0.7rem';
+		displaceSelect.style.padding = '1px 4px';
+		displaceSelect.style.marginLeft = '4px';
+		displaceSelect.style.borderRadius = '4px';
+		displaceSelect.style.border = '1px solid #475569';
+		displaceSelect.style.background = '#1e293b';
+		displaceSelect.style.color = '#e2e8f0';
+		displaceSelect.title = 'Displaced accent: once a figure has been heard twice in the same place, '
+			+ 'the next statement of it arrives early or late. Syncopation you can hear, because the '
+			+ 'placement it departs from was established first.';
+		displaceSelect.innerHTML = `
+			<option value="0">On the grid</option>
+			<option value="0.5">Slight push</option>
+			<option value="1">Push and lay back</option>
+		`;
+		displaceSelect.value = String(this.state.displace || 0);
+		displaceSelect.addEventListener('change', () => {
+			this.state.displace = parseFloat(displaceSelect.value) || 0;
+			try { localStorage.setItem('sheet.displace', String(this.state.displace)); } catch (_) {}
+			this._clearRubatoCache();
+		});
+		feelWrap.appendChild(displaceSelect);
 		controls.appendChild(feelWrap);
 
 		// --- What the instruments show ------------------------------------
@@ -2311,8 +2344,94 @@ class SheetMusicGenerator {
      * @param {number} absBeat position in BEAT-UNITS
      * @returns {number} where that position is actually performed
      */
+    /**
+     * A FEEL IS SOMETHING A PERFORMANCE DOES AND STOPS DOING.
+     *
+     * Swing at one amount from the first bar to the last is not a feel — it is
+     * a genre label, and it was the same fault as a texture that never changes
+     * or a climax treated identically every time. A song is straight through
+     * the first verse, loosens by the second, opens up and gets expressive
+     * where the music does, and squares off at the end. The CONTRAST is the
+     * expression: a passage can only be heard to swing against a passage that
+     * did not, and a piece that swings throughout has nothing to be uneven
+     * against.
+     *
+     * So the control sets the MOST this piece swings rather than how much it
+     * always swings, and the amount follows the form:
+     *
+     *   the first statement   straight, or nearly. Whatever the feel is going
+     *                         to do later, it has to be established plainly
+     *                         first or the departure is not heard as one.
+     *   a restatement         loosens. The second verse is where a player
+     *                         starts to lean on it.
+     *   a departure           the most of it — the bridge, the episode, the
+     *                         development. This is where the music is least
+     *                         square and the playing follows.
+     *   the last section      squares off again, and takes the expressive
+     *                         stretching instead. Ending loose reads as
+     *                         drifting; ending square and broad reads as
+     *                         arriving.
+     *
+     * Rubato runs on its own curve rather than the same one, because the two
+     * are not the same quality: swing is EASE and belongs in the middle, while
+     * agogic stretching is WEIGHT and belongs at the climax and the close. A
+     * bridge that is loose and a cadence that is broad are different things,
+     * and tying both to one number made every piece do them together.
+     *
+     * It STEPS at section boundaries rather than gliding. A change of feel is a
+     * decision a player makes at a structural point — at the top of a chorus,
+     * not gradually across four bars — and a gradual ramp is heard as the tempo
+     * being unstable rather than as the feel changing.
+     *
+     * With no form plan there is nothing to follow, so everything stays at 1
+     * and the control means exactly what it used to.
+     */
+    _feelPlan() {
+        if (this._feelPlanCache !== undefined && this._feelPlanCache !== null) return this._feelPlanCache;
+        const form = (this.state && this.state.form) || null;
+        const sections = (form && Array.isArray(form.sections)) ? form.sections : [];
+        if (!sections.length) { this._feelPlanCache = false; return false; }
+        const phrase = this.state && this.state.musicalPhrase;
+        const beatsPerBar = Math.max(1, Number(phrase && phrase.beatsPerBar) || 4);
+        const seen = {};
+        const plan = sections.map((s, i) => {
+            const stable = String(s.stability || 'stable') === 'stable';
+            const repeat = s.letter ? ((seen[s.letter] = (seen[s.letter] || 0) + 1) > 1) : false;
+            let swing, rubato;
+            if (i === 0)          { swing = 0.25; rubato = 0.40; }
+            else if (s.isFinal)   { swing = 0.35; rubato = 1.00; }
+            else if (!stable)     { swing = 1.00; rubato = 0.80; }
+            else if (repeat)      { swing = 0.70; rubato = 0.55; }
+            else                  { swing = 0.50; rubato = 0.55; }
+            // The climax takes the weight wherever it falls — that is what
+            // makes it the climax rather than simply another section.
+            if (s.isClimax) rubato = 1.00;
+            const startBar = Number(s.startBar) || 0;
+            const endBar = Number.isFinite(s.endBar) ? s.endBar : startBar;
+            return {
+                label: s.label || null,
+                from: startBar * beatsPerBar,
+                to: (endBar + 1) * beatsPerBar,
+                swing, rubato
+            };
+        });
+        this._feelPlanCache = plan;
+        return plan;
+    }
+
+    /** How much of the chosen feel is in force at a given beat. */
+    _feelAt(absBeat) {
+        const plan = this._feelPlan();
+        if (!plan) return { swing: 1, rubato: 1 };
+        for (const p of plan) {
+            if (absBeat >= p.from - 1e-9 && absBeat < p.to - 1e-9) return p;
+        }
+        // Past the last section (a broadened final note can sit there).
+        return plan[plan.length - 1];
+    }
+
     _swungBeat(absBeat) {
-        const amt = Number(this.state.swing) || 0;
+        const amt = (Number(this.state.swing) || 0) * this._feelAt(absBeat).swing;
         if (!(amt > 0) || !Number.isFinite(absBeat)) return absBeat;
         const frac = absBeat - Math.floor(absBeat);
         // Only the off-beat eighth moves. The downbeat is the thing it is late
@@ -2325,6 +2444,8 @@ class SheetMusicGenerator {
 
     /** How long an off-beat eighth actually lasts once the beat is swung. */
     _swungDuration(absBeat, durationBeats) {
+        // Read through `_swungBeat` rather than recomputing the amount, so the
+        // shortening can never disagree with the delay it is compensating for.
         const amt = Number(this.state.swing) || 0;
         if (!(amt > 0)) return durationBeats;
         const shifted = this._swungBeat(absBeat) - absBeat;
@@ -2392,14 +2513,17 @@ class SheetMusicGenerator {
             // A peak on the cadence note itself is one gesture, not two — it
             // already gets the cadence's broadening and does not want both.
             if (peak >= 0 && peak !== endIdx) {
-                points.push({ at: melody[peak].absBeat, extra: 0.06 * amt });
+                points.push({
+                    at: melody[peak].absBeat,
+                    extra: 0.06 * amt * this._feelAt(melody[peak].absBeat).rubato
+                });
             }
             phraseStart = endIdx + 1;
         };
 
         melody.forEach((e, i) => {
             if (e.role === 'cadence') {
-                points.push({ at: e.absBeat, extra: 0.14 * amt });
+                points.push({ at: e.absBeat, extra: 0.14 * amt * this._feelAt(e.absBeat).rubato });
                 closePhrase(i);
             }
         });
@@ -2407,6 +2531,162 @@ class SheetMusicGenerator {
 
         points.sort((a, b) => a.at - b.at);
         return points;
+    }
+
+    /**
+     * DISPLACED ACCENT — a KNOWN beat arriving early or late.
+     *
+     * Syncopation is usually built the wrong way round: put an accent off the
+     * beat and call it syncopated. That is not what a listener hears. What is
+     * heard is a placement they were already expecting being missed — the
+     * figure they have counted twice landing somewhere else the third time. So
+     * the displacement is not a property of a note; it belongs to a PHRASE, and
+     * the expectation has to be built before there is anything to displace.
+     *
+     * Which is what this does, in that order:
+     *
+     *   ESTABLISH  find a bar-level attack pattern stated in the same place in
+     *              at least two consecutive bars. Two statements is what makes
+     *              a placement expected; one is just a bar.
+     *   DISPLACE   the NEXT statement of that same pattern arrives off it — a
+     *              push (early, the anticipation every song does at the top of
+     *              a chorus) or a lay-back (late).
+     *   RESOLVE    nothing after it moves. The figure comes back where it was,
+     *              and that return is what makes the displacement read as a
+     *              displacement rather than as the tempo having changed.
+     *
+     * The whole bar moves together, because a figure that arrives early arrives
+     * early — moving one voice of it would be a mistake in an ensemble, not a
+     * device.
+     *
+     * TWICE PER PIECE at most. A push everywhere is not syncopation, it is a
+     * different tempo; and by the third one the ear has re-learned the
+     * placement and there is nothing left to depart from.
+     *
+     * It DECLINES rather than adjusts. The shift is capped at half the gap to
+     * the neighbouring attack, so a displaced bar can never run into the bar
+     * beside it, and where that cap leaves too little to hear the displacement
+     * is simply not made. The performed timeline stays strictly increasing,
+     * which is the invariant the whole feel layer is built on.
+     *
+     * Like swing and agogic stress, no written duration is touched: the page
+     * states the rhythm and the performance states what to do with it.
+     *
+     * @returns {Array<{from:number, to:number, shift:number}>} displaced spans
+     */
+    _displacementPoints() {
+        const amt = Number(this.state.displace) || 0;
+        if (!(amt > 0)) return [];
+        const drawn = Array.isArray(this.state.renderedNoteEvents) ? this.state.renderedNoteEvents : [];
+        if (!drawn.length) return [];
+        const beatsPerBar = Math.max(1,
+            Number(this.state.musicalPhrase && this.state.musicalPhrase.beatsPerBar) || 4);
+
+        // Every distinct attack instant, in order. The pattern is about WHEN
+        // things are struck, not how many notes are in each strike.
+        const attacks = [];
+        const seenAt = new Set();
+        drawn.forEach((e) => {
+            if (!e || !Number.isFinite(e.absBeat)) return;
+            const k = e.absBeat.toFixed(4);
+            if (seenAt.has(k)) return;
+            seenAt.add(k);
+            attacks.push(e.absBeat);
+        });
+        if (attacks.length < 6) return [];
+        attacks.sort((a, b) => a - b);
+
+        // The attack pattern of each bar, as offsets within the bar.
+        const byBar = new Map();
+        attacks.forEach((b) => {
+            const bar = Math.floor(b / beatsPerBar);
+            const off = Math.round((b - bar * beatsPerBar) * 4) / 4;
+            const list = byBar.get(bar) || [];
+            if (!list.length || list[list.length - 1] !== off) list.push(off);
+            byBar.set(bar, list);
+        });
+        const bars = Array.from(byBar.keys()).sort((a, b) => a - b);
+        const sigOf = (bar) => (byBar.get(bar) || []).join(',');
+
+        const nextAttackAfter = (beat) => {
+            for (const a of attacks) if (a > beat + 1e-9) return a;
+            return null;
+        };
+        const prevAttackBefore = (beat) => {
+            let best = null;
+            for (const a of attacks) { if (a < beat - 1e-9) best = a; else break; }
+            return best;
+        };
+
+        const out = [];
+        let i = 0;
+        let pushNext = true;          // the first one pushes; the second lays back
+        while (i < bars.length && out.length < 2) {
+            const sig = sigOf(bars[i]);
+            // A pattern of one attack is a bar with a note in it, not a figure.
+            if ((byBar.get(bars[i]) || []).length < 2) { i++; continue; }
+            let run = 1;
+            while (i + run < bars.length
+                   && bars[i + run] === bars[i] + run
+                   && sigOf(bars[i + run]) === sig) run++;
+            // TWO STATEMENTS TO ESTABLISH, and the third to displace — which is
+            // what `k = 2` means and is the whole device. A long run gets more
+            // than one, but only after the placement has been RE-established:
+            // the displaced statement does not count towards establishing
+            // anything, so the next candidate is three statements further on.
+            // Displacing consecutive bars would teach the ear the new placement
+            // instead of departing from the old one.
+            for (let k = 2; k < run && out.length < 2; k += 3) {
+                const bar = bars[i + k];
+                const from = bar * beatsPerBar;
+                const to = from + beatsPerBar;
+                const first = attacks.find(a => a >= from - 1e-9 && a < to - 1e-9);
+                let last = null;
+                for (const a of attacks) { if (a >= from - 1e-9 && a < to - 1e-9) last = a; }
+                if (first === undefined || last === null) continue;
+
+                // How much room there is on the side the figure is moving
+                // towards. Half of it, so the displaced bar can never reach the
+                // attack it is moving at, let alone pass it.
+                const before = prevAttackBefore(first);
+                const after = nextAttackAfter(last);
+                const room = pushNext
+                    ? (first - (before === null ? first - beatsPerBar : before))
+                    : ((after === null ? last + beatsPerBar : after) - last);
+                // THE SETTING SCALES WHAT IS AVAILABLE, rather than being
+                // clipped by it. Written as `min(wanted * amt, cap)` the cap
+                // swallowed the control the moment the music was at all dense:
+                // with eighth-note attacks the room is half a beat, the cap a
+                // quarter, and every setting from "slight push" upward produced
+                // exactly the same quarter-beat shift. A control that stops
+                // meaning anything as soon as the music gets busy is the same
+                // fault as the Voicing dropdown reporting a state the texture
+                // was ignoring.
+                //
+                // A push may reach half a beat and a lay-back a quarter — a
+                // figure that arrives late is subtler than one that arrives
+                // early, which is how players actually use the two.
+                const cap = Math.max(0, room * 0.5);
+                const size = Math.min(pushNext ? 0.5 : 0.25, cap) * amt;
+                // Too little to hear is not a subtle displacement, it is none.
+                if (size < 0.08) continue;
+
+                out.push({ from, to, shift: pushNext ? -size : size });
+                pushNext = !pushNext;
+            }
+            i += run;
+        }
+        return out;
+    }
+
+    /** How far the figure at this beat is displaced from where it is written. */
+    _displacementAt(absBeat) {
+        const spans = this._displaceCache || (this._displaceCache = this._displacementPoints());
+        if (!spans.length) return 0;
+        for (const s of spans) {
+            if (absBeat >= s.from - 1e-9 && absBeat < s.to - 1e-9) return s.shift;
+        }
+        return 0;
     }
 
     /**
@@ -2418,7 +2698,12 @@ class SheetMusicGenerator {
      * which is not how either of them works.
      */
     _performedBeat(absBeat) {
-        const swung = this._swungBeat(absBeat);
+        // Swing divides the beat, displacement moves the figure onto a
+        // different beat, rubato bends the pulse itself. That is the order they
+        // happen in a performance and so the order they are applied in: a
+        // displaced figure still swings internally, and rubato stretches
+        // whatever it finds, including a figure that has been pushed.
+        const swung = this._swungBeat(absBeat) + this._displacementAt(absBeat);
         const points = this._rubatoCache || (this._rubatoCache = this._rubatoPoints());
         if (!points.length) return swung;
         let extra = 0;
@@ -2432,7 +2717,19 @@ class SheetMusicGenerator {
 
     /** How long a note actually lasts: its written length, plus any stress on it. */
     _performedDuration(absBeat, durationBeats) {
-        const base = this._swungDuration(absBeat, durationBeats);
+        let base = this._swungDuration(absBeat, durationBeats);
+        // THE SEAM OF A DISPLACED FIGURE.
+        //
+        // Inside a displaced bar every note moves by the same amount, so the
+        // figure keeps its shape and no length needs touching. The exception is
+        // the note that CROSSES the edge of the span: a laid-back last note
+        // still ends where it was written to, so it runs into the bar that did
+        // not move, and a pushed one starts early and leaves a hole. Both are
+        // the same arithmetic and the same reason `_swungDuration` shortens a
+        // delayed off-beat — the note after it did not move.
+        const here = this._displacementAt(absBeat);
+        const atEnd = this._displacementAt(absBeat + durationBeats);
+        if (here !== atEnd) base = Math.max(0.05, base - (here - atEnd));
         const points = this._rubatoCache || (this._rubatoCache = this._rubatoPoints());
         for (const p of points) {
             if (Math.abs(p.at - absBeat) < 1e-9) return base + p.extra;
@@ -2441,7 +2738,11 @@ class SheetMusicGenerator {
     }
 
     /** The stretch map depends on what was drawn, so a new render invalidates it. */
-    _clearRubatoCache() { this._rubatoCache = null; }
+    _clearRubatoCache() {
+        this._rubatoCache = null;
+        this._feelPlanCache = null;
+        this._displaceCache = null;
+    }
 
     /** Show the current length as a multiple, and "natural" when it is 1. */
     _renderExpandLength() {
@@ -5996,9 +6297,18 @@ class SheetMusicGenerator {
 				label.setAttribute('font-size', '12');
 				label.setAttribute('font-style', 'italic');
 				label.setAttribute('class', 'sheet-feel-indication');
-				label.textContent = amt >= 0.9 ? 'Hard swing'
+				const word = amt >= 0.9 ? 'Hard swing'
 					: amt >= 0.6 ? 'Swing'
 					: 'Light swing';
+				// SAY WHICH IT IS, because it is no longer one thing.
+				//
+				// The feel follows the form now — straight through the first
+				// statement, loosest at the departure, square again at the
+				// close — so "Swing" alone over a piece that is mostly straight
+				// describes something that is not happening. An explanation that
+				// rationalises rather than describes is worse than none, and
+				// this is the page's own explanation of how to play it.
+				label.textContent = this._feelPlan() ? (word + ', following the form') : word;
 				svg.appendChild(label);
 			}
 		} catch (_) { /* an indication is never worth breaking a render for */ }
