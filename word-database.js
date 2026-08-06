@@ -7,6 +7,7 @@
 class WordDatabase {
     constructor() {
         this._data = (typeof window !== 'undefined' && window.NRC_DATA) ? window.NRC_DATA : {};
+        this._senses = (typeof window !== 'undefined' && window.WORD_SENSES_DATA) ? window.WORD_SENSES_DATA : {};
 
         // Suffixes to strip when stemming (ordered longest-first)
         this._suffixes = ['ness','tion','ing','ment','ful','less','ous','ive','ed','ly','er','es','s'];
@@ -40,6 +41,60 @@ class WordDatabase {
             dominance: vad.dominance,
             category:  dominant,
             scale:     this._emotionScales[dominant] || null
+        };
+    }
+
+    /**
+     * Returns the best-matching WordNet SENSE for a word — not a word-level
+     * average. A word with several senses (light-as-brightness vs.
+     * light-as-weight) carries genuinely different valence and a different
+     * gloss per sense; picking one word-level number for "light" regardless
+     * of which meaning is intended is exactly the "words treated randomly"
+     * complaint this exists to fix.
+     *
+     * posHint ('a'|'n'|'v'|'r', from compromise.js's tagging) narrows to
+     * senses of that part of speech when given. Among the remaining
+     * candidates, WordNet's own sense-1-is-most-frequent ordering decides —
+     * there's no attempt at full word-sense disambiguation beyond that.
+     *
+     * Returns { valence, gloss, pos, senseNumber, ambiguous } or null if the
+     * word isn't in the sense lexicon at all.
+     */
+    getSense(word, posHint) {
+        if (!word) return null;
+        const token = String(word).toLowerCase().trim();
+        const entries = this._senses[token];
+        if (!Array.isArray(entries) || !entries.length) return null;
+
+        const byPos = posHint ? entries.filter(e => e.p === posHint) : entries;
+        const pool = byPos.length ? byPos : entries;
+        // Already ordered by sense number (ascending) at build time; take the
+        // first — WordNet's own most-frequent-sense-first convention.
+        const chosen = pool[0];
+        // "joy" (noun/verb/noun-again, valence 0.25/0.5/0.375) has three
+        // entries but they all mean the same thing with mild variation —
+        // not the ambiguity this exists to catch. "light" (brightness vs.
+        // weight vs. illumination) genuinely is: different CONCEPTS, which
+        // more often than not means different parts of speech — the same
+        // signal compromise.js's tagging is already narrowing by — even
+        // when, as with "light", their sentiment polarity happens to land
+        // close together (mildly positive/neutral either way).
+        const distinctPos = new Set(entries.map(e => e.p)).size;
+        const valenceSpan = entries.length > 1
+            ? Math.max(...entries.map(e => e.v)) - Math.min(...entries.map(e => e.v))
+            : 0;
+        const divergesInValence = valenceSpan >= 0.375;
+        return {
+            valence: chosen.v,
+            gloss: chosen.g,
+            pos: chosen.p,
+            senseNumber: chosen.n,
+            // Broad signal — worth telling the user which sense was picked.
+            ambiguous: distinctPos > 1 || divergesInValence,
+            // Narrow signal — worth trusting over NRC's hand-labelled number,
+            // which SentiWordNet's automatic scoring otherwise shouldn't
+            // override for a word whose meanings don't actually disagree.
+            divergesInValence
         };
     }
 

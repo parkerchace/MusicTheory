@@ -144,7 +144,8 @@ class ContextEngine {
                     polaritySpread: lexicalHint.polaritySpread,
                     categoryHints: lexicalHint.categoryHints,
                     semanticWeight: lexicalHint.semanticWeight,
-                    perWordValues: lexicalHint.perWordValues || []
+                    perWordValues: lexicalHint.perWordValues || [],
+                    senseChoices: lexicalHint.senseChoices || []
                 }
             }
         };
@@ -1160,10 +1161,10 @@ class ContextEngine {
             const allTerms = doc.terms().out('array').map(w => w.toLowerCase());
 
             for (const w of allTerms) {
-                if (!result[w]) result[w] = { weight: 0.8, negated: false, intensified: false };
-                if (adjSet.has(w))       result[w].weight = 1.5;
-                else if (verbSet.has(w)) result[w].weight = 1.2;
-                else if (nounSet.has(w)) result[w].weight = 1.0;
+                if (!result[w]) result[w] = { weight: 0.8, negated: false, intensified: false, pos: null };
+                if (adjSet.has(w))       { result[w].weight = 1.5; result[w].pos = 'a'; }
+                else if (verbSet.has(w)) { result[w].weight = 1.2; result[w].pos = 'v'; }
+                else if (nounSet.has(w)) { result[w].weight = 1.0; result[w].pos = 'n'; }
             }
 
             // Negation: words immediately following a negation marker get negated flag
@@ -1224,18 +1225,74 @@ class ContextEngine {
         const db = this._getWordDatabase();
         const values = [];
         const categories = {};
+        const senseChoices = [];
         let suggestedScale = null;
 
         for (const word of words) {
             let emotion = { valence: 0, arousal: 0, dominance: 0 };
-            const hasDirectLexiconEntry = !!(db && db.emotions && db.emotions[word]);
+            const meta = compMeta[word] || {};
 
-            if (db && typeof db.getEmotionalValence === 'function') {
-                emotion = db.getEmotionalValence(word) || emotion;
+            // Priority 1: the sense-disambiguated lexicon — but only when
+            // compromise.js actually tagged this word as content-bearing
+            // (adjective/verb/noun). Without a POS hint there's nothing to
+            // narrow senses BY, and WordNet has no entry for what "a" or
+            // "the" MEAN as function words — it does have entries for "a"
+            // the Angstrom-unit abbreviation and "a" the vitamin, which is
+            // not what anyone typing the article meant.
+            const sense = (meta.pos && db && typeof db.getSense === 'function') ? db.getSense(word, meta.pos) : null;
+
+            // Priority 2: the direct NRC lexicon entry.
+            //
+            // This used to be checked via `db.emotions && db.emotions[word]`
+            // to decide whether a real match had been found — `db.emotions`
+            // has never existed on WordDatabase (the real property is
+            // `_data`), so that check was always false, and the fallback
+            // heuristic below unconditionally overwrote every real lexicon
+            // hit, including unambiguous ones like "joy". The lexicon lookup
+            // ran, computed a correct answer, and then had it thrown away —
+            // for every word, every time. `nrcEntry` being non-null IS having
+            // a real match; nothing else is needed to detect one.
+            const nrcEntry = (db && typeof db.getEmotionalValence === 'function') ? db.getEmotionalValence(word) : null;
+
+            if (sense && sense.divergesInValence) {
+                // The word's senses actually disagree about whether this is
+                // good or bad — the disambiguated sense is the only source
+                // that can tell them apart, so it leads even where NRC also
+                // has an entry (NRC can only ever give ONE number for a word,
+                // regardless of which sense was meant).
+                emotion = {
+                    valence: sense.valence,
+                    arousal: nrcEntry ? nrcEntry.arousal : 0,
+                    dominance: nrcEntry ? nrcEntry.dominance : 0
+                };
+            } else if (nrcEntry) {
+                // Not ambiguous, or ambiguous but NRC still has the word:
+                // NRC is hand-labelled and its magnitude is more trustworthy
+                // than SentiWordNet's automatically-derived scores for a word
+                // that doesn't actually need disambiguating.
+                emotion = nrcEntry;
+            } else if (sense) {
+                // No NRC entry, but the sense lexicon has one — better than
+                // the hash-based fallback below even when not ambiguous.
+                emotion = { valence: sense.valence, arousal: 0, dominance: 0 };
             }
 
+            // Worth telling the user which sense was picked whenever the
+            // word's senses genuinely differ — by concept (different part of
+            // speech, "light" the adjective vs. "light" the noun) or by
+            // polarity — even on the (more common) branches above where NRC's
+            // number, not the sense's, ended up driving the mood.
+            if (sense && sense.ambiguous) {
+                senseChoices.push({ word, gloss: sense.gloss, pos: sense.pos, senseNumber: sense.senseNumber });
+            }
+
+            // Priority 3: the deterministic/hash-based guess, reached only
+            // when NEITHER a real sense NOR a real lexicon entry exists for
+            // this word — a genuinely unknown word still needs to move the
+            // piece SOMEHOW, but a known word's real data is no longer
+            // discarded in favor of it.
             const fallback = this._fallbackLexicalEmotion(word);
-            if (((this._isNeutralEmotion(emotion) || !hasDirectLexiconEntry) || !db) && fallback) {
+            if (!sense && !nrcEntry && fallback) {
                 emotion = {
                     valence:   fallback.valence   || 0,
                     arousal:   fallback.arousal   || 0,
@@ -1244,7 +1301,6 @@ class ContextEngine {
             }
 
             // Apply compromise modifiers
-            const meta = compMeta[word] || {};
             if (meta.negated) {
                 // "not happy" → reverse valence, dampen arousal
                 emotion = { ...emotion, valence: emotion.valence * -0.8, arousal: emotion.arousal * 0.75 };
@@ -1368,7 +1424,8 @@ class ContextEngine {
             verticalPressure,
             harmonicGravity,
             categoryHints,
-            suggestedScale
+            suggestedScale,
+            senseChoices
         };
     }
 

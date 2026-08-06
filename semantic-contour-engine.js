@@ -11,6 +11,12 @@ class SemanticContourEngine {
             'i': 0.9, 'e': 0.7, 'a': 0.5, 'o': 0.3, 'u': 0.2, 'y': 0.8
         };
         this.scaleIntelligence = typeof ScaleIntelligenceEngine !== 'undefined' ? new ScaleIntelligenceEngine() : null;
+        // The main generator already carries a real per-word lexicon (NRC
+        // emotion associations, category-based fallbacks, negation/intensifier
+        // handling via compromise.js) through ContextEngine. Reused here rather
+        // than reimplemented — see parseInput below for why this engine used
+        // to ignore what the words MEANT entirely.
+        this.contextEngine = typeof ContextEngine !== 'undefined' ? new ContextEngine() : null;
     }
 
     parseInput(text) {
@@ -42,15 +48,54 @@ class SemanticContourEngine {
         // - energy: more syllables/words → more motion
         // - brightness: vowel-brightness proxy (avgPitch)
         // - tension/darkness: inverse of brightness
-        const energy01 = this._clamp(0.15 + (totalSyllables / 14) * 0.65 + (words.length / 10) * 0.2, 0.05, 0.98);
-        const brightness01 = this._clamp(avgPitch, 0.05, 0.98);
-        const darkness01 = this._clamp(1.0 - brightness01, 0.02, 0.98);
-        const tension01 = this._clamp(0.25 + darkness01 * 0.65 + Math.max(0, Math.min(0.25, (words.length - 3) * 0.04)), 0.05, 0.98);
+        // These read only how a word SOUNDS, so "joy" and "toy" — same vowel,
+        // opposite meaning — used to score identically, and word MEANING never
+        // reached scale selection at all: OfflineThesaurus (word -> archetype)
+        // was defined but loaded by nothing, referenced by nothing.
+        let energy01 = this._clamp(0.15 + (totalSyllables / 14) * 0.65 + (words.length / 10) * 0.2, 0.05, 0.98);
+        let brightness01 = this._clamp(avgPitch, 0.05, 0.98);
+        let darkness01 = this._clamp(1.0 - brightness01, 0.02, 0.98);
+        let tension01 = this._clamp(0.25 + darkness01 * 0.65 + Math.max(0, Math.min(0.25, (words.length - 3) * 0.04)), 0.05, 0.98);
         const mystery01 = this._clamp((words.length / 10) * 0.6 + (totalSyllables / 18) * 0.4, 0, 1);
+
+        // --- Blend in what the words actually MEAN ---
+        //
+        // ContextEngine's lexical pass already scores each word against a
+        // ~700-word emotion lexicon (falling back to a heuristic for words
+        // outside it) and returns valence/arousal per word. Meaning leads
+        // where the lexicon has something to say; sound fills in the rest —
+        // short inputs and words the lexicon has never seen still need to
+        // produce SOMETHING. The blend weight rises with how much of the
+        // input the lexicon actually recognised, so one recognised word in a
+        // five-word phrase doesn't dominate, and a fully-recognised phrase is
+        // driven almost entirely by what it means.
+        let lexical = null;
+        if (this.contextEngine) {
+            try {
+                const ctx = this.contextEngine.parseInput(text);
+                lexical = ctx && ctx.metadata && ctx.metadata.lexical;
+            } catch (e) { lexical = null; }
+        }
+        const perWord = (lexical && Array.isArray(lexical.perWordValues)) ? lexical.perWordValues : [];
+        const recognised = perWord.filter(v => v.valence || v.arousal || v.dominance).length;
+        const coverage = perWord.length ? recognised / perWord.length : 0;
+
+        if (lexical && coverage > 0) {
+            const w = 0.35 + coverage * 0.55; // 0.35 (one word out of many) .. 0.90 (fully recognised)
+            const lexBrightness = this._clamp((lexical.avgValence + 1) / 2, 0, 1);
+            const lexEnergy = this._clamp((lexical.avgArousal + 1) / 2, 0, 1);
+            const lexTension = this._clamp(Math.abs(lexical.avgArousal) * 0.6 + Math.max(0, -lexical.avgValence) * 0.6, 0, 1);
+
+            brightness01 = this._clamp(brightness01 * (1 - w) + lexBrightness * w, 0.05, 0.98);
+            darkness01 = this._clamp(1.0 - brightness01, 0.02, 0.98);
+            energy01 = this._clamp(energy01 * (1 - w) + lexEnergy * w, 0.05, 0.98);
+            tension01 = this._clamp(tension01 * (1 - w) + lexTension * w, 0.05, 0.98);
+        }
 
         profile.overallEnergy = energy01;
         profile.globalTension = tension01;
         profile.densityArchetype = energy01 > 0.75 ? 'busy' : (energy01 < 0.32 ? 'sparse' : 'steady');
+        profile.lexicalCoverage = coverage;
 
         // 🧠 SMARTER SCALE + MOOD SUGGESTION
         if (this.scaleIntelligence && profile.wordTokens.length > 0) {

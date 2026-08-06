@@ -428,6 +428,63 @@ class ApproachEngine {
     }
 
     /**
+     * EVERY SCALE IN THE LIBRARY THAT COULD BE ROOTED HERE.
+     *
+     * The shared-root search above asks "which collections contain a chord on
+     * the target's root". This asks the blunter question the approach-scales
+     * mode needs: give me the scales rooted on THIS note, most familiar first
+     * but not only the familiar ones — the whole point of the mode is that the
+     * approach material comes from the 1300+ library rather than from the nine
+     * hand-listed modes the pivot family uses.
+     *
+     * Deduped by pitch-class SET, because one collection wears many names and
+     * a list of twelve rows describing the same seven notes is a list of one.
+     * The ordering is stratified rather than sorted: taking the top `limit` by
+     * familiarity returns major, dorian, mixolydian… every time, which is the
+     * opposite of what a mode built on an enormous scale library is for. So
+     * the head of the ranking is kept and the tail is sampled across, which
+     * puts the ordinary collections and the strange ones in the same result.
+     *
+     * @param {string} rootNote      the note the scales are rooted on
+     * @param {Array}  sizes         permitted note counts (7 is diatonic-shaped, 8 the diminished/octatonic family)
+     * @param {number} limit         how many collections to return
+     * @param {number} mustContainPc a pitch class the collection has to hold, or null
+     */
+    scalesRootedAt(rootNote, { sizes = [7], limit = 12, mustContainPc = null } = {}) {
+        const rootPc = this.pitchValue(rootNote);
+        if (!Number.isFinite(rootPc) || rootPc < 0) return [];
+        const cacheKey = `${rootPc}|${sizes.join(',')}|${limit}|${mustContainPc}`;
+        this._rootedCache = this._rootedCache || {};
+        if (this._rootedCache[cacheKey]) return this._rootedCache[cacheKey];
+
+        const bySet = new Map();
+        for (const entry of this.scaleMaskIndex()) {      // already ordered by familiarity
+            if (!sizes.includes(entry.size)) continue;
+            const mask = ApproachEngine.rotateMask(entry.mask0, rootPc);
+            if (mustContainPc !== null && !(mask & (1 << mustContainPc))) continue;
+            if (bySet.has(mask)) continue;
+            bySet.set(mask, entry);
+        }
+        const all = Array.from(bySet.values());
+        const head = Math.min(4, limit, all.length);
+        const picked = all.slice(0, head);
+        if (all.length > head && picked.length < limit) {
+            const want = limit - picked.length;
+            const stride = Math.max(1, Math.floor((all.length - head) / want));
+            for (let i = head; i < all.length && picked.length < limit; i += stride) picked.push(all[i]);
+        }
+
+        const out = [];
+        picked.forEach((entry) => {
+            const notes = this.scaleNotes(rootNote, entry.scaleId);
+            if (!notes || notes.length !== entry.size) return;
+            out.push({ scaleId: entry.scaleId, size: entry.size, notes, rank: entry.rank });
+        });
+        this._rootedCache[cacheKey] = out;
+        return out;
+    }
+
+    /**
      * Chord built on scale degree `degree`, respelled so it reads in the same
      * accidentals as the scale it came from. Without this a run borrowed from
      * Bb Dorian gets labelled "A#m7" while the scale beside it prints
@@ -485,9 +542,270 @@ class ApproachEngine {
      * the scale for its degree chord and therefore cannot make this claim
      * falsely.
      */
-    buildCatalog(target, { maxBeats = 1.5, diatonicOnly = false } = {}) {
-        const key = `${target.root}|${target.chordType || 'maj7'}|${maxBeats}|${diatonicOnly ? 'dia' : 'all'}`;
+    /**
+     * THE APPROACH-SCALES MODE.
+     *
+     * Both families here answer the same brief and differ only in where the
+     * borrowed collection is rooted. The base scale and the progression stay
+     * plain; ALL of the outside colour lives in the approach, which is what
+     * makes the mode teachable — there is exactly one thing happening.
+     *
+     *   fifthAbove      the default. Approaching Bm7, draw from the F♯ scale
+     *                   family: F♯7 is the tonic chord of an F♯ collection and
+     *                   A♯m7♭5 is that same collection's chord a step below
+     *                   the target. A fifth above the target is where a
+     *                   dominant lives, so the collection rooted there already
+     *                   points at the chord; which of the 1300+ F♯ scales it
+     *                   is decides what the pointing sounds like.
+     *
+     *   parallelTarget  the advanced toggle. Draw from a scale rooted on the
+     *                   TARGET'S OWN root — and never sound that scale's tonic
+     *                   chord. Approaching Cmaj7 through C diminished gives
+     *                   Ddim7 → Cmaj7 or E♭dim7 → Ddim7 → Cmaj7: the C-ness is
+     *                   saved for the arrival, so the borrowed collection is
+     *                   heard as tension pointing at a C that has not happened
+     *                   yet rather than as a different kind of C.
+     *
+     * A collection is only usable if the chords taken from it are chords a
+     * player would read — stacking thirds on the remoter scales produces
+     * things like Asus2(add11,♭13,#5), which is a true description of some
+     * pitches and not a chord symbol.
+     */
+    approachScaleFamilies(target, maxBeats, advanced, homeScaleNotes) {
+        const plans = [];
+        if (!this.mt || typeof this.mt.getDiatonicChord !== 'function') return plans;
+        const t = target.root;
+        const tq = String(target.chordType || 'maj7');
+        const tRoman = target.roman || target.fullName || this.fullName(t, tq);
+        const tPc = this.pitchValue(t);
+        if (!Number.isFinite(tPc) || tPc < 0) return plans;
+
+        const targetTones = (Array.isArray(target.chordNotes) && target.chordNotes.length)
+            ? target.chordNotes : this.chordNotes(t, tq);
+        const targetPcs = new Set(targetTones.map(n => this.pitchValue(n)).filter(p => Number.isFinite(p) && p >= 0));
+        const overlapOf = (notes) => {
+            let n = 0;
+            notes.forEach(x => { if (targetPcs.has(this.pitchValue(x))) n++; });
+            return n / Math.max(1, targetPcs.size);
+        };
+
+        // THE COLLECTION THE PIECE IS ALREADY IN IS NOT A BORROW.
+        //
+        // Nothing stopped the target's-own-root family from choosing the HOME
+        // scale: approaching Dmaj7 in D major, "D Major" is a scale rooted on
+        // the target's root, so it qualified — and the panel then listed
+        // Bm7 → C#m7b5 under "chords borrowed from outside the key" when both
+        // are vi and vii° of the key the piece has been in throughout. The
+        // approach may still be a good one; it is simply not a borrow, and
+        // saying it is, is the kind of explanation this generator has twice
+        // been caught using to defend output. Identical pitch-class SET, not
+        // identical name — one collection has many names.
+        const homeMask = (() => {
+            let m = 0;
+            (homeScaleNotes || []).forEach(n => {
+                const pc = this.pitchValue(n);
+                if (Number.isFinite(pc) && pc >= 0) m |= 1 << pc;
+            });
+            return m;
+        })();
+        const isHomeCollection = (notes) => {
+            if (!homeMask) return false;
+            let m = 0;
+            notes.forEach(n => {
+                const pc = this.pitchValue(n);
+                if (Number.isFinite(pc) && pc >= 0) m |= 1 << pc;
+            });
+            return m === homeMask;
+        };
+
+        // A ROOT SPELLED THE WAY ITS CONTEXT SPELLS IT. `transpose` walks a
+        // sharp table, so a fifth above E♭ came back as A♯ — the right pitch,
+        // an unreadable name, and a source scale printed as "A♯ Major
+        // (A♯ C D D♯ F G A)" in a piece written in flats.
+        const spellLike = (pc, reference) => {
+            const wantFlat = /b/.test(String(reference || '').slice(1))
+                || (homeScaleNotes || []).some(n => /b/.test(String(n).slice(1)));
+            if (this.mt && typeof this.mt.spellSemitoneWithPreference === 'function') {
+                try {
+                    const spelled = this.mt.spellSemitoneWithPreference(pc, wantFlat, null);
+                    if (spelled) return spelled;
+                } catch (_) {}
+            }
+            const flats = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+            return wantFlat ? flats[((pc % 12) + 12) % 12] : this.chromatic[((pc % 12) + 12) % 12];
+        };
+
+        const mkChord = (scaleRoot, scaleId, degree, notes) => {
+            const c = this.scaleDegreeChord(scaleRoot, scaleId, degree, notes);
+            if (!c || !this.isPlainQuality(c.chordType)) return null;
+            const tones = c.chordNotes || c.diatonicNotes || [];
+            if (tones.length < 3) return null;
+            if (tones.some(x => /##|bb/.test(String(x)))) return null;
+            // Playing the target chord as its own approach is not an approach.
+            if (this.sameChordNotes(tones, targetTones)) return null;
+            return c;
+        };
+        const eventFor = (c, scaleRoot, scaleId, notes, reason, degree) => ({
+            ...c,
+            duration: 0.5,
+            roman: `${degree}/${scaleRoot} ${scaleId}`,
+            scaleHint: { root: scaleRoot, scaleName: scaleId, scaleNotes: notes, reason },
+            explain: null
+        });
+
+        // --- a fifth above the target -----------------------------------
+        const fifth = spellLike((tPc + 7) % 12, t);
+        const fifthScales = this.scalesRootedAt(fifth, { sizes: [7], limit: 16, mustContainPc: tPc })
+            .filter(c => !isHomeCollection(c.notes));
+        for (const cand of fifthScales) {
+            const { scaleId, size, notes } = cand;
+            const rootPc = this.pitchValue(fifth);
+            // Where the target sits inside this collection, so its neighbours
+            // are the chords that step into it.
+            let targetDegree = -1;
+            for (let d = 1; d <= size; d++) {
+                const pc = this.pitchValue(notes[d - 1]);
+                if (pc === tPc) { targetDegree = d; break; }
+            }
+            if (targetDegree < 0) continue;
+
+            const tonicChord = mkChord(fifth, scaleId, 1, notes);
+            const below = mkChord(fifth, scaleId, ((targetDegree - 2 + size) % size) + 1, notes);
+            const above = mkChord(fifth, scaleId, (targetDegree % size) + 1, notes);
+            const spice = Math.min(0.95, Math.max(0.2,
+                0.34 + (1 - overlapOf(notes)) * 0.4 + (cand.rank > 1 ? 0.16 : 0)));
+            const src = `${fifth} ${this.prettyScale(scaleId)}`;
+            // SAY WHAT IS A FIFTH ABOVE WHAT. Written as "B7 — degree 5 of E
+            // Major, a fifth above A7" the clause reads as a claim about B7,
+            // which is a second above A, and the whole sentence then looks like
+            // the engine cannot count intervals. The thing a fifth above the
+            // target is the SCALE'S ROOT, and it has to be named in the same
+            // breath or the sentence is not describing what happened.
+            const why = `whose root ${fifth} is a fifth above ${target.root}`;
+
+            if (tonicChord) {
+                plans.push({
+                    id: `fifth:${scaleId}@${fifth}:tonic`, family: 'fifthAbove', spice, beats: 0.5,
+                    build: () => {
+                        const ev = eventFor(tonicChord, fifth, scaleId, notes, 'fifth-above-scale', 1);
+                        ev.explain = `${tonicChord.fullName} — the tonic chord of ${src}, the scale ${why}. `
+                            + `Standing a fifth above the target is where a dominant stands, so the whole `
+                            + `collection already points at ${target.fullName}; which of the library's `
+                            + `${fifth} scales it is decides what the pointing sounds like.`;
+                        return [ev];
+                    }
+                });
+            }
+            [['below', below], ['above', above]].forEach(([side, c]) => {
+                if (!c) return;
+                const deg = side === 'below'
+                    ? ((targetDegree - 2 + size) % size) + 1 : (targetDegree % size) + 1;
+                plans.push({
+                    id: `fifth:${scaleId}@${fifth}:${side}`, family: 'fifthAbove',
+                    spice: Math.min(1, spice + 0.04), beats: 0.5,
+                    build: () => {
+                        const ev = eventFor(c, fifth, scaleId, notes, 'fifth-above-scale', deg);
+                        ev.explain = `${c.fullName} — degree ${deg} of ${src}, the scale ${why}. Inside `
+                            + `that scale ${c.root} sits one step ${side} ${target.root}, so it steps `
+                            + `into ${target.fullName}.`;
+                        return [ev];
+                    }
+                });
+                if (tonicChord && maxBeats >= 1 && !this.sameChordNotes(
+                        tonicChord.chordNotes || [], c.chordNotes || [])) {
+                    plans.push({
+                        id: `fifth:${scaleId}@${fifth}:cell-${side}`, family: 'fifthAbove',
+                        spice: Math.min(1, spice + 0.08), beats: 1,
+                        build: () => {
+                            const a = eventFor(tonicChord, fifth, scaleId, notes, 'fifth-above-scale', 1);
+                            const b = eventFor(c, fifth, scaleId, notes, 'fifth-above-scale', deg);
+                            a.explain = `${tonicChord.fullName} → ${c.fullName} — both from ${src}, the scale `
+                                + `${why}: its own tonic chord, then its chord one step ${side} ${target.root}, `
+                                + `into ${target.fullName}.`;
+                            return [a, b];
+                        }
+                    });
+                }
+            });
+        }
+
+        // --- the target's own root, tonic chord withheld -------------------
+        if (advanced) {
+            const parScales = this.scalesRootedAt(t, { sizes: [7, 8], limit: 14 })
+                .filter(c => !isHomeCollection(c.notes));
+            for (const cand of parScales) {
+                const { scaleId, size, notes } = cand;
+                // WITHHOLDING THE TONIC CHORD IS NOT THE SAME AS SKIPPING
+                // DEGREE 1. In a symmetric collection the same chord appears at
+                // several degrees — stack thirds anywhere in C diminished and
+                // you get Cdim7 again, spelled from E♭, G♭ or A. Refusing the
+                // degree while sounding the identical pitches at another one
+                // would keep the rule and break the point of it, which is that
+                // the arrival is the first time that chord is heard.
+                const withheldChord = this.scaleDegreeChord(t, scaleId, 1, notes);
+                const withheldTones = withheldChord ? (withheldChord.chordNotes || withheldChord.diatonicNotes || []) : [];
+                const isWithheld = (c) => withheldTones.length
+                    && this.sameChordNotes(c.chordNotes || c.diatonicNotes || [], withheldTones);
+                // Degree 2 is a step above the target root and degree `size` a
+                // step below it — the two ways in that never touch degree 1.
+                const secondDeg = 2;
+                const lastDeg = size;
+                const spice = Math.min(0.98, Math.max(0.3,
+                    0.45 + (1 - overlapOf(notes)) * 0.4 + (cand.rank > 1 ? 0.14 : 0)));
+                const src = `${t} ${this.prettyScale(scaleId)}`;
+                const withheld = `Its own ${t} chord is deliberately never sounded — the ${t}-ness is saved `
+                    + `for the arrival`;
+
+                [[secondDeg, 'down', 3], [lastDeg, 'up', size - 1]].forEach(([landing, dir, prior]) => {
+                    const landChord = mkChord(t, scaleId, landing, notes);
+                    if (!landChord || isWithheld(landChord)) return;
+                    plans.push({
+                        id: `par:${scaleId}@${t}:${dir}1`, family: 'parallelTarget', spice, beats: 0.5,
+                        build: () => {
+                            const ev = eventFor(landChord, t, scaleId, notes, 'parallel-target-scale', landing);
+                            ev.explain = `${landChord.fullName} — degree ${landing} of ${src}, a scale rooted `
+                                + `on the target's OWN root, stepping ${dir} into ${target.fullName}. ${withheld}.`;
+                            return [ev];
+                        }
+                    });
+                    if (maxBeats < 1 || prior === 1 || prior > size) return;
+                    const priorChord = mkChord(t, scaleId, prior, notes);
+                    if (!priorChord || isWithheld(priorChord)) return;
+                    if (this.sameChordNotes(priorChord.chordNotes || [], landChord.chordNotes || [])) return;
+                    plans.push({
+                        id: `par:${scaleId}@${t}:${dir}2`, family: 'parallelTarget',
+                        spice: Math.min(1, spice + 0.06), beats: 1,
+                        build: () => {
+                            const a = eventFor(priorChord, t, scaleId, notes, 'parallel-target-scale', prior);
+                            const b = eventFor(landChord, t, scaleId, notes, 'parallel-target-scale', landing);
+                            a.explain = `${priorChord.fullName} → ${landChord.fullName} → ${target.fullName} — `
+                                + `degrees ${prior} and ${landing} of ${src}, a scale rooted on the target's OWN `
+                                + `root, walking ${dir} into it. ${withheld}.`;
+                            return [a, b];
+                        }
+                    });
+                });
+            }
+        }
+
+        return plans.filter(p => p.beats <= maxBeats + 1e-6);
+    }
+
+    buildCatalog(target, { maxBeats = 1.5, diatonicOnly = false, mode = null, advanced = false,
+                          homeScaleNotes = null } = {}) {
+        const key = `${target.root}|${target.chordType || 'maj7'}|${maxBeats}|${diatonicOnly ? 'dia' : 'all'}`
+            + `|${mode || 'default'}|${advanced ? 'adv' : 'std'}|${(homeScaleNotes || []).join('')}`;
         if (this._catalogCache[key]) return this._catalogCache[key];
+
+        // The mode REPLACES the catalog rather than adding to it. Mixing the
+        // ordinary families back in would make the one thing the mode exists to
+        // demonstrate the minority of what is heard.
+        if (mode === 'approach-scales') {
+            const only = this.approachScaleFamilies(target, maxBeats, advanced, homeScaleNotes);
+            this._catalogCache[key] = only;
+            this.lastCatalogSize = only.length;
+            return only;
+        }
 
         const plans = [];
         const t = target.root;
@@ -813,7 +1131,13 @@ class ApproachEngine {
         const maxBeats = Number.isFinite(opts.maxBeats) ? opts.maxBeats : 1;
         if (maxBeats < 0.5) return null;
 
-        const catalog = this.buildCatalog(target, { maxBeats, diatonicOnly: !!opts.diatonicOnly });
+        const catalog = this.buildCatalog(target, {
+            maxBeats,
+            diatonicOnly: !!opts.diatonicOnly,
+            mode: opts.mode || null,
+            advanced: !!opts.advanced,
+            homeScaleNotes: opts.homeScaleNotes || null
+        });
         if (!catalog.length) return null;
 
         const darkTone = /dark|angry|intense|mysterious|sad/.test(tone);

@@ -177,11 +177,6 @@ class SheetMusicGenerator {
 			showKeySignature: true,
 			showArcGuide: true,
 			/**
-			 * When true, modal key signatures use parallel major/minor as base (e.g., C Locrian shows
-			 * C minor signature + extra flats). When false, use relative major (more complex).
-			 */
-			simplifyModalSignatures: true,
-			/**
 			 * Optional progression (array of chord objects) for per‑bar mode
 			 */
 			barChords: [],
@@ -686,7 +681,46 @@ class SheetMusicGenerator {
 				barChords.push({ ...barChords[barChords.length - 1] });
 			}
 
-			barDegrees.push(null);
+			// THE DEGREE, ACTUALLY COMPUTED — and then actually stored.
+			//
+			// This pushed `null` for every bar and the array was then thrown
+			// away: `this.state.barDegrees` was never assigned from it, so a
+			// generated piece inherited whatever the studio's initial seed had
+			// left there. A twelve-bar piece in D major came out labelled with
+			// the six degrees of the seed — "deg:1  i  Bm7", "deg:1  Imaj7
+			// Gmaj7" — and `?` for every bar past the sixth. The roman numeral
+			// in the debug dump is derived from this number, which is why the
+			// dump disagreed with the provenance panel about what was playing.
+			// The melody-harmonization paths read it too.
+			const barChordHere = barChords[barChords.length - 1] || null;
+			barDegrees.push((() => {
+				if (!barChordHere || !barChordHere.root) return null;
+				try {
+					const sn = (this.state.scaleNotes && this.state.scaleNotes.length)
+						? this.state.scaleNotes
+						: ((this.musicTheory && typeof this.musicTheory.getScaleNotes === 'function')
+							? (this.musicTheory.getScaleNotes(startKey, startScale) || []) : []);
+					if (!sn.length) return null;
+					// Compared as PITCH, not as spelling: a scale written with
+					// flats and a chord root spelled sharp are the same degree,
+					// and a name match alone would miss it. The table is local
+					// rather than the engine's `noteValues` because this has to
+					// work wherever the sheet does.
+					const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+					const pcOfName = (name) => {
+						const m = String(name || '').replace(/-?\d+$/, '').match(/^([A-Ga-g])([#b]*)$/);
+						if (!m) return null;
+						let pc = PC[m[1].toUpperCase()];
+						if (pc == null) return null;
+						for (const ch of m[2]) pc += (ch === '#' ? 1 : -1);
+						return ((pc % 12) + 12) % 12;
+					};
+					const rv = pcOfName(barChordHere.root);
+					if (rv == null) return null;
+					const i = sn.findIndex(n => pcOfName(n) === rv);
+					return i >= 0 ? (i + 1) : null;
+				} catch (_) { return null; }
+			})());
 			// Capture rich melody objects from beats
 			barMelodies.push((bar.beats || [])
 				.filter(b => b.melody)
@@ -701,6 +735,7 @@ class SheetMusicGenerator {
 		}
 
 		this.state.barMelodies = barMelodies;
+		this.state.barDegrees = barDegrees;
 		this.state.barDurations = barDurations;  // NEW: Store durations for renderer
 		this.state.barBeatEvents = barBeatEvents; // NEW: Store beat events
 		this.state.barMode = 'per-bar';
@@ -1533,28 +1568,6 @@ class SheetMusicGenerator {
 		ksWrap.appendChild(ksLabelText);
 		controls.appendChild(ksWrap);
 
-		// Toggle: simplify modal signatures (parallel major/minor instead of relative major)
-		const simplifyWrap = document.createElement('label');
-		simplifyWrap.style.fontSize = '0.8rem';
-		simplifyWrap.style.display = 'flex';
-		simplifyWrap.style.alignItems = 'center';
-		simplifyWrap.style.gap = '4px';
-		simplifyWrap.style.marginLeft = '8px';
-		const simplifyCb = document.createElement('input');
-		simplifyCb.id = 'simplify-modal-signatures-checkbox';
-		simplifyCb.type = 'checkbox';
-		simplifyCb.checked = !!this.state.simplifyModalSignatures;
-		simplifyCb.addEventListener('change', () => {
-			this.state.simplifyModalSignatures = !!simplifyCb.checked;
-			this._scheduleRender();
-		});
-		const simplifyLabelText = document.createElement('span');
-		simplifyLabelText.textContent = 'Simplify modal signatures';
-		simplifyLabelText.style.color = '#f9fafb';
-		simplifyWrap.appendChild(simplifyCb);
-		simplifyWrap.appendChild(simplifyLabelText);
-		controls.appendChild(simplifyWrap);
-
 		// --- EXPAND: one take becomes a multi-movement work ------------------
 		//
 		// Generative by default and directable when you want it: leave the
@@ -1989,7 +2002,7 @@ class SheetMusicGenerator {
 		}
 
 		// Per-bar overrides live here now. They used to be a separate strip in
-		// the "Where the chords come from" panel offering five styles, so the
+		// the "Where the music comes from" panel offering five styles, so the
 		// app had two voicing UIs that disagreed about what a voicing even is.
 		// One panel, and the per-bar dropdown offers the same styles as the
 		// sequence control.
@@ -2065,7 +2078,8 @@ class SheetMusicGenerator {
 		lines.push('---');
 		const nv = (this.musicTheory && this.musicTheory.noteValues) || {};
 		(this.state.barChords||[]).forEach((c, idx) => {
-			const degree = Array.isArray(this.state.barDegrees) ? this.state.barDegrees[idx] : (()=>{
+			const storedDegree = Array.isArray(this.state.barDegrees) ? this.state.barDegrees[idx] : null;
+			const degree = (storedDegree != null) ? storedDegree : (()=>{
 				try {
 					if (!c || !c.root || !scaleNotes.length) return null;
 					const rv = nv[c.root];
@@ -2082,6 +2096,29 @@ class SheetMusicGenerator {
 			const name = (c && c.fullName) ? c.fullName : `${c.root||''}${c.chordType||''}`;
 			lines.push(`${idx+1}. deg:${degree||'?'}  ${roman?roman+'  ':''}${name}  notes:[${notes.join(' ')}]${classified?`  class:${classified}`:''}`);
 			
+			// EVERY CHORD IN THE BAR, not just the one on its downbeat.
+			//
+			// `barChords` holds one entry per bar because that is what the chord
+			// strip above the staff can show. Read as a dump of what the bar
+			// CONTAINS it is actively misleading: a bar with an approach chord
+			// on beat 4 printed as though nothing happened after beat 1, which
+			// is exactly how a delivered approach run and an undelivered one
+			// came to look identical. The beat events know better, so they are
+			// asked.
+			const beatEvents = (this.state.barBeatEvents && this.state.barBeatEvents[idx]) || [];
+			const extraChords = beatEvents.filter(b => b && b.chordObj && b.arcStage
+				&& Number(b.arcStage.beatInBar) > 1);
+			if (extraChords.length) {
+				lines.push(`   also in this bar: ${extraChords.map(b => {
+					const beat = b.arcStage.beatInBar;
+					const tones = (b.chordObj.diatonicNotes || b.chordObj.chordNotes || []).join(' ');
+					const from = (b.scaleHint && b.scaleHint.root)
+						? ` from ${b.scaleHint.root} ${b.scaleHint.scaleName}` : '';
+					return `beat ${beat}: ${b.chord}${tones ? ` [${tones}]` : ''}`
+						+ `${b.approachFamily ? ` (${b.approachFamily}${from})` : ''}`;
+				}).join('  ·  ')}`);
+			}
+
 			// Add melody info if available
 			const melodyNotes = (this.state.barMelodies && this.state.barMelodies[idx]) || [];
 			if (melodyNotes.length > 0) {
@@ -3954,199 +3991,64 @@ class SheetMusicGenerator {
 			return { topY, spacing, clef };
 		};
 
-	// Determine the key signature AND scale-specific accidentals using
-	// parent/relative major logic (so modes show the correct key signature)
-	// and the same scaleNotes used by the Scale Circle Explorer.
+	// Determine the key signature straight from the SCALE ITSELF — never by
+	// borrowing another key's signature (a relative major, a parallel major/
+	// minor, or a "parent" mode key). A staff key signature only means
+	// something for a scale with one note per letter name, so a seven-note
+	// scale is spelled letter-by-letter from its own tonic
+	// (spellHeptatonicByDegree, in music-theory-engine.js) and whichever
+	// letters come out sharp or flat ARE the signature — not a lookup into
+	// the 15 major/minor signatures, which only cover the diatonic rotations
+	// and were wrong for every scale outside that set. A scale that isn't
+	// seven notes (most of the 1300+ library: pentatonic, hexatonic,
+	// octatonic and the rest) has no letter-per-note mapping to hang a
+	// signature on, so it gets none — every accidental is spelled inline,
+	// which is standard notation practice for non-diatonic-shaped scales.
 	const getKeySignatureForScale = () => {
-		if (!this.musicTheory || !this.musicTheory.keySignatures) return null;
+		if (!this.musicTheory) return null;
 
 		const key = this.state.key;
-		const scaleId = this.state.scale;
-		let scaleNotes = Array.isArray(this.state.scaleNotes) ? this.state.scaleNotes.slice() : [];
+		const scaleId = this.musicTheory.normalizeScaleId
+			? this.musicTheory.normalizeScaleId(this.state.scale)
+			: this.state.scale;
+		const intervals = this.musicTheory.scales && this.musicTheory.scales[scaleId];
 
-		// --- Fallback: compute scale notes if missing or too short ---
-		// Prefer key-signature-aware spellings (flats in flat contexts, sharps in sharp contexts)
-		if (scaleNotes.length < 5) {
-			try {
-				if (this.musicTheory.getScaleNotesWithKeySignature) {
-					const computedKs = this.musicTheory.getScaleNotesWithKeySignature(key, scaleId);
-					if (Array.isArray(computedKs) && computedKs.length >= 5) {
-						scaleNotes = computedKs.slice();
-					}
-				}
-				if (scaleNotes.length < 5 && this.musicTheory.getScaleNotes) {
-					const computed = this.musicTheory.getScaleNotes(key, scaleId);
-					if (Array.isArray(computed) && computed.length >= 5) {
-						scaleNotes = computed.slice();
-					}
-				}
-			} catch (e) { /* ignore */ }
-		}
+		const spelled = (Array.isArray(intervals) && intervals.length === 7 && this.musicTheory.spellHeptatonicByDegree)
+			? this.musicTheory.spellHeptatonicByDegree(key, intervals)
+			: null;
 
-		// --- 1. Determine parent major key for the given tonic+scale ---
-
-		// Helper: relative major (for natural minor / aeolian)
-		const getRelativeMajor = (minorKey) => {
-			const nv = this.musicTheory.noteValues || {};
-			const val = nv[minorKey];
-			if (val == null) return minorKey;
-			const targetPc = (val + 3) % 12; // up a minor 3rd
-			const majorKeysOrder = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
-			for (const k of majorKeysOrder) {
-				if (nv[k] != null && (nv[k] % 12) === targetPc) return k;
-			}
-			return minorKey;
-		};
-
-		// Helper: parent major for church modes (Ionian parent = tonic,
-		// Dorian parent = a whole step below, etc.)
-		const getParentMajorForMode = (tonic, modeId) => {
-			const majorKeys = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
-			const nv = this.musicTheory.noteValues || {};
-			const tonicVal = nv[tonic];
-			if (tonicVal == null) return null;
-
-			// Major scale degree semitone distances from the parent tonic
-			const majorDegSemis = [0, 2, 4, 5, 7, 9, 11];
-			const modeIndex = {
-				ionian: 0, major: 0,
-				dorian: 1,
-				phrygian: 2,
-				lydian: 3,
-				mixolydian: 4,
-				aeolian: 5,
-				locrian: 6
-			}[modeId];
-			if (modeIndex == null) return null;
-
-			// tonic = parent + majorDegSemis[modeIndex]
-			const parentPc = (tonicVal - majorDegSemis[modeIndex] + 12) % 12;
-
-			for (const k of majorKeys) {
-				if (nv[k] != null && (nv[k] % 12) === parentPc) {
-					if (this.musicTheory.keySignatures[k]) return k;
-				}
-			}
-			return null;
-		};
-
-		let parentKey = key; // default: tonic major
-
-		// --- Simplify modal signatures: use parallel major/minor instead of relative major ---
-		if (this.state.simplifyModalSignatures) {
-			// For "dark" modes (minor-like), use parallel minor (relative major of tonic)
-			// For "bright" modes, use parallel major (tonic major)
-			if (scaleId === 'major' || scaleId === 'ionian') {
-				parentKey = key;
-			} else if (scaleId === 'minor' || scaleId === 'aeolian' || scaleId === 'harmonic' || scaleId === 'melodic') {
-				parentKey = getRelativeMajor(key);
-			} else if (['dorian', 'phrygian', 'locrian'].includes(scaleId)) {
-				// Use parallel minor signature (e.g., C Locrian → C minor = Eb major signature)
-				parentKey = getRelativeMajor(key);
-			} else if (['lydian', 'mixolydian'].includes(scaleId)) {
-				// Use parallel major signature (e.g., C Lydian → C major)
-				parentKey = key;
-			} else {
-				// Other scales: default to tonic major
-				parentKey = key;
-			}
-		} else {
-			// Original relative-major logic (more complex for modes)
-			if (scaleId === 'major' || scaleId === 'ionian') {
-				parentKey = key;
-			} else if (scaleId === 'minor' || scaleId === 'aeolian' || scaleId === 'harmonic' || scaleId === 'melodic') {
-				parentKey = getRelativeMajor(key);
-			} else if (['dorian', 'phrygian', 'lydian', 'mixolydian', 'locrian'].includes(scaleId)) {
-				parentKey = getParentMajorForMode(key, scaleId) || key;
-			} else {
-				parentKey = key;
-			}
-		}
-
-		const baseSignature = this.musicTheory.keySignatures[parentKey] || { accidentals: [], type: 'natural' };
-
-		// If we don't have explicit scale notes, return just the base signature
-		if (!scaleNotes.length) {
+		if (!spelled) {
 			return {
-				baseSignature,
+				baseSignature: { accidentals: [], type: 'natural' },
 				scaleAccidentals: []
 			};
 		}
 
-		// --- 2. Compute colored accidentals by comparing parent key signature vs scaleNotes ---
+		// One accidental per letter, taken directly from the scale's own
+		// spelling. A double sharp/flat has no place in a signature — that
+		// letter is left out and shown as an inline accidental wherever it
+		// occurs instead, same as any other out-of-signature note.
+		const accidentals = spelled.filter(n => n.slice(1).length === 1);
+		const sharps = accidentals.filter(a => a.includes('#'));
+		const flats = accidentals.filter(a => a.includes('b'));
+		const type = sharps.length && flats.length ? 'mixed'
+			: sharps.length ? 'sharp'
+			: flats.length ? 'flat'
+			: 'natural';
 
-		const enharmonics = {
-			'C': ['C', 'B#', 'Dbb'],
-			'C#': ['C#', 'Db', 'B##'],
-			'Db': ['Db', 'C#', 'B##'],
-			'D': ['D', 'C##', 'Ebb'],
-			'D#': ['D#', 'Eb', 'Fbb'],
-			'Eb': ['Eb', 'D#', 'Fbb'],
-			'E': ['E', 'Fb', 'D##'],
-			'Fb': ['Fb', 'E'],
-			'F': ['F', 'E#', 'Gbb'],
-			'F#': ['F#', 'Gb', 'E##'],
-			'Gb': ['Gb', 'F#', 'E##'],
-			'G': ['G', 'F##', 'Abb'],
-			'G#': ['G#', 'Ab'],
-			'Ab': ['Ab', 'G#'],
-			'A': ['A', 'G##', 'Bbb'],
-			'A#': ['A#', 'Bb', 'Cbb'],
-			'Bb': ['Bb', 'A#', 'Cbb'],
-			'B': ['B', 'Cb', 'A##'],
-			'Cb': ['Cb', 'B', 'A##']
-		};
-
-		const getLetter = (note) => (note && note[0]) || '';
-		const baseAccidentals = baseSignature.accidentals || [];
-		const scaleAccidentals = [];
-
-		['C', 'D', 'E', 'F', 'G', 'A', 'B'].forEach(letter => {
-			const scaleNote = scaleNotes.find(n => getLetter(n) === letter);
-			if (!scaleNote) return;
-
-			const sigNote = baseAccidentals.find(acc => getLetter(acc) === letter) || letter;
-			const sigOptions = enharmonics[sigNote] || [sigNote];
-
-			if (sigOptions.includes(scaleNote)) return; // already covered by key signature
-
-			if (!scaleAccidentals.includes(scaleNote)) {
-				scaleAccidentals.push(scaleNote);
-			}
-		});
-
-		// --- 3. Compute characteristic differences vs parallel major/minor ---
-		const minorFamily = ['aeolian', 'minor', 'dorian', 'phrygian', 'locrian', 'harmonic', 'melodic'];
-		const majorFamily = ['ionian', 'major', 'lydian', 'mixolydian'];
-
-		let parallelBaseline = { accidentals: [], type: 'natural' };
-		if (minorFamily.includes(scaleId)) {
-			const relMaj = getRelativeMajor(key);
-			parallelBaseline = this.musicTheory.keySignatures[relMaj] || parallelBaseline;
-		} else if (majorFamily.includes(scaleId)) {
-			parallelBaseline = this.musicTheory.keySignatures[key] || parallelBaseline;
-		}
-
-		const baseAccs = baseSignature.accidentals || [];
-		const parAccs = parallelBaseline.accidentals || [];
-		const setOf = (arr) => new Set(arr || []);
-		const baseSet = setOf(baseAccs);
-		const parSet = setOf(parAccs);
-
-		const characteristicRecolors = baseAccs.filter(a => !parSet.has(a));
-		const letterOf = (a) => (a && a[0]) || '';
-		const characteristicNaturals = parAccs
-			.filter(a => !baseSet.has(a))
-			.map(letterOf)
-			.filter((v, i, arr) => v && arr.indexOf(v) === i);
+		// Visual order: the familiar sharp/flat order when the signature runs
+		// one direction only, so a scale that happens to match a standard key
+		// is drawn the way everyone expects. A mixed-direction signature has
+		// no traditional order, so it's laid out by letter instead.
+		const SHARP_ORDER = ['F#', 'C#', 'G#', 'D#', 'A#', 'E#', 'B#'];
+		const FLAT_ORDER = ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Fb'];
+		const ordered = type === 'sharp' ? SHARP_ORDER.filter(a => accidentals.includes(a))
+			: type === 'flat' ? FLAT_ORDER.filter(a => accidentals.includes(a))
+			: accidentals.slice().sort((a, b) => a.charAt(0).localeCompare(b.charAt(0)));
 
 		return {
-			baseSignature,
-			scaleAccidentals,
-			characteristic: {
-				recolors: characteristicRecolors,
-				naturals: characteristicNaturals
-			}
+			baseSignature: { accidentals: ordered, type },
+			scaleAccidentals: []
 		};
 	};
 
@@ -4225,10 +4127,13 @@ class SheetMusicGenerator {
             const bassSharpSteps   = { 'F#': 6, 'C#': 3, 'G#': 8, 'D#': 4, 'A#': 7, 'E#': 5, 'B#': 2 };
             const bassFlatSteps    = { 'Bb': 2, 'Eb': 5, 'Ab': 1, 'Db': 4, 'Gb': 0, 'Cb': 3, 'Fb': -1 };
 
-            const isSharpSig = sigData.baseSignature && sigData.baseSignature.type === 'sharp';
+            // A signature can now run sharps and flats at once (a scale whose
+            // own spelling needs both), so every letter's step is looked up by
+            // its own accidental rather than picking one direction for the
+            // whole signature.
             const stepMap = clef === 'bass'
-                ? (isSharpSig ? bassSharpSteps : bassFlatSteps)
-                : (isSharpSig ? trebleSharpSteps : trebleFlatSteps);
+                ? { ...bassSharpSteps, ...bassFlatSteps }
+                : { ...trebleSharpSteps, ...trebleFlatSteps };
 
             allAccidentals.forEach((acc, i) => {
                 const step = stepMap[acc];
@@ -4236,9 +4141,7 @@ class SheetMusicGenerator {
                 const x = startX + i * accSpacing;
                 const y = yForStep(step);
 
-                // Determine if this is a base signature accidental or scale-specific
-                const isBaseAccidental = baseAccidentals.includes(acc);
-                const color = isBaseAccidental ? '#d1d5db' : '#fdba74'; // Black for traditional, red-orange for scale-specific
+                const color = '#d1d5db';
 
                 const t = document.createElementNS(svgNS, 'text');
                 t.setAttribute('x', String(x));
@@ -4268,68 +4171,6 @@ class SheetMusicGenerator {
                 svg.appendChild(t);
             });
 
-			// Overlay: recolor characteristic accidentals inside the signature (e.g., Db in C Phrygian)
-			if (sigData.characteristic && sigData.characteristic.recolors && sigData.characteristic.recolors.length) {
-				const overlayColor = '#0ea5e9';
-				sigData.characteristic.recolors.forEach((acc) => {
-					const step = stepMap[acc];
-					if (typeof step !== 'number') return;
-					const i = baseAccidentals.indexOf(acc);
-					if (i < 0) return; // only recolor those drawn as part of base signature
-					const x = startX + i * accSpacing;
-					const y = yForStep(step);
-
-					const t = document.createElementNS(svgNS, 'text');
-					t.setAttribute('x', String(x));
-					let yOffset;
-					if (acc.includes('#')) {
-						yOffset = 4.5;
-						if (clef === 'treble' && acc === 'F#') yOffset = 3.9;
-					} else if (acc.includes('b')) {
-						yOffset = 3.5;
-					} else {
-						yOffset = 3.2;
-					}
-					t.setAttribute('y', String(y + yOffset));
-					t.setAttribute('fill', overlayColor);
-					t.setAttribute('font-size', '16');
-					t.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
-					t.setAttribute('text-anchor', 'middle');
-					t.textContent = acc.includes('#') ? sharpChar : (acc.includes('b') ? flatChar : naturalChar);
-					svg.appendChild(t);
-				});
-			}
-
-			// Overlay: draw colored natural signs for letters flattened in parallel minor but natural in this mode (e.g., A♮ in C Dorian)
-			if (sigData.characteristic && sigData.characteristic.naturals && sigData.characteristic.naturals.length) {
-				const overlayColor = '#0ea5e9';
-				const letterToStep = (letter) => {
-					const sharpKey = `${letter}#`;
-					const flatKey = `${letter}b`;
-					let step = stepMap[sharpKey];
-					if (typeof step !== 'number') step = stepMap[flatKey];
-					return step;
-				};
-				sigData.characteristic.naturals.forEach((letter, idx) => {
-					const step = letterToStep(letter);
-					if (typeof step !== 'number') return;
-					const i = allAccidentals.length + idx; // place after existing symbols
-					const x = startX + i * accSpacing;
-					const y = yForStep(step);
-
-					const t = document.createElementNS(svgNS, 'text');
-					t.setAttribute('x', String(x));
-					// Slightly different vertical baseline to better center the natural glyph on the line/space
-					t.setAttribute('y', String(y + 2.2));
-					t.setAttribute('fill', overlayColor);
-					t.setAttribute('font-size', '16');
-					t.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
-					t.setAttribute('text-anchor', 'middle');
-					t.setAttribute('dominant-baseline', 'middle');
-					t.textContent = naturalChar;
-					svg.appendChild(t);
-				});
-			}
 		};
 		// Draw key signatures
 		if (this.state.showKeySignature) {
@@ -6346,12 +6187,6 @@ class SheetMusicGenerator {
 			arcGuideCb.checked = this.state.showArcGuide !== false;
 		}
 
-		// Update simplify modal signatures checkbox
-		const simplifyCb = this.controlsContainer && this.controlsContainer.querySelector('#simplify-modal-signatures-checkbox');
-		if (simplifyCb) {
-			simplifyCb.checked = !!this.state.simplifyModalSignatures;
-		}
-
 		// If the new render resulted in an empty/blank SVG, restore the last known good.
 		try {
 			const svgNow = this.svgContainer.querySelector('svg');
@@ -6985,6 +6820,34 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 	// runs live on the off-beats: 2.5, 3, 3.5 …). Snap to the same 0.5-beat
 	// grid the phrase iterates on — flooring to integers collapsed every
 	// approach run onto one slot, dropping chords and misplacing the rest.
+	// CARRY THE CHORD THROUGH; DO NOT RE-DERIVE IT FROM ITS NAME.
+	//
+	// The generator already built every one of these — root, quality and the
+	// exact, correctly-spelled tones — and then this step threw all of it away
+	// and rebuilt the chord by parsing the printed symbol back apart. The
+	// seeding path learned this the hard way and stopped doing it; the
+	// generated-music path was still at it, and the damage shows up exactly
+	// where the chords are least ordinary: "Amaj7" came back as A C E (a triad,
+	// the seventh gone), "C#m7" as C# E A♭ in a piece with no A♭ anywhere in
+	// it, because the parser's own flat-preference rule fires on any minor
+	// chord regardless of the key it is in. Approach chords took the worst of
+	// it, having no voicing to overwrite the parse afterwards — which is part
+	// of why they read as "not actually generated".
+	//
+	// Parsing survives only for a chord that arrives as text and nothing else.
+	const chordObjFromEvent = (chordEvent) => {
+		const co = chordEvent && chordEvent.chordObj;
+		const tones = co && (co.chordNotes || co.diatonicNotes);
+		if (!co || !co.root || !Array.isArray(tones) || !tones.length) return null;
+		return {
+			root: co.root,
+			chordType: co.chordType || '',
+			chordNotes: tones.slice(),
+			diatonicNotes: tones.slice(),
+			fullName: co.fullName || chordEvent.chord || `${co.root}${co.chordType || ''}`
+		};
+	};
+
 	chordSequence.forEach((chordEvent, idx) => {
 		if (!chordEvent) return;
 		const rawChord = chordEvent.chord;
@@ -6996,7 +6859,8 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 			if (beatOffset >= beatsPerBar) beatOffset = Math.max(0, beatsPerBar - 0.5);
 		}
 		const absoluteBeat = (bar * beatsPerBar) + beatOffset;
-		const chordObj = parseChordSymbolForPhrase(rawChord, musicTheory);
+		const chordObj = chordObjFromEvent(chordEvent)
+			|| parseChordSymbolForPhrase(rawChord, musicTheory);
 		if (chordObj) {
 			chordByBeat.set(absoluteBeat, { chordObj, chordEvent });
 		}
@@ -7140,7 +7004,8 @@ function buildPhraseFromGeneratedMusic(detail, sheetGen) {
 		const chordEvent = chordSequence.find(ev => ev && ev.bar === barIndex && (!Number.isFinite(ev.beat) || ev.beat === 0))
 			|| chordSequence.find(ev => ev && ev.bar === barIndex)
 			|| chordSequence[chordSequence.length - 1];
-		const fallbackChordObj = parseChordSymbolForPhrase(chordEvent && chordEvent.chord, musicTheory);
+		const fallbackChordObj = chordObjFromEvent(chordEvent)
+			|| parseChordSymbolForPhrase(chordEvent && chordEvent.chord, musicTheory);
 		const beats = [];
 		const accentBeats = [];
 

@@ -657,40 +657,32 @@ class MusicTheoryEngine {
         // Ensure root present
         if (!has(0)) return null;
 
-        // Seventh chord classification (include augmented 7th variants before generic maj7/m7)
-        if ((has(4) && has(8) && has(11))) return 'maj7#5'; // augmented major seventh
-        if ((has(3) && has(8) && has(10))) return 'm7#5';   // augmented minor seventh
-        if ((has(4) && has(7) && has(11))) return 'maj7';
-        if ((has(3) && has(7) && has(10))) return 'm7';
-        if ((has(4) && has(7) && has(10))) return '7';
-        if ((has(3) && has(6) && has(10))) return 'm7b5';
-        if ((has(3) && has(6) && has(9))) return 'dim7';
-        if ((has(3) && has(7) && has(11))) return 'mMaj7';
-        if ((has(5) && has(7) && has(10))) return '7sus4';
-        // Shell voicings (no 5th)
-        if (has(5) && has(10) && !has(3) && !has(4)) return '7sus4';
-        if (has(2) && has(10) && !has(3) && !has(4)) return '7sus2';
-
-        // Sixths (prefer over plain triads when 6th is present)
-        if ((has(4) && has(7) && has(9))) return '6';
-        if ((has(3) && has(7) && has(9))) return 'm6';
-
-        // Triads
-        if ((has(4) && has(7))) return 'maj';
-        if ((has(3) && has(7))) return 'm';
-        if ((has(3) && has(6))) return 'dim';
-        if ((has(4) && has(8))) return 'aug';
-        if ((has(5) && has(7))) return 'sus4';
-        if ((has(2) && has(7))) return 'sus2';
-
-        // As a last resort, try exact match with known formulas
-        const normalized = Array.from(set).sort((a,b)=>a-b);
+        // Match the FULL set of distinct intervals present, against the
+        // whole formula table, before naming anything. A hand-written
+        // cascade of ~9 "common" seventh-chord shapes used to run first and
+        // silently drop extra tones the moment a chord didn't match one of
+        // them: a dominant seventh with a sharp five (root, M3, #5, m7) is a
+        // real, named chord ('7#5') in this very table, but the cascade's
+        // plain augmented-TRIAD check (has(4)&&has(8)) fired first and
+        // returned 'aug', discarding the seventh outright. That is exactly
+        // the "triads instead of sevenths" failure — it doesn't matter
+        // whether the scale is common or one of the 1300+ exotic ones, any
+        // 7th chord whose shape wasn't one of the hand-picked few lost its
+        // 7th the same way. Matching the exact set means a chord is only
+        // ever named by ALL of its notes.
+        const normalized = Array.from(set).sort((a, b) => a - b);
         for (const [type, formula] of Object.entries(this.chordFormulas)) {
-            const f = Array.from(new Set(formula)).sort((a,b)=>a-b);
-            if (f.length === normalized.length && f.every((v,i)=>v===normalized[i])) {
+            const f = Array.from(new Set(formula)).sort((a, b) => a - b);
+            if (f.length === normalized.length && f.every((v, i) => v === normalized[i])) {
                 return type;
             }
         }
+
+        // Nothing in the table names this exact combination. Return null
+        // rather than guess from a subset — the caller (getDiatonicChord)
+        // falls back to a triad-only reclassification and then a synthetic
+        // descriptive name (generateSyntheticChordType) that lists every
+        // extra or missing tone instead of silently dropping them.
         return null;
     }
 
@@ -1120,44 +1112,6 @@ class MusicTheoryEngine {
         if (!chordType) {
             chordType = this.generateSyntheticChordType(root, stacked.notes);
         }
-
-        // Honor any explicit display-token override (° vs ø) coming from the NumberGenerator.
-        // NOTE: Do not assume the displayTokens array aligns by index with scale degrees
-        // (trailing spaces or extra tokens can shift lengths). Instead, scan tokens
-        // and match Roman numerals to the requested degree. This avoids index-shift
-        // bugs where a trailing space would change which degree receives a symbol.
-        try {
-            if (typeof window !== 'undefined' && window.modularApp && window.modularApp.numberGenerator && typeof window.modularApp.numberGenerator.getCurrentDisplayTokens === 'function') {
-                const displayTokens = window.modularApp.numberGenerator.getCurrentDisplayTokens();
-                if (Array.isArray(displayTokens) && displayTokens.length > 0) {
-                    const romanToInt = (r) => {
-                        if (!r) return null;
-                        const s = String(r).toUpperCase();
-                        const map = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7 };
-                        return map[s] || null;
-                    };
-
-                    for (let i = 0; i < displayTokens.length; i++) {
-                        const t = displayTokens[i];
-                        if (!t) continue;
-                        const m = String(t).match(/^([#b♯♭]*)([IViv]+)(.*)$/);
-                        if (!m) continue;
-                        const roman = m[2];
-                        const tokDegree = romanToInt(roman);
-                        if (tokDegree === degree) {
-                            const tok = String(t);
-                            // Accept both symbol forms and canonical text forms for half-diminished/diminished
-                            if (/(°|dim(?!.*maj))/i.test(tok)) {
-                                chordType = 'dim7';
-                            } else if (/(ø|m7b5|half-?dim)/i.test(tok)) {
-                                chordType = 'm7b5';
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-        } catch (e) { /* ignore */ }
 
         return { root, chordType, fullName: root + chordType, diatonicNotes: stacked.notes };
     }

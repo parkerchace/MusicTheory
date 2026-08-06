@@ -1,7 +1,12 @@
 /**
- * approach-provenance-panel.js
+ * music-provenance-panel.js
  *
- * An expandable panel that answers "where did that chord come from?".
+ * An expandable panel that answers "where did that come from?" — not just for
+ * chords. Renamed from approach-provenance-panel.js/"Where the chords come
+ * from": the same question applies to a word's disambiguated sense as much
+ * as a borrowed chord, and both belong in one place a listener can look
+ * things up, rather than splitting explanations between a transient toast
+ * and a persistent panel depending on which engine happened to produce them.
  *
  * The approach catalog can produce 100+ ways into a single chord, so a chord
  * appearing on the staff is meaningless without its provenance: which scale it
@@ -16,7 +21,7 @@
 (function () {
     'use strict';
 
-    const PANEL_ID = 'approach-provenance-panel';
+    const PANEL_ID = 'music-provenance-panel';
 
     function mt() {
         return (window.modularApp && window.modularApp.musicTheory) || null;
@@ -30,7 +35,7 @@
         return Number.isFinite(n) && n >= 1 && n <= 7 ? n : null;
     }
 
-    class ApproachProvenancePanel {
+    class MusicProvenancePanel {
         constructor() {
             this.lastMusic = null;
             this.numericDegrees = [];
@@ -59,7 +64,7 @@
             caret.textContent = '▶';
             caret.style.cssText = 'color:#38bdf8; transition: transform .15s;';
             const title = document.createElement('span');
-            title.innerHTML = '<strong style="color:#22d3ee;">🔍 Where the chords come from</strong>';
+            title.innerHTML = '<strong style="color:#22d3ee;">🔍 Where the music comes from</strong>';
             const count = document.createElement('span');
             count.id = 'approach-prov-count';
             count.style.cssText = 'margin-left:auto; color:#94a3b8;';
@@ -144,6 +149,11 @@
             this.body.innerHTML = '';
             const runs = this.collectRuns();
 
+            // What the words themselves meant, first — everything else in
+            // this panel was built FROM that reading, so it comes before the
+            // key, the form and the chords rather than after them.
+            this.body.appendChild(this.renderWordSensesSection());
+
             const home = (this.lastMusic && this.lastMusic.context && this.lastMusic.context.harmonicProfile) || {};
             const homeLine = document.createElement('div');
             homeLine.style.cssText = 'padding:8px 12px; border-bottom:1px solid #1e293b; color:#94a3b8;';
@@ -154,13 +164,16 @@
 
             this.countEl.textContent = runs.length ? `${runs.length} borrowed run${runs.length === 1 ? '' : 's'}` : 'all diatonic';
 
-            // The panel is titled "where the chords come from", and most of the
-            // chords are the DIATONIC ones — those were never listed at all, so
-            // it only ever explained the exceptions. The progression and its
-            // form come first; the borrowed runs are then read as departures
-            // from something the reader can actually see.
+            // Most of the chords are the DIATONIC ones — those used to never
+            // be listed at all, so the panel only ever explained the
+            // exceptions. The progression and its form come first; the
+            // borrowed runs are then read as departures from something the
+            // reader can actually see.
             this.body.appendChild(this.renderFormSection());
+            this.body.appendChild(this.renderExcursionSection());
             this.body.appendChild(this.renderDiatonicSection());
+            this.body.appendChild(this.renderMelodySection());
+            this.body.appendChild(this.renderTextureSection());
 
             const runsHead = document.createElement('div');
             runsHead.style.cssText = 'padding:8px 12px; border-top:2px solid #0f3460; background:#0b1220;';
@@ -175,9 +188,45 @@
             }
 
             // Voicing controls live in the sheet generator's Voicing Options
-            // panel only — this panel is about where chords came from.
+            // panel only — this panel is about where the music came from.
             runs.forEach((run) => this.body.appendChild(this.renderRun(run)));
             this.body.appendChild(this.renderNumericSection());
+        }
+
+        /**
+         * Which sense a word was read as, when it had more than one on offer
+         * — "light" as weight, not brightness — the same kind of provenance
+         * this panel already gives a chord, applied one level upstream, to
+         * the input the whole piece was built from. Lives here rather than
+         * as a toast: a word choice isn't tied to a moment in the music the
+         * way a chord or a chromatic note is, so there's no bar for it to
+         * flash past — it's context worth having sit still and be read.
+         */
+        renderWordSensesSection() {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'padding:9px 12px; border-bottom:1px solid #1e293b;';
+            const senses = (this.lastMusic && this.lastMusic.context && this.lastMusic.context.metadata
+                && this.lastMusic.context.metadata.lexical && this.lastMusic.context.metadata.lexical.senseChoices) || [];
+            if (!senses.length) { wrap.style.display = 'none'; return wrap; }
+
+            const head = document.createElement('div');
+            head.innerHTML = '<strong style="color:#22d3ee;">📖 What the words meant</strong>';
+            head.style.marginBottom = '5px';
+            wrap.appendChild(head);
+
+            const list = document.createElement('div');
+            list.style.cssText = 'color:#94a3b8; font-size:11px; line-height:1.6;';
+            list.innerHTML = senses.map((s) =>
+                `<strong style="color:#e2e8f0;">"${s.word}"</strong> read as ` +
+                `<em style="color:#fbbf24;">${s.gloss}</em>` +
+                `<span style="color:#64748b;"> (${this.posName(s.pos)})</span>`
+            ).join('<br>');
+            wrap.appendChild(list);
+            return wrap;
+        }
+
+        posName(pos) {
+            return { a: 'adjective', n: 'noun', v: 'verb', r: 'adverb' }[pos] || pos || '';
         }
 
         /** The planned shape: which sections exist and what each one is for. */
@@ -214,6 +263,52 @@
                 strip.appendChild(chip);
             });
             wrap.appendChild(strip);
+            return wrap;
+        }
+
+        /**
+         * WHERE THE MUSIC WENT, AND WHERE IT CAME BACK.
+         *
+         * A borrowed colour is now a span rather than a chord (see
+         * planModalExcursions in arc-ui-init.js), and a span is exactly the
+         * thing a per-bar list cannot show: the reader would see three lines
+         * that each mention "C Aeolian" and have to infer that they are one
+         * gesture. So the excursion gets its own row — source, reading, the
+         * bars it occupies and the bar it lands on — above the progression it
+         * is a departure from.
+         */
+        renderExcursionSection() {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'padding:9px 12px; border-bottom:1px solid #1e293b;';
+            const excursions = (this.lastMusic && this.lastMusic.harmony && this.lastMusic.harmony.excursions) || [];
+            if (!excursions.length) { wrap.style.display = 'none'; return wrap; }
+
+            const home = (this.lastMusic && this.lastMusic.context && this.lastMusic.context.harmonicProfile) || {};
+            const homeLabel = `${home.root || '?'} ${this.pretty(home.recommendedScale)}`;
+
+            const head = document.createElement('div');
+            head.innerHTML = '<strong style="color:#22d3ee;">🚪 Where the music left the key — and came back</strong>';
+            head.style.marginBottom = '5px';
+            wrap.appendChild(head);
+
+            const READING = {
+                'modal-interchange': 'the parallel mode, borrowed in quantity',
+                'tonicization': 'the borrowed root heard as a tonic of its own'
+            };
+
+            const list = document.createElement('div');
+            list.style.cssText = 'color:#94a3b8; font-size:11px; line-height:1.7;';
+            list.innerHTML = excursions.map((e) => {
+                const chords = (e.chords || []).map(c => c.fullName || `${c.root}${c.chordType}`).join(' → ');
+                const notes = Array.isArray(e.sourceNotes) && e.sourceNotes.length
+                    ? ` <span style="color:#64748b;">(${e.sourceNotes.join(' ')})</span>` : '';
+                return `<span style="color:#64748b;">bars ${e.startBar + 1}–${e.endBar + 1}</span> ` +
+                    `<strong style="color:#e2e8f0;">${e.label}</strong>${notes}<br>` +
+                    `<span style="margin-left:10px; color:#fbbf24;">${chords}</span> ` +
+                    `<span style="color:#64748b;">— ${READING[e.reading] || e.reading}; ` +
+                    `bar ${e.returnBar + 1} returns to ${homeLabel}</span>`;
+            }).join('<br>');
+            wrap.appendChild(list);
             return wrap;
         }
 
@@ -298,6 +393,76 @@
             return wrap;
         }
 
+        /**
+         * Every melody note that leaves the sounding scale carries a
+         * `chromaticReason` naming the exact relationship that licenses it —
+         * a chord tone, a leading tone that resolves up into its root. This
+         * used to be a toast (queueChordOriginToasts, arc-ui-init.js); it
+         * lives here now for the same reason a word's sense does — it isn't
+         * tied to a moment the way a fresh chord attack is, and grouping
+         * every accidental of the take in one place makes the PATTERN
+         * visible (e.g. every one of them resolving upward) in a way a
+         * sequence of one-at-a-time toasts never could.
+         */
+        renderMelodySection() {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'padding:9px 12px; border-bottom:1px solid #1e293b;';
+            const notes = ((this.lastMusic && this.lastMusic.melody && this.lastMusic.melody.notes) || [])
+                .filter(n => n && typeof n.chromaticReason === 'string' && n.chromaticReason.trim().length);
+            if (!notes.length) { wrap.style.display = 'none'; return wrap; }
+
+            const head = document.createElement('div');
+            head.innerHTML = '<strong style="color:#22d3ee;">🎵 Why the melody leaves the scale</strong>';
+            head.style.marginBottom = '5px';
+            wrap.appendChild(head);
+
+            const list = document.createElement('div');
+            list.style.cssText = 'color:#94a3b8; font-size:11px; line-height:1.6;';
+            list.innerHTML = notes.map((n) =>
+                `<span style="color:#64748b;">bar ${(n.bar || 0) + 1}</span> ` +
+                `<strong style="color:#e2e8f0;">${n.noteName}</strong> — ` +
+                `<em style="color:#fbbf24;">${n.chromaticReason}</em>`
+            ).join('<br>');
+            wrap.appendChild(list);
+            return wrap;
+        }
+
+        /**
+         * The texture engine has always written an explanation for each of
+         * its orchestrational exceptions — descant, tenor lead, crossover,
+         * bass melody, covering voice — one per device that changes how the
+         * two hands are laid out rather than what chord is sounding. Also
+         * moved here from a toast, for the same reason as the melody section
+         * above: "the descant takes over for two bars starting here" is
+         * something worth being able to look up, not something that needs
+         * to be caught as it flashes past.
+         */
+        renderTextureSection() {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'padding:9px 12px; border-bottom:1px solid #1e293b;';
+            const exceptions = ((this.lastMusic && this.lastMusic.piano && this.lastMusic.piano.exceptions) || [])
+                .filter(x => x && typeof x.explain === 'string' && x.explain.trim().length);
+            if (!exceptions.length) { wrap.style.display = 'none'; return wrap; }
+
+            const head = document.createElement('div');
+            head.innerHTML = '<strong style="color:#22d3ee;">🎹 How the texture changes</strong>';
+            head.style.marginBottom = '5px';
+            wrap.appendChild(head);
+
+            const list = document.createElement('div');
+            list.style.cssText = 'color:#94a3b8; font-size:11px; line-height:1.6;';
+            list.innerHTML = exceptions
+                .slice()
+                .sort((a, b) => (Number(a.startBar) || 0) - (Number(b.startBar) || 0))
+                .map((x) =>
+                    `<span style="color:#64748b;">bar ${(Number(x.startBar) || 0) + 1}</span> ` +
+                    `<strong style="color:#e2e8f0;">${this.pretty(x.type)}</strong> — ` +
+                    `<em style="color:#fbbf24;">${x.explain}</em>`
+                ).join('<br>');
+            wrap.appendChild(list);
+            return wrap;
+        }
+
         pitchClassesOf(noteNames) {
             const theory = mt();
             const out = new Set();
@@ -309,11 +474,29 @@
             return out;
         }
 
-        /** Why an un-annotated chord is where it is. */
+        /**
+         * Why an un-annotated chord is where it is.
+         *
+         * This used to decide "altered" by checking whether the roman
+         * numeral's own SPELLING carried a flat or sharp — but roman
+         * numerals in this app are spelled relative to the PARALLEL MAJOR
+         * scale, so almost any non-major scale's own diatonic chords need
+         * one: E Mixolydian ♭6's degree 6 chord reads as "♭VI" because
+         * major's 6th isn't flat, not because that chord is borrowed from
+         * outside E Mixolydian ♭6 — the flat IS the scale, it's the note the
+         * scale is named for. Checking that FIRST meant a scale's own notes
+         * were routinely announced as "borrowed in for colour" whenever the
+         * scale itself wasn't major, which is what actually was random about
+         * it — a listener has no way to tell a real borrowed chord from a
+         * mislabelled ordinary one if everything gets called the same thing.
+         * Whether the chord's ACTUAL tones are outside the ACTUAL scale is
+         * the only version of this question that tells them apart.
+         */
         diatonicReason(ev, home, homePcs) {
             const roman = String(ev.roman || '');
             const scaleLabel = `${home.root || '?'} ${this.pretty(home.recommendedScale)}`;
             const degree = romanToDegreeNum(roman);
+            const hasAccidental = /[b#]/.test(roman);
 
             // Does every tone belong to the home scale?
             const tones = (ev.chordObj && (ev.chordObj.chordNotes || ev.chordObj.diatonicNotes)) || [];
@@ -321,13 +504,14 @@
             let outside = 0;
             tonePcs.forEach(pc => { if (homePcs.size && !homePcs.has(pc)) outside++; });
 
-            if (/[b#]/.test(roman)) {
-                return `Altered degree — <strong style="color:#e2e8f0;">${roman}</strong> is not in ${scaleLabel}; ` +
-                    `it is measured from the major scale and borrowed in for colour.`;
-            }
             if (outside > 0) {
-                return `Mostly diatonic: ${outside} tone${outside === 1 ? '' : 's'} sits outside ${scaleLabel}.`;
+                return `Altered — <strong style="color:#e2e8f0;">${roman}</strong>: ${outside} tone${outside === 1 ? '' : 's'} ` +
+                    `${outside === 1 ? 'sits' : 'sit'} outside ${scaleLabel}; borrowed in for colour.`;
             }
+            const accidentalNote = hasAccidental
+                ? ` — spelled <strong style="color:#e2e8f0;">${roman}</strong> because that degree differs from ` +
+                  `the major scale, but every tone of it is native to ${scaleLabel}`
+                : '';
 
             const FUNCTION = {
                 1: 'tonic — home, the chord everything else is heard against',
@@ -340,7 +524,7 @@
             };
             const fn = degree ? FUNCTION[degree] : null;
             return `Diatonic: degree ${degree || '?'} of <strong style="color:#e2e8f0;">${scaleLabel}</strong>` +
-                (fn ? ` — ${fn}` : '') + '.';
+                (fn ? ` — ${fn}` : '') + accidentalNote + '.';
         }
 
         pretty(name) {
@@ -766,16 +950,16 @@
     }
 
     function init() {
-        if (window.__approachProvenancePanel) return;
+        if (window.__musicProvenancePanel) return;
         try {
-            window.__approachProvenancePanel = new ApproachProvenancePanel();
+            window.__musicProvenancePanel = new MusicProvenancePanel();
         } catch (e) {
-            console.warn('[ApproachProvenance] init failed', e);
+            console.warn('[MusicProvenance] init failed', e);
         }
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 
-    if (typeof window !== 'undefined') window.ApproachProvenancePanel = ApproachProvenancePanel;
+    if (typeof window !== 'undefined') window.MusicProvenancePanel = MusicProvenancePanel;
 })();

@@ -245,6 +245,12 @@ document.addEventListener('DOMContentLoaded', () => {
         || (rich && rich.harmonicProfile && rich.harmonicProfile.recommendedScale)
         || (profile && profile.recommendedScale)
         || _studioScale;
+      // The approach-scales mode overrules the scale pick outright. Its subject
+      // is what happens BETWEEN two plain diatonic chords, and an exotic base
+      // scale would hide it — every note would already be unusual.
+      if (approachScalesMode().enabled) {
+        scaleName = approachScalesBaseScale(charTone || (rich && rich.emotionalTone), lexical);
+      }
       rememberScalePick(scaleName);
 
       let scaleNotes = [];
@@ -487,11 +493,9 @@ document.addEventListener('DOMContentLoaded', () => {
       window.__lastGenInputs = { context, arc, seed, input };
     } catch (_) {}
 
-    // Show quick chord-origin explanations for any borrowed/approach/modulation events.
-    try {
-      queueChordOriginToasts(generatedMusic);
-    } catch (_) {}
-
+    // Chord/melody/texture/word-sense explanations all live in the "Where
+    // the music comes from" panel now (music-provenance-panel.js), which
+    // listens for this same event — no toast queue to feed here any more.
     document.dispatchEvent(new CustomEvent('musicGenerated', { detail: generatedMusic }));
   });
 });
@@ -720,18 +724,41 @@ function revoiceLastGeneration(reason = 'voicing-only', randomSeed) {
 }
 if (typeof window !== 'undefined') window.revoiceLastGeneration = revoiceLastGeneration;
 
-function ensureArcChordToastUI() {
-  if (typeof document === 'undefined') return null;
-  let toast = document.getElementById('arc-chord-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'arc-chord-toast';
-    toast.setAttribute('role', 'status');
-    toast.setAttribute('aria-live', 'polite');
-    toast.style.pointerEvents = 'none';
-    document.body.appendChild(toast);
+/**
+ * THE APPROACH-SCALES MODE.
+ *
+ * A deliberately narrow way to generate: base scale plain (major or aeolian),
+ * progression plain diatonic, and every note outside the key arriving in the
+ * APPROACH into the next chord — drawn from the scale library rooted a fifth
+ * above the target. The advanced toggle swaps that for a scale rooted on the
+ * target's own root whose tonic chord is withheld until the arrival.
+ *
+ * It is a mode rather than another slider because it only means anything when
+ * everything else is switched off: an approach borrowed from F♯ mixolydian ♭6
+ * is inaudible as an idea if the chord it lands on was itself borrowed, the
+ * key just modulated and the scale is already exotic. One thing at a time is
+ * the whole design.
+ */
+function approachScalesMode() {
+  if (typeof window === 'undefined') return { enabled: false, advanced: false };
+  if (!window.__arcApproachScales) {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem('arcApproachScales') || 'null'); } catch (_) {}
+    window.__arcApproachScales = (stored && typeof stored === 'object')
+      ? { enabled: !!stored.enabled, advanced: !!stored.advanced }
+      : { enabled: false, advanced: false };
   }
-  return toast;
+  return window.__arcApproachScales;
+}
+if (typeof window !== 'undefined') window.__approachScalesMode = approachScalesMode;
+
+/** The plain base the mode insists on. Major or aeolian, and nothing else. */
+function approachScalesBaseScale(tone, lexical) {
+  const t = String(tone || '').toLowerCase();
+  if (/dark|sad|angry|intense|mysterious|sorrow/.test(t)) return 'aeolian';
+  if (/joyful|hopeful|playful|calm|peaceful|bright/.test(t)) return 'major';
+  const v = Number(lexical && lexical.avgValence);
+  return (Number.isFinite(v) && v < 0) ? 'aeolian' : 'major';
 }
 
 function formatScaleNameForDisplay(scaleName) {
@@ -741,89 +768,6 @@ function formatScaleNameForDisplay(scaleName) {
     .replace(/\bb(\d+)/g, '♭$1')
     .replace(/\b#(\d+)/g, '♯$1');
   return s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1));
-}
-
-function queueChordOriginToasts(generatedMusic, { maxToasts = 6, perToastMs = 1200 } = {}) {
-  if (!generatedMusic || !generatedMusic.harmony || !Array.isArray(generatedMusic.harmony.chordSequence)) return;
-  const seq = generatedMusic.harmony.chordSequence;
-
-  // The texture's own choices explain themselves too.
-  //
-  // The piano engine has always written an explanation for each of its
-  // orchestrational exceptions — descant, tenor lead, crossover, bass melody,
-  // covering voice — and every one of them was dropped on the floor: nothing
-  // in the app read `piano.exceptions`. A user could hear the tune disappear
-  // under a held chord tone and be told only which chord was sounding.
-  //
-  // They are keyed to the bar the exception STARTS on, and sorted in with the
-  // harmonic explanations, because from the listener's side they are the same
-  // kind of event: a reason why this bar sounds unlike the last one.
-  const textureEvents = (((generatedMusic.piano || {}).exceptions) || [])
-    .filter(x => x && typeof x.explain === 'string' && x.explain.trim().length)
-    .map(x => ({ bar: Number(x.startBar) || 0, beat: 0, chord: `texture:${x.type}`, explain: x.explain }));
-
-  const specials = seq
-    .filter(ev => ev && typeof ev.explain === 'string' && ev.explain.trim().length)
-    .concat(textureEvents)
-    .sort((a, b) => (a.bar - b.bar) || (a.beat - b.beat));
-
-  if (!specials.length) return;
-
-  const unique = [];
-  const seen = new Set();
-  for (const ev of specials) {
-    const k = `${ev.bar}|${ev.beat}|${ev.chord}|${ev.explain}`;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    unique.push(ev);
-    if (unique.length >= maxToasts) break;
-  }
-
-  if (!unique.length) return;
-
-  const toast = ensureArcChordToastUI();
-  if (!toast) {
-    window.__arcChordToastQueue = [];
-    window.__arcChordToastRunning = false;
-    return;
-  }
-
-  // Reset any prior runner (new generation should show its own explanations first).
-  try {
-    const timers = Array.isArray(window.__arcChordToastTimers) ? window.__arcChordToastTimers : [];
-    for (const id of timers) clearTimeout(id);
-    if (Number.isFinite(window.__arcChordToastRafId)) cancelAnimationFrame(window.__arcChordToastRafId);
-  } catch (_) {}
-  window.__arcChordToastTimers = [];
-  window.__arcChordToastRafId = null;
-  window.__arcChordToastQueue = unique.map(ev => ev.explain);
-  window.__arcChordToastRunning = true;
-  toast.classList.remove('show');
-  toast.textContent = '';
-
-  const showNext = () => {
-    const q = window.__arcChordToastQueue || [];
-    const msg = q.shift();
-    window.__arcChordToastQueue = q;
-    if (!msg) {
-      window.__arcChordToastRunning = false;
-      toast.textContent = '';
-      toast.classList.remove('show');
-      return;
-    }
-
-    toast.textContent = msg;
-    // Trigger CSS transition
-    window.__arcChordToastRafId = requestAnimationFrame(() => toast.classList.add('show'));
-    const hideId = setTimeout(() => {
-      toast.classList.remove('show');
-      const nextId = setTimeout(showNext, 180);
-      window.__arcChordToastTimers.push(nextId);
-    }, perToastMs);
-    window.__arcChordToastTimers.push(hideId);
-  };
-
-  showNext();
 }
 
 /**
@@ -1529,6 +1473,68 @@ function buildFormProgression({ form, barCount, toneTemplates, minorTone, rng, m
     if (alt) romans[b] = alt.roman;
   }
 
+  // A DELIBERATE HOLD, budgeted — the melody's counterpart to the surprise
+  // budget elsewhere in this file. The walk that built `romans` actively
+  // AVOIDS repeating a chord bar to bar (`pickFor`'s `avoid: prevRoman`, in
+  // functional-harmony.js), and the pass just above removes the rare
+  // accidental repeats that survive it anyway. Between the two, harmony never
+  // sits still for two bars unless something goes out of its way to let it —
+  // which means a melodic line never gets a stretch of genuinely UNCHANGING
+  // harmony to travel across, however long or legato the phrase wants to be.
+  //
+  // A handful of calm, stable bars per piece are chosen to hold the PREVIOUS
+  // bar's chord instead of moving, on purpose. Never a section's own opening
+  // bar (that is what identifies the theme) or its last two (the cadence);
+  // never three bars running (that reads as the harmony stalling rather than
+  // settling, the same distinction a committed accompaniment figure draws
+  // against a section that just never changes); never across an actual key
+  // change or over a foreshadowing chord, for the same reasons the pass above
+  // leaves those alone.
+  const sustainBudget = Math.max(0, Math.round(barCount * 0.05));
+  let sustainsSpent = 0;
+  if (sustainBudget > 0) {
+    const secs = (form && Array.isArray(form.sections)) ? form.sections : [];
+    const candidates = [];
+    secs.forEach((s) => {
+      if (!s || s.stability !== 'stable' || (s.energyBias || 0) > 0.05) return;
+      const lo = (Number(s.startBar) || 0) + 1;
+      const hi = (Number.isFinite(s.endBar) ? s.endBar : lo) - 2;
+      for (let b = lo; b <= hi; b++) candidates.push(b);
+    });
+    // Shuffled with the same rng the rest of this function uses, so a
+    // different seed holds different bars rather than always the first
+    // candidates found.
+    for (let k = candidates.length - 1; k > 0; k--) {
+      const j = Math.floor(rng() * (k + 1));
+      const tmp = candidates[k]; candidates[k] = candidates[j]; candidates[j] = tmp;
+    }
+    for (const b of candidates) {
+      if (sustainsSpent >= sustainBudget) break;
+      if (b <= 0 || b >= barCount) continue;
+      if (romans[b] === romans[b - 1]) continue;                    // already holding
+      if (keyPlan[b] && keyPlan[b - 1] && keyPlan[b].key !== keyPlan[b - 1].key) continue;
+      if (keyPlan[b] && keyPlan[b].foreshadows) continue;
+      // No third bar running — checked in BOTH directions. Checking only
+      // backward (does bar b-1 already match bar b-2?) missed the case this
+      // pass actually hit: bar 0 opens on the tonic, the walk independently
+      // puts the tonic back at bar 2 a few bars later by coincidence, and
+      // setting bar 1 to match bar 0 silently bridges the two into a 3-run —
+      // bar 1 itself was never touched twice, so the backward-only check saw
+      // nothing wrong. Found by asserting the true invariant (no run of 3
+      // anywhere in the FINISHED array) rather than trusting that avoiding
+      // one direction of extension was the whole rule.
+      if (b >= 2 && romans[b - 1] === romans[b - 2]) continue;
+      if (b + 1 < barCount && romans[b + 1] === romans[b - 1]) continue;
+      romans[b] = romans[b - 1];
+      devices.push({
+        type: 'sustain', bar: b,
+        explain: 'Harmony holds: the chord carries into this bar unchanged, giving the line '
+          + 'room to move without the harmony re-triggering under it.'
+      });
+      sustainsSpent++;
+    }
+  }
+
   return { romans, keyPlan, modulations, sectionProgressions, devices };
 }
 
@@ -1936,6 +1942,364 @@ function resolveHarmonyVoicings(mt, chordObjs, context, vlEngine, randomSeed) {
   return { voicings, voicingSettings };
 }
 
+/**
+ * A BORROWED COLOUR IS AN EXCURSION, NOT A ONE-BAR SUBSTITUTION.
+ *
+ * The old mechanism rolled a die per bar and, if it won, swapped that ONE
+ * bar's roman through a small table (IV→iv, V→♭VII). Everything about that is
+ * a decision nobody made: the chord arrives with nothing around it that
+ * belongs to where it came from, it is gone by the next bar, and the melody —
+ * which is written against the HOME scale — plays straight over it as if
+ * nothing happened. A generated example made the point exactly: in A major,
+ * ii(Bm7) → Dm7 "borrowed for contrast" → V(E7). The Dm7 is in and out inside
+ * one bar and nothing acknowledges it. That is the "no accidents in music"
+ * failure one level up from single notes: the same interval with none of the
+ * reason.
+ *
+ * A borrow that is heard as a borrow has to do three things, and all three are
+ * about COMMITMENT rather than about which chord gets picked:
+ *
+ *   NAME ITS SOURCE.  Not "borrowed for contrast" — every chord outside the
+ *     key is that. A source is a root and a scale: A aeolian, or D dorian.
+ *   LAST LONG ENOUGH TO BE HEARD.  Whole bars, at least two of them, with more
+ *     than one chord drawn from the same place. One chord from a scale is a
+ *     wrong note with a paragraph attached; two or three is a place the music
+ *     went.
+ *   COME BACK.  The bar after the excursion is home, and says so. A colour
+ *     that is never returned FROM is not a colour, it is a modulation nobody
+ *     planned.
+ *
+ * The same chord almost always has more than one true reading, and the point
+ * is that the generator now DECIDES which one is happening rather than
+ * shrugging:
+ *
+ *   modal-interchange   the parallel mode is the source, and enough of it is
+ *                       borrowed to notice — in A major, Dm7 is the iv of A
+ *                       aeolian, so the bars around it come from A aeolian too.
+ *   tonicization        the borrowed chord's own root is heard as a momentary
+ *                       tonic — Dm7 is the i of D dorian, approached by D
+ *                       dorian's own IV (G7). Same chord, different claim.
+ *
+ * Both are then followed through by the melody, because every bar of an
+ * excursion carries a `scaleHint` naming the source scale and the line engine
+ * has always followed those. That is what "the melody acknowledges it" means
+ * mechanically: the tune is written in the borrowed scale for as long as the
+ * borrow lasts, and back in the home scale the moment it ends.
+ *
+ * @returns {Array} [{startBar, endBar, returnBar, reading, sourceRoot,
+ *                    sourceScale, sourceNotes, label, chords, romans}]
+ */
+const EXCURSION_ROMAN_BY_INTERVAL =
+  ['I', 'bII', 'II', 'bIII', 'III', 'IV', 'bV', 'V', 'bVI', 'VI', 'bVII', 'VII'];
+
+/** Is this a chord quality a player would actually read off a chart? */
+function excursionPlainQuality(chordType) {
+  const q = String(chordType || '').trim();
+  if (!q || /[(),]/.test(q)) return false;
+  return /^(maj|maj7|maj9|m|m7|m9|m6|m7b5|mMaj7|7|9|13|6|dim|dim7|aug|sus2|sus4|7sus4)$/.test(q);
+}
+
+function planModalExcursions(opts) {
+  const {
+    mt, rng, barCount, baseProg, sectionAt, keyAt,
+    homeKey, homeScale, minorTone, harmonyLevel, tension, blockedBars
+  } = opts;
+  const out = [];
+  if (!mt || typeof mt.getDiatonicChord !== 'function' || barCount < 4) return out;
+
+  const homeAn = scaleAnalysis(mt, homeKey, homeScale);
+  if (!homeAn || !Array.isArray(homeAn.degrees) || homeAn.degrees.length !== 7) return out;
+
+  const pcOf = (n) => {
+    const v = (mt.noteValues || {})[String(n).replace(/-?\d+$/, '')];
+    return Number.isFinite(v) ? ((v % 12) + 12) % 12 : null;
+  };
+  const homePcs = new Set((homeAn.notes || []).map(pcOf).filter(Number.isFinite));
+  const homeTonicPc = pcOf(homeKey);
+  const scaleNotesOf = (root, name) => {
+    try {
+      if (typeof mt.getScaleNotesWithKeySignature === 'function') return mt.getScaleNotesWithKeySignature(root, name) || null;
+      if (typeof mt.getScaleNotes === 'function') return mt.getScaleNotes(root, name) || null;
+    } catch (_) {}
+    return null;
+  };
+  // THE SOURCE HAS TO BE THE SOURCE.
+  //
+  // The theory engine falls back to the MAJOR scale for any id it does not
+  // recognise and returns it without complaint, so asking for "G lydian
+  // dominant" can hand back G major's notes wearing that name — and an
+  // excursion's entire claim is the name of where it went. Verify the notes
+  // against the id's own intervals before believing either. (The approach
+  // engine learned this first; it is the same trap.)
+  const intervalTable = (typeof window !== 'undefined' && window.SCALES && window.SCALES.intervals)
+    ? window.SCALES.intervals : ((mt && mt.scales) || {});
+  const verifiedScaleNotes = (root, scaleId) => {
+    const iv = intervalTable[scaleId];
+    if (!Array.isArray(iv) || iv.length !== 7) return null;
+    const notes = scaleNotesOf(root, scaleId);
+    if (!notes || notes.length !== 7) return null;
+    const rootPc = pcOf(root);
+    if (!Number.isFinite(rootPc)) return null;
+    const want = new Set(iv.map(x => ((rootPc + x) % 12 + 12) % 12));
+    const got = notes.map(pcOf);
+    if (got.some(p => !Number.isFinite(p))) return null;
+    return got.every(p => want.has(p)) ? notes : null;
+  };
+  const samePitchSet = (a, b) => {
+    const norm = (c) => Array.from(new Set(((c && (c.chordNotes || c.diatonicNotes)) || [])
+      .map(pcOf).filter(Number.isFinite))).sort((x, y) => x - y).join(',');
+    const x = norm(a);
+    return x.length > 0 && x === norm(b);
+  };
+  const foreignCount = (chord) => {
+    const tones = (chord && (chord.chordNotes || chord.diatonicNotes)) || [];
+    let n = 0;
+    tones.forEach((t) => { const p = pcOf(t); if (Number.isFinite(p) && !homePcs.has(p)) n++; });
+    return n;
+  };
+  // The roman a chord gets AT HOME — spelled against the parallel major, which
+  // is the convention every other borrowed chord in this file already uses
+  // (♭VI, ♭VII, iv), so an excursion chord reads like one of them rather than
+  // like a foreign object.
+  const homeRomanFor = (chord) => {
+    const iv = ((pcOf(chord.root) - homeTonicPc) % 12 + 12) % 12;
+    let r = EXCURSION_ROMAN_BY_INTERVAL[iv] || 'I';
+    const q = String(chord.chordType || '');
+    if (/dim|m7b5|ø|°/.test(q) || /^(m|min)(?!aj)/.test(q)) r = r.replace(/[IV]+/, (m) => m.toLowerCase());
+    return r;
+  };
+  const degreeChord = (root, scaleName, degree, sourceNotes) => {
+    let c = null;
+    try { c = mt.getDiatonicChord(degree, root, scaleName); } catch (_) { return null; }
+    if (!c || !c.root) return null;
+    if (!excursionPlainQuality(c.chordType)) return null;
+    const tones = (c.chordNotes || c.diatonicNotes || []);
+    if (tones.length < 3) return null;
+    if (tones.some(n => /##|bb/.test(String(n)))) return null;
+    // Every tone must actually live in the scale being credited for it.
+    if (Array.isArray(sourceNotes) && sourceNotes.length) {
+      const srcPcs = new Set(sourceNotes.map(pcOf).filter(Number.isFinite));
+      if (!tones.every(t => srcPcs.has(pcOf(t)))) return null;
+    }
+    // TWO OUTSIDE NOTES IS THE LIMIT, and it is enforced HERE rather than
+    // downstream. The bar loop's own stray guard would otherwise reject one
+    // chord in the middle of a planned excursion and leave the rest of it
+    // standing — a gesture with a hole in it, which is worse than no gesture.
+    if (foreignCount(c) > 2) return null;
+    return c;
+  };
+
+  // --- where an excursion may sit ------------------------------------------
+  //
+  // Every one of these is a refusal, and each names a different thing an
+  // excursion would otherwise trample.
+  const usable = (bar) => {
+    if (bar < 0 || bar >= barCount) return false;
+    if (blockedBars && blockedBars.has(bar)) return false;
+    const kp = keyAt(bar);
+    if (kp && kp.home === false) return false;         // the bar already left home
+    // A foreshadowing bar has already been promised to a specific secondary
+    // dominant pointing at a modulation. Two departures competing for one bar
+    // is neither of them.
+    if (kp && kp.dominantOn) return false;
+    const s = sectionAt(bar);
+    if (!s) return false;
+    if (bar >= s.endBar - 1) return false;             // the cadence is not a place to leave from
+    if (s.themeOccurrence > 0 && bar === s.startBar) return false;  // the head identifies the theme
+    return true;
+  };
+  const canReturnAt = (bar, section) => {
+    if (bar < 0 || bar >= barCount) return false;
+    const kp = keyAt(bar);
+    if (kp && kp.home === false) return false;
+    const s = sectionAt(bar);
+    return !!(s && section && s === section);          // come back inside the same phrase
+  };
+
+  const windows = [];
+  for (let b = 0; b < barCount; b++) {
+    const s = sectionAt(b);
+    if (!s) continue;
+    for (const len of [3, 2]) {
+      let ok = true;
+      for (let i = 0; i < len; i++) {
+        if (!usable(b + i) || sectionAt(b + i) !== s) { ok = false; break; }
+      }
+      if (ok && canReturnAt(b + len, s)) windows.push({ start: b, len, section: s });
+    }
+  }
+  if (!windows.length) return out;
+
+  // --- the two readings -----------------------------------------------------
+
+  /** The parallel mode, borrowed in quantity. */
+  const buildModalInterchange = (start, len) => {
+    const sourceScale = minorTone ? 'major' : 'aeolian';
+    const sourceNotes = verifiedScaleNotes(homeKey, sourceScale);
+    const srcAn = scaleAnalysis(mt, homeKey, sourceScale);
+    if (!sourceNotes || !srcAn || srcAn.degrees.length !== 7) return null;
+    const chords = [];
+    let borrowedBars = 0;
+    for (let i = 0; i < len; i++) {
+      const d = romanToDegree(baseProg[start + i]);
+      const dg = srcAn.degrees[(d - 1) % 7];
+      const c = degreeChord(homeKey, sourceScale, dg.degree, sourceNotes);
+      if (!c) return null;
+      // TWO BARS OF ONE CHORD IS ONE CHORD. The window has to supply more than
+      // one thing from the source or it is exactly the isolated borrow this
+      // replaces, merely held longer.
+      if (i > 0 && samePitchSet(c, chords[i - 1])) return null;
+      if (foreignCount(c) > 0) borrowedBars++;
+      chords.push({ ...c, roman: homeRomanFor(c), sourceRoman: dg.displayRoman, scaleDegree: dg.degree });
+    }
+    // ONE chord from the parallel mode is the thing this whole rewrite exists
+    // to stop. If the window cannot supply two, it is not a place to go.
+    if (borrowedBars < 2) return null;
+    return {
+      reading: 'modal-interchange',
+      sourceRoot: homeKey,
+      sourceScale,
+      sourceNotes,
+      label: `${homeKey} ${formatScaleNameForDisplay(sourceScale)}`,
+      chords
+    };
+  };
+
+  /** The borrowed chord's own root, heard as a tonic, approached from inside
+   *  its own scale. */
+  const buildTonicization = (start, len) => {
+    // The window ARRIVES on the momentary tonic, so the last bar names it.
+    const d = romanToDegree(baseProg[start + len - 1]);
+    const homeDeg = homeAn.degrees[(d - 1) % 7];
+    if (!homeDeg || !homeDeg.root) return null;
+    const tonicRoot = homeDeg.root;
+    // Tonicizing the tonic is not going anywhere.
+    if (pcOf(tonicRoot) === homeTonicPc) return null;
+
+    const q = String(homeDeg.chordType || '');
+    const candidates = /dim|m7b5/.test(q) ? ['locrian', 'phrygian', 'aeolian']
+      : /^(m|min)(?!aj)/.test(q) ? ['dorian', 'aeolian', 'phrygian', 'harmonic_minor', 'melodic_minor']
+      : /maj/.test(q) ? ['lydian', 'major', 'mixolydian']
+      : ['mixolydian', 'lydian_dominant', 'major', 'phrygian_dominant'];
+
+    let best = null;
+    for (const sc of candidates) {
+      const notes = verifiedScaleNotes(tonicRoot, sc);
+      if (!notes) continue;
+      const tonicChord = degreeChord(tonicRoot, sc, 1, notes);
+      if (!tonicChord) continue;
+      // Its OWN dominant if the scale has a real one; otherwise its own IV,
+      // which is the other way a mode states where its tonic is.
+      const five = degreeChord(tonicRoot, sc, 5, notes);
+      const four = degreeChord(tonicRoot, sc, 4, notes);
+      const isDom = (c) => c && /^(7|9|13)$/.test(String(c.chordType || ''));
+      // A three-bar window walks IV → V → i; a two-bar one takes whichever of
+      // the two states the tonic more strongly.
+      const lead = (len >= 3 && four && five && !samePitchSet(four, five))
+        ? [four, five]
+        : [isDom(five) ? five : (four || five)];
+      if (lead.some(c => !c)) continue;
+      if (lead.length < len - 1) continue;
+      if (samePitchSet(lead[lead.length - 1], tonicChord)) continue;
+      // If the whole gesture borrows nothing, there is no excursion to explain.
+      const foreign = foreignCount(tonicChord) + lead.reduce((s, c) => s + foreignCount(c), 0);
+      if (foreign === 0) continue;
+      const shared = notes.filter(n => homePcs.has(pcOf(n))).length;
+      // Closest collection that still says something: shared notes are what
+      // makes it read as a re-hearing rather than as a key change.
+      const score = shared * 2 - foreign;
+      if (!best || score > best.score) {
+        best = { score, sc, notes, tonicChord, lead,
+          leadDegrees: lead.map(c => (c === five ? 5 : 4)) };
+      }
+    }
+    if (!best) return null;
+
+    const chords = best.lead.map((c, i) => ({ ...c,
+      roman: homeRomanFor(c),
+      sourceRoman: best.leadDegrees[i] === 5 ? 'V' : 'IV',
+      scaleDegree: best.leadDegrees[i] }));
+    chords.push({ ...best.tonicChord,
+      roman: homeRomanFor(best.tonicChord), sourceRoman: 'i', scaleDegree: 1 });
+    return {
+      reading: 'tonicization',
+      sourceRoot: tonicRoot,
+      sourceScale: best.sc,
+      sourceNotes: best.notes,
+      label: `${tonicRoot} ${formatScaleNameForDisplay(best.sc)}`,
+      momentaryTonic: tonicRoot,
+      chords
+    };
+  };
+
+  // --- placement ------------------------------------------------------------
+  //
+  // One is the norm. A second is allowed only in a piece with room for two
+  // departures that are not next to each other — two excursions in eight bars
+  // is not two ideas, it is instability.
+  const budget = barCount >= 16 ? 2 : 1;
+  const taken = [];
+  const clashes = (start, len) => taken.some(t =>
+    start <= t.endBar + 1 && start + len - 1 >= t.startBar - 1);
+
+  for (let n = 0; n < budget; n++) {
+    // The dial being ON has to be audible: the first excursion is close to
+    // certain, a second one is a genuine roll.
+    const appetite = n === 0
+      ? Math.min(0.97, 0.72 + harmonyLevel * 0.3 + tension * 0.1)
+      : Math.min(0.6, 0.12 + harmonyLevel * 0.4 + tension * 0.2);
+    if (rng() >= appetite) continue;
+
+    const pool = windows.filter(w => !clashes(w.start, w.len));
+    if (!pool.length) break;
+    // A departure belongs where the shape is already moving — a later section,
+    // and preferably not the very first bars of the piece.
+    const scored = pool.map(w => ({
+      w,
+      weight: (w.len === 3 ? 1.25 : 1) * (w.start >= 2 ? 1 : 0.4)
+        * ((w.section && w.section.letter && w.section.letter !== 'A') ? 1.4 : 1)
+    }));
+    const totalW = scored.reduce((s, x) => s + x.weight, 0);
+    let pick = rng() * totalW;
+    let chosen = scored[0].w;
+    for (const x of scored) { pick -= x.weight; if (pick <= 0) { chosen = x.w; break; } }
+
+    // WHICH READING. Both are legitimate; the point is that one of them is
+    // chosen and then committed to, rather than the chord being left to mean
+    // whatever the listener can make of it.
+    const order = rng() < 0.5
+      ? [buildTonicization, buildModalInterchange]
+      : [buildModalInterchange, buildTonicization];
+    let built = null;
+    for (const fn of order) {
+      built = fn(chosen.start, chosen.len);
+      if (built) break;
+    }
+    if (!built && chosen.len === 3) {
+      for (const fn of order) {
+        built = fn(chosen.start, 2);
+        if (built) { chosen = { ...chosen, len: 2 }; break; }
+      }
+    }
+    if (!built) continue;
+
+    const exc = {
+      ...built,
+      startBar: chosen.start,
+      endBar: chosen.start + chosen.len - 1,
+      returnBar: chosen.start + chosen.len,
+      bars: chosen.len,
+      section: chosen.section ? chosen.section.label : null,
+      romans: built.chords.map(c => c.roman)
+    };
+    taken.push(exc);
+    out.push(exc);
+  }
+
+  out.sort((a, b) => a.startBar - b.startBar);
+  return out;
+}
+
 function generateHarmony(context, arc, seed = 0) {
   const rng = createRNG(seed);
   const mt = window.modularApp && window.modularApp.musicTheory;
@@ -2064,9 +2428,26 @@ function generateHarmony(context, arc, seed = 0) {
   // dial is, so you can take a plain I–IV–V–I and add ONLY approach chords, or
   // run everything except modulation. Absent = follow the ladder.
   const overrides = (typeof window !== 'undefined' && window.__harmonyOverrides) || {};
-  const allow = (k) => (Object.prototype.hasOwnProperty.call(overrides, k) && overrides[k] !== null)
-    ? !!overrides[k]
-    : (!gate || gate.allow[k]);
+  // THE APPROACH-SCALES MODE OUTRANKS BOTH. It is not a preference about how
+  // much colour to add — it is a statement about WHERE all of the colour goes,
+  // so it switches the approach on and every other outside-the-key device off,
+  // whatever the dial or an override says. A mode that could be partly on
+  // would demonstrate nothing.
+  const apMode = approachScalesMode();
+  const AP_ON = { approachChords: true, fullDiatonic: true, seventhChords: true, inversions: true };
+  const AP_OFF = {
+    borrowedChords: false, secondaryDominants: false, modulation: false,
+    chromaticMediants: false, sequences: false, subversions: false
+  };
+  const allow = (k) => {
+    if (apMode.enabled) {
+      if (Object.prototype.hasOwnProperty.call(AP_ON, k)) return AP_ON[k];
+      if (Object.prototype.hasOwnProperty.call(AP_OFF, k)) return AP_OFF[k];
+    }
+    return (Object.prototype.hasOwnProperty.call(overrides, k) && overrides[k] !== null)
+      ? !!overrides[k]
+      : (!gate || gate.allow[k]);
+  };
 
   // Report the effective state so the UI can show which devices are on and
   // which of those are ladder defaults versus deliberate overrides.
@@ -2077,6 +2458,18 @@ function generateHarmony(context, arc, seed = 0) {
     ladder: gate.allow, effective, overrides: { ...overrides }
   } : null;
 
+  // In approach-scales mode the STRUCTURAL chords are plain by construction:
+  // the textbook families only, all seven degrees available, so what the ear
+  // has to compare the borrowed approaches against is a progression it already
+  // knows.
+  const gateForProgression = gate
+    ? (apMode.enabled
+        ? { ...gate, allow: effective,
+            families: ['primary', 'cadential', 'turnaround', 'axis'],
+            degrees: [1, 2, 3, 4, 5, 6, 7] }
+        : { ...gate, allow: effective })
+    : null;
+
   const plan = buildFormProgression({
     form, barCount, toneTemplates, minorTone, rng,
     mt, key: currentKey, scaleName: currentScale,
@@ -2084,7 +2477,7 @@ function generateHarmony(context, arc, seed = 0) {
     // The EFFECTIVE gate, not the raw ladder one: passing the raw gate meant
     // per-device overrides were ignored in here, so forcing modulation off
     // switched it off everywhere except the one place that creates it.
-    gate: gate ? { ...gate, allow: effective } : null
+    gate: gateForProgression
   });
   let baseProg = plan.romans;
   // Which key each bar is IN. A modulating bridge builds its chords in the new
@@ -2157,6 +2550,33 @@ function generateHarmony(context, arc, seed = 0) {
     }
   }
 
+  // WHERE THE MUSIC LEAVES THE KEY, AND FOR HOW LONG.
+  //
+  // Planned before any bar is resolved, because an excursion is a decision
+  // about a SPAN and the old per-bar roll could not express one. See
+  // planModalExcursions for what a borrow now has to do to count as one.
+  const excursionBlocked = new Set();
+  {
+    const anchor = aeolianCadenceBar >= 0 ? aeolianCadenceBar : picardyBar;
+    if (anchor >= 0) for (let b = anchor - 2; b <= anchor; b++) excursionBlocked.add(b);
+  }
+  const excursions = allow('borrowedChords')
+    ? planModalExcursions({
+        mt, rng, barCount, baseProg, sectionAt, keyAt,
+        homeKey: currentKey, homeScale: currentScale, minorTone,
+        harmonyLevel, tension: clamp01(context.globalTension || 0),
+        blockedBars: excursionBlocked
+      })
+    : [];
+  harmony.excursions = excursions;
+  const excursionAt = (bar) => {
+    for (const e of excursions) {
+      if (bar >= e.startBar && bar <= e.endBar) return { exc: e, index: bar - e.startBar };
+      if (bar === e.returnBar) return { exc: e, index: -1 };   // the bar that comes home
+    }
+    return null;
+  };
+
   // Voice Leading Engine Integration
   let vlEngine = null;
   if (typeof VoiceLeadingEngine !== 'undefined' && mt) {
@@ -2169,89 +2589,39 @@ function generateHarmony(context, arc, seed = 0) {
   for (let bar = 0; bar < barCount; bar++) {
     let roman = baseProg[bar % baseProg.length];
     let borrowedInfo = null;
-    
-    // Modal Interchange Chance (Borrowed Chords)
-    // Scales with tension and with the user's harmonic-color setting.
-    const ccBorrow = context.complexityControls || { color: 0.5 };
-    const barSection = sectionAt(bar);
-    const sectionTension = barSection ? (barSection.tensionBias || 0) : 0;
-    // Once the dial switches borrowing ON it has to be AUDIBLE. This used to be
-    // driven mostly by the text's tension, so a calm phrase produced roughly
-    // one borrowed chord per four takes — indistinguishable from the step below
-    // it, which defeats the point of a control that claims to have turned
-    // something on.
-    let borrowChance = allow('borrowedChords')
-      ? Math.max(0, Math.min(0.75,
-          0.25 + harmonyLevel * 0.4
-          + (context.globalTension || 0) * 0.2 + sectionTension * 0.3))
-      : 0;
 
-    // THE HEAD OF A RETURNING THEME IS WHAT IDENTIFIES IT. A theme is
-    // recognised from its first bar or two; vary those and the return stops
-    // being a return. Later bars are fair game — varying the approach to the
-    // cadence is how a restatement stays interesting — so the protection
-    // tapers rather than switching off.
-    if (barSection && barSection.themeOccurrence > 0) {
-      const intoSection = bar - barSection.startBar;
-      // Just the opening bar. Protecting half the section left a 4-bar
-      // restatement with almost nowhere a borrow could land, so the device was
-      // effectively off even when the dial said it was on.
-      if (intoSection === 0) borrowChance *= 0.25;
-    }
-    // The modal-blend cadence is a composed gesture; a random substitution
-    // landing on one of its three bars would break the ♭VI–♭VII–I shape that
-    // makes the lift work. A section's own cadence bar is protected for the
-    // same reason: a borrowed chord there undoes the arrival the form asked for.
-    // The cadence is the LAST TWO bars: the dominant and its resolution. An
-    // earlier version protected only the final bar, so a "V → I" close kept
-    // having its V borrowed away to ♭VII — which turns a perfect cadence into
-    // a backdoor one and quietly undoes the arrival the whole section was
-    // built toward.
-    // Protect the cadence goal always, and the bar before it only when that bar
-    // is actually the dominant setting it up. Blanket-protecting both removed
-    // half of every four-bar section from consideration.
-    const isCadenceGoal = barSection && bar === barSection.endBar;
-    const isCadentialDominant = barSection && bar === barSection.endBar - 1
-      && /^V$/i.test(String(baseProg[bar] || '').replace(/[^ivxIVX]/g, ''));
-    // Guard the gesture in BOTH modes: aeolianCadenceBar marks it whether or
-    // not the tonic needed forcing, so a major-key aeolian cadence is as
-    // protected from random substitution as a minor-key picardy lift.
-    const cadenceAnchor = aeolianCadenceBar >= 0 ? aeolianCadenceBar : picardyBar;
-    const inCadence = (cadenceAnchor >= 0 && bar >= cadenceAnchor - 2 && bar <= cadenceAnchor)
-      || isCadenceGoal || isCadentialDominant;
-    if (!inCadence && rng() < borrowChance) {
-        const tone = context.emotionalTone;
-        let borrowMap = null;
-        let borrowType = 'modal-interchange';
-        if (tone === 'dark' || tone === 'sad' || tone === 'angry' || tone === 'intense') {
-            borrowMap = { 'IV': 'iv', 'V': 'v', 'vi': 'bVI', 'ii': 'bII' };
-        } else if (tone === 'dreamy') {
-            // The dreamy raised fourth is a LYDIAN colour, and the way to get
-            // it is the chromatic passing diminished on ♯4 — the chord that
-            // actually walks IV up to V. Asking for a major seventh on the
-            // raised fourth instead produced C♯maj7 in G major: three foreign
-            // notes, no preparation, no resolution, and nothing lydian about it.
-            borrowMap = { 'IV': '#IVdim7', 'I': 'Imaj7' };
-            borrowType = 'color-borrow';
-        } else if (tone === 'mysterious') {
-            borrowMap = { 'IV': 'iv', 'V': 'bVII', 'ii': 'bII' };
-        } else {
-            // Bright/neutral tones get gentle minor-plagal / backdoor color.
-            borrowMap = { 'IV': 'iv', 'V': 'bVII' };
-            borrowType = 'color-borrow';
-        }
-        let nextRoman = (borrowMap && borrowMap[roman]) || roman;
-        // A borrow that lands on the chord already sounding in the previous bar
-        // is not colour, it is the same chord held for two bars — and because
-        // this step runs AFTER the progression's own adjacent-repeat pass, it
-        // was reintroducing exactly the repeats that pass had removed.
-        if (bar > 0 && nextRoman === baseProg[bar - 1]) nextRoman = roman;
-        if (nextRoman !== roman) borrowedInfo = { type: borrowType, from: roman, to: nextRoman };
-        roman = nextRoman;
+    // THE BORROWED COLOUR, if this bar is inside a planned excursion.
+    //
+    // The chord is not requested by roman numeral and then re-derived: it was
+    // built from the source scale's own degree at planning time and is carried
+    // through whole. That is the same lesson the sheet's chord path learned —
+    // a chord serialized into a string and parsed back is a chord waiting to
+    // disagree with itself.
+    const excHere = excursionAt(bar);
+    let forcedChordObj = null;
+    if (excHere && excHere.index >= 0) {
+      const planned = excHere.exc.chords[excHere.index];
+      if (planned) {
+        forcedChordObj = { ...planned, fromExcursion: true };
+        roman = planned.roman || roman;
         baseProg[bar] = roman;
+        borrowedInfo = {
+          type: 'excursion',
+          reading: excHere.exc.reading,
+          excursion: excHere.exc,
+          position: excHere.index === 0 ? 'enter'
+            : (excHere.index === excHere.exc.bars - 1 ? 'arrive' : 'continue'),
+          from: excHere.exc.label,
+          to: roman
+        };
+      }
+    } else if (excHere && excHere.index === -1) {
+      // The bar that comes home. Nothing is substituted here — that is the
+      // whole point of it — but it is still part of the gesture and says so.
+      borrowedInfo = { type: 'excursion-return', excursion: excHere.exc, position: 'return' };
     }
 
-    let chordObj = null;
+    let chordObj = forcedChordObj;
     // The bar's OWN key. A modulating section builds its chords in the key it
     // moved to; using the home key throughout would print the right roman
     // numerals over the wrong chords.
@@ -2306,7 +2676,8 @@ function generateHarmony(context, arc, seed = 0) {
       }
 
       if (chordObj) {
-        // already resolved by the foreshadowing request
+        // already resolved — either a planned excursion chord (built from its
+        // source scale's own degree) or the foreshadowing request
       } else if (scaleDegree) {
         chordObj = mt.getDiatonicChord(scaleDegree.degree, barKey, barScale);
         try {
@@ -2485,7 +2856,11 @@ function generateHarmony(context, arc, seed = 0) {
         } catch (_) { return []; }
       })();
       const strays = notesOutsideScale(mt, chordObj, barScaleNotes);
-      if (strays.length > 2 && !chordObj.secondaryDominant) {
+      // An excursion chord was already held to this same limit when the
+      // excursion was planned, against the same home scale. Re-testing it here
+      // could only ever knock ONE chord out of a planned span and leave the
+      // rest of it standing, which is a gesture with a hole in it.
+      if (strays.length > 2 && !chordObj.secondaryDominant && !chordObj.fromExcursion) {
         const degree = romanToDegree(roman);
         const fallback = mt.getDiatonicChord(degree, barKey, barScale);
         if (fallback && fallback.root) {
@@ -2612,7 +2987,15 @@ function generateHarmony(context, arc, seed = 0) {
   // asking for something, is what turns them back into rhetoric: most of the
   // music is plainly diatonic, and the handful of decorated arrivals land at
   // the moments the shape was building toward.
-  const surpriseBudget = Math.max(1, Math.round(barCount * (0.10 + (cc.color || 0.5) * 0.25)));
+  // In approach-scales mode the approach IS the piece — that is the one thing
+  // the mode exists to show — so the appetite has a floor under it regardless
+  // of where the colour dial happens to be sitting. It is still a budget: an
+  // approach into every bar would be the texture rather than a series of
+  // events, which is the fault this budget was written to end.
+  const colourAppetite = apMode.enabled
+    ? Math.max(0.7, cc.color != null ? cc.color : 0.5)
+    : (cc.color != null ? cc.color : 0.5);
+  const surpriseBudget = Math.max(1, Math.round(barCount * (0.10 + colourAppetite * 0.25)));
   let surprisesSpent = 0;
   const tensionAt = (bar) => {
     if (!arc || typeof arc.sample !== 'function' || barCount <= 0) return 0.5;
@@ -2733,6 +3116,45 @@ function generateHarmony(context, arc, seed = 0) {
           }
         } catch (_) {}
       }
+
+      // AND THE MELODY GOES WITH IT.
+      //
+      // This is the half the old borrowed chord never had. A `scaleHint` is
+      // what the melody engine, the scale timeline and the instrument
+      // visualizers all follow, so writing the source scale here is what makes
+      // the tune play IN the borrowed scale for the length of the excursion
+      // rather than straight over it. The return bar gets an explicit hint
+      // back to the home scale for the same reason: coming home is a decision,
+      // and a decision the line has to hear.
+      if (!event.scaleHint && borrowedInfo && borrowedInfo.type === 'excursion'
+          && Array.isArray(borrowedInfo.excursion.sourceNotes)
+          && borrowedInfo.excursion.sourceNotes.length) {
+        const ex = borrowedInfo.excursion;
+        event.scaleHint = {
+          root: ex.sourceRoot, scaleName: ex.sourceScale,
+          scaleNotes: ex.sourceNotes, reason: `modal-excursion:${ex.reading}`
+        };
+        event.scaleHintNotes = ex.sourceNotes;
+      } else if (!event.scaleHint && borrowedInfo && borrowedInfo.type === 'excursion-return'
+          && Array.isArray(context.harmonicProfile.scaleNotes)
+          && context.harmonicProfile.scaleNotes.length) {
+        event.scaleHint = {
+          root: currentKey, scaleName: currentScale,
+          scaleNotes: context.harmonicProfile.scaleNotes, reason: 'excursion-return'
+        };
+        event.scaleHintNotes = context.harmonicProfile.scaleNotes;
+      }
+      if (borrowedInfo && (borrowedInfo.type === 'excursion' || borrowedInfo.type === 'excursion-return')) {
+        event.excursion = {
+          reading: borrowedInfo.excursion.reading,
+          source: borrowedInfo.excursion.label,
+          startBar: borrowedInfo.excursion.startBar,
+          endBar: borrowedInfo.excursion.endBar,
+          returnBar: borrowedInfo.excursion.returnBar,
+          position: borrowedInfo.position
+        };
+      }
+
       const modHere = (harmony.modulations || []).find(m => m.startBar === bar);
       if (modHere && d === 0) {
         event.explain = `Modulation to ${modHere.toKey} ${formatScaleNameForDisplay(modHere.toScale)} `
@@ -2760,6 +3182,37 @@ function generateHarmony(context, arc, seed = 0) {
             + `which is why this ending sounds like an arrival rather than a resolution`
           : `Modal blend cadence: ♭VI–♭VII–${event.chord} — both approach triads are already in the minor scale; `
             + `only the final major third is borrowed, turning the ending triumphant`;
+      } else if (borrowedInfo && borrowedInfo.type === 'excursion') {
+        // NAME THE SOURCE, SAY HOW LONG, AND SAY WHAT IS COMING. "Borrowed for
+        // contrast" was true of every chord outside the key and therefore said
+        // nothing about this one.
+        const ex = borrowedInfo.excursion;
+        const span = `${ex.bars} bar${ex.bars === 1 ? '' : 's'} (bars ${ex.startBar + 1}–${ex.endBar + 1})`;
+        const srcRoman = (chordObj && chordObj.sourceRoman) || event.roman;
+        if (borrowedInfo.position === 'enter') {
+          event.explain = ex.reading === 'tonicization'
+            ? `Momentary tonic: for ${span} the music hears ${ex.momentaryTonic} as its own tonic, not as `
+              + `${event.roman} of ${currentKey}. ${event.chord} is the ${srcRoman} of ${ex.label} and is `
+              + `walking into it; the melody is written in ${ex.label} for as long as this lasts, and bar `
+              + `${ex.returnBar + 1} comes home.`
+            : `Modal excursion into ${ex.label}: ${event.chord} is its ${srcRoman}. The parallel mode is `
+              + `borrowed for ${span} rather than for one chord — the bars around this one come from the `
+              + `same place, and the melody follows them there. Bar ${ex.returnBar + 1} returns to `
+              + `${currentKey} ${formatScaleNameForDisplay(currentScale)}.`;
+        } else if (borrowedInfo.position === 'arrive' && ex.reading === 'tonicization') {
+          event.explain = `The arrival: ${event.chord} is the tonic of ${ex.label}. At home it is `
+            + `${event.roman} of ${currentKey}, and it is the SAME chord either way — this take decided to `
+            + `hear it as a tonic, and gave it its own approach chord to make that reading audible.`;
+        } else {
+          event.explain = `Still in ${ex.label}: ${event.chord} is its ${srcRoman}. The borrow is being `
+            + `followed through rather than dropped after one chord, which is the whole difference `
+            + `between a colour and an accident.`;
+        }
+      } else if (borrowedInfo && borrowedInfo.type === 'excursion-return') {
+        const ex = borrowedInfo.excursion;
+        event.explain = `Home again: ${event.chord} is ${event.roman} of ${currentKey} `
+          + `${formatScaleNameForDisplay(currentScale)}. The ${ex.bars}-bar excursion into ${ex.label} `
+          + `lands here — a colour that is never returned FROM is not a colour, it is a key change nobody planned.`;
       } else if (borrowedInfo && borrowedInfo.to) {
         const modeLabel = borrowedInfo.type === 'modal-interchange' ? 'Modal interchange' : 'Borrowed color';
         event.explain = `${modeLabel}: ${event.chord} (${formatScaleNameForDisplay(borrowedInfo.to)}) for contrast`;
@@ -2775,7 +3228,31 @@ function generateHarmony(context, arc, seed = 0) {
         // nothing to report, and the panel falls back to the degree reading,
         // which is the true and more useful statement.
         const outside = notesOutsideScale(mt, chordObj, activeScaleNotes(event));
-        if (outside.length) {
+        // functional-harmony.js's cadenceRomans() always raises the fifth
+        // degree to a real dominant right before a phrase ends — a scale
+        // whose own v is minor or diminished has no leading tone and cannot
+        // close anything, so every tradition that uses such a scale raises
+        // that third at the cadence. That rule is unconditional, not gated
+        // by the harmonic-colour dial, so it fires whether or not any actual
+        // borrowing is switched on.
+        //
+        // The generic chromatic-approach reader below doesn't know THIS is
+        // why the note is outside the scale — it only asks whether the
+        // altered note happens to be a step from something in the literal
+        // next bar, which for the bar right before a HALF cadence (which by
+        // definition doesn't resolve into anything) is often a coincidental
+        // neighbour in an unrelated chord repeating the phrase's own
+        // opening. That produced a real, working device described as a
+        // vague, unconvincing "lean" toward a chord it wasn't actually
+        // leaning toward.
+        const isCadentialDominantRaise = outside.length
+          && isCadenceApproach && /^V(?!I)/.test(String(event.roman || ''));
+        if (isCadentialDominantRaise) {
+          event.explain = `The cadential dominant: this mode's own V has no leading tone, so it is raised to a `
+            + `real dominant here (${outside.join(', ')}) the way every tradition that uses this mode does at a `
+            + `cadence — that is what lets the phrase close.`;
+          event.chromaticNotes = outside;
+        } else if (outside.length) {
           const already = chromaticSeen.get(event.chord);
           if (already !== undefined) {
             // Saying the same thing a third time teaches nothing. A returning
@@ -2872,7 +3349,7 @@ function generateHarmony(context, arc, seed = 0) {
               // plainer first statement rather than more of the same.
               const sectionAppetite = Math.min(1.35, nextSection ? (nextSection.approachBias || 1) : 1);
               let prob = Math.min(0.95, functionalWeight
-                * (0.45 + (cc.color || 0.5) * 0.85)
+                * (0.45 + colourAppetite * 0.85)
                 * sectionAppetite
                 + targetEmphasis * 0.2
                 + tension * 0.06);
@@ -2895,7 +3372,7 @@ function generateHarmony(context, arc, seed = 0) {
               if (rng() < prob) {
                   // Leave at least half the bar to the main chord; high color
                   // settings may steal up to half the bar for longer runs.
-                  const lavish = (cc.color || 0.5) > 0.7 || targetEmphasis > 0.6 || crossesSection;
+                  const lavish = colourAppetite > 0.7 || targetEmphasis > 0.6 || crossesSection;
                   const maxBeats = event.duration >= 4
                     ? (lavish ? 2 : 1.5)
                     : (event.duration >= 2 ? 1 : 0.5);
@@ -2907,6 +3384,17 @@ function generateHarmony(context, arc, seed = 0) {
                       // as arbitrary here. The manual chooser still offers the
                       // full catalog for deliberate exploration.
                       diatonicOnly: window.__approachDiatonicOnly !== false,
+                      // The mode replaces the whole catalog: see
+                      // ApproachEngine.approachScaleFamilies.
+                      mode: apMode.enabled ? 'approach-scales' : null,
+                      advanced: !!apMode.advanced,
+                      // So the engine can refuse a "borrow" from the collection
+                      // the piece is already in — approaching Dmaj7 in D major,
+                      // D major itself is a scale rooted on the target's root,
+                      // and calling its vi and vii° "borrowed from outside the
+                      // key" is an explanation defending something that did not
+                      // happen.
+                      homeScaleNotes: (context.harmonicProfile && context.harmonicProfile.scaleNotes) || null,
                       target: nextChord,
                       tone: context.emotionalTone,
                       tension,
@@ -2915,7 +3403,7 @@ function generateHarmony(context, arc, seed = 0) {
                       maxBeats,
                       // Emphasised targets get spicier approaches, and so does
                       // the run into a new section.
-                      colorLevel: Math.min(1, (cc.color != null ? cc.color : 0.5)
+                      colorLevel: Math.min(1, colourAppetite
                         + targetEmphasis * 0.25
                         + (crossesSection ? 0.15 : 0))
                   });
@@ -2936,6 +3424,23 @@ function generateHarmony(context, arc, seed = 0) {
                   // away from its target. Anything that fails that is discarded
                   // and the bar is simply left plain, which is always better
                   // than a stumble.
+                  // An "approach" that opens by restating the chord already
+                  // sounding is not an approach — it is the same chord, struck
+                  // again, with a paragraph of provenance attached. Reachable
+                  // from any family that takes a scale's tonic chord (the
+                  // fifth-above family does exactly that, and a fifth above the
+                  // NEXT chord is often the chord under this bar), so it is
+                  // rejected here where the current chord is actually known.
+                  if (plan && plan.events.length && chordObj) {
+                      const pcSet = (tones) => Array.from(new Set((tones || [])
+                          .map(n => { const v = (mt && mt.noteValues) ? mt.noteValues[String(n).replace(/-?\d+$/, '')] : null;
+                                      return Number.isFinite(v) ? ((v % 12) + 12) % 12 : null; })
+                          .filter(Number.isFinite))).sort((a, b) => a - b).join(',');
+                      const here = pcSet(chordObj.chordNotes || chordObj.diatonicNotes);
+                      const first = plan.events[0];
+                      if (here && here === pcSet(first.chordNotes || first.diatonicNotes)) plan = null;
+                  }
+
                   if (plan && plan.events.length) {
                       const usable = plan.events.every((e) => {
                           const type = String(e.chordType || '');
@@ -3028,15 +3533,20 @@ function generateHarmony(context, arc, seed = 0) {
         // Reduce the main last event if it spans the endBeat
         if (endBeat > lastEvt.beat && (lastEvt.beat + lastEvt.duration) >= beatsPerBar) {
           lastEvt.duration = Math.max(0.5, beatsPerBar - 0.5);
+          // The SAME chord, still sounding — so it inherits everything the
+          // event it was split off from knew about itself. Built field by
+          // field, it silently dropped the bar's section, its key, and the
+          // `cadenceGesture` flag that marks it as part of the ♭VI–♭VII–I
+          // lift; anything downstream reading those (the panel's diatonic
+          // reader, and any check asking whether a chord outside the key has
+          // something claiming it) then saw the last chord of the piece as an
+          // unexplained borrow.
           harmony.chordSequence.push({
-            bar: lastBarIdx,
+            ...lastEvt,
             beat: endBeat,
             duration: 0.5,
-            chord: lastEvt.chord,
-            chordObj: lastEvt.chordObj,
-            roman: lastEvt.roman,
-            energy: lastEvt.energy,
-            texture: lastEvt.texture,
+            sectionStart: false,
+            sustainedFromPrevBar: false,
             scaleHint: { root: tonic, scaleName: currentScale, scaleNotes: homeNotes, reason: 'cadence-resolution' },
             scaleHintNotes: homeNotes,
             explain: `Resolve: return to ${tonic} ${formatScaleNameForDisplay(currentScale)} for cadence`

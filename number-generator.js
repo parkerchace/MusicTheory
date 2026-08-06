@@ -411,7 +411,7 @@ class NumberGenerator {
      * @param {string[]} tokens
      */
     setDisplayTokens(tokens, opts = {}) {
-        // opts: { render: true|false, emit: true|false }
+        // opts: { render: true|false, emit: true|false, chords: [{root,chordType,notes}, ...] }
         const doRender = (opts.render === undefined) ? true : !!opts.render;
         const doEmit = (opts.emit === undefined) ? true : !!opts.emit;
 
@@ -433,6 +433,15 @@ class NumberGenerator {
             this.state.displayTokens = null;
             this.state.displayRawTokens = null;
         }
+        // Precomputed chord data (root/chordType/notes), keyed by the SAME index as
+        // tokens — the actual answer getDiatonicChord already worked out, rather
+        // than a string a listener has to re-derive by parsing the roman numeral
+        // and its suffix back apart. Optional: only the caller that just computed
+        // these tokens FROM a scale (the seed / a scale change) has them; a token
+        // a user typed by hand has none, and still goes through the string path.
+        this.state.displayChords = (Array.isArray(opts.chords) && opts.chords.length === tokensSanitized.length)
+            ? opts.chords.slice()
+            : null;
         // Log manual degree input and preview tokens. Use logPreviewTokens when available
         const previewDetail = {
             event: 'setDisplayTokens',
@@ -446,7 +455,7 @@ class NumberGenerator {
             try { window.logChordCommit(Object.assign({}, previewDetail, { preview: true })); } catch(_) {}
         }
         if (this.container && doRender) this.render();
-        if (doEmit) this.emit('displayTokensChanged', { tokens: this.state.displayTokens, rawTokens: this.state.displayRawTokens });
+        if (doEmit) this.emit('displayTokensChanged', { tokens: this.state.displayTokens, rawTokens: this.state.displayRawTokens, chords: this.state.displayChords });
     }
 
     getCurrentDisplayTokens() {
@@ -1807,6 +1816,16 @@ class NumberGenerator {
             else if (/m6/.test(t)) suffix = '6';
             else if (/(^|[^a-z0-9])6($|[^0-9])/i.test(raw)) suffix = '6';
             else if (/alt/.test(t)) suffix = 'alt';
+            // Nothing above recognised this quality — used to mean an empty
+            // suffix, which downstream (normalizePreviewRomanToken) reads as
+            // "no quality was specified" and defaults to a plain major/minor
+            // TRIAD, silently discarding whatever the real chord actually
+            // was. A dominant seventh with a flat five ('7b5') matched none
+            // of the specific patterns above and is exactly this case. The
+            // chordType string itself is always a real, readable chord
+            // quality (it came from getDiatonicChord), so falling back to it
+            // verbatim beats losing the information entirely.
+            else if (t) suffix = t;
 
             // Preserve augmented fifth indication explicitly instead of losing it
             const hasSharp5 = /#5/.test(t) || /\baug\b|\+/.test(t);
@@ -1909,6 +1928,32 @@ class NumberGenerator {
         let quality = '';
         let alterations = [];
 
+        // numberToRoman wraps an augmented fifth as "aug(<seventh>)" — e.g.
+        // "aug(maj7)" for Dbmaj7#5, "aug(7)" for a plain dominant seventh
+        // with a sharp five — so that it isn't lost the way the bare
+        // augmented TRIAD used to swallow it. Detect that wrapper before the
+        // generic extraction below, which would otherwise find "maj7" or
+        // "7" as a bare substring and silently drop the "aug(" that changes
+        // what chord this actually is.
+        const augWrapMatch = restClean.match(/^aug\(([^)]*)\)/i);
+        // numberToRoman writes a minor-major seventh as "mMaj7" — a lowercase
+        // minor-third marker directly followed by "Maj7". The generic
+        // extraction below searches for "maj7" as a bare substring anywhere
+        // in the text and would find it starting at the capital M, one
+        // character in — losing the leading 'm' (the minor third) entirely,
+        // so "imMaj7" round-tripped to a plain "CMaj7" instead of "CmMaj7".
+        const hasMinorMajor = /^mMaj7/i.test(restClean);
+        // A composite/descriptive quality — e.g. "7sus2(#11, b5)" from
+        // generateSyntheticChordType, for a chord with no single conventional
+        // name — is not something this substring-based extraction can safely
+        // parse: it previously found "11" inside "#11" and reported an
+        // eleventh-chord extension that has nothing to do with the real
+        // chord. Leaving quality empty here means getChordNotes() below finds
+        // no matching formula and returns no notes, which is exactly what
+        // makes the caller fall back to the diatonic chord's own, correctly
+        // computed notes instead of guessing wrong ones.
+        const hasOtherParenthetical = !augWrapMatch && /\(/.test(restClean);
+
         // Prioritize explicit symbol forms (ø / ° / half-dim / dim) so they are not
         // shadowed by a loose numeric extension like the '7' in 'ø7'. This ensures
         // 'viiø7' normalizes to 'm7b5' instead of just 'm7'.
@@ -1916,6 +1961,15 @@ class NumberGenerator {
             quality = 'm7b5';
         } else if (hasDim) {
             quality = 'dim7';
+        } else if (augWrapMatch) {
+            const inner = augWrapMatch[1] || '';
+            if (/maj7/i.test(inner)) quality = 'maj7#5';
+            else if (/7/.test(inner)) quality = '7#5';
+            else quality = 'aug';
+        } else if (hasMinorMajor) {
+            quality = 'mMaj7';
+        } else if (hasOtherParenthetical) {
+            // Leave quality unset — see comment above.
         } else {
             const extMatch = restClean.match(/(maj13|maj11|maj9|maj7|m7|m9|m11|m13|m6|7|9|11|13|6)/i);
             if (extMatch) {
@@ -1974,6 +2028,16 @@ class NumberGenerator {
                     if (ch === '#') delta += 1;
                     else if (ch === 'b') delta -= 1;
                 }
+                // No accidental was typed: the scale already gave us this
+                // degree correctly spelled (that's what currentScaleNotes
+                // IS), so keep it rather than re-deriving an enharmonic from
+                // a key-only sharp/flat guess below. That guess ignores the
+                // SCALE entirely — for C Neapolitan major (which is properly
+                // spelled with flats: Db, Eb) it returned the sharp
+                // enharmonics (C#, D#) because 'C' sits in a hardcoded
+                // sharp-key list, silently re-spelling a scale that had
+                // nothing to do with C major.
+                if (delta === 0) return n;
                 const newSemi = (baseSemi + delta + 12) % 12;
                 // If user explicitly typed a flat/sharp, prefer that accidental spelling
                 let preferSharps = null;

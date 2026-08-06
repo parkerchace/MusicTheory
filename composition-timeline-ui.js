@@ -566,8 +566,105 @@ class CompositionTimelineUI {
         const wrapper = document.createElement('div');
         wrapper.appendChild(row);
         wrapper.appendChild(legend);
+        wrapper.appendChild(this.buildApproachScalesRow());
         setTimeout(() => this.updateHarmonyLegend(), 0);
         return wrapper;
+    }
+
+    getApproachScales() {
+        if (typeof window.__approachScalesMode === 'function') return window.__approachScalesMode();
+        if (!window.__arcApproachScales) {
+            let stored = null;
+            try { stored = JSON.parse(localStorage.getItem('arcApproachScales') || 'null'); } catch (_) {}
+            window.__arcApproachScales = (stored && typeof stored === 'object')
+                ? { enabled: !!stored.enabled, advanced: !!stored.advanced }
+                : { enabled: false, advanced: false };
+        }
+        return window.__arcApproachScales;
+    }
+
+    saveApproachScales() {
+        try { localStorage.setItem('arcApproachScales', JSON.stringify(window.__arcApproachScales)); } catch (_) {}
+    }
+
+    /**
+     * APPROACH SCALES — a mode, not another slider.
+     *
+     * The sliders above ask "how much"; this asks "where". Base scale plain
+     * (major or aeolian), progression plain diatonic, and every note outside
+     * the key living in the approach into the next chord — drawn from whatever
+     * scale in the library is rooted a fifth above that chord. It has to be
+     * exclusive to be audible: an approach borrowed from F♯ Mixolydian ♭6
+     * teaches nothing if the chord it lands on was itself borrowed and the key
+     * has just modulated. So switching it on switches those off, and the
+     * legend says so rather than leaving the Harmony dial looking broken.
+     */
+    buildApproachScalesRow() {
+        const st = this.getApproachScales();
+        const wrap = document.createElement('div');
+        wrap.style.cssText = `
+            padding:6px 12px 9px; border-top:1px solid #0f3460; background:#111c33;
+            font-size:10px; color:#94a3b8;
+        `;
+
+        const mkCheck = (labelText, checked, title) => {
+            const lab = document.createElement('label');
+            lab.style.cssText = 'display:inline-flex; align-items:center; gap:5px; cursor:pointer; margin-right:14px;';
+            lab.title = title;
+            const box = document.createElement('input');
+            box.type = 'checkbox';
+            box.checked = !!checked;
+            box.style.cssText = 'accent-color:#00d4ff; cursor:pointer;';
+            const txt = document.createElement('span');
+            txt.textContent = labelText;
+            lab.appendChild(box); lab.appendChild(txt);
+            return { lab, box, txt };
+        };
+
+        const main = mkCheck('🪜 Approach scales', st.enabled,
+            'Plain major/aeolian base and a plain diatonic progression; all the outside colour '
+            + 'arrives in the approach into each chord, drawn from a scale rooted a fifth above it.');
+        const adv = mkCheck('advanced: borrow on the target\'s own root', st.advanced,
+            'Approach the target using chords from a scale built on the TARGET\'S root — and never '
+            + 'sound that scale\'s own tonic chord, so the arrival is the first time you hear it. '
+            + 'G major: I → (Ddim7 from C diminished) → IVmaj7, with Cdim7 withheld.');
+
+        const note = document.createElement('div');
+        note.style.cssText = 'margin-top:5px; color:#64748b; line-height:1.5;';
+
+        const refresh = () => {
+            adv.lab.style.opacity = st.enabled ? '1' : '0.4';
+            adv.box.disabled = !st.enabled;
+            note.innerHTML = st.enabled
+                ? '<span style="color:#fbbf24;">On.</span> Base scale forced to major or aeolian and the '
+                  + 'progression to the textbook families; borrowed chords, secondary dominants, modulation, '
+                  + 'chromatic mediants and subverted cadences are switched off so the approach is the only '
+                  + 'thing leaving the key. '
+                  + (st.advanced
+                      ? 'Approaches are drawn from scales rooted on the <strong>target\'s own root</strong>, '
+                        + 'with that scale\'s tonic chord withheld until the arrival.'
+                      : 'Approaches are drawn from scales rooted <strong>a fifth above</strong> the target.')
+                : 'Off — the Harmony dial above decides what is switched on.';
+        };
+
+        main.box.onchange = () => {
+            st.enabled = main.box.checked;
+            window.__arcApproachScales = st;
+            this.saveApproachScales();
+            refresh();
+        };
+        adv.box.onchange = () => {
+            st.advanced = adv.box.checked;
+            window.__arcApproachScales = st;
+            this.saveApproachScales();
+            refresh();
+        };
+
+        wrap.appendChild(main.lab);
+        wrap.appendChild(adv.lab);
+        wrap.appendChild(note);
+        refresh();
+        return wrap;
     }
 
     /** Describe the current harmony setting in words. */

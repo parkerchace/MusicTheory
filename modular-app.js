@@ -389,6 +389,17 @@ window.mountLearnModuleIfReady = function(instrument) {
                         this.numberGenerator.setNumbers(scaleDegrees, this.numberGenerator.getNumberType());
                     }
 
+                    // The sheet's chord LABELS are resolved from the roman-numeral
+                    // tokens against the key/scale current at the moment they were
+                    // set — sheetMusicGenerator.setKeyAndScale() above updates the
+                    // signature and scale notes, but never re-resolves the bars
+                    // already on the page, so they stayed pinned to whatever key
+                    // was current when the sheet was last seeded (C major, on load).
+                    // Re-seeding re-emits the same tokens now that the key/scale is
+                    // current; seedSheetFromNumbers() only touches bars it seeded
+                    // itself, so hand-built bars and a generated piece are untouched.
+                    this.seedSheetFromNumbers();
+
                     this.numberGenerator.render();
                     if (this.solarSystem) {
                         this.solarSystem.updateSystem({ key: data.key, scale: data.scale, notes: data.notes });
@@ -454,6 +465,7 @@ window.mountLearnModuleIfReady = function(instrument) {
                     try {
                         const rawTokens = evt && evt.rawTokens ? evt.rawTokens : (evt && evt.tokens ? evt.tokens : null);
                         const tokens = evt && evt.tokens ? evt.tokens : null;
+                        const precomputed = (evt && Array.isArray(evt.chords) && evt.chords.length === (tokens && tokens.length)) ? evt.chords : null;
                         if (!tokens || !Array.isArray(tokens) || tokens.length === 0) return;
 
                         // Log propagation of preview/display tokens into sheet mapping
@@ -468,6 +480,25 @@ window.mountLearnModuleIfReady = function(instrument) {
 
                         // Convert tokens into chord objects consumable by SheetMusicGenerator
                         const chords = tokens.map((tok, idx) => {
+                            // A precomputed entry (from seedSheetFromNumbers, which called
+                            // getDiatonicChord directly) is the answer already worked out —
+                            // use it verbatim rather than re-deriving it by parsing the
+                            // token's own display text back apart. That round-trip is fine
+                            // for "maj7" or "m7"; it has no hope with a chord whose 3rd isn't
+                            // a 3rd, or one with no conventional name at all (a descriptive
+                            // synthesized label like "sus2(#11, add6, b5)") — those came back
+                            // as a wrong bare triad, or nothing. This is the fix for that:
+                            // don't reconstruct what this app already correctly computed.
+                            const pre = precomputed && precomputed[idx];
+                            if (pre && pre.root) {
+                                return {
+                                    root: pre.root,
+                                    chordType: pre.chordType,
+                                    chordNotes: Array.isArray(pre.notes) ? pre.notes.slice() : [],
+                                    fullName: pre.root + (pre.chordType || ''),
+                                    degree: Number.isInteger(pre.degree) ? pre.degree : null
+                                };
+                            }
                             const rawTok = (rawTokens && rawTokens[idx]) ? rawTokens[idx] : tok;
                             try {
                                 // First, allow NumberGenerator to normalize preview (may map accidentals to spelled roots)
@@ -547,6 +578,12 @@ window.mountLearnModuleIfReady = function(instrument) {
                         if (!chords.length) return;
 
                         const degrees = chords.map(c => {
+                            // A precomputed chord already carries its own degree — no
+                            // need to work backward from the root's spelling, which is
+                            // exactly where "deg:?" came from: an enharmonic mismatch
+                            // (root spelled "C#", scale spelled "Db") made a plain
+                            // string-equality lookup fail even though the note was right.
+                            if (Number.isInteger(c.degree)) return c.degree;
                             // Attempt to map root back to diatonic degree if possible
                             try {
                                 if (this.scaleLibrary && Array.isArray(this.scaleLibrary.getCurrentScaleNotes())) {
@@ -1027,19 +1064,61 @@ window.mountLearnModuleIfReady = function(instrument) {
                     const sheet = this.sheetMusicGenerator;
                     if (!ng || !sheet || typeof ng.numberToRoman !== 'function') return;
 
+                    // A full generated piece (from word input) owns the sheet while
+                    // it's showing — its key came from the words, not this selector.
+                    // setBarChords() retires a musicalPhrase the instant it's called
+                    // (by design, so the number generator etc. can override it when
+                    // the user deliberately touches them) — a scale-change re-seed is
+                    // not that, and must not silently erase a generated piece.
+                    if (sheet.state && sheet.state.musicalPhrase) return;
+
                     const existing = (sheet.state && sheet.state.barChords) || [];
                     if (existing.length && !this._sheetSeeded) return;   // the user's own bars win
 
                     const numbers = ng.getCurrentNumbers ? ng.getCurrentNumbers() : [];
                     if (!Array.isArray(numbers) || !numbers.length) return;
 
-                    const tokens = numbers
-                        .map(n => (typeof n === 'number' ? ng.numberToRoman(n) : String(n)))
-                        .filter(t => t && t !== '?');
+                    const key = this.scaleLibrary ? this.scaleLibrary.getCurrentKey() : (ng.currentKey || 'C');
+                    const scale = this.scaleLibrary ? this.scaleLibrary.getCurrentScale() : (ng.currentScale || 'major');
+
+                    // Build the display tokens AND the exact chord each one names,
+                    // together and in the same order. A listener used to have to
+                    // re-derive the chord by parsing the roman-numeral token's own
+                    // text back apart — fine for "maj7" or "m7", hopeless for
+                    // anything getDiatonicChord couldn't give a short conventional
+                    // name to. An augmented-fifth seventh round-tripped through
+                    // that parser with its fifth silently dropped; a chord with no
+                    // conventional name at all (a scale degree whose "third" isn't
+                    // a third, carrying a descriptive name like
+                    // "sus2(#11, add6, b5)") had no hope of surviving the trip and
+                    // came back as a bare, wrong triad — or nothing. Carrying the
+                    // already-correct root/type/notes alongside the token means a
+                    // listener never has to reconstruct what this file already
+                    // knows.
+                    const tokens = [];
+                    const chords = [];
+                    numbers.forEach(n => {
+                        const tok = (typeof n === 'number') ? ng.numberToRoman(n) : String(n);
+                        if (!tok || tok === '?') return;
+                        tokens.push(tok);
+                        if (typeof n === 'number' && this.musicTheory && typeof this.musicTheory.getDiatonicChord === 'function') {
+                            try {
+                                const diat = this.musicTheory.getDiatonicChord(n, key, scale);
+                                chords.push(diat && diat.root ? { degree: n, root: diat.root, chordType: diat.chordType, notes: diat.diatonicNotes } : null);
+                            } catch (_) { chords.push(null); }
+                        } else {
+                            chords.push(null);
+                        }
+                    });
                     if (!tokens.length) return;
 
                     this._sheetSeeded = true;
-                    ng.setDisplayTokens(tokens, { rawTokens: tokens.slice(), source: 'initial-seed' });
+                    const haveAllChords = chords.length === tokens.length && chords.every(c => c && c.root);
+                    ng.setDisplayTokens(tokens, {
+                        rawTokens: tokens.slice(),
+                        source: 'initial-seed',
+                        chords: haveAllChords ? chords : undefined
+                    });
                 } catch (e) {
                     console.warn('[App] could not seed the sheet from the current degrees:', e);
                 }

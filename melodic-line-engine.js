@@ -123,6 +123,64 @@
     //   sequence    restate a stored shape from a new degree
     const MOTIONS = ['stepwise', 'arpeggio', 'functional', 'sequence', 'run', 'neighbor'];
 
+    /**
+     * A REPERTOIRE OF PATHS from one structural point to the next.
+     *
+     * `pickMotion` chooses stepwise motion as the default — "the material,"
+     * not the idea — and until now stepwise meant exactly one thing: walk
+     * straight at the target, one scale step per note. Correct, and flat.
+     * Real melodic writing gets from A to B by a small vocabulary of
+     * recognisable routes: a sweep up and over before settling, a dip and a
+     * rise, a hover around a neighbouring degree before committing, a run
+     * that overshoots its landing note and turns back into it from the other
+     * side. It is the ROUTE, as much as the two endpoints, that makes a
+     * phrase recognisable on a second hearing — launch on C, land on E, and
+     * `187653`-style overshoot-and-descend is a different piece of music from
+     * `14565453`-style hover-and-settle even though both start and end the
+     * same place.
+     *
+     * Each shape is a deviation curve over t ∈ [0, 1] (0 = the span's first
+     * interior note, 1 = its last), added to the straight interpolation
+     * between the span's start pitch and its target and expressed in
+     * semitones — not scale degrees, so it composes with whatever chord or
+     * scale is sounding at each note rather than assuming one. `direct` — the
+     * flat walk this used to always be — stays the majority, so a shape reads
+     * as a chosen event against a plain background rather than becoming the
+     * new default; see `pickPathShape`.
+     */
+    const PATH_SHAPES = [
+        // The existing behaviour, kept as the common case.
+        { id: 'direct', weight: 0.50, ampMin: 0, ampMax: 0, deviation: () => 0 },
+        // A bulge above the straight line, peaking at the span's middle — the
+        // line leans up and over on its way to the target.
+        { id: 'arch', weight: 0.13, ampMin: 3, ampMax: 5,
+          deviation: (t) => Math.sin(t * Math.PI) },
+        // The same shape inverted: a dip before the line rises to its target.
+        { id: 'valley', weight: 0.13, ampMin: 3, ampMax: 5,
+          deviation: (t) => -Math.sin(t * Math.PI) },
+        // A reach away from the straight line right at the start, decaying
+        // back toward it — the line jumps early and spends the rest of the
+        // span working its way back, arriving at the target from the OTHER
+        // side rather than climbing straight to it. This is the shape behind
+        // a classic run: leap to the octave, then walk back down through the
+        // scale to settle below where it started.
+        { id: 'overshootAndReturn', weight: 0.12, ampMin: 5, ampMax: 9,
+          deviation: (t) => Math.max(0, 1 - t * 1.4) },
+        // A wobble that decays into the target — the line hovers around a
+        // neighbouring degree, stepping back and forth, before committing to
+        // where it is going. The oscillation is what makes the eventual
+        // arrival read as a DECISION rather than as one more step.
+        { id: 'hoverThenSettle', weight: 0.12, ampMin: 2, ampMax: 4,
+          deviation: (t) => Math.sin(t * Math.PI * 2.5) * Math.max(0, 1 - t * 0.9) }
+    ];
+
+    function pickPathShape(rng) {
+        const total = PATH_SHAPES.reduce((s, p) => s + p.weight, 0);
+        let r = rng() * total;
+        for (const p of PATH_SHAPES) { if ((r -= p.weight) < 0) return p; }
+        return PATH_SHAPES[0];
+    }
+
     function pickMotion({ rng, melodyC = 0.5, energy = 0.5, char, preferred, isCadenceSpan }) {
         // An explicit choice from the generation-logic selector wins most of
         // the time, but never all of it — an entire piece of nothing but
@@ -1251,6 +1309,13 @@
             let currentSectionLabel = null;
             let spanIndexInSection = 0;
 
+            // A BUDGET OF GENUINE RESTS — a whole span of silence, not just the
+            // half-to-one-beat breath a phrase already takes before it enters.
+            // See the note where this is spent, further down.
+            const barCountLine = Number(arc.bars) || Math.max(1, Math.ceil(totalBeats / beatsPerBar));
+            const fullRestBudget = Math.max(0, Math.round(barCountLine * 0.06));
+            let fullRestsSpent = 0;
+
             for (let a = 0; a < anchors.length; a++) {
                 const from = anchors[a];
                 const to = anchors[a + 1] || null;
@@ -1287,9 +1352,36 @@
                     (atSectionStart ? rng() < 0.2 : (a % 2 === 0 && rng() < 0.35));
                 let cursor = spanStart;
                 if (wantRest) {
-                    const rest = available >= 3 ? 1 : 0.5;
-                    cursor += rest;
-                    available -= rest;
+                    // A GENUINE REST, once in a while, rather than always the
+                    // same half-to-one-beat breath before the next entrance.
+                    //
+                    // The breath below only ever delays a phrase's START — the
+                    // line never actually STOPS, which is not the same thing.
+                    // A budget of full-span silences is what lets "the tune
+                    // stops" become a real, audible event: never running INTO
+                    // a cadence (the phrase has to arrive somewhere, not
+                    // vanish on the way there), and only where the span is
+                    // long enough that stopping reads as a rest rather than a
+                    // clipped note.
+                    const wantFullRest = fullRestsSpent < fullRestBudget
+                        && available >= 2 && (!to || !to.cadence)
+                        && rng() < 0.4;
+                    if (wantFullRest) {
+                        // Consume the WHOLE remaining span, not just mark it
+                        // empty — `cursor` is what the per-note loop actually
+                        // checks against `spanEnd` to know it has run out of
+                        // room, and a branch further down (restating a
+                        // captured motif) sizes itself from the raw motif
+                        // rather than from `available`, so it would otherwise
+                        // ignore this rest and fill the "silent" span anyway.
+                        fullRestsSpent++;
+                        cursor = spanEnd;
+                        available = 0;
+                    } else {
+                        const rest = available >= 3 ? 1 : 0.5;
+                        cursor += rest;
+                        available -= rest;
+                    }
                 }
 
                 // RHYTHM comes from the words; PITCH comes from the line
@@ -1560,6 +1652,37 @@
                     preferred: motionPreference,
                     isCadenceSpan: !to
                 });
+
+                // A PATH SHAPE, decided once for the whole span — like the
+                // run's direction or the neighbour's home note, not re-rolled
+                // per note.
+                //
+                // Gated on COUNT, not on which motion `pickMotion` named.
+                // Measured first: word-driven spans are mostly one to three
+                // notes long (over half of them a single note), so requiring
+                // `motion === 'stepwise'` on top of a decent note count meant
+                // this could never fire at all — zero stepwise spans in a
+                // broad sample ever reached four notes. That is the Für Elise
+                // trap again: correct and unreachable is the same as absent.
+                // `run`, `neighbor`, `arpeggio` and `functional` all fall
+                // through to this same generic connector whenever THEIR OWN
+                // condition needs more room than the span has left (each
+                // checks `(count - i) > 1` before committing to its own
+                // figure), so the label `pickMotion` chose is already a poor
+                // predictor of which code actually places a short span's
+                // notes. A shape governs only this fallback branch either
+                // way, so gating on room rather than on the label reaches the
+                // traffic that is actually there without touching run,
+                // neighbour, arpeggio or functional's own dedicated figures.
+                //
+                // Three notes is the floor: two gives exactly one interior
+                // note sitting at t=1, where every shape here has already
+                // decayed to the target — there is nowhere for a deviation to
+                // go, so nothing would ever be visible.
+                const pathShape = (count >= 3) ? pickPathShape(rng) : null;
+                const pathAmplitude = pathShape
+                    ? (pathShape.ampMin + rng() * (pathShape.ampMax - pathShape.ampMin)) : 0;
+
                 const spanIntervals = [];
                 walkDir = 0;
                 walkRun = 0;
@@ -1688,6 +1811,27 @@
                             if (pn && pn.length) pinnedPool = this.scaleMidis(pn, LOW, HIGH);
                         } catch (_) {}
                     }
+                    // IS THERE A ROOT LEFT TO LEAN INTO?
+                    //
+                    // The Für Elise figure is root → the chord's leading tone →
+                    // root, and all three notes belong to the SAME chord. Two
+                    // separate things can take the third one away:
+                    //
+                    //   the SPAN ends — the next note is a structural anchor and
+                    //     is not free to be the resolution (this was already
+                    //     guarded, as `(count - i) > 1`);
+                    //   the CHORD ends — an approach chord steals the end of the
+                    //     bar, so the resolution sounds over a harmony that does
+                    //     not contain it. The commitment check then finds it
+                    //     unlicensed and pulls it back to the nearest note that
+                    //     is, which is the leading tone itself: the figure leans
+                    //     and never comes home, which is precisely a wrong note.
+                    //
+                    // Both are the same condition and are now asked as one. A
+                    // leading tone that cannot resolve is not a leading tone, so
+                    // the door is simply not opened.
+                    const resolutionStaysHere = (i < count - 1)
+                        && (this.harmonyAt(harmony, beat + dur, beatsPerBar) || from.ev) === evHere;
                     const chordPool = this.chordMidis(evHere, LOW, HIGH);
                     // Follow the sounding scale: when the harmony borrows, the
                     // line borrows with it.
@@ -1717,6 +1861,10 @@
                     const isAnchor = (i === 0);
                     let midi;
                     let role = 'connect';
+                    // Which named route this note came from, if any — carried
+                    // onto the note so it can be measured and, eventually,
+                    // explained to the listener the way `chromaticReason` is.
+                    let usedPathShape = null;
 
                     if (announcePitches && announceIdx < announcePitches.length) {
                         // THE SUBJECT, before anything else gets a say.
@@ -1887,8 +2035,11 @@
                                 // not free to be the resolution — so the figure
                                 // is left hanging. Rare enough to hide until the
                                 // seeding fix produced two and a half times as
-                                // many leading tones, and then it showed.
-                                && (count - i) > 1;
+                                // many leading tones, and then it showed. The
+                                // chord ending under the next note takes the
+                                // resolution away just as surely — see
+                                // `resolutionStaysHere`.
+                                && resolutionStaysHere;
 
                             const dir = canLeadTone ? -1 : (neighborDir || (rng() < 0.55 ? 1 : -1));
                             neighborDir = dir;
@@ -1939,7 +2090,9 @@
                             role = 'connect';
                         }
                     } else {
-                        // Move toward the next anchor, by step wherever possible.
+                        // Move toward the next anchor, by step wherever
+                        // possible — or, when this span was given one, along
+                        // its chosen SHAPE.
                         const remaining = count - i;
                         const gap = targetMidi - current;
                         const idealStep = gap / Math.max(1, remaining);
@@ -1951,7 +2104,37 @@
                         // That is now settled at the point of commitment for
                         // every leap however it arose, so this branch is gone
                         // rather than duplicated.
-                        if (Math.abs(idealStep) <= 2.5) {
+                        if (pathShape && pathShape.id !== 'direct') {
+                            // THE SHAPE PROPOSES; THE HARMONY DISPOSES.
+                            //
+                            // `want` is the straight line from the span's start
+                            // to its target, bent by the shape's deviation at
+                            // this note's position — computed from the span's
+                            // fixed endpoints (`from.midi`, `targetMidi`), not
+                            // from `current`, so the curve is one planned arc
+                            // rather than something re-decided note by note, the
+                            // same reason a scale run commits to a direction
+                            // instead of reconsidering at every step.
+                            //
+                            // A chord tone close to that point is preferred over
+                            // a bare scale tone: outlining the harmony along the
+                            // way is what turns a shape into a phrase rather
+                            // than a decoration drawn on top of one — the same
+                            // principle the metric hierarchy applies by beat,
+                            // applied here by contour. Where nothing in the
+                            // chord is close, the scale still governs; the
+                            // strong/weak machinery further down has the final
+                            // word on whether the result needs a suspension or a
+                            // resolution.
+                            const t = Math.min(1, i / Math.max(1, count - 1));
+                            const want = from.midi + (targetMidi - from.midi) * t
+                                + pathShape.deviation(t) * pathAmplitude;
+                            const nearChord = chordPool.filter(m => Math.abs(m - want) <= 2.5);
+                            const pool = nearChord.length ? nearChord
+                                : (scalePool.length ? scalePool : chordPool);
+                            midi = pool.length ? this.nearest(pool, want) : Math.round(want);
+                            usedPathShape = pathShape.id;
+                        } else if (Math.abs(idealStep) <= 2.5) {
                             // Stepwise connection — the default motion.
                             //
                             // The direction has to PERSIST. Taking it from the
@@ -2030,7 +2213,12 @@
                     const midiPc = ((midi % 12) + 12) % 12;
                     const isChordLeadingTone = Number.isFinite(chordRootPc)
                         && midiPc === ((chordRootPc - 1) % 12 + 12) % 12
-                        && !scalePcsHere.includes(midiPc);
+                        && !scalePcsHere.includes(midiPc)
+                        // ...with somewhere to resolve. Without this the door
+                        // opened here while the one at the commitment point
+                        // below refused, so the note kept the ROLE of a leading
+                        // tone and lost its reason.
+                        && resolutionStaysHere;
 
                     const justified = chordPool.includes(midi)
                         || scalePool.includes(midi)
@@ -2417,12 +2605,14 @@
                     if (!finalInScale) {
                         if (finalIsChordTone) {
                             chromaticReason = `chord tone of ${(evHere && evHere.chord) || 'the sounding chord'}`;
-                        } else if (finalIsLeadingTone && (i < count - 1)) {
+                        } else if (finalIsLeadingTone && resolutionStaysHere) {
                             // Same condition as the neighbour figure's: only
-                            // where a note follows inside this span to carry the
-                            // resolution. An obligation handed to the next span
-                            // lands on a structural anchor, which is not free to
-                            // discharge it.
+                            // where a note follows inside this span, under this
+                            // same chord, to carry the resolution. An obligation
+                            // handed to the next span lands on a structural
+                            // anchor, which is not free to discharge it; one
+                            // handed across a chord change lands on a note the
+                            // new harmony will not license.
                             chromaticReason = `leading tone of ${(evHere && evHere.chord) || 'the sounding chord'}`
                                 + ' — resolves up into its root';
                             if (role === 'connect' || role === 'neighbor') role = 'leadingTone';
@@ -2478,6 +2668,7 @@
                         scaleRoot: (evHere && evHere.scaleHint && evHere.scaleHint.root)
                             || (context.harmonicProfile && context.harmonicProfile.root),
                         role,
+                        pathShape: usedPathShape,
                         chordTone: chordPool.includes(midi)
                             || this.chordMidis(from.ev, LOW, HIGH).includes(midi)
                             || (to && this.chordMidis(to.ev, LOW, HIGH).includes(midi)),

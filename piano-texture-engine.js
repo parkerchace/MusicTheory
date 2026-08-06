@@ -1311,6 +1311,17 @@
                     .map(e => e.midi);
                 return hi.length ? Math.max(...hi) : null;
             };
+            // …and the LOWEST note anywhere in a span. A bar's floor is the right
+            // ceiling for an accompaniment figure that runs the whole bar, and
+            // needlessly harsh for a chord that sounds for one beat of it: the
+            // tune's lowest note three beats away has nothing to do with what
+            // this chord has to fit under.
+            const melodyFloorInSpan = (startBeat, endBeat) => {
+                const lo = melodyEvents
+                    .filter(e => e.start < endBeat - 1e-6 && e.end > startBeat + 1e-6)
+                    .map(e => e.midi);
+                return lo.length ? Math.min(...lo) : null;
+            };
 
             // --- Texture per section -----------------------------------------
             const sections = {};
@@ -1607,19 +1618,30 @@
             const leftHand = [];
             const trebleHarmony = [];
             const structural = seq.filter(ev => ev && !ev.approachStrategy && ev.chordObj);
+            const approaches = seq.filter(ev => ev && ev.approachStrategy && ev.chordObj);
             // The pitch classes of the chord sounding at a given beat. Any voice
             // added above the tune has to answer to the harmony, not only to the
             // melody note it is sitting over.
+            //
+            // APPROACH CHORDS COUNT. They are real sounding harmony with their
+            // own scale hint, and the melody engine has always written against
+            // them; asking this question with them filtered out told the
+            // descant and the covering voice that the bar's main chord was
+            // still sounding when it had already given way. Latest-starting
+            // event wins, exactly as `harmonyAt` resolves it everywhere else.
             const chordPcsAt = (beat) => {
-                for (const ev of structural) {
+                let best = null, bestStart = -Infinity;
+                for (const ev of seq) {
+                    if (!ev || !ev.chordObj) continue;
                     const st = ev.bar * beatsPerBar + (Number(ev.beat) || 0);
                     const en = st + (Number(ev.duration) || beatsPerBar);
-                    if (beat >= st - 1e-6 && beat < en - 1e-6) {
-                        return (ev.chordObj.chordNotes || ev.chordObj.diatonicNotes || [])
-                            .map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0);
+                    if (beat >= st - 1e-6 && beat < en - 1e-6 && st > bestStart) {
+                        best = ev; bestStart = st;
                     }
                 }
-                return [];
+                if (!best) return [];
+                return (best.chordObj.chordNotes || best.chordObj.diatonicNotes || [])
+                    .map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0);
             };
             let prevBass = null;
             const breathPhase = rng() * 2;
@@ -1920,6 +1942,122 @@
                         });
                     }
                 }
+            });
+
+            // --- The approach chords ------------------------------------------
+            //
+            // THE FOURTH INSTANCE OF THE SAME FAULT, and the largest. The
+            // approach engine builds a chord, prices it, verifies its parent
+            // scale, hands it a scaleHint the melody dutifully follows, and the
+            // provenance panel prints a paragraph about where it came from —
+            // and then this loop, the only thing that turns harmony into notes
+            // a hand plays, filtered every one of them out on its first line.
+            // A listener was told "B7, borrowed from E major, steps into A7"
+            // and heard A7 held for the whole bar. Everything upstream was
+            // correct and none of it was audible, which is the same as absent.
+            //
+            // An approach chord is NOT given the section's accompaniment
+            // figure. It occupies half a beat to a beat; an Alberti pattern or
+            // a stride cell needs a bar to be recognisable as itself, and
+            // cramming one into a beat reads as a stumble rather than as a
+            // chord. It is struck as a block, which is what a player does with
+            // a passing chord — and it is exactly why the main chord's own
+            // event was shortened to make room for it.
+            approaches.forEach((ev) => {
+                const bar = ev.bar;
+                const sec = sectionAtBar(bar) || sectionList[0];
+                const beats = Math.max(0.25, Number(ev.duration) || 0.5);
+                const spanStart = bar * beatsPerBar + (Number(ev.beat) || 0);
+                const floor = melodyFloorInSpan(spanStart, spanStart + beats);
+                const ceiling = Number.isFinite(floor) ? Math.min(floor, LH_TOP + 4) : LH_TOP;
+
+                // The voicing engine never saw these chords, so they are voiced
+                // here from their own tones — under the tune, near where the
+                // left hand already is, so the approach sounds like the same
+                // hand moving rather than a new instrument arriving. "Where the
+                // hand already is" means the attack immediately BEFORE this
+                // one, not wherever the structural loop happened to finish:
+                // this pass runs after that loop, so its `prevBass` is the last
+                // bar of the piece.
+                let before = null, beforeStart = -Infinity;
+                leftHand.forEach((lh) => {
+                    const st = lh.bar * beatsPerBar + (Number(lh.beat) || 0);
+                    if (st < spanStart - 1e-6 && st > beforeStart) { before = lh; beforeStart = st; }
+                });
+                const prevBass = (before && Array.isArray(before.midis) && before.midis.length)
+                    ? Math.min(...before.midis) : null;
+
+                let tones = this.voiceInLeftHand(ev.chordObj, ceiling, prevBass);
+                if (!tones || tones.length < 2) {
+                    // ROOM, AT THE COST OF PROXIMITY.
+                    //
+                    // The voicing helper places the bass in the octave NEAREST
+                    // the previous one, which is right for a line of chords and
+                    // wrong at the ceiling: a bass put up at B3 to stay near its
+                    // neighbour leaves nothing between it and middle C, so the
+                    // chord comes back as a bass note alone — a bass line, not
+                    // the harmony the panel is busy describing. Asked again
+                    // without a previous bass it takes the LOWEST placement
+                    // instead and the chord fits. A passing chord that steps
+                    // down an octave to make room is ordinary; one that does not
+                    // sound is the exact fault this pass exists to end.
+                    const roomy = this.voiceInLeftHand(ev.chordObj, ceiling, null);
+                    if (roomy && roomy.length >= 2) tones = roomy;
+                }
+                if (!tones || tones.length < 2) {
+                    // AND IF THAT STILL WILL NOT FIT, PLAY IT CLOSE.
+                    //
+                    // The helper spaces the chord by low-interval limits — wide
+                    // gaps at the bottom of the hand, because thirds and
+                    // sevenths stacked down there are mud. Real, and the reason
+                    // the accompaniment sounds the way it does. But it searches
+                    // UPWARD for each next pitch class from cursor + gap, so a
+                    // tone sitting just below that point costs a whole octave,
+                    // and under a low ceiling the chord runs out of room after
+                    // the bass. A close stack is the ordinary way to play a
+                    // passing chord anyway: it lasts a beat, it is not the
+                    // sonority the piece is built on, and it being slightly
+                    // thick beats it being absent.
+                    const pcs = (ev.chordObj.chordNotes || ev.chordObj.diatonicNotes || [])
+                        .map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0);
+                    const top = Math.min(LH_TOP, Number.isFinite(ceiling) ? ceiling - 1 : LH_TOP);
+                    const stack = [];
+                    let m = 45 + ((((pcs[0] || 0) - 45) % 12) + 12) % 12;   // root at or just above A2
+                    for (const pc of pcs) {
+                        while ((((m % 12) + 12) % 12) !== pc) m++;
+                        if (m > top || stack.length >= 4) break;
+                        stack.push(m);
+                        m += 1;
+                    }
+                    if (stack.length >= 2) tones = stack;
+                }
+                if (!tones || tones.length < 2) return;
+                const cellNotes = tones
+                    .map(m => Math.max(LH_LOW, Math.min(LH_TOP + 6, m)))
+                    .filter((m, i, a) => a.indexOf(m) === i)
+                    .sort((a, b) => a - b);
+                if (cellNotes.length < 2) return;
+
+                const base = {
+                    bar,
+                    beat: Number(ev.beat) || 0,
+                    duration: beats,
+                    pattern: 'approach',
+                    patternName: `approach chord — ${ev.chord || ''} into ${ev.approachTarget || 'the next chord'}`,
+                    section: sec.label,
+                    approachStrategy: ev.approachStrategy,
+                    approachFamily: ev.approachFamily || null,
+                    // The source scale travels with the notes, so anything
+                    // reading the accompaniment can say where they came from
+                    // without going back to the chord sequence for it.
+                    scaleHint: ev.scaleHint || null
+                };
+                leftHand.push({
+                    ...base,
+                    midis: cellNotes,
+                    noteNames: cellNotes.map(m => this.nameOf(m, preferFlat)),
+                    hand: 'left'
+                });
             });
 
             // --- Right hand ---------------------------------------------------
