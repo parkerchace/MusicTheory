@@ -81,6 +81,26 @@ class PianoVisualizer {
         };
         this.SEMITONE_TO_NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
+        // A note is a pitch; a name is one way of writing it. The keyboard used
+        // to decide whether a scale tone belonged to a key by comparing NAMES,
+        // with a five-pair enharmonic table to patch the obvious cases — so the
+        // C♭ that is the second degree of B♭ phrygian matched no key on the
+        // instrument and simply did not light. Every match below goes through
+        // pitch class instead, and the key then wears the scale's own spelling.
+        this._pcOf = (name) => {
+            const g = (typeof window !== 'undefined' && window.MusicNotes) || null;
+            if (g && typeof g.pitchClass === 'function') return g.pitchClass(name);
+            // Standalone fallback: letter plus any run of accidentals.
+            const m = String(name == null ? '' : name).trim()
+                .replace(/♯/g, '#').replace(/♭/g, 'b')
+                .match(/^([A-Ga-g])((?:#|b)*)(?:-?\d+)?$/);
+            if (!m) return null;
+            const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1].toUpperCase()];
+            let acc = 0;
+            for (const ch of m[2]) acc += (ch === '#') ? 1 : -1;
+            return (((base + acc) % 12) + 12) % 12;
+        };
+
         // Standard piano fingering patterns (1=thumb, 2=index, 3=middle, 4=ring, 5=pinky)
         // Based on Alfred's Basic Piano Library and Royal Conservatory standards
         this.FINGERING_PATTERNS = {
@@ -963,10 +983,16 @@ class PianoVisualizer {
         // If note doesn't have enharmonic equivalents, return as-is
         if (!enharmonicPairs[noteName]) return noteName;
 
-        // Check if we have access to music theory engine for key signature info
+        // Check if we have access to music theory engine for key signature info.
+        // Cached: this runs once per key on the instrument, and constructing the
+        // engine reloads the whole scale catalogue.
         if (typeof window !== 'undefined' && window.MusicTheoryEngine) {
-            const engine = new window.MusicTheoryEngine();
-            
+            if (!this._theoryEngine) {
+                this._theoryEngine = (window.modularApp && window.modularApp.musicTheory)
+                    || new window.MusicTheoryEngine();
+            }
+            const engine = this._theoryEngine;
+
             // Get the key signature information
             const keySig = engine.keySignatures[keySignature];
             if (keySig) {
@@ -1002,14 +1028,43 @@ class PianoVisualizer {
     updateKeyLabels(keySignature = null) {
         if (!this.pianoElement) return;
 
+        // THE SCALE NAMES ITS OWN NOTES.
+        //
+        // A key-signature rule can only ever choose between the sharp and the
+        // flat of a black key; it has nothing to say about the white ones, and
+        // so the second degree of B♭ phrygian appeared on the instrument as B
+        // while the chord strip called it C♭. Whenever a scale is showing, a
+        // key that sounds one of its degrees is labelled with the spelling that
+        // scale gave the degree — which is the only spelling in which the seven
+        // letters come out one apiece.
+        const spellingByPc = new Map();
+        if (this.state.mode === 'scale') {
+            (this.state.scaleNotes || []).forEach(n => {
+                const pc = this._pcOf(n);
+                if (pc !== null && !spellingByPc.has(pc)) spellingByPc.set(pc, n);
+            });
+        }
+
         // Update all key labels
         this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key').forEach(key => {
             const originalNote = key.dataset.note;
             const octave = parseInt(key.dataset.octave);
-            const correctNote = this.getCorrectEnharmonic(originalNote, keySignature);
-            
-            // Update the note label (preserve existing child elements)
-            const noteWithOctave = `${correctNote}${octave}`;
+            const pc = this._pcOf(originalNote);
+            const correctNote = (pc !== null && spellingByPc.has(pc))
+                ? spellingByPc.get(pc)
+                : this.getCorrectEnharmonic(originalNote, keySignature);
+
+            // Update the note label (preserve existing child elements).
+            // The octave number belongs to the LETTER, so the key sounding B4
+            // is C♭5 when the scale spells that degree C♭ — labelling it "C♭4"
+            // would name a pitch an octave below the key it is printed on.
+            const midi = parseInt(key.dataset.midi, 10);
+            const parts = (typeof window !== 'undefined' && window.MusicNotes && window.MusicNotes.parse)
+                ? window.MusicNotes.parse(correctNote) : null;
+            const labelOctave = (parts && Number.isFinite(midi))
+                ? Math.round((midi - parts.natural - parts.acc) / 12) - 1
+                : octave;
+            const noteWithOctave = `${correctNote}${labelOctave}`;
             const labelEl = key.querySelector(':scope > div');
             if (labelEl) {
                 labelEl.textContent = noteWithOctave;
@@ -1041,30 +1096,27 @@ class PianoVisualizer {
         const pattern = this.getFingeringPattern(hand);
         if (!pattern) return null;
         
-        const scaleNotes = this.state.scaleNotes;
-        const index = scaleNotes.findIndex(n => {
-            // Check for enharmonic equivalents
-            if (n === note) return true;
-            const equiv = this.getEnharmonicEquivalent(n);
-            return equiv === note;
-        });
-        
+        const index = this.scaleIndexOfNote(note);
         if (index === -1) return null;
         return pattern[index];
+    }
+
+    /**
+     * Which degree of the sounding scale is this key, if any? Compared by
+     * pitch, so a key labelled B answers "2" in B♭ phrygian, where that degree
+     * is written C♭.
+     */
+    scaleIndexOfNote(note) {
+        const pc = this._pcOf(note);
+        if (pc === null) return -1;
+        return (this.state.scaleNotes || []).findIndex(n => this._pcOf(n) === pc);
     }
 
     /**
      * Get roman numeral for a note in the scale
      */
     getRomanNumeralForNote(note) {
-        const scaleNotes = this.state.scaleNotes;
-        const index = scaleNotes.findIndex(n => {
-            // Check for enharmonic equivalents
-            if (n === note) return true;
-            const equiv = this.getEnharmonicEquivalent(n);
-            return equiv === note;
-        });
-        
+        const index = this.scaleIndexOfNote(note);
         if (index === -1) return null;
         return this.ROMAN_NUMERALS[index] || null;
     }
@@ -1073,12 +1125,7 @@ class PianoVisualizer {
      * Get 1-based scale degree number for a note in the current scale
      */
     getScaleDegreeForNote(note) {
-        const scaleNotes = this.state.scaleNotes;
-        const index = scaleNotes.findIndex(n => {
-            if (n === note) return true;
-            const equiv = this.getEnharmonicEquivalent(n);
-            return equiv === note;
-        });
+        const index = this.scaleIndexOfNote(note);
         if (index === -1) return null;
         return index + 1;
     }
@@ -1108,7 +1155,7 @@ class PianoVisualizer {
             // Add colored number bubble above key (replacing roman numerals)
             if (this.options.showRomanNumerals) {
                 const degreeNumber = this.getScaleDegreeForNote(note);
-                const isScaleNote = this.state.scaleNotes.some(n => n === note || this.getEnharmonicEquivalent(n) === note);
+                const isScaleNote = this.scaleIndexOfNote(note) !== -1;
                 if (degreeNumber && isScaleNote) {
                     const bubble = document.createElement('div');
                     bubble.className = 'key-degree-bubble';
@@ -1142,11 +1189,13 @@ class PianoVisualizer {
             if (this.options.showFingering) {
                 const fingeringRH = this.getFingeringForNote(note, 'RH');
                 const fingeringLH = this.getFingeringForNote(note, 'LH');
-                const isScaleNote = this.state.scaleNotes.some(n => n === note || this.getEnharmonicEquivalent(n) === note);
+                const isScaleNote = this.scaleIndexOfNote(note) !== -1;
                 
                 if ((fingeringRH || fingeringLH) && isScaleNote) {
-                    // Check if this is a black key for styling adjustments
-                    const isBlackKey = note.includes('#') || note.includes('b');
+                    // Check if this is a black key for styling adjustments.
+                    // Asked of the key, not of its name: C♭ has a flat in it and
+                    // is a white key.
+                    const isBlackKey = key.classList.contains('piano-black-key');
                     
                     const fingeringLabel = document.createElement('div');
                     fingeringLabel.className = 'key-fingering';
@@ -1187,14 +1236,8 @@ class PianoVisualizer {
      * @returns {number} MIDI note number
      */
     getMidiNoteNumber(noteName, octave = 4) {
-        // Prefer direct mapping (handles sharps and flats)
-        let semitone = this.NOTE_TO_SEMITONE[noteName];
-        // Fallback to enharmonic equivalent if needed
-        if (typeof semitone !== 'number') {
-            const enh = this.getEnharmonicEquivalent(noteName);
-            semitone = this.NOTE_TO_SEMITONE[enh];
-        }
-        if (typeof semitone !== 'number') semitone = 0; // default to C if still unknown
+        const semitone = this._pcOf(noteName);
+        if (semitone === null) return (octave + 1) * 12; // default to C if unknown
         return (octave + 1) * 12 + semitone; // C4 = 60
     }
     
@@ -1377,10 +1420,11 @@ class PianoVisualizer {
     findKeyElementForNote(note) {
         if (!this.pianoElement) return null;
         
+        const pc = this._pcOf(note);
+        if (pc === null) return null;
         const keys = this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key');
         for (let key of keys) {
-            const keyNote = key.dataset.correctNote || key.dataset.note;
-            if (keyNote === note || this.getEnharmonicEquivalent(keyNote) === note) {
+            if (this._pcOf(key.dataset.correctNote || key.dataset.note) === pc) {
                 return key;
             }
         }
@@ -1742,53 +1786,17 @@ class PianoVisualizer {
         // Remove existing annotations
         this.renderAnnotations();
 
-        // Helper function to check if a key matches a note (enharmonic aware)
+        // Does this key sound the given note? By pitch, so any spelling of it
+        // matches — including the ones no enharmonic pair table listed (C♭, F♭,
+        // E♯, B♯ and the double accidentals remote scales are spelled with).
         const keyMatchesNote = (key, note) => {
-            const keyNote = key.dataset.correctNote || key.dataset.note;
-
-        // Overlay MIDI-lit keys (live play) without disturbing theoretical highlights
-        if (midiActiveSet.size && this.pianoElement) {
-            midiActiveSet.forEach(midi => {
-                const key = this.pianoElement.querySelector(`[data-midi="${midi}"]`);
-                if (key) {
-                    key.classList.add('active', 'midi-active');
-                    const isBlack = key.classList.contains('piano-black-key');
-                    const bg = isBlack
-                        ? 'linear-gradient(180deg, #22d3ee 0%, #0ea5e9 100%)'
-                        : 'linear-gradient(180deg, #a7f3d0 0%, #34d399 100%)';
-                    const border = isBlack ? '#0ea5e9' : '#059669';
-                    key.style.background = bg;
-                    key.style.borderColor = border;
-                    key.style.boxShadow = '0 0 0 3px rgba(34,197,94,0.55), 0 6px 10px rgba(0,0,0,0.35)';
-                }
-            });
-        }
-            const keyOriginalNote = key.dataset.note;
-            
-            // Direct match
-            if (keyNote === note || keyOriginalNote === note) return true;
-            
-            // Check enharmonic equivalents
-            const equivalents = {
-                'C#': 'Db', 'Db': 'C#',
-                'D#': 'Eb', 'Eb': 'D#',
-                'F#': 'Gb', 'Gb': 'F#',
-                'G#': 'Ab', 'Ab': 'G#',
-                'A#': 'Bb', 'Bb': 'A#'
-            };
-            
-            return equivalents[keyNote] === note || equivalents[keyOriginalNote] === note ||
-                   equivalents[note] === keyNote || equivalents[note] === keyOriginalNote;
+            const pc = this._pcOf(note);
+            if (pc === null) return false;
+            return this._pcOf(key.dataset.correctNote) === pc || this._pcOf(key.dataset.note) === pc;
         };
 
         // Check if a note is in the current scale
-        const isNoteInScale = (note) => {
-            return this.state.scaleNotes.some(scaleNote => {
-                if (scaleNote === note) return true;
-                const equiv = this.getEnharmonicEquivalent(scaleNote);
-                return equiv === note;
-            });
-        };
+        const isNoteInScale = (note) => this.scaleIndexOfNote(note) !== -1;
 
         // Center octave bounds check
         const lowMidi = typeof this.state.centerLowMidi === 'number' ? this.state.centerLowMidi : this.options.startMidi;
@@ -2006,6 +2014,26 @@ class PianoVisualizer {
             });
         });
 
+        // Overlay MIDI-lit keys (live play) without disturbing theoretical
+        // highlights. This ran from inside `keyMatchesNote`, which meant it
+        // fired once per key per note being matched — and never at all on a
+        // keyboard with nothing to match. It belongs here: after every
+        // theoretical decision, before focus, which still overrides it.
+        if (midiActiveSet.size && this.pianoElement) {
+            midiActiveSet.forEach(midi => {
+                const key = this.pianoElement.querySelector(`[data-midi="${midi}"]`);
+                if (key) {
+                    key.classList.add('active', 'midi-active');
+                    const isBlack = key.classList.contains('piano-black-key');
+                    key.style.background = isBlack
+                        ? 'linear-gradient(180deg, #22d3ee 0%, #0ea5e9 100%)'
+                        : 'linear-gradient(180deg, #a7f3d0 0%, #34d399 100%)';
+                    key.style.borderColor = isBlack ? '#0ea5e9' : '#059669';
+                    key.style.boxShadow = '0 0 0 3px rgba(34,197,94,0.55), 0 6px 10px rgba(0,0,0,0.35)';
+                }
+            });
+        }
+
         // ---- FOCUS -------------------------------------------------------
         // Last, and deliberately so: everything above has already decided what
         // the keyboard would normally show, and focus overrides all of it. A
@@ -2071,16 +2099,16 @@ class PianoVisualizer {
     _focusNoteMatchesKey(key, note) {
         const raw = String(note || '').trim();
         if (!raw) return false;
-        const withOctave = raw.match(/^([A-Ga-g][#b]?)(-?\d+)$/);
+        const withOctave = raw.match(/^([A-Ga-g](?:#|b|♯|♭)*)(-?\d+)$/);
         if (withOctave) {
             // An exact pitch: match the key at that octave, so a chord voiced
-            // low does not light the whole keyboard at every octave.
-            const SEMI = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5,
-                'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
-            const pcName = withOctave[1].replace(/^([a-g])/, (m) => m.toUpperCase());
-            const semi = SEMI[pcName];
-            if (semi !== undefined) {
-                const midi = semi + (parseInt(withOctave[2], 10) + 1) * 12;
+            // low does not light the whole keyboard at every octave. The octave
+            // belongs to the letter — C♭4 sounds B3 — so the arithmetic runs on
+            // the letter's natural plus its accidentals, not on a pitch class.
+            const parsed = (typeof window !== 'undefined' && window.MusicNotes && window.MusicNotes.parse)
+                ? window.MusicNotes.parse(raw) : null;
+            if (parsed && parsed.octave !== null) {
+                const midi = (parsed.octave + 1) * 12 + parsed.natural + parsed.acc;
                 const km = parseInt(key.dataset.midi, 10);
                 // Only decisive when the keyboard actually covers that pitch;
                 // otherwise fall through and match by name, so a chord written
@@ -2088,12 +2116,9 @@ class PianoVisualizer {
                 if (Number.isFinite(km) && this._focusRangeCovers(midi)) return km === midi;
             }
         }
-        const pc = (withOctave ? withOctave[1] : raw).replace(/^([a-g])/, (m) => m.toUpperCase());
-        const keyNote = key.dataset.correctNote || key.dataset.note;
-        const keyOrig = key.dataset.note;
-        if (keyNote === pc || keyOrig === pc) return true;
-        const eq = this.getEnharmonicEquivalent ? this.getEnharmonicEquivalent(pc) : null;
-        return !!eq && (keyNote === eq || keyOrig === eq);
+        const pc = this._pcOf(withOctave ? withOctave[1] : raw);
+        if (pc === null) return false;
+        return this._pcOf(key.dataset.correctNote) === pc || this._pcOf(key.dataset.note) === pc;
     }
 
     /**

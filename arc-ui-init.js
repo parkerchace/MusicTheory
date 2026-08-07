@@ -5120,12 +5120,8 @@ if (typeof window !== 'undefined') window.combineWorkIntoPiece = combineWorkInto
 
 /** A note name to MIDI, for reading a theme's shape back off a melody. */
 function midiOfName(name) {
-  const m = String(name || '').match(/^([A-Ga-g][#b]?)(-?\d+)$/);
-  if (!m) return null;
-  const SEMI = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5,
-    'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
-  const pc = SEMI[m[1].charAt(0).toUpperCase() + m[1].slice(1)];
-  return pc === undefined ? null : pc + (parseInt(m[2], 10) + 1) * 12;
+  return (typeof window !== 'undefined' && window.MusicNotes && window.MusicNotes.midi)
+    ? window.MusicNotes.midi(name) : null;
 }
 
 /** Move a root name by a number of semitones, keeping a usable spelling. */

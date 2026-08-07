@@ -45,6 +45,24 @@ class GuitarFretboardVisualizer {
         };
         this.SEMITONE_TO_NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
+        // The neck lit its dots by comparing note NAMES against a five-pair
+        // enharmonic table, so a scale degree spelled C♭, F♭, E♯, B♯ or with a
+        // double accidental matched nothing and stayed dark — B♭ phrygian
+        // showed six of its seven degrees. Matching runs on pitch class now,
+        // and the dot wears the scale's own spelling of the note.
+        this._pcOf = (name) => {
+            const g = (typeof window !== 'undefined' && window.MusicNotes) || null;
+            if (g && typeof g.pitchClass === 'function') return g.pitchClass(name);
+            const m = String(name == null ? '' : name).trim()
+                .replace(/♯/g, '#').replace(/♭/g, 'b')
+                .match(/^([A-Ga-g])((?:#|b)*)(?:-?\d+)?$/);
+            if (!m) return null;
+            const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1].toUpperCase()];
+            let acc = 0;
+            for (const ch of m[2]) acc += (ch === '#') ? 1 : -1;
+            return (((base + acc) % 12) + 12) % 12;
+        };
+
         this.initialize();
     }
 
@@ -554,7 +572,7 @@ class GuitarFretboardVisualizer {
     highlightNote(note) {
         this.state.highlightedNote = note;
         // Update focus to nearest fret of this note near midboard (~5th–7th fret)
-        const targetSemitone = this.NOTE_TO_SEMITONE[note] ?? this.NOTE_TO_SEMITONE[this.getEnharmonicEquivalent(note)];
+        const targetSemitone = this._pcOf(note);
         if (typeof targetSemitone === 'number') {
             this.state.focusMidi = this.findNearestFretMidiForSemitone(targetSemitone);
         }
@@ -619,7 +637,16 @@ class GuitarFretboardVisualizer {
         if (!this.gridEl) return;
         const root = this.state.currentKey;
         const scaleNotes = this.state.scaleNotes || [];
-        const rootEquiv = this.getEnharmonicEquivalent(root);
+        const rootPc = this._pcOf(root);
+
+        // The scale's own spelling of each pitch it uses, so a dot reads C♭
+        // where the scale says C♭ rather than falling back to the neck's
+        // built-in sharp names.
+        const spellingByPc = new Map();
+        scaleNotes.forEach(n => {
+            const pc = this._pcOf(n);
+            if (pc !== null && !spellingByPc.has(pc)) spellingByPc.set(pc, String(n));
+        });
 
         const focusMidi = this.state.focusMidi;
         const highlightedNote = this.state.highlightedNote;
@@ -638,9 +665,17 @@ class GuitarFretboardVisualizer {
             const f = parseInt(cell.dataset.fret, 10);
             const label = cell.querySelector('.fret-label');
 
-            const isScaleTone = scaleNotes.some(n => n === note || this.getEnharmonicEquivalent(n) === note);
-            const isRoot = (note === root || note === rootEquiv);
-            const isFocused = (typeof focusMidi === 'number' && midi === focusMidi) || (highlightedNote && (note === highlightedNote || this.getEnharmonicEquivalent(note) === highlightedNote));
+            const pc = this._pcOf(note);
+            const isScaleTone = pc !== null && spellingByPc.has(pc);
+            const isRoot = pc !== null && pc === rootPc;
+            const isFocused = (typeof focusMidi === 'number' && midi === focusMidi)
+                || (highlightedNote && pc !== null && pc === this._pcOf(highlightedNote));
+
+            // Wear the scale's spelling while the scale is showing, and the
+            // neck's own name again once it is not.
+            if (label) {
+                label.textContent = isScaleTone ? spellingByPc.get(pc) : note;
+            }
 
             // Base styling: show scale tones as glowing dots
             if (isScaleTone) {
@@ -686,8 +721,7 @@ class GuitarFretboardVisualizer {
             // question: not "what is in this key" but "where is this chord".
             // Every dot that is not part of it goes dark for the duration.
             if (focusNotes.length) {
-                const inFocus = focusNotes.some(n =>
-                    n === note || this.getEnharmonicEquivalent(n) === note);
+                const inFocus = pc !== null && focusNotes.some(n => this._pcOf(n) === pc);
                 if (inFocus) {
                     cell.style.opacity = '1';
                     cell.style.background = focusPaint.fill;

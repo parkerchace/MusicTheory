@@ -1126,9 +1126,14 @@ class ScaleRelationshipExplorer {
         if (!this.musicTheory.noteValues) return root;
         const val = this.musicTheory.noteValues[root];
         if (val === undefined) return root;
-        const newVal = (val + semitones) % 12;
-        // Find note name for newVal
-        const entry = Object.entries(this.musicTheory.noteValues).find(([k, v]) => v === newVal && !k.includes('bb') && !k.includes('##')); // Simple find
-        return entry ? entry[0] : root;
+        const newVal = ((val + semitones) % 12 + 12) % 12;
+        // Name it from the spellings the engine is willing to write, keeping
+        // the accidental side the root was already on where that is possible.
+        const candidates = this.musicTheory.getSpellingCandidates(newVal);
+        if (!candidates || !candidates.length) return root;
+        const wantFlat = String(root).includes('b');
+        return candidates.find(n => wantFlat ? n.includes('b') : n.includes('#'))
+            || candidates.find(n => !n.includes('#') && !n.includes('b'))
+            || candidates[0];
     }
 }

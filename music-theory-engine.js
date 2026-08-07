@@ -10,15 +10,92 @@
  */
 
 
+// WHAT A NOTE NAME IS ALLOWED TO BE.
+//
+// A seven-note scale has one note per letter name, so the second degree of
+// B♭ phrygian is C♭, not B: spelling it B would put two notes on the letter B
+// and none on C. `spellHeptatonicByDegree` already gets this right — and then
+// every consumer that looked the name up in a seventeen-entry table got
+// `undefined` back and SILENTLY DROPPED the note. F–A♭–C♭–E♭ came out named
+// "Fm7(no5)" because its fifth was not in the table, C♭–E♭–G♭–B♭ came out as
+// "Cbmodal" because its root was not, and the keyboard and fretboard lit six
+// of the scale's seven degrees because they matched by name too.
+//
+// Reading a name and choosing one are different jobs. This table reads: every
+// letter with up to a double accidental, which is the whole range
+// `spellHeptatonicByDegree` can produce. `spellingNames` below is the much
+// shorter list the engine may CHOOSE from when it has to invent a spelling,
+// because volunteering "C♭" for semitone 11 out of nowhere would be as wrong
+// as failing to read it.
+const NOTE_LETTER_PITCH = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+/**
+ * Split any note name into letter, accidental count and octave.
+ * Accepts ASCII or Unicode accidentals and any number of them.
+ * Returns null when the string is not a note at all, so a caller can tell
+ * "unparseable" from "the note C".
+ */
+function parseNoteName(name) {
+    if (name == null) return null;
+    const s = String(name).trim()
+        .replace(/𝄪/g, '##').replace(/𝄫/g, 'bb')
+        .replace(/[♯]/g, '#').replace(/[♭]/g, 'b')
+        .replace(/[♮]/g, '');
+    const m = s.match(/^([A-Ga-g])((?:#|b)*)(-?\d+)?$/);
+    if (!m) return null;
+    let acc = 0;
+    for (const ch of m[2]) acc += (ch === '#') ? 1 : -1;
+    return {
+        letter: m[1].toUpperCase(),
+        acc,
+        natural: NOTE_LETTER_PITCH[m[1].toUpperCase()],
+        octave: m[3] === undefined ? null : parseInt(m[3], 10)
+    };
+}
+
+/** Pitch class (0-11) for any note name, or null. */
+function noteNameToPitchClass(name) {
+    const p = parseNoteName(name);
+    if (!p) return null;
+    return (((p.natural + p.acc) % 12) + 12) % 12;
+}
+
+/**
+ * MIDI number for a note name that carries an octave, or null.
+ * The octave belongs to the LETTER, so C♭4 is a fourth-octave C written flat
+ * and sounds B3 (59) — folding to a pitch class first would put it an octave
+ * high, which is the difference between a scale that plays and one that does
+ * not.
+ */
+function noteNameToMidi(name) {
+    const p = parseNoteName(name);
+    if (!p || p.octave === null) return null;
+    return (p.octave + 1) * 12 + p.natural + p.acc;
+}
+
+function buildNoteValues() {
+    const out = {};
+    Object.keys(NOTE_LETTER_PITCH).forEach(letter => {
+        ['bb', 'b', '', '#', '##'].forEach(acc => {
+            out[letter + acc] = noteNameToPitchClass(letter + acc);
+        });
+    });
+    return out;
+}
+
 class MusicTheoryEngine {
     constructor() {
         this.chromaticNotes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
-        this.noteValues = {
-            'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4,
-            'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8,
-            'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
-        };
+        this.noteValues = buildNoteValues();
+
+        // The names this engine is willing to invent, in pitch order. Anything
+        // outside it (C♭, F♭, E♯, B♯, double accidentals) is read happily but
+        // only ever written when a scale's own spelling asked for it.
+        this.spellingNames = [
+            'C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F',
+            'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'
+        ];
 
         // Shared state for grading system
         this.gradingMode = 'functional'; // 'functional' | 'emotional' | 'color'
@@ -198,35 +275,56 @@ class MusicTheoryEngine {
     }
 
     initialize() {
-        // Build reverse lookup for note names from semitones
+        // Build reverse lookup for note names from semitones. Built from the
+        // names the engine may invent, not from every name it can read — the
+        // full table's first entry for semitone 11 is C♭.
         this.semitoneToNote = {};
-        Object.entries(this.noteValues).forEach(([note, semi]) => {
-            if (!this.semitoneToNote[semi]) {
+        this.spellingNames.forEach(note => {
+            const semi = this.noteValues[note];
+            if (this.semitoneToNote[semi] === undefined) {
                 this.semitoneToNote[semi] = note;
             }
         });
     }
 
     /**
+     * Pitch class (0-11) of any note name, however it is spelled — C♭, E♯,
+     * D♭♭, F♯4 — or null when the string is not a note.
+     */
+    pitchClassOf(name) {
+        const pc = noteNameToPitchClass(name);
+        if (pc !== null) return pc;
+        const v = this.noteValues[name];
+        return v === undefined ? null : v;
+    }
+
+    /**
+     * The spellings this engine is willing to write for a pitch class, in
+     * pitch order. Used wherever a name has to be chosen rather than read.
+     */
+    getSpellingCandidates(semitone) {
+        const target = ((Number(semitone) % 12) + 12) % 12;
+        return this.spellingNames.filter(n => this.noteValues[n] === target);
+    }
+
+    /**
      * Get note name from semitone interval, respecting key signature
      */
     getNoteFromIntervalInKey(root, semitones, keySignature = null) {
-        const rootValue = this.noteValues[root];
-        if (rootValue === undefined) return null;
+        const rootValue = this.pitchClassOf(root);
+        if (rootValue === null) return null;
 
-        const targetValue = (rootValue + semitones) % 12;
-        
+        const targetValue = ((rootValue + semitones) % 12 + 12) % 12;
+
         // If no key signature specified, use the original logic
         if (!keySignature || !this.keySignatures[keySignature]) {
             return this.semitoneToNote[targetValue] || this.chromaticNotes[targetValue];
         }
 
         const keySig = this.keySignatures[keySignature];
-        
+
         // Get all possible enharmonic equivalents for this semitone value
-        const enharmonics = Object.entries(this.noteValues)
-            .filter(([note, val]) => val === targetValue)
-            .map(([note]) => note);
+        const enharmonics = this.getSpellingCandidates(targetValue);
 
         // If only one enharmonic, return it
         if (enharmonics.length === 1) {
@@ -259,7 +357,7 @@ class MusicTheoryEngine {
     spellSemitoneWithPreference(semitone, preferFlat = null, keySignature = null) {
         const target = ((semitone % 12) + 12) % 12;
         // Gather enharmonic names for this semitone
-        const enharmonics = Object.entries(this.noteValues).filter(([n, v]) => v === target).map(([n]) => n);
+        const enharmonics = this.getSpellingCandidates(target);
         if (!enharmonics || enharmonics.length === 0) return this.chromaticNotes[target] || null;
 
         // Normalize preferFlat using keySignature when preferFlat is null
@@ -299,8 +397,8 @@ class MusicTheoryEngine {
         const preferFlat = String(preferredRoot).indexOf('b') >= 0;
         return notes.map(n => {
             try {
-                const v = this.noteValues[n];
-                if (v === undefined) return n;
+                const v = this.pitchClassOf(n);
+                if (v === null) return n;
                 return this.spellSemitoneWithPreference(v, preferFlat, null);
             } catch (e) {
                 return n;
@@ -312,9 +410,9 @@ class MusicTheoryEngine {
      * Get note name from semitone interval (no enharmonic logic)
      */
     getNoteFromInterval(root, semitones) {
-        const rootValue = this.noteValues[root];
-        if (rootValue === undefined) return null;
-        const targetValue = (rootValue + semitones) % 12;
+        const rootValue = this.pitchClassOf(root);
+        if (rootValue === null) return null;
+        const targetValue = ((rootValue + semitones) % 12 + 12) % 12;
         return this.semitoneToNote[targetValue] || this.chromaticNotes[targetValue];
     }
 
@@ -346,7 +444,7 @@ class MusicTheoryEngine {
         const root = String(key || 'C');
         const rootLetter = root.charAt(0).toUpperCase();
         const rootIdx = LETTERS.indexOf(rootLetter);
-        const rootPc = this.noteValues ? this.noteValues[root] : null;
+        const rootPc = this.pitchClassOf(root);
         if (rootIdx < 0 || !Number.isFinite(rootPc)) return null;
 
         const out = [];
@@ -371,14 +469,13 @@ class MusicTheoryEngine {
      */
     noteToMidi(noteName) {
         if (!noteName || typeof noteName !== 'string') return 60;
-        const match = noteName.match(/^([A-Ga-g][#b]?)(\d+)$/);
-        if (!match) return 60;
-        const note = match[1].toUpperCase();
-        const octave = parseInt(match[2], 10);
-        const semitone = this.noteValues[note];
-        if (semitone === undefined) return 60;
+        const p = parseNoteName(noteName);
+        if (!p || p.octave === null) return 60;
+        // The octave belongs to the LETTER, not to the sounding pitch: C♭4 is
+        // a fourth-octave C written flat, which sounds B3 (59), not B4. Folding
+        // to a pitch class first and adding the octave puts it an octave high.
         // MIDI: C-1 = 0, so C4 = (4 + 1) * 12 = 60
-        return (octave + 1) * 12 + semitone;
+        return (p.octave + 1) * 12 + p.natural + p.acc;
     }
 
     /**
@@ -465,6 +562,25 @@ class MusicTheoryEngine {
         if (intervals.length === 7) {
             const spelled = this.spellHeptatonicByDegree(key, intervals);
             if (spelled) return spelled;
+
+            // The letter walk can fail: some of the remoter collections need a
+            // triple accidental somewhere when written from THIS tonic, and
+            // then the whole scale fell back to pitch-class names — which put
+            // two notes on one letter and left another letter unused. Written
+            // from the tonic's enharmonic it usually comes out clean, which is
+            // what a player would do: chromatic hypodorian is unwritable in
+            // C♭ and perfectly ordinary in B. Only single-accidental tonics
+            // are tried, because moving the tonic to a double accidental to
+            // rescue the spelling is not a rescue.
+            const tonicPc = this.pitchClassOf(key);
+            if (tonicPc !== null) {
+                const alts = Object.keys(this.noteValues)
+                    .filter(n => n !== key && n.length <= 2 && this.noteValues[n] === tonicPc);
+                for (const alt of alts) {
+                    const s = this.spellHeptatonicByDegree(alt, intervals);
+                    if (s) return s;
+                }
+            }
         }
         return intervals.map(interval => this.getNoteFromIntervalInKey(key, interval, keyForSignature));
     }
@@ -691,13 +807,16 @@ class MusicTheoryEngine {
      */
     classifyChordTypeFromNotes(root, notes) {
         if (!root || !notes || notes.length === 0) return null;
-        const rootVal = this.noteValues[root];
-        if (rootVal === undefined) return null;
+        const rootVal = this.pitchClassOf(root);
+        if (rootVal === null) return null;
         const intervals = [];
         const seen = new Set();
         for (const n of notes) {
-            const v = this.noteValues[n];
-            if (v === undefined) continue;
+            const v = this.pitchClassOf(n);
+            // A note whose name cannot be read is not a note this chord does
+            // not have — refuse to name the chord rather than name it from the
+            // notes that happened to parse.
+            if (v === null) return null;
             const semi = (v - rootVal + 12) % 12;
             if (!seen.has(semi)) { intervals.push(semi); seen.add(semi); }
         }
@@ -709,12 +828,12 @@ class MusicTheoryEngine {
      * Example output: 'sus2(#11, add6, no5)' or 'modal(add2, #11, no3, no5)'
      */
     generateSyntheticChordType(root, notes) {
-        const rootVal = this.noteValues[root];
-        if (rootVal === undefined) return 'modal';
+        const rootVal = this.pitchClassOf(root);
+        if (rootVal === null) return 'modal';
         const set = new Set();
         for (const n of notes) {
-            const v = this.noteValues[n];
-            if (v === undefined) continue;
+            const v = this.pitchClassOf(n);
+            if (v === null) continue;
             set.add((v - rootVal + 12) % 12);
         }
         const has = (i) => set.has(i);
@@ -756,17 +875,17 @@ class MusicTheoryEngine {
         if (has(5)) {
             if (!base.includes('sus4')) mods.push('add11');
         }
-        if (has(6)) mods.push('#11');
+        // A tritone above the root is a ♯11 only when the chord HAS a fifth for
+        // it to be an extension above; with no perfect fifth it is the fifth,
+        // altered. Naming it both ways at once produced "C modal(♯11, add6, ♭5)"
+        // for C–F♯–A, which lists one note twice and never says the chord has
+        // no fifth of its own. The same goes for ♭13 against ♯5.
+        if (has(6)) mods.push(hasP5 ? '#11' : 'b5');
         // 6/13
         if (has(9)) mods.push('add6');
-        if (has(8)) mods.push('b13');
+        if (has(8)) mods.push(hasP5 ? 'b13' : '#5');
         // b9/#9
         if (has(1)) mods.push('b9');
-        // Altered fifths as modifiers if perfect fifth missing
-        if (!hasP5) {
-            if (hasb5) mods.push('b5');
-            if (hasSharp5) mods.push('#5');
-        }
         // Omissions
         if (!hasMaj3 && !hasMin3 && !base.includes('sus') && !base.includes('modal')) mods.push('no3');
         if (!hasP5 && !hasb5 && !hasSharp5) mods.push('no5');
@@ -1016,8 +1135,22 @@ class MusicTheoryEngine {
             'harmonic_major','lydian_b3','ionian_augmented_sharp2','lydian_sharp2_sharp6',
             'double_harmonic_major','hungarian_minor'
         ]);
+        // ...but only where the scale has no spelling of its own to contradict.
+        //
+        // These two lists predate the letter-by-letter speller. They exist to
+        // patch enharmonic mislabelling from the days when scale notes were
+        // named by pitch class, and against a scale that IS spelled by letter
+        // they can now only disagree with it: C lydian augmented is
+        // C D E F♯ G♯ A B, and the flat preference relabelled the chord on its
+        // fourth degree "G♭m7♭5" while the keyboard underneath showed F♯. A
+        // scale that has already put one note on each letter has said how it is
+        // spelled, and nothing downstream gets to overrule that.
+        const scaleIsLetterSpelled = scaleNotes.length === 7
+            && new Set(scaleNotes.map(n => String(n).charAt(0))).size === 7;
         try {
-            if (melodicFamilyFlats.has(String(scaleId))) {
+            if (scaleIsLetterSpelled) {
+                // Its own spelling stands.
+            } else if (melodicFamilyFlats.has(String(scaleId))) {
                 // If root currently spelled with a sharp, re-spell to flat-preferred enharmonic
                 if (String(root).includes('#')) {
                     const rv = this.noteValues[root];
@@ -1104,11 +1237,17 @@ class MusicTheoryEngine {
             } catch (_) {}
         }
 
-        // If classification fails, try triad; if still fails, synthesize a consistent name
-        if (!chordType) {
-            const triad = this.buildScaleChord(key, scaleType, degree, 3);
-            chordType = this.classifyChordTypeFromNotes(root, triad.notes);
-        }
+        // If classification fails, synthesize a name that describes every note.
+        //
+        // There used to be a triad attempt in between: name the chord from its
+        // bottom three notes if the whole stack matched nothing. It can only
+        // ever fire when the full stack has NO exact name, so it always
+        // undercounted — the fifth degree of chromatic hypodorian in C,
+        // G–B♭♭–D–F♭, came back "Gsus2", a four-note chord wearing a three-note
+        // name and one note quietly gone. That is the same failure as naming a
+        // seventh chord after its triad, arriving by a different door. The
+        // synthetic name is uglier and says what is actually there:
+        // sus2(add6).
         if (!chordType) {
             chordType = this.generateSyntheticChordType(root, stacked.notes);
         }
@@ -2023,12 +2162,26 @@ class MusicTheoryEngine {
 
 }
 
+// One reader for note names, shared with the modules that have no engine
+// instance to hand — the keyboard and the fretboard both used to carry their
+// own twelve-name tables and so could not see a C♭ at all.
+MusicTheoryEngine.parseNoteName = parseNoteName;
+MusicTheoryEngine.pitchClassOf = noteNameToPitchClass;
+MusicTheoryEngine.noteNameToMidi = noteNameToMidi;
+
 // Export for module usage
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = MusicTheoryEngine;
 }
 
 // Make available globally if in browser
+const __musicNotes = {
+    parse: parseNoteName,
+    pitchClass: noteNameToPitchClass,
+    midi: noteNameToMidi
+};
+if (typeof globalThis !== 'undefined' && !globalThis.MusicNotes) globalThis.MusicNotes = __musicNotes;
 if (typeof window !== 'undefined') {
     window.MusicTheoryEngine = MusicTheoryEngine;
+    window.MusicNotes = __musicNotes;
 }

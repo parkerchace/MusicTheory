@@ -2529,14 +2529,8 @@ class SheetMusicGenerator {
         if (melody.length < 3) return [];
 
         const points = [];
-        const midiOf = (name) => {
-            const m = String(name || '').match(/^([A-Ga-g][#b]?)(-?\d+)$/);
-            if (!m) return null;
-            const SEMI = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5,
-                'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
-            const pc = SEMI[m[1].charAt(0).toUpperCase() + m[1].slice(1)];
-            return pc === undefined ? null : pc + (parseInt(m[2], 10) + 1) * 12;
-        };
+        const midiOf = (name) => (window.MusicNotes && window.MusicNotes.midi)
+            ? window.MusicNotes.midi(name) : null;
 
         // Phrases are delimited by the cadences themselves: the note that ends
         // one phrase is the boundary of the next.
@@ -3143,8 +3137,19 @@ class SheetMusicGenerator {
         // trailing 'b' can never be confused with an octave digit).
         const bare = String(noteName).replace(/-?\d+$/, '');
         const letter = bare.charAt(0).toUpperCase();
-        const hasSharp = bare.includes('#') || bare.includes('\u266F');
-        const hasFlat = bare.slice(1).includes('b') || bare.includes('\u266D');
+        // Count them. A remote scale is spelled with double flats and double
+        // sharps, and reading B\u266D\u266D as "has a flat" writes it a semitone high.
+        const accCountOf = (s) => {
+            let n = 0;
+            for (const ch of String(s).slice(1)) {
+                if (ch === '#' || ch === '\u266F') n += 1;
+                else if (ch === 'b' || ch === '\u266D') n -= 1;
+                else if (ch === '\u{1D12A}') n += 2;
+                else if (ch === '\u{1D12B}') n -= 2;
+            }
+            return n;
+        };
+        const accToken = (n) => n > 0 ? '#'.repeat(n) : n < 0 ? 'b'.repeat(-n) : '';
 
         // 2. Determine what's in the key signature for this letter
         const baseAccidentals = (sigData && sigData.baseSignature && sigData.baseSignature.accidentals) || [];
@@ -3152,8 +3157,6 @@ class SheetMusicGenerator {
         const allSigAccs = [...baseAccidentals, ...scaleAccidentals];
 
         const sigAcc = allSigAccs.find(acc => String(acc).charAt(0).toUpperCase() === letter);
-        const sigSharp = !!(sigAcc && String(sigAcc).includes('#'));
-        const sigFlat = !!(sigAcc && String(sigAcc).slice(1).includes('b'));
 
         // 3. Determine if we need to draw a symbol.
         //
@@ -3167,8 +3170,8 @@ class SheetMusicGenerator {
         //
         // State is per bar AND per pitch (letter + octave), which is what the
         // convention actually scopes to.
-        const want = hasSharp ? '#' : (hasFlat ? 'b' : '');
-        const sigState = sigSharp ? '#' : (sigFlat ? 'b' : '');
+        const want = accToken(accCountOf(bare));
+        const sigState = sigAcc ? accToken(accCountOf(String(sigAcc))) : '';
 
         let inEffect = sigState;
         let bar = null;
@@ -3185,14 +3188,13 @@ class SheetMusicGenerator {
         if (want === inEffect) return;
         if (bar) bar.set(pitchKey, want);
 
-        const kind = want === '#' ? 'sharp' : (want === 'b' ? 'flat' : 'natural');
+        const kind = want.startsWith('#') ? 'sharp' : (want.startsWith('b') ? 'flat' : 'natural');
 
         // Drawn as vectors: the \u266F \u266D \u266E glyphs are unreliable in the UI font
         // stack, and a missing glyph here is indistinguishable from no
         // accidental at all \u2014 the exact failure this method must prevent.
         const g = document.createElementNS(svgNS, 'g');
         g.style.pointerEvents = 'none';
-        const x = noteX - 13;
         const y = noteY;
         const stroke = (d, w) => {
             const p = document.createElementNS(svgNS, 'path');
@@ -3204,19 +3206,39 @@ class SheetMusicGenerator {
             g.appendChild(p);
         };
 
-        if (kind === 'sharp') {
+        const drawSharp = (x) => {
             stroke(`M ${x - 2.6} ${y - 6.5} L ${x - 2.6} ${y + 5.5}`, 1.3);
             stroke(`M ${x + 1.4} ${y - 7.5} L ${x + 1.4} ${y + 4.5}`, 1.3);
             stroke(`M ${x - 5} ${y - 1.6} L ${x + 4} ${y - 3.4}`, 1.8);
             stroke(`M ${x - 5} ${y + 3.2} L ${x + 4} ${y + 1.4}`, 1.8);
-        } else if (kind === 'flat') {
+        };
+        const drawFlat = (x) => {
             stroke(`M ${x - 2.4} ${y - 8} L ${x - 2.4} ${y + 5}`, 1.4);
             stroke(`M ${x - 2.4} ${y - 0.5} C ${x + 2.5} ${y - 3.5}, ${x + 4} ${y + 2}, ${x - 2.4} ${y + 5}`, 1.4);
-        } else {
+        };
+        const drawNatural = (x) => {
             stroke(`M ${x - 2.6} ${y - 7} L ${x - 2.6} ${y + 3.5}`, 1.3);
             stroke(`M ${x + 2.2} ${y - 3.5} L ${x + 2.2} ${y + 7}`, 1.3);
             stroke(`M ${x - 2.6} ${y - 2.2} L ${x + 2.2} ${y - 3.8}`, 1.6);
             stroke(`M ${x - 2.6} ${y + 2.2} L ${x + 2.2} ${y + 0.6}`, 1.6);
+        };
+        // A double sharp is its own sign, an x — not two sharps side by side.
+        const drawDoubleSharp = (x) => {
+            stroke(`M ${x - 3.5} ${y - 3.5} L ${x + 3.5} ${y + 3.5}`, 2.0);
+            stroke(`M ${x + 3.5} ${y - 3.5} L ${x - 3.5} ${y + 3.5}`, 2.0);
+        };
+
+        // Two flats ARE written as two flats, so the second one needs room.
+        const count = want.length;
+        const base = noteX - 13 - (kind === 'flat' && count > 1 ? 7 : 0);
+
+        if (kind === 'sharp') {
+            if (count > 1) drawDoubleSharp(base);
+            else drawSharp(base);
+        } else if (kind === 'flat') {
+            for (let i = 0; i < count; i++) drawFlat(base + i * 7);
+        } else {
+            drawNatural(base);
         }
         svg.appendChild(g);
     }
@@ -3388,12 +3410,9 @@ class SheetMusicGenerator {
 	 */
 	/** MIDI number for a note name, or NaN. */
 	_noteToMidiSafe(noteName) {
-		const m = String(noteName || '').match(/^([A-G][#b]?)(-?\d+)$/);
-		if (!m) return NaN;
-		const map = { C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11 };
-		const pc = map[m[1]];
-		if (pc === undefined) return NaN;
-		return (parseInt(m[2], 10) + 1) * 12 + pc;
+		const midi = (window.MusicNotes && window.MusicNotes.midi)
+			? window.MusicNotes.midi(noteName) : null;
+		return midi === null ? NaN : midi;
 	}
 
 	_drawArcEnergyGuide(svg, phrase, layout = {}) {
@@ -3796,11 +3815,16 @@ class SheetMusicGenerator {
 			const noteMap = { 'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11 };
 			const letter = noteName.charAt(0).toUpperCase();
 			let octave = 4;
-			let accidental = 0;
 			const octaveMatch = noteName.match(/\d+/);
 			if (octaveMatch) octave = parseInt(octaveMatch[0]);
-			if (noteName.includes('#')) accidental = 1;
-			if (noteName.includes('b')) accidental = -1;
+			// Count the accidentals rather than testing for one: remote scales
+			// are spelled with double flats and double sharps, and a B♭♭ read as
+			// a single flat is a semitone wrong on the staff.
+			let accidental = 0;
+			for (const ch of noteName.slice(1)) {
+				if (ch === '#' || ch === '♯') accidental += 1;
+				else if (ch === 'b' || ch === '♭') accidental -= 1;
+			}
 			const basePitch = noteMap[letter] || 0;
 			return (octave + 1) * 12 + basePitch + accidental;
 		};
@@ -4338,11 +4362,17 @@ class SheetMusicGenerator {
 				}
 			}
 			
-			// If not in key signature, prefer sharp/flat based on key type
-			const enharmonics = Object.entries(this.musicTheory.noteValues)
-				.filter(([note, val]) => (val % 12) === (noteVal % 12))
-				.map(([note]) => note);
-			
+			// If not in key signature, prefer sharp/flat based on key type.
+			// Chosen from the names the engine is willing to write, not from
+			// every name it can read — the full table includes C♭ and E♯ and
+			// the double accidentals, which are spellings a scale asks for
+			// rather than ones to volunteer here.
+			const enharmonics = typeof this.musicTheory.getSpellingCandidates === 'function'
+				? this.musicTheory.getSpellingCandidates(noteVal)
+				: Object.entries(this.musicTheory.noteValues)
+					.filter(([note, val]) => (val % 12) === (noteVal % 12))
+					.map(([note]) => note);
+
 			if (enharmonics.length === 1) return enharmonics[0];
 			
 			// Prefer based on key signature type
@@ -4691,18 +4721,21 @@ class SheetMusicGenerator {
 			
 			const letter = noteName.charAt(0).toUpperCase();
 			let octave = 4; // Default octave
-			let accidental = 0;
-			
+
 			// Extract octave if present
 			const octaveMatch = noteName.match(/\d+/);
 			if (octaveMatch) {
 				octave = parseInt(octaveMatch[0]);
 			}
-			
-			// Handle accidentals
-			if (noteName.includes('#')) accidental = 1;
-			if (noteName.includes('b')) accidental = -1;
-			
+
+			// Count the accidentals rather than testing for one, so a double
+			// flat or double sharp is not read as a single.
+			let accidental = 0;
+			for (const ch of noteName.slice(1)) {
+				if (ch === '#' || ch === '♯') accidental += 1;
+				else if (ch === 'b' || ch === '♭') accidental -= 1;
+			}
+
 			const basePitch = noteMap[letter] || 0;
 			return (octave + 1) * 12 + basePitch + accidental;
 		};
@@ -6368,12 +6401,9 @@ function parseChordSymbolForPhrase(chordText, musicTheory) {
 
 	// Safety fallback: if theory lookup fails, derive a basic triad so the chord can still render.
 	if (!Array.isArray(chordNotes) || chordNotes.length === 0) {
-		const pcMap = {
-			C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5,
-			'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11
-		};
 		const nameFromPc = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-		const rootPc = pcMap[root];
+		const rootPc = (window.MusicNotes && window.MusicNotes.pitchClass)
+			? window.MusicNotes.pitchClass(root) : null;
 		if (Number.isFinite(rootPc)) {
 			const lower = String(chordType || '').toLowerCase();
 			const isDim = lower.includes('dim') || lower.includes('o');
@@ -6495,11 +6525,10 @@ function pushSheetTrace(traceId, stage, payload) {
 		// is not in scope here — those styles threw a ReferenceError, the
 		// callers swallowed it, and the voicing came out unchanged. Own helpers,
 		// so the styles work wherever the function is called from.
-		const PCS = { C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11 };
 		const midiOfName = (noteName) => {
-			const m = String(noteName || '').match(/^([A-G][#b]?)(-?\d+)$/);
-			if (!m || !Number.isFinite(PCS[m[1]])) return NaN;
-			return PCS[m[1]] + (parseInt(m[2], 10) + 1) * 12;
+			const midi = (window.MusicNotes && window.MusicNotes.midi)
+				? window.MusicNotes.midi(noteName) : null;
+			return midi === null ? NaN : midi;
 		};
 
 		// Helper: shift octave for index by n (positive raises, negative lowers)
@@ -7704,15 +7733,14 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 	// Internal helper for scheduling a single synth note
 	SheetMusicGenerator.prototype._playSingleNote = function(noteStr, start, end, volume = 0.3) {
 		if (!this._audioCtx) return;
-		const raw = String(noteStr || '').trim();
-		const m = raw.match(/^([A-G][#b]?)(-?\d+)?$/);
-		if (!m) return;
-
-		const letter = m[1];
-		const oct = (m[2] !== undefined) ? parseInt(m[2], 10) : 4;
-		const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
-		const semitone = midiMap[letter] ?? 0;
-		const midi = (oct + 1) * 12 + semitone;
+		// A name the table could not read fell through `?? 0` and played a C —
+		// so a piece whose scale is spelled with a C♭ or an E♯ sounded a wrong
+		// note rather than an obviously missing one.
+		const parts = (window.MusicNotes && window.MusicNotes.parse)
+			? window.MusicNotes.parse(noteStr) : null;
+		if (!parts) return;
+		const oct = parts.octave === null ? 4 : parts.octave;
+		const midi = (oct + 1) * 12 + parts.natural + parts.acc;
 		const freq = 440 * Math.pow(2, (midi - 69) / 12);
 
 		const ctx = this._audioCtx;
@@ -7947,14 +7975,12 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		
 		// Same table as playback, dotted values included.
 		const durationMap = (name) => { const q = durationNameToQuarters(name); return q === null ? 0 : q; };
-		const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
 		const getMidi = (noteStr, defaultOct = 4) => {
-			const m = String(noteStr).match(/^([A-G][#b]?)(\d+)?$/);
-			if (!m) return null;
-			const letter = m[1];
-			const oct = m[2] ? parseInt(m[2], 10) : defaultOct;
-			const semitone = midiMap[letter] ?? 0;
-			return (oct + 1) * 12 + semitone;
+			const parts = (window.MusicNotes && window.MusicNotes.parse)
+				? window.MusicNotes.parse(noteStr) : null;
+			if (!parts) return null;
+			const oct = parts.octave === null ? defaultOct : parts.octave;
+			return (oct + 1) * 12 + parts.natural + parts.acc;
 		};
 
 		// --- Core Event Generation ---
@@ -8177,12 +8203,9 @@ if (typeof SheetMusicGenerator !== 'undefined') {
 		const dur = sustainBeats * secondsPerBeat;
 		const t0 = this._audioCtx.currentTime + 0.02;
 		voices.forEach(note => {
-			const m = String(note).match(/^([A-G][#b]?)(\d+)$/);
-			if (!m) return;
-			const letter = m[1]; const oct = parseInt(m[2],10);
-			const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
-			const semitone = midiMap[letter] ?? 0;
-			const midi = (oct + 1)*12 + semitone;
+			const midi = (window.MusicNotes && window.MusicNotes.midi)
+				? window.MusicNotes.midi(note) : null;
+			if (midi === null) return;
 			const osc = this._audioCtx.createOscillator();
 			const gain = this._audioCtx.createGain();
 			osc.type = 'triangle';
@@ -8401,15 +8424,8 @@ if (typeof SheetMusicGenerator !== 'undefined') {
         pianoContainer.style.borderTop = '1px solid #333';
 
 		// Convert note to MIDI number
-		const noteToMidi = (note) => {
-			const m = String(note).match(/^([A-G][#b]?)(\d+)$/);
-			if (!m) return null;
-			const letter = m[1];
-			const oct = parseInt(m[2], 10);
-			const midiMap = {C:0,'C#':1,'Db':1,D:2,'D#':3,'Eb':3,E:4,F:5,'F#':6,'Gb':6,G:7,'G#':8,'Ab':8,A:9,'A#':10,'Bb':10,B:11};
-			const semitone = midiMap[letter] ?? 0;
-			return (oct + 1) * 12 + semitone;
-		};
+		const noteToMidi = (note) => (window.MusicNotes && window.MusicNotes.midi)
+			? window.MusicNotes.midi(note) : null;
 
 		// Get MIDI range and interval coloring
 		const midiNotes = voices.map(noteToMidi).filter(m => m !== null);

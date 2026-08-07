@@ -58,6 +58,12 @@ class LearnScales {
 
     // Convert note name with octave (e.g., "C4") to MIDI number
     noteToMidi(noteName) {
+        // Shared reader first: the lookup below cannot see C♭, F♭, E♯, B♯ or a
+        // double accidental, and would answer middle C for every one of them.
+        const shared = (typeof window !== 'undefined' && window.MusicNotes && window.MusicNotes.midi)
+            ? window.MusicNotes.midi(noteName) : null;
+        if (shared !== null && shared !== undefined) return shared;
+
         const match = noteName.match(/^([A-Ga-g][#b]?)(\d+)$/);
         if (!match) return 60; // Default to middle C
         const note = match[1].toUpperCase();

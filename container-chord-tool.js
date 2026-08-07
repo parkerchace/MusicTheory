@@ -76,11 +76,12 @@ class ContainerChordTool {
     getEnharmonics(note) {
         const v = this.noteToSemi(note);
         if (v === undefined) return [note];
-        const out = [];
         try {
-            Object.entries(this.musicTheory.noteValues).forEach(([n, val]) => { if (val === v) out.push(n); });
+            // The engine's short list of writable names. Reading the full table
+            // instead would offer C♭ and D♯♯ as everyday alternatives to B.
+            const out = this.musicTheory.getSpellingCandidates(v);
+            return out && out.length ? Array.from(new Set(out)) : [note];
         } catch(_){ return [note]; }
-        return Array.from(new Set(out));
     }
 
     /**

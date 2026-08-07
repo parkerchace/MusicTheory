@@ -312,6 +312,13 @@ class EnhancedAudioEngine {
     }
 
     noteToMidi(noteName) {
+        // Read the name with the shared reader first: the table below cannot
+        // see C♭, F♭, E♯, B♯ or a double accidental, and a scale degree it
+        // cannot read is a note that never sounds.
+        const shared = (typeof window !== 'undefined' && window.MusicNotes && window.MusicNotes.midi)
+            ? window.MusicNotes.midi(noteName) : null;
+        if (shared !== null && shared !== undefined) return shared;
+
         const NOTE_TO_SEMITONE = {
             'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4,
             'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8,

@@ -647,6 +647,13 @@ class VoiceLeadingEngine {
      * Convert note name to MIDI number
      */
     _noteToMidi(note, octave) {
+        // Shared reader first, so a degree spelled C♭ or E♯ produces a pitch
+        // rather than NaN — which propagates through every interval this engine
+        // measures and quietly discards the voicing.
+        const shared = (typeof window !== 'undefined' && window.MusicNotes && window.MusicNotes.midi)
+            ? window.MusicNotes.midi(`${note}${octave}`) : null;
+        if (shared !== null && shared !== undefined) return shared;
+
         const noteMap = {
             'C': 0, 'C#': 1, 'Db': 1,
             'D': 2, 'D#': 3, 'Eb': 3,
