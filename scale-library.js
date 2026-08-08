@@ -2147,6 +2147,36 @@ class ScaleLibrary {
             });
         };
 
+        /**
+         * Put the picker back the way it is built: everything visible, every
+         * category shut.
+         *
+         * An empty query is "no filter", not "matches everything" — but the
+         * two helpers above expand whatever holds a visible item, and with no
+         * query every item is visible, so they threw the whole picker open.
+         * Clearing the search is exactly what choosing a scale does (and
+         * closing the picker, and Escape), which is why it stood wide open the
+         * next time it was opened.
+         */
+        const collapseToDefault = (rootEl) => {
+            if (!rootEl) return;
+            rootEl.querySelectorAll('.variation-group').forEach(group => group.classList.remove('expanded'));
+            rootEl.querySelectorAll('.nested-category-box').forEach(box => {
+                const content = box.querySelector('.nested-category-content');
+                const icon = box.querySelector('.nested-category-header .picker-icon');
+                if (content) content.style.display = 'none';
+                if (icon) icon.textContent = '▼';
+                box.style.display = '';
+            });
+            rootEl.querySelectorAll('.special-cat').forEach(cat => {
+                const items = cat.querySelector('.special-cat-items');
+                const icon = cat.querySelector('.special-cat-title .picker-icon');
+                if (items) items.style.display = 'none';
+                if (icon) icon.textContent = '▼';
+                cat.style.display = '';
+            });
+        };
+
         const applyTreeFilter = (q) => {
             const pyramid = document.getElementById('scale-pyramid-tree');
             if (!pyramid) return;
@@ -2156,6 +2186,10 @@ class ScaleLibrary {
             pyramid.querySelectorAll('.pyramid-submenu').forEach(menu => { menu.style.display = 'none'; });
 
             setMatches(pyramid, q);
+            if (!q) {
+                collapseToDefault(pyramid);
+                return;
+            }
             expandVariationGroups(pyramid);
             expandNestedCategories(pyramid);
 
@@ -2183,6 +2217,10 @@ class ScaleLibrary {
             special.querySelectorAll('.special-cat-items').forEach(items => { items.style.display = 'none'; });
 
             setMatches(special, q);
+            if (!q) {
+                collapseToDefault(special);
+                return;
+            }
 
             // Expand/keep only categories with visible matches
             special.querySelectorAll('.special-cat').forEach(cat => {

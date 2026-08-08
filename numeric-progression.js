@@ -26,12 +26,52 @@
     function mt() { return (window.modularApp && window.modularApp.musicTheory) || null; }
     function scaleLib() { return (window.modularApp && window.modularApp.scaleLibrary) || null; }
 
+    /**
+     * The chord a token names when the token is the current scale's own name
+     * for one of its degrees. One owner for that rule — the app's — so the
+     * sheet gets the same chord whichever path the typing took to reach it.
+     */
+    function ownDegreeChord(raw) {
+        const app = window.modularApp;
+        if (!app || typeof app.diatonicChordForDisplayToken !== 'function') return null;
+        try {
+            const chord = app.diatonicChordForDisplayToken(raw);
+            return (chord && chord.root && chord.chordNotes && chord.chordNotes.length) ? chord : null;
+        } catch (_) { return null; }
+    }
+
     const INTERVAL_NAMES = ['P1','m2','M2','m3','M3','P4','TT','P5','m6','M6','m7','M7'];
     const ROMAN_BY_SEMITONE = {
         0: 'I', 1: 'bII', 2: 'II', 3: 'bIII', 4: 'III', 5: 'IV',
         6: '#IV', 7: 'V', 8: 'bVI', 9: 'VI', 10: 'bVII', 11: 'VII'
     };
     const ROMAN_TO_DEGREE = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7 };
+
+    /**
+     * Separators separate — except inside a chord's own brackets.
+     *
+     * A chord this app had to describe rather than name carries a comma and a
+     * space in the middle of it: "modal(b5, #5)", "maj7sus2(add11, no5)".
+     * Splitting on every comma tore one chord into two tokens, the first a
+     * quality nothing could resolve and the second dropped on the floor.
+     */
+    function splitTokens(text) {
+        const out = [];
+        let current = '';
+        let depth = 0;
+        for (const ch of String(text || '')) {
+            if (ch === '(') depth++;
+            else if (ch === ')') depth = Math.max(0, depth - 1);
+            else if (depth === 0 && /[\s,|/]/.test(ch)) {
+                if (current.length) out.push(current);
+                current = '';
+                continue;
+            }
+            current += ch;
+        }
+        if (current.length) out.push(current);
+        return out;
+    }
 
     /**
      * Parse a progression. Tokens MUST be separated (space / comma / dash /
@@ -43,11 +83,12 @@
      *   scale degrees   1 4 5 6
      *   roman numerals  ii V I, bVII, #ivm7b5
      *   chord symbols   Bmaj7#5, F#m7, Cmaj7, Abdim7
+     *   the box's own    Imaj7(b5), IIIsus2(add6), modal(b5, #5)
      */
     function parseDegrees(text) {
         const raw = String(text || '').trim();
         if (!raw) return [];
-        const tokens = raw.split(/[\s,|/]+/).map(t => t.trim()).filter(Boolean);
+        const tokens = splitTokens(raw);
         const out = [];
 
         for (const tok of tokens) {
@@ -132,7 +173,24 @@
         return state.degrees.map((d) => {
             let chord = null;
 
-            if (d.kind === 'chord') {
+            // This scale's own name for one of its degrees — the text the
+            // numbers box prints and the mini chord strip shows — is that
+            // chord, and getDiatonicChord already knows it exactly. Read
+            // back out of its own letters instead, it went through the
+            // borrowed-chord branch below: "Imaj7(b5)" lost the flat fifth
+            // and became a plain Cmaj7, and "Vmaj7sus4" was rooted on the
+            // major fifth of the key rather than on the flat fifth this
+            // scale actually has, arriving as Gmaj7 in a scale with no G.
+            const own = ownDegreeChord(d.raw);
+            if (own) {
+                chord = {
+                    root: own.root,
+                    chordType: own.chordType,
+                    chordNotes: own.chordNotes.slice(),
+                    diatonicNotes: own.chordNotes.slice(),
+                    fullName: own.fullName
+                };
+            } else if (d.kind === 'chord') {
                 // Absolute symbol: honour exactly what was typed.
                 let notes = [];
                 try { notes = theory.getChordNotes(d.root, d.chordType || 'maj') || []; } catch (_) {}

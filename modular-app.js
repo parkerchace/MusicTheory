@@ -353,10 +353,33 @@ window.mountLearnModuleIfReady = function(instrument) {
                 });
 
                 // Connect scale library to other modules
+                // Which scale the modules are showing, so a scaleChanged can
+                // tell a real switch of scale from a change of key.
+                this._shownScale = this.scaleLibrary.getCurrentScale();
+
                 this.scaleLibrary.on('scaleChanged', (data) => {
+                    // A hand-typed run belongs to the scale it was typed
+                    // against: "iiidim7 IImaj7 I7" names three chords of one
+                    // scale, and the next scale may contain none of them —
+                    // kept on screen, those numerals were being re-read
+                    // against notes they were never chosen for. So a scale
+                    // switch drops what was typed and goes back to the new
+                    // scale's own degrees, the way the studio opens.
+                    //
+                    // A change of KEY is not that: the same degrees and the
+                    // same qualities, moved bodily to another tonic. Typing
+                    // survives it. Nor is a temporary context — the same
+                    // event fires while the stack is non-empty, and the user
+                    // never chose those scales at all.
+                    const inTempContext = Array.isArray(this.scaleLibrary.scaleStack)
+                        && this.scaleLibrary.scaleStack.length > 0;
+                    const scaleSwitched = !inTempContext && data.scale !== this._shownScale;
+                    if (!inTempContext) this._shownScale = data.scale;
+                    if (scaleSwitched) this.numberGenerator.clearManualEntry();
+
                     const currentNumbers = this.numberGenerator.getCurrentNumbers();
-                    // Only auto-resize the degree run if the user hasn't customized it,
-                    // so switching scales doesn't silently discard a hand-built progression.
+                    // Whether the run on screen is simply the scale, top to
+                    // bottom, or something the user built.
                     const wasFullScaleRun = this.isFullScaleRun(currentNumbers);
                     if (currentNumbers.length > 0) {
                         this.numberGenerator.emit('numbersChanged', {
@@ -383,9 +406,17 @@ window.mountLearnModuleIfReady = function(instrument) {
                     this.numberGenerator.setScaleInfo(data.key, data.scale);
 
                     // Match the chord count to the new scale's note count so the
-                    // full-scale view shows every chord the scale contains.
+                    // full-scale view shows every chord the scale contains — and
+                    // on a switch of scale, put a hand-typed numeric run ("2 5 1")
+                    // back to the scale's own degrees too, for the same reason the
+                    // typed Roman numerals go: those degrees were chosen against
+                    // notes that are no longer there.
                     const scaleDegrees = this.fullScaleDegrees(data.notes);
-                    if (wasFullScaleRun && scaleDegrees.length !== currentNumbers.length) {
+                    const runIsTheScaleItself = wasFullScaleRun && scaleDegrees.length === currentNumbers.length;
+                    const needsDefaultRun = scaleSwitched
+                        ? !runIsTheScaleItself
+                        : (wasFullScaleRun && scaleDegrees.length !== currentNumbers.length);
+                    if (needsDefaultRun) {
                         this.numberGenerator.setNumbers(scaleDegrees, this.numberGenerator.getNumberType());
                     }
 
@@ -398,7 +429,23 @@ window.mountLearnModuleIfReady = function(instrument) {
                     // Re-seeding re-emits the same tokens now that the key/scale is
                     // current; seedSheetFromNumbers() only touches bars it seeded
                     // itself, so hand-built bars and a generated piece are untouched.
-                    this.seedSheetFromNumbers();
+                    //
+                    // Unless the box is holding something a person put there. The
+                    // re-seed writes the scale's own run over whatever is in it,
+                    // which is right after a scale switch (the typing has just been
+                    // dropped, deliberately) and wrong after a change of key, where
+                    // it silently swallowed a progression the user had typed. Those
+                    // tokens keep their place; they are re-emitted so the sheet
+                    // resolves the same numerals against the new tonic.
+                    if (this.numberGeneratorHoldsTypedTokens()) {
+                        const s = this.numberGenerator.state;
+                        this.numberGenerator.emit('displayTokensChanged', {
+                            tokens: s.displayTokens.slice(),
+                            rawTokens: (s.displayRawTokens || s.displayTokens).slice()
+                        });
+                    } else {
+                        this.seedSheetFromNumbers();
+                    }
 
                     this.numberGenerator.render();
                     if (this.solarSystem) {
@@ -500,6 +547,19 @@ window.mountLearnModuleIfReady = function(instrument) {
                                 };
                             }
                             const rawTok = (rawTokens && rawTokens[idx]) ? rawTokens[idx] : tok;
+
+                            // A token that is exactly this scale's own name for one
+                            // of its degrees — the text the numbers box prints and
+                            // the mini chord strip shows — names that chord, and
+                            // does not need to be read back out of its own letters.
+                            // That round-trip loses whatever the quality parser has
+                            // no word for: "Imaj7(b5)" came back a plain Cmaj7,
+                            // "IIIsus2(add6)" a bare E triad, and the sheet then
+                            // played a chord the strip above it never named.
+                            const own = this.diatonicChordForDisplayToken(rawTok)
+                                     || this.diatonicChordForDisplayToken(tok);
+                            if (own) return own;
+
                             try {
                                 // First, allow NumberGenerator to normalize preview (may map accidentals to spelled roots)
                                 const normalized = (this.numberGenerator && typeof this.numberGenerator.normalizePreviewRomanToken === 'function')
@@ -1051,6 +1111,56 @@ window.mountLearnModuleIfReady = function(instrument) {
                 // this.setupPianoConnectors();
             }
             
+            /**
+             * Whether the numbers box is showing something a person put there
+             * — typed, or inserted from the chord explorer — rather than the
+             * scale's own run, which this app derives and re-derives itself.
+             */
+            numberGeneratorHoldsTypedTokens() {
+                const s = this.numberGenerator && this.numberGenerator.state;
+                return !!(s
+                    && Array.isArray(s.displayTokens) && s.displayTokens.length
+                    && s.displayTokensSource && s.displayTokensSource !== 'initial-seed');
+            }
+
+            /**
+             * The chord a token names, when the token is this scale's own name
+             * for one of its degrees.
+             *
+             * Same source as the mini chord strip — getDiatonicChord — so a
+             * degree resolves to one chord, with one spelling and one set of
+             * notes, wherever it is read. Returns null for anything else, which
+             * leaves the general parser to interpret what the user typed.
+             */
+            diatonicChordForDisplayToken(token) {
+                try {
+                    const ng = this.numberGenerator;
+                    const text = String(token == null ? '' : token).trim();
+                    if (!text || !ng || typeof ng.numberToRoman !== 'function') return null;
+                    if (!this.musicTheory || typeof this.musicTheory.getDiatonicChord !== 'function') return null;
+
+                    const key = this.scaleLibrary ? this.scaleLibrary.getCurrentKey() : ng.currentKey;
+                    const scale = this.scaleLibrary ? this.scaleLibrary.getCurrentScale() : ng.currentScale;
+                    let scaleNotes = [];
+                    try { scaleNotes = this.musicTheory.getScaleNotes(key, scale) || []; } catch (_) { scaleNotes = []; }
+                    const degreeCount = scaleNotes.length || 7;
+
+                    for (let degree = 1; degree <= degreeCount; degree++) {
+                        if (ng.numberToRoman(degree) !== text) continue;
+                        const diat = this.musicTheory.getDiatonicChord(degree, key, scale);
+                        if (!diat || !diat.root) return null;
+                        return {
+                            root: diat.root,
+                            chordType: diat.chordType,
+                            chordNotes: Array.isArray(diat.diatonicNotes) ? diat.diatonicNotes.slice() : [],
+                            fullName: diat.root + (diat.chordType || ''),
+                            degree
+                        };
+                    }
+                } catch (_) {}
+                return null;
+            }
+
             /**
              * Put the current degrees on the sheet, the way typing them would.
              *
@@ -1783,7 +1893,7 @@ window.mountLearnModuleIfReady = function(instrument) {
                         const value = e.target.value.trim();
                         if (!value) return;
                         
-                        const tokens = value.split(/[\s,]+/).filter(t => t.length > 0);
+                        const tokens = app.numberGenerator.splitManualTokens(value);
                         
                         // Preview first
                         try { 

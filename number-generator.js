@@ -37,6 +37,7 @@ class NumberGenerator {
             chromaticInsertions: [], // Tracks non-diatonic passing chords registered externally
             displayTokens: null, // Optional Roman/chord tokens reflecting full progression sequence
             displayRawTokens: null, // Case-preserving raw token strings for preview/commit
+            displayTokensSource: null, // Where those tokens came from: the scale itself, or a person
             isManualEditing: false,
             pendingManualNumbers: null,
             manualCommitDebounce: null,
@@ -442,6 +443,11 @@ class NumberGenerator {
         this.state.displayChords = (Array.isArray(opts.chords) && opts.chords.length === tokensSanitized.length)
             ? opts.chords.slice()
             : null;
+        // Who put these here. Tokens derived FROM the scale ('initial-seed')
+        // are the scale's own name for itself and are re-derived whenever it
+        // changes; tokens a person typed or inserted are theirs, and a re-seed
+        // must not quietly write over them.
+        this.state.displayTokensSource = tokensSanitized.length ? (opts.source || 'manual-input') : null;
         // Log manual degree input and preview tokens. Use logPreviewTokens when available
         const previewDetail = {
             event: 'setDisplayTokens',
@@ -460,6 +466,32 @@ class NumberGenerator {
 
     getCurrentDisplayTokens() {
         return this.state.displayTokens ? this.state.displayTokens.slice() : null;
+    }
+
+    /**
+     * Forget what was typed into the numbers box.
+     *
+     * A hand-typed run means something only against the scale it was typed
+     * against: "iiidim7 IImaj7 I7" names three chords of one scale, and the
+     * next scale may contain none of them — the numerals would be re-read
+     * against notes they were never chosen for. A key change is a different
+     * thing entirely: the same degrees, the same qualities, moved bodily to
+     * another tonic, so typing survives it.
+     *
+     * Silent by design: the caller (a scale change) goes on to seed the new
+     * scale's own degrees and tell everyone about those instead.
+     */
+    clearManualEntry() {
+        const hadSomething = !!(this.state.manualRawInput || this.state.displayTokens);
+        this.state.isManualEditing = false;
+        this.state.manualRawInput = null;
+        this.state.pendingManualNumbers = null;
+        this.state.manualRomanMode = false;
+        this.state.displayTokens = null;
+        this.state.displayRawTokens = null;
+        this.state.displayChords = null;
+        this.state.displayTokensSource = null;
+        return hadSomething;
     }
 
     /**
@@ -1059,6 +1091,33 @@ class NumberGenerator {
     }
 
     /**
+     * The separate tokens in a line of manual input.
+     *
+     * A chord this app had to describe rather than name — "modal(b5, #5)",
+     * "maj7sus2(add11, no5)" — carries a comma and a space inside its own
+     * name. Splitting the line on every space and comma tore those in half,
+     * which meant the box could print a chord it was then unable to read
+     * back. Separators only separate outside the brackets.
+     */
+    splitManualTokens(text) {
+        const out = [];
+        let current = '';
+        let depth = 0;
+        for (const ch of String(text == null ? '' : text)) {
+            if (ch === '(') depth++;
+            else if (ch === ')') depth = Math.max(0, depth - 1);
+            else if (depth === 0 && (ch === ',' || /\s/.test(ch))) {
+                if (current.length) out.push(current);
+                current = '';
+                continue;
+            }
+            current += ch;
+        }
+        if (current.length) out.push(current);
+        return out;
+    }
+
+    /**
      * Get description for generation logic mode
      */
     getLogicDescription(logic) {
@@ -1082,7 +1141,7 @@ class NumberGenerator {
         const displayTokens = this.getCurrentDisplayTokens();
         // Use raw manual tokens if editing, otherwise displayTokens or diatonic numbers
         const manualRawTokens = (this.state.isManualEditing && this.state.manualRawInput)
-            ? this.state.manualRawInput.trim().split(/\s+/).filter(t => t.length > 0)
+            ? this.splitManualTokens(this.state.manualRawInput)
             : null;
         const effectiveTokens = manualRawTokens || (displayTokens && displayTokens.length ? displayTokens.slice() : currentNumbers.map(n => {
             try { return this.numberToRoman(n); } catch(e) { return String(n); }
@@ -1091,8 +1150,23 @@ class NumberGenerator {
         const miniPianoSVG = this.renderMiniPiano();
         const scaleTip = this.getScaleTip(this.currentScale);
 
+        // This scale's own name for each of its degrees — "Imaj7(b5)",
+        // "vi6" — as this box writes them and as the mini chord strip shows
+        // them. A token that IS one of these is the scale's own chord, not a
+        // visitor from outside it; only bare numerals used to count as
+        // diatonic, so a seeded run of the scale's own sevenths was drawn as
+        // seven chromatic intrusions, every one of them flagged ⚡.
+        const degreeOfOwnLabel = new Map();
+        for (let d = 1; d <= ((this.currentScaleNotes && this.currentScaleNotes.length) || 0); d++) {
+            try {
+                const label = this.numberToRoman(d);
+                if (label && label !== '?' && !degreeOfOwnLabel.has(label)) degreeOfOwnLabel.set(label, d);
+            } catch (_) { break; }
+        }
+
         // Helper: check if token is diatonic for current scale
         const isDiatonicToken = (token) => {
+            if (degreeOfOwnLabel.has(String(token))) return true;
             // Roman numerals: only treat as diatonic when token is a plain Roman numeral
             // optionally prefixed by a single accidental (b/#). Do NOT treat tokens with
             // quality suffixes (e.g., maj7, m7, sus) as diatonic here.
@@ -1177,8 +1251,11 @@ class NumberGenerator {
                         let tooltip = '';
                         if (isDiatonic) {
                             // Diatonic: show note label (pure roman or single accidental)
+                            const ownDegree = degreeOfOwnLabel.get(String(token));
                             const romanMatch = String(token).match(/^([#b]?)([IViv]+)$/);
-                            if (romanMatch) {
+                            if (ownDegree && this.currentScaleNotes) {
+                                noteLabel = this.currentScaleNotes[ownDegree - 1];
+                            } else if (romanMatch) {
                                 const roman = romanMatch[2].toUpperCase();
                                 const map = { 'I':1, 'II':2, 'III':3, 'IV':4, 'V':5, 'VI':6, 'VII':7 };
                                 const deg = map[roman];
@@ -1374,7 +1451,7 @@ class NumberGenerator {
                 const value = e.target.value; // raw value while editing
                 this.state.isManualEditing = true;
                 this.state.manualRawInput = value;
-                const tokens = value.trim().length ? value.trim().split(/[\s,]+/).filter(t => t.length > 0) : [];
+                const tokens = this.splitManualTokens(value);
 
                 // Parse tokens: collect numeric degrees and collect roman/chord tokens separately
                 const parsed = [];
@@ -1613,7 +1690,7 @@ class NumberGenerator {
             // If in roman/chord mode and the user has typed raw tokens
                 if (this.state.manualRomanMode && hasRaw) {
                 const raw = (this.state.manualRawInput || '').trim();
-                const tokens = raw.split(/[\s,]+/).filter(t => t.length);
+                const tokens = this.splitManualTokens(raw);
                 // Preserve user-typed tokens (case/accidentals) for preview so Roman case is respected
                 this.setDisplayTokens(tokens.length ? tokens.slice() : null, { rawTokens: tokens.slice() });
 
@@ -1671,7 +1748,7 @@ class NumberGenerator {
         if (this.state.manualRomanMode) {
             // Persist raw Roman tokens exactly as typed (trimmed & normalized spacing)
             const raw = (this.state.manualRawInput || '').trim();
-            const tokens = raw.split(/[\s,]+/).filter(t => t.length);
+            const tokens = this.splitManualTokens(raw);
             this.setDisplayTokens(tokens.length ? tokens : null, { rawTokens: tokens.slice() });
         } else {
             this.setDisplayTokens(null);
@@ -1763,7 +1840,6 @@ class NumberGenerator {
         // Determine case/symbols from chordType
         if (chordType) {
             const t = chordType;
-            const raw = chordType;
             const isHalfDim = /m7b5/i.test(t);
             const isDim = /dim(?!.*7b5)/i.test(t) || /dim7/i.test(t); // dim or dim7
             const isMinorQuality = /^m(?!aj)/i.test(t) || /\bm(?!aj)/i.test(t); // m, m6, m7, m9, m11, etc.
@@ -1794,74 +1870,45 @@ class NumberGenerator {
                 sym = numeral;
             }
 
-            // Append extensions/qualities
-            let suffix = '';
-            if (isHalfDim && /7/.test(t)) suffix = 'halfdim7';
-            else if (/dim7/.test(t)) suffix = 'dim7';
-            else if (isAugMaj7) suffix = 'maj7#5';
-            else if (isAugMin7) suffix = 'aug(min7)';
-            else if (/maj7/.test(t)) suffix = 'maj7';
-            else if (isMinorMajor) suffix = 'mMaj7';
-            else if (/m7(?!b5)/.test(t)) suffix = '7';
-            else if (/[^a-z]7($|[^0-9])/i.test(raw) || /^7$/.test(t)) suffix = '7';
-            else if (/maj9/.test(t)) suffix = 'maj9';
-            else if (/m9/.test(t)) suffix = '9';
-            else if (/(^|[^a-z0-9])9($|[^0-9])/i.test(raw) || /^9$/.test(t)) suffix = '9';
-            else if (/maj11/.test(t)) suffix = 'maj11';
-            else if (/m11/.test(t)) suffix = '11';
-            else if (/(^|[^a-z0-9])11($|[^0-9])/i.test(raw) || /^11$/.test(t)) suffix = '11';
-            else if (/maj13/.test(t)) suffix = 'maj13';
-            else if (/m13/.test(t)) suffix = '13';
-            else if (/(^|[^a-z0-9])13($|[^0-9])/i.test(raw) || /^13$/.test(t)) suffix = '13';
-            else if (/m6/.test(t)) suffix = '6';
-            else if (/(^|[^a-z0-9])6($|[^0-9])/i.test(raw)) suffix = '6';
-            else if (/alt/.test(t)) suffix = 'alt';
-            // Nothing above recognised this quality — used to mean an empty
-            // suffix, which downstream (normalizePreviewRomanToken) reads as
-            // "no quality was specified" and defaults to a plain major/minor
-            // TRIAD, silently discarding whatever the real chord actually
-            // was. A dominant seventh with a flat five ('7b5') matched none
-            // of the specific patterns above and is exactly this case. The
-            // chordType string itself is always a real, readable chord
-            // quality (it came from getDiatonicChord), so falling back to it
-            // verbatim beats losing the information entirely.
-            else if (t) suffix = t;
-
-            // Preserve augmented fifth indication explicitly instead of losing it
-            const hasSharp5 = /#5/.test(t) || /\baug\b|\+/.test(t);
-            // Distinguish minor vs major/dominant seventh for augmented forms
-            if (hasSharp5) {
-                // Decide seventh quality text
-                let seventhQuality = '';
-                if (/maj7/.test(t)) seventhQuality = 'maj7';
-                else if (/m7/.test(t) && !/m7b5/.test(t)) seventhQuality = 'min7';
-                else if (/7/.test(t)) seventhQuality = '7';
-                // Replace suffix with descriptive augmented container if any seventh quality present
-                if (seventhQuality) {
-                    suffix = `aug(${seventhQuality})`;
-                } else {
-                    // Pure augmented triad
-                    suffix = 'aug';
+            // What gets written after the numeral.
+            //
+            // These names stand for exact qualities, not for any quality
+            // that happens to CONTAIN them. Matching by substring is what
+            // turned the "maj7(b5)" the mini chord strip and the sheet are
+            // both showing into a plain "Imaj7" — a different chord, one
+            // with a perfect fifth — and what flattened every "m(#5)",
+            // "sus4(#5)" and "sus2(add11, #5)" into a bare "aug", a triad
+            // with neither the suspension nor the added tone that made
+            // those chords what they were.
+            //
+            // Anything this table has no name for is written the way the
+            // engine named it. A descriptive chordType — "maj7sus4",
+            // "sus2(add6)", "modal(b5, #5)" — is already a complete and
+            // readable account of the chord, and printing it verbatim is
+            // what keeps this box saying what the strip says.
+            const NAMED_QUALITIES = {
+                'm7b5': 'halfdim7',
+                'ø7': 'halfdim7',
+                'dim7': 'dim7',
+                'maj7#5': 'aug(maj7)',
+                '+maj7': 'aug(maj7)',
+                'm7#5': 'aug(min7)',
+                '7#5': 'aug(7)',
+                'aug': 'aug',
+                '+': 'aug',
+                'mMaj7': 'mMaj7'
+            };
+            let suffix = NAMED_QUALITIES[t];
+            if (suffix === undefined) {
+                suffix = t;
+                // A lowercase numeral has already said "minor", so the
+                // seventh on the second degree reads ii7, not iim7. Only
+                // when that 'm' IS the minor third, though: "mMaj7" and
+                // "modal(...)" open with the same letter and mean something
+                // else entirely.
+                if (sym === sym.toLowerCase() && /^m(?![a-zA-Z])/.test(suffix)) {
+                    suffix = suffix.slice(1);
                 }
-            }
-
-            // Use textual 'halfdim7' instead of symbol for easier manual editing if half‑diminished seventh
-            if (isHalfDim && /7/.test(t)) {
-                suffix = 'halfdim7';
-            }
-            // For diminished seventh, optionally keep 'dim7' textual
-            if (isDim && /dim7/.test(t)) {
-                suffix = 'dim7';
-            }
-
-            // Add alterations (b9, #9, #11, b13)
-            if (suffix) {
-                const alterations = [];
-                if (/b9/.test(t)) alterations.push('b9');
-                if (/#9/.test(t)) alterations.push('#9');
-                if (/#11/.test(t)) alterations.push('#11');
-                if (/b13/.test(t)) alterations.push('b13');
-                if (alterations.length) suffix += alterations.map(a => a).join('');
             }
 
             return suffix ? (sym + suffix) : sym;
