@@ -737,11 +737,21 @@ class MusicTheoryEngine {
                                 // Add b13 (8 semitones)
                                 if (!intervals.includes(8)) intervals.push(8);
                             } else if (mod === 'b5') {
-                                // Add b5 (6 semitones) - only if no perfect 5th
-                                if (!intervals.includes(7) && !intervals.includes(6)) intervals.push(6);
+                                // The fifth IS flat — it does not sit alongside a
+                                // perfect one. Adding it only when no perfect
+                                // fifth was there meant every "maj7(b5)" came
+                                // back with the natural fifth of its base
+                                // quality, which is a different chord and not
+                                // the one the name describes. (A tritone that
+                                // does live above a fifth is written '#11', and
+                                // that one is added, not substituted.)
+                                intervals = intervals.filter(i => i !== 7);
+                                if (!intervals.includes(6)) intervals.push(6);
                             } else if (mod === '#5') {
-                                // Add #5 (8 semitones) - only if no perfect 5th
-                                if (!intervals.includes(7) && !intervals.includes(8)) intervals.push(8);
+                                // Likewise: a sharp fifth replaces the fifth. The
+                                // raised tone that coexists with one is 'b13'.
+                                intervals = intervals.filter(i => i !== 7);
+                                if (!intervals.includes(8)) intervals.push(8);
                             } else if (mod === 'no5') {
                                 // Remove perfect 5th (7 semitones)
                                 intervals = intervals.filter(i => i !== 7);
@@ -1097,6 +1107,189 @@ class MusicTheoryEngine {
             if (cmpFunc !== 0) return cmpFunc;
             return a.chordNotes.length - b.chordNotes.length;
         });
+    }
+
+    /**
+     * The scale degree a Roman numeral counts to: 'iv' -> 4, 'IX' -> 9.
+     * Null for anything that is not one, so callers can tell a numeral from a
+     * chord symbol without guessing.
+     */
+    romanNumeralToDegree(numeral) {
+        const s = String(numeral == null ? '' : numeral).trim().toUpperCase();
+        if (!s || !/^[IVX]+$/.test(s)) return null;
+        const value = { I: 1, V: 5, X: 10 };
+        let total = 0;
+        for (let i = 0; i < s.length; i++) {
+            const here = value[s[i]];
+            const next = value[s[i + 1]];
+            total += (next && next > here) ? -here : here;
+        }
+        return (total >= 1 && total <= 13) ? total : null;
+    }
+
+    /**
+     * The chord a typed Roman-numeral token names, in this key and scale.
+     *
+     * ONE owner for reading a typed chord, because there were three and they
+     * disagreed. "iv7" in C major came back Fm7 from the numbers box and F7
+     * from the progression parser, which threw the case away the moment a
+     * quality was typed — but the lowercase numeral IS the minor third, and
+     * the "7" after it is an extension of that chord, not an announcement of
+     * a dominant one. Which of the two answers reached the staff depended on
+     * which parser had run last.
+     *
+     * The rule: the text decides the quality, and the scale decides only what
+     * the text leaves unsaid.
+     *
+     *   iv7   -> Fm7    the numeral says minor, the 7 extends it
+     *   IV7   -> F7     the numeral says major, so the 7 is dominant
+     *   ivmaj7-> Fmaj7  an explicit quality is taken at its word
+     *   iv    -> Fm     nothing said but the case, which contradicts the
+     *                   scale: the borrowed minor iv, as a plain triad
+     *   ii    -> Dm7    nothing said, and the case agrees with the scale, so
+     *                   the scale's own chord — the one the strip shows
+     *
+     * @returns {{root, chordType, chordNotes, degree, accidental, minor, borrowed, typed}|null}
+     */
+    chordFromRomanToken(token, key = 'C', scaleType = 'major') {
+        const raw = String(token == null ? '' : token).trim();
+        const parsed = raw.match(/^([b#♭♯]*)([ivxIVX]+)(.*)$/);
+        if (!parsed) return null;
+
+        const accidental = (parsed[1] || '').replace(/♯/g, '#').replace(/♭/g, 'b');
+        const numeral = parsed[2];
+        const typed = (parsed[3] || '').trim();
+        const degree = this.romanNumeralToDegree(numeral);
+        if (!degree) return null;
+        const minor = numeral === numeral.toLowerCase();
+
+        const scaleNotes = this.getScaleNotes(key, scaleType) || [];
+        if (!scaleNotes.length) return null;
+
+        // The root. An unaltered numeral counts degrees of the scale in front
+        // of us, and takes that degree's own spelling with it. An ALTERED one
+        // (bVII, #iv) is measured against the major scale of the tonic, which
+        // is what those accidentals have always meant — in C aeolian "bVII"
+        // is B♭, not the B♭♭ that flattening the scale's own seventh gives.
+        let root;
+        if (!accidental) {
+            root = scaleNotes[(degree - 1) % scaleNotes.length];
+        } else {
+            const MAJOR_DEGREE = [0, 2, 4, 5, 7, 9, 11];
+            let shift = 0;
+            for (const ch of accidental) shift += (ch === '#') ? 1 : -1;
+            const tonic = this.pitchClassOf(key);
+            if (tonic === null) return null;
+            const semis = MAJOR_DEGREE[(degree - 1) % 7] + 12 * Math.floor((degree - 1) / 7) + shift;
+            const pc = (((tonic + semis) % 12) + 12) % 12;
+            root = this.spellSemitoneWithPreference(pc, accidental.includes('b'), key)
+                || this.semitoneToNote[pc]
+                || this.chromaticNotes[pc];
+        }
+        if (!root) return null;
+
+        // Nothing typed but the numeral: the scale answers, as long as the
+        // case agrees with what the scale has there. When it does not, the
+        // user is deliberately contradicting the scale — a borrowed chord —
+        // and a bare numeral means the plain triad of the case they typed.
+        if (!typed) {
+            if (!accidental) {
+                const diatonic = this.getDiatonicChord(degree, key, scaleType);
+                const type = (diatonic && diatonic.chordType) || '';
+                const scaleIsMinorThird = /^m(?!aj)/i.test(type) || /dim|°|ø/i.test(type);
+                if (diatonic && diatonic.root && scaleIsMinorThird === minor) {
+                    return {
+                        root: diatonic.root,
+                        chordType: diatonic.chordType,
+                        chordNotes: (diatonic.diatonicNotes || []).slice(),
+                        degree, accidental, minor, borrowed: false, typed
+                    };
+                }
+            }
+            const triad = minor ? 'm' : 'maj';
+            return {
+                root, chordType: triad, chordNotes: this.getChordNotes(root, triad) || [],
+                degree, accidental, minor, borrowed: true, typed
+            };
+        }
+
+        const chordType = this.chordTypeFromTypedQuality(typed, minor);
+        const resolved = this.resolveChordTypeToNotes(root, chordType, minor);
+        return {
+            root,
+            chordType: resolved.chordType,
+            chordNotes: resolved.notes,
+            degree, accidental, minor,
+            borrowed: !!accidental,
+            typed
+        };
+    }
+
+    /**
+     * A typed quality plus the case of the numeral it followed, as one chord
+     * type. "7" after a lowercase numeral is a minor seventh; after an
+     * uppercase one it is a dominant.
+     */
+    chordTypeFromTypedQuality(typed, minor) {
+        let q = String(typed == null ? '' : typed).trim();
+        if (!q) return minor ? 'm' : 'maj';
+
+        // Symbols first: they name a quality outright, and the digits inside
+        // them ('ø7') must not be read as a bare extension.
+        const halfDim = /ø|half\s*-?\s*dim/i.test(q);
+        const dimmed = !halfDim && /°|(^|[^a-z])dim/i.test(q);
+        if (halfDim) return 'm7b5';
+        if (dimmed) return /7/.test(q) ? 'dim7' : 'dim';
+
+        q = q.replace(/^min(?!or)/i, 'm').replace(/^minor/i, 'm');
+
+        // Does the text say what the third is? "m", "maj", "sus", "aug", the
+        // descriptive names the engine writes ("modal(...)") — all do. A bare
+        // extension or alteration ("7", "9", "6", "b5", "add9") does not, and
+        // for those the numeral's case is the only word on the subject.
+        const statesThird = /^(m(?!aj)|maj|sus|aug|dim|\+|no3)/i.test(q);
+        if (!statesThird && minor) return 'm' + q;
+        return q;
+    }
+
+    /**
+     * The richest chord type this engine can actually spell for what was
+     * asked, and its notes.
+     *
+     * A name with no formula behind it used to return an empty chord — "iv13"
+     * put a bar on the sheet with no notes in it at all. Rather than nothing,
+     * give the same chord one extension shorter, and say so by returning the
+     * type that was really used.
+     */
+    resolveChordTypeToNotes(root, chordType, minor = false) {
+        const attempt = (type) => {
+            if (!type) return null;
+            const notes = this.getChordNotes(root, type) || [];
+            return notes.length ? { chordType: type, notes } : null;
+        };
+
+        const direct = attempt(chordType);
+        if (direct) return direct;
+
+        // Drop an alteration the table has no combined formula for
+        // ('m7b9' -> 'm7'), then step down the extensions ('m13' -> 'm11'
+        // -> 'm9' -> 'm7'), and finally settle for the triad.
+        const candidates = [];
+        const bare = String(chordType || '').replace(/([b#])\d{1,2}/g, '');
+        if (bare !== chordType) candidates.push(bare);
+        const ladder = ['13', '11', '9', '7', '6'];
+        const head = bare.match(/^(m(?!aj)|maj|sus2|sus4|)/i);
+        const prefix = head ? head[1] : '';
+        const rest = bare.slice(prefix.length);
+        const at = ladder.indexOf(rest);
+        if (at >= 0) ladder.slice(at + 1).forEach(ext => candidates.push(prefix + ext));
+        candidates.push(minor ? 'm' : 'maj');
+
+        for (const type of candidates) {
+            const got = attempt(type);
+            if (got) return got;
+        }
+        return { chordType, notes: [] };
     }
 
     /**

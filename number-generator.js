@@ -1954,6 +1954,23 @@ class NumberGenerator {
         // If plain number, just return it
         if (/^[0-9]+$/.test(token)) return token;
         const original = token;
+
+        // The engine owns what a Roman numeral means — case, accidental and
+        // typed quality read together — so that this box and the progression
+        // parser cannot answer the same token differently. They did: "iv7"
+        // was Fm7 here and F7 there, and whichever ran last is what played.
+        // Everything below is the older reading, kept for the case where the
+        // engine cannot be reached.
+        try {
+            if (this.musicTheory && typeof this.musicTheory.chordFromRomanToken === 'function') {
+                const chord = this.musicTheory.chordFromRomanToken(
+                    token, this.currentKey || 'C', this.currentScale || 'major'
+                );
+                if (chord && chord.root) {
+                    return chord.root + (chord.chordType || '');
+                }
+            }
+        } catch (_) { /* fall through to the local reading */ }
         // Robust parsing for complex tokens like: V7b9#11, #IVmaj7, iiø7, vii°7, bIImaj7
         const m = token.match(/^([#b♯♭]*)([IViv]+)(.*)$/);
         if (!m) return original;

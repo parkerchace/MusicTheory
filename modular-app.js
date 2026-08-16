@@ -578,56 +578,30 @@ window.mountLearnModuleIfReady = function(instrument) {
                                     return { root, chordType, chordNotes, fullName: (root || '') + (chordType || '') };
                                 }
 
-                                // Otherwise, try to treat token as a Roman numeral -> diatonic degree
-                                const romanMatch = String(rawTok).match(/([#b]?)([IViv]+)(.*)$/);
-                                if (romanMatch) {
-                                    const accidental = romanMatch[1] || '';
-                                    const roman = romanMatch[2] || '';
-                                    const suffix = (romanMatch[3] || '').trim();
-                                    // Map roman to degree 1..7
-                                    const romanToInt = (r) => {
-                                        const s = String(r).toUpperCase();
-                                        const map = { 'I':1,'II':2,'III':3,'IV':4,'V':5,'VI':6,'VII':7 };
-                                        return map[s] || null;
-                                    };
-                                    const degree = romanToInt(roman);
-                                    if (degree && this.scaleLibrary) {
-                                        const key = this.scaleLibrary.getCurrentKey();
-                                        const scale = this.scaleLibrary.getCurrentScale();
-                                        try {
-                                            const diat = (this.musicTheory && typeof this.musicTheory.getDiatonicChord === 'function')
-                                                ? this.musicTheory.getDiatonicChord(degree, key, scale)
-                                                : null;
-                                            if (diat) {
-                                                // Respect Roman case: lowercase = minor, uppercase = major
-                                                const isLower = roman === roman.toLowerCase();
-                                                let baseType = '';
-                                                if (suffix) {
-                                                    // User typed explicit quality/extension: use it directly
-                                                    baseType = suffix;
-                                                } else {
-                                                    // No suffix: infer from case
-                                                    if (isLower) {
-                                                        baseType = 'm'; // lowercase -> minor
-                                                    } else {
-                                                        baseType = ''; // uppercase -> major (default)
-                                                    }
-                                                }
-
-                                                // Try to get chord notes for the combined type
-                                                let notes = [];
-                                                try {
-                                                    if (this.musicTheory && typeof this.musicTheory.getChordNotes === 'function') {
-                                                        notes = this.musicTheory.getChordNotes(diat.root, baseType) || [];
-                                                        if ((!notes || notes.length === 0) && baseType !== diat.chordType) {
-                                                            notes = this.musicTheory.getChordNotes(diat.root, diat.chordType) || [];
-                                                        }
-                                                    }
-                                                } catch (_) { notes = [] }
-                                                return { root: diat.root, chordType: baseType || diat.chordType, chordNotes: notes, fullName: (diat.root || '') + (baseType || diat.chordType || '') };
-                                            }
-                                        } catch (_) {}
-                                    }
+                                // Otherwise it is a Roman numeral, and the engine
+                                // owns what one means — the case, the accidental
+                                // and the typed quality read together. Reading it
+                                // here meant a third answer for the same token:
+                                // an explicit quality was used verbatim, so "iv7"
+                                // asked for an F chord of type "7" and got the
+                                // major third the lowercase numeral had ruled out.
+                                if (this.musicTheory && typeof this.musicTheory.chordFromRomanToken === 'function' && this.scaleLibrary) {
+                                    try {
+                                        const chord = this.musicTheory.chordFromRomanToken(
+                                            rawTok,
+                                            this.scaleLibrary.getCurrentKey(),
+                                            this.scaleLibrary.getCurrentScale()
+                                        );
+                                        if (chord && chord.root) {
+                                            return {
+                                                root: chord.root,
+                                                chordType: chord.chordType,
+                                                chordNotes: chord.chordNotes.slice(),
+                                                fullName: chord.root + (chord.chordType || ''),
+                                                degree: chord.degree
+                                            };
+                                        }
+                                    } catch (_) {}
                                 }
 
                                 // Fallback: return null so it will be filtered out

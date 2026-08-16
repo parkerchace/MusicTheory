@@ -168,7 +168,6 @@
         const theory = mt();
         if (!theory) return [];
         const { key, scale } = currentKeyScale();
-        const majorDeg = [0, 2, 4, 5, 7, 9, 11];
 
         return state.degrees.map((d) => {
             let chord = null;
@@ -204,20 +203,24 @@
                     diatonicNotes: notes,
                     fullName: d.raw
                 };
-            } else if (d.kind === 'roman' && (d.shift || d.quality)) {
-                // Altered/■borrowed roman (bVII, #ivm7b5): build from the major
-                // degree so it doesn't inherit the current mode's quality.
-                const semis = majorDeg[(d.degree - 1) % 7] + (d.shift || 0);
-                let root = key;
-                try { root = theory.transposeNote(key, semis) || key; } catch (_) {}
-                let type = d.quality || (d.minor ? 'm7' : 'maj7');
-                let notes = [];
-                try { notes = theory.getChordNotes(root, type) || []; } catch (_) {}
-                if (!notes.length) {
-                    type = d.minor ? 'm7' : 'maj7';
-                    try { notes = theory.getChordNotes(root, type) || []; } catch (_) {}
+            } else if (d.kind === 'roman') {
+                // What the numeral says, read by the engine that owns that
+                // reading — case, accidental and typed quality together. This
+                // module used to do it here and got the case wrong the moment
+                // a quality was typed: "iv7" became F7, a major third the user
+                // had written a lowercase numeral specifically to rule out.
+                const resolved = theory.chordFromRomanToken
+                    ? theory.chordFromRomanToken(d.raw, key, scale)
+                    : null;
+                if (resolved && resolved.root) {
+                    chord = {
+                        root: resolved.root,
+                        chordType: resolved.chordType,
+                        chordNotes: resolved.chordNotes.slice(),
+                        diatonicNotes: resolved.chordNotes.slice(),
+                        fullName: resolved.root + (resolved.chordType === 'maj' ? '' : resolved.chordType)
+                    };
                 }
-                chord = { root, chordType: type, chordNotes: notes, diatonicNotes: notes, fullName: `${root}${type === 'maj' ? '' : type}` };
             } else {
                 try { chord = theory.getDiatonicChord(d.degree, key, scale); } catch (_) { chord = null; }
                 if (chord) {
