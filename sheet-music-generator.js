@@ -444,6 +444,17 @@ class SheetMusicGenerator {
 	}
 
 	/**
+	 * A note name with any octave taken off it: "C#3" -> "C#", "C#" -> "C#".
+	 *
+	 * The difference between a pitch and a pitch CLASS is the difference
+	 * between a chord as voiced and a chord as named, and code that voices a
+	 * chord has to be handed the second kind.
+	 */
+	_bareNoteName(noteName) {
+		return String(noteName == null ? '' : noteName).trim().replace(/-?\d+$/, '');
+	}
+
+	/**
 	 * Replace the bar chords shown in per-bar mode.
 	 * chords: array of chord objects { root, chordType, chordNotes, fullName }
 	 * This method will set the internal state and trigger a re-render.
@@ -462,14 +473,21 @@ class SheetMusicGenerator {
 			this.state.renderedNoteEvents = null;
 		}
 
-		// Dedupe: if incoming sequence is identical to current, skip work/logging
+		// Dedupe: if incoming sequence is identical to current, skip work/logging.
+		//
+		// Identical means the NOTES too, not only the names. Two chords can be
+		// called the same thing and be written differently — the ones a phrase
+		// leaves behind are its voicing, spelled with octaves — and comparing
+		// names alone kept those in place while the phrase that explained them
+		// was being retired three lines above.
+		const notesOf = (c) => (Array.isArray(c && c.chordNotes) ? c.chordNotes.join(',') : '');
 		const sameLength = this.state.barChords && this.state.barChords.length === chords.length;
 		let isSame = sameLength;
 		if (sameLength) {
 			for (let i = 0; i < chords.length; i++) {
 				const a = this.state.barChords[i] || {};
 				const b = chords[i] || {};
-				if ((a.root||'') !== (b.root||'') || (a.chordType||'') !== (b.chordType||'') || (a.fullName||'') !== (b.fullName||'')) { isSame = false; break; }
+				if ((a.root||'') !== (b.root||'') || (a.chordType||'') !== (b.chordType||'') || (a.fullName||'') !== (b.fullName||'') || notesOf(a) !== notesOf(b)) { isSame = false; break; }
 			}
 		}
 		if (isSame) {
@@ -661,7 +679,17 @@ class SheetMusicGenerator {
 				const first = chordBeats[0];
 				
 				// ✅ FIX: Properly populate chordNotes with fallback to getChordNotes()
-				let chordNotes = first.chordObj.diatonicNotes || [];
+				//
+				// Bare pitch names, because that is what this array IS. A
+				// phrase's chord notes are a VOICING — "C3", "E3", "G3", "B3",
+				// the notes as played — while barChords is the one-chord-per-bar
+				// summary that the bar renderer and the logs read, and every one
+				// of those assumes a name with no octave on it. Handed one, the
+				// renderer appended a second ("C3" + 4 = "C34") and drew the
+				// chord ninety-odd ledger lines above the staff. The voicing is
+				// not lost by stripping it here: it stays in the phrase, which is
+				// what phrase mode actually draws from.
+				let chordNotes = (first.chordObj.diatonicNotes || []).map(n => this._bareNoteName(n));
 				if ((!chordNotes || chordNotes.length === 0) && this.musicTheory && typeof this.musicTheory.getChordNotes === 'function') {
 					try {
 						chordNotes = this.musicTheory.getChordNotes(first.chordObj.root, first.chordObj.chordType) || [];
@@ -4405,8 +4433,14 @@ class SheetMusicGenerator {
 			
 			const voiced = [];
 			let prevMidi = null;
-			
-			processedNotes.forEach((n, idx) => {
+
+			processedNotes.forEach((rawName, idx) => {
+				// This decides the octave, so the name it starts from must not
+				// already carry one. A chord arriving from a voicing ("C3") had
+				// this one appended rather than applied — "C3" + 4 reads as C in
+				// the 34th octave, which is drawn as a stack of ledger lines
+				// running off the top of the page.
+				const n = this._bareNoteName(rawName) || rawName;
 				let oct = targetBase;
 				let midi = noteNameToMidi(n + oct);
 				
