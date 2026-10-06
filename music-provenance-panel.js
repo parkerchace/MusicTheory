@@ -77,10 +77,11 @@
             body.style.cssText = 'max-height:0; overflow:hidden; transition: max-height .2s ease;';
 
             header.addEventListener('click', () => {
-                const open = body.style.maxHeight !== '0px' && body.style.maxHeight !== '';
-                body.style.maxHeight = open ? '0px' : '60vh';
-                body.style.overflowY = open ? 'hidden' : 'auto';
-                caret.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
+                // A click is a decision about this session: from here on the
+                // panel stays where it was put, and the auto-open rule below
+                // stops second-guessing it.
+                this.userSetOpen = true;
+                this.setOpen(!this.isOpen());
             });
 
             panel.appendChild(header);
@@ -99,10 +100,50 @@
             }
         }
 
+        isOpen() {
+            const h = this.body && this.body.style.maxHeight;
+            return !!h && h !== '0px';
+        }
+
+        setOpen(open) {
+            if (!this.body || !this.panel) return;
+            const caret = this.panel.querySelector('span');
+            this.body.style.maxHeight = open ? '60vh' : '0px';
+            this.body.style.overflowY = open ? 'auto' : 'hidden';
+            if (caret) caret.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)';
+        }
+
+        /**
+         * Open by default when an outside-the-key device was ASKED FOR.
+         *
+         * The condition is the request, not the result. A take that was asked
+         * for approaches and comes back reading "all diatonic" is the single
+         * most useful thing this panel can say — it is what tells you a device
+         * is switched on and producing nothing, which is exactly the failure
+         * that stayed invisible while the panel sat collapsed. Reading the
+         * outcome instead would hide precisely that case.
+         *
+         * Departures have no on/off of their own; what decides whether they
+         * may fire is the `borrowedChords` rung, and the generator already
+         * reports its effective state on the music.
+         */
+        shouldAutoOpen() {
+            try {
+                const ap = (typeof window !== 'undefined' && window.__approachScalesMode)
+                    ? window.__approachScalesMode() : null;
+                if (ap && ap.enabled) return true;
+            } catch (_) {}
+            const eff = (this.lastMusic && this.lastMusic.harmony
+                && this.lastMusic.harmony.complexity
+                && this.lastMusic.harmony.complexity.effective) || null;
+            return !!(eff && eff.borrowedChords);
+        }
+
         attach() {
             document.addEventListener('musicGenerated', (e) => {
                 this.lastMusic = (e && e.detail) || null;
                 this.render();
+                if (!this.userSetOpen && this.shouldAutoOpen()) this.setOpen(true);
             });
             document.addEventListener('sheetChordSelected', (e) => {
                 const chord = e && e.detail && e.detail.chord;
@@ -291,7 +332,14 @@
             head.style.marginBottom = '5px';
             wrap.appendChild(head);
 
+            // All three come home; they are not the same gesture.
+            const RETURN = {
+                'final': 'closes the piece back in',
+                'section': 'hands over to the next section in',
+                'phrase': 'returns to'
+            };
             const READING = {
+                'recolour': 'the tonic held, the collection around it changed',
                 'modal-interchange': 'the parallel mode, borrowed in quantity',
                 'tonicization': 'the borrowed root heard as a tonic of its own'
             };
@@ -302,11 +350,14 @@
                 const chords = (e.chords || []).map(c => c.fullName || `${c.root}${c.chordType}`).join(' → ');
                 const notes = Array.isArray(e.sourceNotes) && e.sourceNotes.length
                     ? ` <span style="color:#64748b;">(${e.sourceNotes.join(' ')})</span>` : '';
+                const colour = e.colourNote
+                    ? ` <span style="color:#64748b;">· ${e.colourNote}</span>` : '';
                 return `<span style="color:#64748b;">bars ${e.startBar + 1}–${e.endBar + 1}</span> ` +
-                    `<strong style="color:#e2e8f0;">${e.label}</strong>${notes}<br>` +
+                    `<strong style="color:#e2e8f0;">${e.label}</strong>${notes}${colour}<br>` +
                     `<span style="margin-left:10px; color:#fbbf24;">${chords}</span> ` +
                     `<span style="color:#64748b;">— ${READING[e.reading] || e.reading}; ` +
-                    `bar ${e.returnBar + 1} returns to ${homeLabel}</span>`;
+                    `bar ${e.returnBar + 1} ${RETURN[e.returnKind] || 'returns to'} ${homeLabel}` +
+                    `${e.alternates ? ', and this collection is returned to again' : ''}</span>`;
             }).join('<br>');
             wrap.appendChild(list);
             return wrap;
@@ -660,18 +711,38 @@
             });
         }
 
+        /**
+         * Mark the run a chord belongs to, WITHOUT moving the page.
+         *
+         * Clicking a chord on the staff is a question about that chord, not a
+         * request to go somewhere. Two things here answered it as though it
+         * were: the panel was forced open even when it had been deliberately
+         * collapsed, and `scrollIntoView` walks up EVERY scrollable ancestor,
+         * so a row below the fold dragged the whole page up to the panel and
+         * the staff you had just clicked went off screen.
+         *
+         * So: never open a panel the reader closed, and scroll only this
+         * panel's own body, by setting its scrollTop directly. There is no
+         * option to `scrollIntoView` that reliably confines it to one
+         * container — `block: 'nearest'` still scrolls the document when the
+         * element is outside the viewport, which is exactly the case that
+         * matters here.
+         */
         highlight(chordName) {
             if (!this.body) return;
             const rows = this.body.querySelectorAll('[data-chords]');
+            let hit = null;
             rows.forEach((r) => {
                 const match = String(r.dataset.chords || '').split(',').includes(chordName);
                 r.style.background = match ? 'rgba(56,189,248,0.12)' : '';
-                if (match) {
-                    this.body.style.maxHeight = '60vh';
-                    this.body.style.overflowY = 'auto';
-                    r.scrollIntoView({ block: 'nearest' });
-                }
+                if (match && !hit) hit = r;
             });
+            // Nothing to bring into view in a panel that is not showing.
+            if (!hit || !this.isOpen()) return;
+            const box = this.body.getBoundingClientRect();
+            const row = hit.getBoundingClientRect();
+            if (row.top < box.top) this.body.scrollTop -= (box.top - row.top);
+            else if (row.bottom > box.bottom) this.body.scrollTop += (row.bottom - box.bottom);
         }
 
         // ---- Numeric progression + approach application ----

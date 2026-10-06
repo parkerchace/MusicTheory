@@ -1,0 +1,263 @@
+/* ==========================================================================
+   TYPING KEYBOARD (qwerty-keys.js)
+   The ⌨ chip sits beside the instrument dock's cog in the studio and floats
+   bottom-right on a Learn page. Its data-state says whether a key press will
+   play: idle (it will not), live, paused (a text field has focus), prompt.
+   ========================================================================== */
+
+#instrument-dock-root .instrument-dock-settings {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.qk-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-tech);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+.qk-chip[hidden] { display: none; }
+
+/* in the dock it overlays the top of the instruments: give it a solid toolbar */
+#instrument-dock-root .qk-chip {
+    padding: 2px 4px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm, 3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.qk-chip.qk-floating {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 8000;
+    padding: 4px 6px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md, 6px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.qk-chip button {
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background: transparent;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm, 3px);
+    padding: 2px 7px;
+    cursor: pointer;
+}
+.qk-chip button:hover,
+.qk-chip button:focus-visible { color: var(--text-main); border-color: var(--accent-primary); }
+
+.qk-toggle { display: inline-flex; align-items: center; gap: 5px; }
+.qk-toggle > span[aria-hidden] { font-size: 0.9rem; line-height: 1; }
+
+.qk-chip[data-state="live"] .qk-toggle {
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 1px var(--accent-primary), 0 0 12px var(--accent-glow);
+}
+.qk-chip[data-state="paused"] .qk-toggle { border-style: dashed; }
+.qk-chip[data-state="prompt"] .qk-toggle { color: var(--accent-secondary); border-color: var(--accent-secondary); }
+
+/* octave and velocity only matter while it can play */
+.qk-chip[data-state="idle"] .qk-oct,
+.qk-chip[data-state="idle"] .qk-vel,
+.qk-chip[data-state="prompt"] .qk-oct,
+.qk-chip[data-state="prompt"] .qk-vel { display: none; }
+.qk-vel { opacity: 0.75; }
+
+.qk-mode {
+    color: var(--accent-secondary);
+    border: 1px solid var(--accent-secondary);
+    border-radius: var(--radius-sm, 3px);
+    padding: 1px 5px;
+}
+.qk-mode[hidden] { display: none; }
+
+.qk-readout {
+    color: var(--text-main);
+    max-width: 28ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.qk-readout:empty { display: none; }
+
+.qk-prompt,
+.qk-hint {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    width: max-content;
+    max-width: 300px;
+    padding: 8px 10px;
+    background: var(--bg-panel);
+    color: var(--text-main);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-md, 6px);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    letter-spacing: 0;
+    line-height: 1.45;
+    white-space: normal;
+}
+/* in the dock the chip is at the top of the deck: open downward instead */
+#instrument-dock-root .qk-prompt,
+#instrument-dock-root .qk-hint { bottom: auto; top: calc(100% + 8px); }
+.qk-prompt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.qk-prompt[hidden] { display: none; }
+.qk-prompt > span { flex: 1 1 100%; }
+
+/* letters on the piano keys while the typing keyboard is live */
+.pv-key-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 26px;
+    text-align: center;
+    font-family: var(--font-tech);
+    font-size: 10px;
+    font-weight: 700;
+    color: #475569;
+    pointer-events: none;
+    z-index: 3;
+}
+.piano-black-key .pv-key-hint { bottom: 8px; color: #cbd5e1; }
+
+/* ==========================================================================
+   CHORD MODE (qwerty-chords.js)
+   ========================================================================== */
+.qk-chords-btn[aria-expanded="true"] { color: var(--accent-secondary); border-color: var(--accent-secondary); }
+.qk-chip[data-state="prompt"] .qk-chords-btn,
+.qk-chip[data-state="prompt"] .qk-modes { display: none; }
+
+/* what the keys play: Notes | Chords | Harmonize, one segmented switch */
+.qk-modes {
+    display: inline-flex;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm, 3px);
+    overflow: hidden;
+}
+.qk-chip .qk-modes .qk-mode-btn {
+    border: 0;
+    border-radius: 0;
+    padding: 2px 6px;
+}
+.qk-chip .qk-modes .qk-mode-btn + .qk-mode-btn { border-left: 1px solid var(--border-light); }
+.qk-chip .qk-modes .qk-mode-btn.qk-on {
+    color: #000;
+    background: var(--accent-secondary);
+}
+.qk-chip .qk-modes .qk-mode-btn[data-mode="notes"].qk-on { background: var(--accent-primary); }
+/* Shift held: chords for as long as it is */
+.qk-chip .qk-modes .qk-mode-btn.qk-momentary {
+    color: var(--accent-secondary);
+    box-shadow: inset 0 -2px 0 var(--accent-secondary);
+}
+/* idle, the switch still says what a MIDI keyboard or the next key will do, just quieter */
+.qk-chip[data-state="idle"] .qk-modes { opacity: 0.7; }
+
+/* the inversion: pinned (Inv, A) or walked (⇅, F) — one joined pair */
+.qk-inv {
+    display: inline-flex;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm, 3px);
+    overflow: hidden;
+}
+.qk-inv[hidden] { display: none; }
+.qk-chip .qk-inv button { border: 0; border-radius: 0; padding: 2px 6px; white-space: nowrap; }
+.qk-chip .qk-inv button + button { border-left: 1px solid var(--border-light); }
+.qk-chip .qk-inv-btn { min-width: 8.5ch; text-align: left; }
+.qk-chip .qk-inv .qk-on { color: #000; background: var(--accent-secondary); }
+/* walking: the inversion is being chosen for you, and the button says which */
+.qk-chip .qk-inv-btn.qk-walking { color: var(--accent-secondary); font-style: italic; }
+.qk-chip[data-state="idle"] .qk-inv { opacity: 0.7; }
+.qk-chip[data-state="prompt"] .qk-inv { display: none; }
+
+/* on <body>, placed above the chip by qwerty-chords.js: the dock clips its children */
+.qk-chords-panel {
+    position: fixed;
+    z-index: 8500;
+    width: 300px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-panel);
+    color: var(--text-main);
+    border: 1px solid var(--accent-secondary);
+    border-radius: var(--radius-md, 6px);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    letter-spacing: 0;
+    line-height: 1.4;
+    white-space: normal;
+}
+.qk-chords-panel[hidden] { display: none; }
+.qk-chords-head {
+    font-family: var(--font-tech);
+    font-size: 0.66rem;
+    letter-spacing: 0.18em;
+    color: var(--accent-secondary);
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 6px;
+}
+.qk-chords-how { margin: 0; color: var(--text-muted); font-size: 0.72rem; }
+.qk-chords-row { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.qk-chords-row input { margin-top: 2px; }
+.qk-chords-field { display: flex; flex-direction: column; gap: 4px; color: var(--text-muted); font-size: 0.72rem; }
+.qk-chords-field select { font-size: 0.78rem; max-width: 100%; }
+.qk-chords-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* letters under the chord strip's numerals while chord mode is on */
+.mini-chord-item { position: relative; }
+.qk-strip-key {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--font-tech);
+    font-size: 0.62rem;
+    color: var(--accent-secondary);
+    letter-spacing: 0.08em;
+}
+.mini-chord-item.qk-strip-on {
+    outline: 2px solid var(--accent-secondary);
+    outline-offset: 2px;
+    border-radius: 3px;
+    background: var(--accent-glow);
+}
+
+/* the settings for harmonize mode */
+.qk-chords-melody { display: flex; flex-direction: column; gap: 6px; padding: 6px 0 2px; border-top: 1px solid var(--border-light); }
+.qk-chords-melody[hidden] { display: none; }
+
+/* the melody on the piano, apart from its chord (harmonize mode) */
+.piano-white-key.midi-melody,
+.piano-black-key.midi-melody { z-index: 2; }
+
+/* narrower docks: the switch and what is playing stay; velocity gives way
+   (↑ ↓ still change it) and the readout keeps its first words — note · numeral · chord */
+@media (max-width: 1100px) {
+    #instrument-dock-root .qk-vel { display: none; }
+    #instrument-dock-root .qk-readout { max-width: 14ch; }
+}
+@media (max-width: 1100px) {
+    .qk-walk-word { display: none; }
+}
+@media (max-width: 800px) {
+    .qk-chip .qk-modes .qk-mode-btn { padding: 2px 4px; letter-spacing: 0.02em; }
+    .qk-chip .qk-inv button { padding: 2px 4px; }
+    .qk-chip .qk-inv-btn { min-width: 0; }
+    #instrument-dock-root .qk-readout { max-width: 11ch; }
+}

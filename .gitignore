@@ -35,3 +35,12 @@ node_modules
 
 # Local working notes, not for the repo
 PLAN.md
+SCORING-METHODS.md
+VIDEO-ANALYSIS.md
+MOMENTS.md
+SHEET-CONTROLS.md
+SCREEN-BLOAT.md
+TUTORIAL.md
+
+# Screenshot output from tools/screens/look-screens.py
+tools/screens/out/

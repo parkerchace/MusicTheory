@@ -1651,7 +1651,7 @@ class LearnScales {
                     return `
                         <h3 style="color: var(--text-highlight); margin-top: 0;">Lesson 5: Minor Scales</h3>
                         <div style="color: var(--text-muted); line-height: 1.8; margin-bottom: 20px;">
-                            <p>Minor scales have a darker, more melancholic sound compared to major scales. There are three types of minor scales:</p>
+                            <p>There are three types of minor scales:</p>
                             
                             <div style="display: grid; grid-template-columns: 1fr; gap: 16px; margin: 20px 0;">
                                 <!-- Natural Minor -->
@@ -1679,7 +1679,7 @@ class LearnScales {
                                             <div class="wh-step-minor" data-idx="${i}" style="background: rgba(236, 72, 153, 0.2); border: 1px solid #ec4899; padding: 6px 12px; border-radius: 3px; font-weight: bold; font-size: 0.85rem; cursor: pointer;">${step}</div>
                                         `).join('')}
                                     </div>
-                                    <p style="margin: 8px 0; font-size: 0.9rem;">Raises the 7th degree - creates exotic, Middle Eastern sound. Strong leading tone.</p>
+                                    <p style="margin: 8px 0; font-size: 0.9rem;">Raises the 7th degree. Strong leading tone.</p>
                                 </div>
 
                                 <!-- Melodic Minor -->
@@ -1819,24 +1819,22 @@ class LearnScales {
                                         <tr style="background: rgba(96, 165, 250, 0.1);">
                                             <th style="padding: 12px; text-align: left; color: var(--accent-primary);">Mode</th>
                                             <th style="padding: 12px; text-align: left; color: var(--accent-primary);">Starting Degree</th>
-                                            <th style="padding: 12px; text-align: left; color: var(--accent-primary);">Character</th>
                                             <th style="padding: 12px; text-align: center; color: var(--accent-primary);">Play</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         ${[
-                                            {name: 'Ionian', deg: '1', char: 'Bright, happy (major scale)', scale: 'major'},
-                                            {name: 'Dorian', deg: '2', char: 'Minor with brightness', scale: 'dorian'},
-                                            {name: 'Phrygian', deg: '3', char: 'Dark, Spanish flavor', scale: 'phrygian'},
-                                            {name: 'Lydian', deg: '4', char: 'Dreamy, ethereal', scale: 'lydian'},
-                                            {name: 'Mixolydian', deg: '5', char: 'Bluesy, rock-oriented', scale: 'mixolydian'},
-                                            {name: 'Aeolian', deg: '6', char: 'Natural minor, melancholic', scale: 'aeolian'},
-                                            {name: 'Locrian', deg: '7', char: 'Unstable, diminished', scale: 'locrian'}
+                                            {name: 'Ionian', deg: '1', scale: 'major'},
+                                            {name: 'Dorian', deg: '2', scale: 'dorian'},
+                                            {name: 'Phrygian', deg: '3', scale: 'phrygian'},
+                                            {name: 'Lydian', deg: '4', scale: 'lydian'},
+                                            {name: 'Mixolydian', deg: '5', scale: 'mixolydian'},
+                                            {name: 'Aeolian', deg: '6', scale: 'aeolian'},
+                                            {name: 'Locrian', deg: '7', scale: 'locrian'}
                                         ].map(mode => `
                                             <tr style="border-top: 1px solid var(--border-light);">
                                                 <td style="padding: 12px; font-weight: 700; color: var(--text-highlight);">${mode.name}</td>
                                                 <td style="padding: 12px; font-family: var(--font-tech);">${mode.deg}</td>
-                                                <td style="padding: 12px; font-size: 0.9rem;">${mode.char}</td>
                                                 <td style="padding: 12px; text-align: center;">
                                                     <button class="mode-play-btn" data-scale="${mode.scale}" style="padding: 4px 12px; background: var(--accent-primary); color: #000; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8rem;">▶</button>
                                                 </td>
@@ -1848,7 +1846,7 @@ class LearnScales {
 
                             <div style="background: rgba(255, 255, 255, 0.05); padding: 16px; border-radius: 8px; margin: 20px 0;">
                                 <div style="font-weight: 700; margin-bottom: 12px; text-align: center;">🎼 Practice Tip</div>
-                                <p style="margin: 8px 0; text-align: center;">Try improvising melodies using different modes. Notice how each one creates a different emotional atmosphere!</p>
+                                <p style="margin: 8px 0; text-align: center;">Try improvising melodies using different modes over the same tonic, and compare them.</p>
                             </div>
                         </div>
 
@@ -2043,7 +2041,7 @@ class LearnScales {
                                     <div style="margin: 12px 0;">
                                         <strong>In C:</strong> C-D-E-G-A
                                     </div>
-                                    <p style="margin: 8px 0; font-size: 0.9rem;">Bright, happy sound. Used in rock, pop, and country music.</p>
+                                    <p style="margin: 8px 0; font-size: 0.9rem;">Used in rock, pop, and country music.</p>
                                 </div>
 
                                 <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid #8b5cf6; border-radius: 8px; padding: 16px;">

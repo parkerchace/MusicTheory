@@ -49,6 +49,31 @@ class CompositionTimelineUI {
         document.body.appendChild(panel);
     }
 
+    /**
+     * THIS PANEL IS ONE READING'S INSTRUMENT, NOT THE INPUT BOX'S.
+     *
+     * The contour timeline draws the energy curve that the CONTOUR reading
+     * derives from your words. Under any other reading it is describing a
+     * calculation the generator is not doing — typing in Pedal mode and being
+     * shown a semantic contour is the tool claiming to work one way while
+     * working another. So it opens on typing only when that reading is active,
+     * and stays reachable by hand for anyone who wants to look at the curve
+     * regardless.
+     */
+    autoOpensNow() {
+        if (this._forcedOpen) return true;
+        const m = (typeof window !== 'undefined' && window.__generationMethod) || 'contour';
+        return m === 'contour';
+    }
+
+    /** Opened deliberately, from the toolbar, whatever the reading. */
+    forceOpen() {
+        this._forcedOpen = true;
+        const text = this.inputElement ? this.inputElement.value.trim() : '';
+        if (text.length) this.analyzeAndRender(text);
+        this.openPanel();
+    }
+
     attachListeners() {
         if (!this.inputElement) return;
 
@@ -57,6 +82,7 @@ class CompositionTimelineUI {
         // had text opened an empty panel — the contour only appeared once you
         // changed what you had typed, which read as the panel being broken.
         const openWithText = () => {
+            if (!this.autoOpensNow()) return;
             const text = this.inputElement.value.trim();
             if (!text.length) return;
             if (!this.currentProfile || this._renderedFor !== text) {
@@ -73,6 +99,7 @@ class CompositionTimelineUI {
                 this.closePanel();
                 return;
             }
+            if (!this.autoOpensNow()) return;
             this.analyzeAndRender(text);
             this.openPanel();
         });
@@ -143,6 +170,7 @@ class CompositionTimelineUI {
     }
 
     closePanel() {
+        this._forcedOpen = false;
         const panel = document.getElementById(this.panelId);
         if (!panel) return;
         this._isOpen = false;
@@ -566,106 +594,40 @@ class CompositionTimelineUI {
         const wrapper = document.createElement('div');
         wrapper.appendChild(row);
         wrapper.appendChild(legend);
-        wrapper.appendChild(this.buildApproachScalesRow());
         setTimeout(() => this.updateHarmonyLegend(), 0);
         return wrapper;
     }
 
-    getApproachScales() {
-        if (typeof window.__approachScalesMode === 'function') return window.__approachScalesMode();
-        if (!window.__arcApproachScales) {
-            let stored = null;
-            try { stored = JSON.parse(localStorage.getItem('arcApproachScales') || 'null'); } catch (_) {}
-            window.__arcApproachScales = (stored && typeof stored === 'object')
-                ? { enabled: !!stored.enabled, advanced: !!stored.advanced }
-                : { enabled: false, advanced: false };
-        }
-        return window.__arcApproachScales;
-    }
-
-    saveApproachScales() {
-        try { localStorage.setItem('arcApproachScales', JSON.stringify(window.__arcApproachScales)); } catch (_) {}
-    }
-
     /**
-     * APPROACH SCALES — a mode, not another slider.
+     * APPROACH SCALES IS NOT CONTROLLED HERE — and used to be, badly.
      *
-     * The sliders above ask "how much"; this asks "where". Base scale plain
-     * (major or aeolian), progression plain diatonic, and every note outside
-     * the key living in the approach into the next chord — drawn from whatever
-     * scale in the library is rooted a fifth above that chord. It has to be
-     * exclusive to be audible: an approach borrowed from F♯ Mixolydian ♭6
-     * teaches nothing if the chord it lands on was itself borrowed and the key
-     * has just modulated. So switching it on switches those off, and the
-     * legend says so rather than leaving the Harmony dial looking broken.
+     * This panel carried its own pair of checkboxes for the mode: an on/off,
+     * and an "advanced: borrow on the target's own root". Both were replaced
+     * when the mode grew a `source` select (a fifth above / on the chord's own
+     * root / let the piece choose) alongside a plain-backdrop check, a
+     * collections select and a density range — all of which live in the reading
+     * panel behind the `i` beside Generate, next to the descriptor copy that is
+     * generated from the same declarations.
+     *
+     * What was left here was a stale subset that actively misled:
+     *
+     *   - the "advanced" box WROTE NOTHING. `normalizeApproachMode` derives
+     *     `advanced` from `source` on every read, so the checkbox's own write
+     *     was overwritten before anything could see it. Measured: unchecking it
+     *     against `source:'root'` left the state byte-identical.
+     *   - it LIED about the state. Set `source:'fifth'` in the reading panel and
+     *     this box carried on showing itself checked, because it is built once
+     *     and never re-rendered.
+     *   - it could not express `source:'root'` at all — the old boolean only
+     *     ever ADDED the own-root family, so two of the three rootings were
+     *     unreachable from here.
+     *   - its tooltip and legend still described the tonic-withholding rule,
+     *     which the walk work removed.
+     *
+     * Two controls in two places, one of them inert and showing the wrong
+     * value, is worse than one control in one place. The dial above answers
+     * "how much"; where the colour goes is the reading panel's question.
      */
-    buildApproachScalesRow() {
-        const st = this.getApproachScales();
-        const wrap = document.createElement('div');
-        wrap.style.cssText = `
-            padding:6px 12px 9px; border-top:1px solid #0f3460; background:#111c33;
-            font-size:10px; color:#94a3b8;
-        `;
-
-        const mkCheck = (labelText, checked, title) => {
-            const lab = document.createElement('label');
-            lab.style.cssText = 'display:inline-flex; align-items:center; gap:5px; cursor:pointer; margin-right:14px;';
-            lab.title = title;
-            const box = document.createElement('input');
-            box.type = 'checkbox';
-            box.checked = !!checked;
-            box.style.cssText = 'accent-color:#00d4ff; cursor:pointer;';
-            const txt = document.createElement('span');
-            txt.textContent = labelText;
-            lab.appendChild(box); lab.appendChild(txt);
-            return { lab, box, txt };
-        };
-
-        const main = mkCheck('🪜 Approach scales', st.enabled,
-            'Plain major/aeolian base and a plain diatonic progression; all the outside colour '
-            + 'arrives in the approach into each chord, drawn from a scale rooted a fifth above it.');
-        const adv = mkCheck('advanced: borrow on the target\'s own root', st.advanced,
-            'Approach the target using chords from a scale built on the TARGET\'S root — and never '
-            + 'sound that scale\'s own tonic chord, so the arrival is the first time you hear it. '
-            + 'G major: I → (Ddim7 from C diminished) → IVmaj7, with Cdim7 withheld.');
-
-        const note = document.createElement('div');
-        note.style.cssText = 'margin-top:5px; color:#64748b; line-height:1.5;';
-
-        const refresh = () => {
-            adv.lab.style.opacity = st.enabled ? '1' : '0.4';
-            adv.box.disabled = !st.enabled;
-            note.innerHTML = st.enabled
-                ? '<span style="color:#fbbf24;">On.</span> Base scale forced to major or aeolian and the '
-                  + 'progression to the textbook families; borrowed chords, secondary dominants, modulation, '
-                  + 'chromatic mediants and subverted cadences are switched off so the approach is the only '
-                  + 'thing leaving the key. '
-                  + (st.advanced
-                      ? 'Approaches are drawn from scales rooted on the <strong>target\'s own root</strong>, '
-                        + 'with that scale\'s tonic chord withheld until the arrival.'
-                      : 'Approaches are drawn from scales rooted <strong>a fifth above</strong> the target.')
-                : 'Off — the Harmony dial above decides what is switched on.';
-        };
-
-        main.box.onchange = () => {
-            st.enabled = main.box.checked;
-            window.__arcApproachScales = st;
-            this.saveApproachScales();
-            refresh();
-        };
-        adv.box.onchange = () => {
-            st.advanced = adv.box.checked;
-            window.__arcApproachScales = st;
-            this.saveApproachScales();
-            refresh();
-        };
-
-        wrap.appendChild(main.lab);
-        wrap.appendChild(adv.lab);
-        wrap.appendChild(note);
-        refresh();
-        return wrap;
-    }
 
     /** Describe the current harmony setting in words. */
     updateHarmonyLegend() {
@@ -821,6 +783,16 @@ class CompositionTimelineUI {
         this._seedCounter = (this._seedCounter || 0) + 1;
         const seed = ((Date.now() ^ (this._seedCounter * 2654435761)) >>> 0);
 
+        // THE ARC OWNS THE STAFF FOR THIS PRESS, exactly as the Generate button
+        // beside the reading dropdown does. This is a third entry point into the
+        // same generation, and it was the only one not claiming the staff — so a
+        // lexical pass still in flight from typing could land afterwards and
+        // rewrite the sheet from display tokens, which keep root/type/notes and
+        // no record of where a borrowed chord came from. Three buttons that
+        // generate must generate the same way or the difference between them is
+        // a bug nobody can see.
+        try { window.__sheetOwnedByArc = true; } catch (_) {}
+
         // Dispatch arcConfirmed event with details for the generation engine
         const event = new CustomEvent('arcConfirmed', {
             detail: {
@@ -828,7 +800,11 @@ class CompositionTimelineUI {
                 points: this.points,
                 canvasMode: this.canvasMode,
                 input: this.inputElement.value,
-                seed
+                seed,
+                // Carried for the same reason the primary button carries it:
+                // so anything re-rendering from this event knows which reading
+                // produced the take.
+                method: (typeof window !== 'undefined' && window.__generationMethod) || 'contour'
             }
         });
         

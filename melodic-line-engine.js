@@ -1315,6 +1315,12 @@
             const barCountLine = Number(arc.bars) || Math.max(1, Math.ceil(totalBeats / beatsPerBar));
             const fullRestBudget = Math.max(0, Math.round(barCountLine * 0.06));
             let fullRestsSpent = 0;
+            // A separate, equally small budget for stopping the tune so a walk
+            // can be heard on its own. Kept apart from the rest budget because
+            // they are different gestures: one is the line breathing, the other
+            // is the line handing over.
+            const yieldBudget = Math.max(1, Math.round(barCountLine * 0.12));
+            let yieldsSpent = 0;
 
             for (let a = 0; a < anchors.length; a++) {
                 const from = anchors[a];
@@ -1381,6 +1387,57 @@
                         const rest = available >= 3 ? 1 : 0.5;
                         cursor += rest;
                         available -= rest;
+                    }
+                }
+
+                // THE TUNE STOPS SO THE COLLECTION CAN BE PLAYED.
+                //
+                // A borrowed collection is used two opposite ways and they have
+                // to be told apart. While the tune is SOUNDING it is what the
+                // borrowing is heard against: it holds, it stays in the key, and
+                // the collection moves underneath it. Where the tune has
+                // STOPPED there is nothing to be heard against, and the
+                // collection becomes the material — a single-note run in the
+                // register between the accompaniment and the tune, landing
+                // where the tune comes back in.
+                //
+                // Only a REST can carry the second one, and the rests this line
+                // already takes are placed at the START of a span while a walk
+                // sits at its END. So they met only by accident: measured, 13.9%
+                // of rests happened to fall over a walk. This yields the tail of
+                // a span deliberately when a walk is about to occupy it, which
+                // is the one thing that turns the coincidence into the device.
+                //
+                // Rare, and for the same reason the reply that answers it is
+                // rare: yielding every walk would stop the tune constantly and
+                // the holding — which is 90% of what this device is — would go
+                // with it. One or two a piece is an event; more is a stutter.
+                if (available > 0 && yieldsSpent < yieldBudget && !(to && to.cadence)) {
+                    const walkStart = (() => {
+                        const seqHere = (harmony && harmony.chordSequence) || [];
+                        let earliest = null;
+                        for (const ev of seqHere) {
+                            if (!ev || !ev.approachStrategy || !Number.isFinite(ev.bar)) continue;
+                            const st = ev.bar * beatsPerBar + (Number(ev.beat) || 0);
+                            const en = st + (Number(ev.duration) || 0);
+                            // It has to run to the END of the span: a walk that
+                            // finishes mid-span leaves the tune re-entering over
+                            // ordinary harmony, which is not a hand-over.
+                            if (st < cursor + 1e-6 || st >= spanEnd - 1e-6) continue;
+                            if (en < spanEnd - 1e-6) continue;
+                            if (earliest === null || st < earliest) earliest = st;
+                        }
+                        return earliest;
+                    })();
+                    if (walkStart !== null) {
+                        const yieldBeats = spanEnd - walkStart;
+                        // The tune has to have said something first, or it has
+                        // not stopped — it never started.
+                        const leftForTune = walkStart - cursor;
+                        if (yieldBeats >= 1 && leftForTune >= 1.5) {
+                            available -= yieldBeats;
+                            yieldsSpent++;
+                        }
                     }
                 }
 
@@ -1833,9 +1890,31 @@
                     const resolutionStaysHere = (i < count - 1)
                         && (this.harmonyAt(harmony, beat + dur, beatsPerBar) || from.ev) === evHere;
                     const chordPool = this.chordMidis(evHere, LOW, HIGH);
-                    // Follow the sounding scale: when the harmony borrows, the
-                    // line borrows with it.
-                    const hintNotes = (evHere && Array.isArray(evHere.scaleHintNotes) && evHere.scaleHintNotes.length)
+                    // FOLLOW THE SOUNDING SCALE — BUT ONLY IN PASSING.
+                    //
+                    // When the harmony borrows, the line may borrow with it.
+                    // What it may not do is SETTLE there. A borrowed note is a
+                    // leading tone, not somewhere to sit: sampled off a player
+                    // who does this continuously, a melody note outside the key
+                    // lasts about 0.40s and resolves by step back in, while the
+                    // note the whole borrowing is heard against is held about
+                    // 1.40s. The long note is the listener's place. Take it into
+                    // the borrowed collection and there is nothing left holding
+                    // that place, and the colour reads as a swerve.
+                    //
+                    // So the length of the note decides. Anything short enough
+                    // to be passed through may leave the key; anything long
+                    // enough to be an anchor stays home while the collection
+                    // moves underneath it.
+                    //
+                    // This became load-bearing the moment walks were allowed to
+                    // run their full length: with more borrowed time under the
+                    // tune, outside-key melody notes went from a median of 1
+                    // beat to 2 — a sustained borrowed chord tone on top, which
+                    // is the one thing this device forbids.
+                    const PASSING_MAX_BEATS = 1;
+                    const hintNotes = (evHere && Array.isArray(evHere.scaleHintNotes) && evHere.scaleHintNotes.length
+                                       && dur <= PASSING_MAX_BEATS)
                         ? evHere.scaleHintNotes : null;
                     const scalePool = hintNotes ? this.scaleMidis(hintNotes, LOW, HIGH) : homePool;
 

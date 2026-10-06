@@ -94,6 +94,7 @@ class GuitarFretboardVisualizer {
                 } else {
                     this._dockHostSize = null;
                 }
+                this._fullHostRoom = null;   // measured afresh for the new host
                 this.element = null;
                 this.gridEl = null;
                 this.createElement();
@@ -138,7 +139,7 @@ class GuitarFretboardVisualizer {
 
     _applyFitToHost(host) {
         if (!this.options.fitToContainer) return;
-        if (this._layoutMode !== 'dock') return;
+        if (this._layoutMode !== 'dock') return this._applyFitToModule(host);
         const hostW = host.clientWidth || 0;
         const hostH = host.clientHeight || 0;
         if (!hostW || !hostH) return;
@@ -160,6 +161,48 @@ class GuitarFretboardVisualizer {
                 this.createElement();
                 host.innerHTML = '';
                 host.appendChild(this.element);
+                this.applyState();
+            } catch (_) {}
+        });
+    }
+
+    /**
+     * Module (sidebar / studio look) layout: rebuild the board so it fills the
+     * width it is given — and the height too, when a look fixes that height —
+     * instead of being a fixed 22 x 58px strip that scrolls sideways.
+     */
+    _applyFitToModule(host) {
+        if (!window.ModuleFit || !host || !this.element) return;
+        if (!window.ModuleFit.active()) {
+            // OG: the board as it was built (fixed frets, scrolls sideways)
+            if (!this._fullHostRoom) return;
+            this._fullHostRoom = null;
+            this._rebuildInto(host);
+            return;
+        }
+        const room = window.ModuleFit.measure(host, this.element);
+        if (!room.w) return;   // hidden; the observer fires again when shown
+        const prev = this._fullHostRoom;
+        if (prev && Math.abs(prev.w - room.w) < 2 && prev.definite === room.definite &&
+            (!room.definite || Math.abs(prev.h - room.h) < 2)) return;
+        this._fullHostRoom = room;
+
+        this._rebuildInto(host);
+    }
+
+    _rebuildInto(host) {
+        if (this._fullRerenderRaf) return;
+        this._fullRerenderRaf = requestAnimationFrame(() => {
+            this._fullRerenderRaf = 0;
+            try {
+                const scroll = this.element ? this.element.scrollLeft : 0;
+                this.element = null;
+                this.gridEl = null;
+                this._gf_fit = null;
+                this.createElement();
+                host.innerHTML = '';
+                host.appendChild(this.element);
+                this.element.scrollLeft = scroll;
                 this.applyState();
             } catch (_) {}
         });
@@ -188,7 +231,8 @@ class GuitarFretboardVisualizer {
 
         // Geometry (single source of truth so frets/notes/labels align)
         const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-        const frets = this.options.frets;
+        let frets = this.options.frets;
+        const room = (!compact && this.options.fitToContainer) ? this._fullHostRoom : null;
 
         let fretWidth;
         let openZoneWidth;
@@ -223,6 +267,27 @@ class GuitarFretboardVisualizer {
 
             totalWidth = Math.floor(openZoneWidth + nutWidth + (frets * fretWidth) + 20);
             totalHeight = Math.floor(topPad * 2 + (stringGap * 5) + 18);
+        } else if (room && room.w) {
+            // Fit the module: width always, height only when a look fixes it.
+            // Fewer frets (never below 12, a full octave) beats unreadable ones.
+            wrap.style.padding = '8px 8px';
+            const extrasY = 16 + 4 + 18 + 30;   // padding + border + fret numbers + legend
+            const targetW = Math.max(200, room.w - 20);
+            openZoneWidth = 36;
+            nutWidth = 8;
+            const perFret = (n) => (targetW - openZoneWidth - nutWidth - 20) / n;
+            while (frets > 12 && perFret(frets) < 26) frets--;
+            fretWidth = clamp(perFret(frets), 18, 96);
+
+            const naturalGap = clamp(fretWidth * 0.62, 18, 42);
+            stringGap = room.definite
+                ? clamp(Math.min((room.h - extrasY - 34) / 5, fretWidth * 0.9), 16, 44)
+                : naturalGap;
+            dotSize = clamp(Math.round(Math.min(stringGap * 0.8, fretWidth * 0.75)), 12, 28);
+            topPad = clamp(Math.round(stringGap * 0.4), 8, 20);
+            totalWidth = Math.floor(openZoneWidth + nutWidth + (frets * fretWidth) + 20);
+            totalHeight = Math.floor(topPad * 2 + (stringGap * 5) + dotSize);
+            wrap.style.overflowX = 'auto';   // only reached below ~12 x 18px frets
         } else {
             // Default geometry
             fretWidth = compact ? 50 : 58;
@@ -278,7 +343,7 @@ class GuitarFretboardVisualizer {
         fretboard.appendChild(nut);
 
         // Fret wires (end of each fret 1..N)
-        for (let f = 1; f <= this.options.frets; f++) {
+        for (let f = 1; f <= frets; f++) {
             const fretWire = document.createElement('div');
             fretWire.style.position = 'absolute';
             fretWire.style.left = `${openZoneWidth + nutWidth + (f * fretWidth)}px`;
@@ -296,7 +361,7 @@ class GuitarFretboardVisualizer {
         const inlayFrets = [3, 5, 7, 9, 15, 17, 19, 21];
         const doubleInlayFrets = [12];
         
-        inlayFrets.forEach(f => {
+        inlayFrets.filter(f => f <= frets).forEach(f => {
             const dot = document.createElement('div');
             dot.style.position = 'absolute';
             // Center of fret "f" space (between nut and fret wire f)
@@ -313,8 +378,9 @@ class GuitarFretboardVisualizer {
             fretboard.appendChild(dot);
         });
 
-        doubleInlayFrets.forEach(f => {
-            [-20, 20].forEach(offset => {
+        doubleInlayFrets.filter(f => f <= frets).forEach(f => {
+            const inlayGap = Math.round(stringGap / 2);
+            [-inlayGap, inlayGap].forEach(offset => {
                 const dot = document.createElement('div');
                 dot.style.position = 'absolute';
                 dot.style.left = `${openZoneWidth + nutWidth + ((f - 0.5) * fretWidth)}px`;
@@ -378,7 +444,7 @@ class GuitarFretboardVisualizer {
                 const label = document.createElement('div');
                 label.className = 'fret-label';
                 label.textContent = noteName;
-                label.style.fontSize = '11px';
+                label.style.fontSize = `${clamp(Math.round(dotSize * 0.46), 9, 13)}px`;
                 label.style.fontWeight = '700';
                 label.style.color = 'rgba(255,255,255,0.7)';
                 label.style.pointerEvents = 'none';
@@ -424,7 +490,7 @@ class GuitarFretboardVisualizer {
             }
 
             // Fretted notes (1..N)
-            for (let f = 1; f <= this.options.frets; f++) {
+            for (let f = 1; f <= frets; f++) {
                 const midi = openMidi + f;
                 const semitone = midi % 12;
                 const noteName = this.SEMITONE_TO_NOTE[semitone];
@@ -455,7 +521,7 @@ class GuitarFretboardVisualizer {
                 const label = document.createElement('div');
                 label.className = 'fret-label';
                 label.textContent = noteName;
-                label.style.fontSize = '11px';
+                label.style.fontSize = `${clamp(Math.round(dotSize * 0.46), 9, 13)}px`;
                 label.style.fontWeight = '700';
                 label.style.color = 'rgba(255,255,255,0.7)';
                 label.style.pointerEvents = 'none';
@@ -519,7 +585,7 @@ class GuitarFretboardVisualizer {
             openLabel.style.textAlign = 'center';
             openLabel.style.opacity = '0.75';
             fretNumbers.appendChild(openLabel);
-            for (let f = 1; f <= this.options.frets; f++) {
+            for (let f = 1; f <= frets; f++) {
                 const num = document.createElement('div');
                 num.textContent = String(f);
                 num.style.width = `${fretWidth}px`;
@@ -612,6 +678,130 @@ class GuitarFretboardVisualizer {
         this.applyState();
     }
 
+    /**
+     * WHERE A HAND WOULD PLAY THESE PITCHES.
+     *
+     * A pitch exists in up to six places on the neck; a played note should
+     * light one of them — the exact octave, near where the hand already is,
+     * one note per string. For one note: the nearest place to the hand. For
+     * several (a chord): the window of `span` frets (open strings always
+     * allowed) nearest the hand that holds them all on different strings.
+     *
+     * Pure, so it can be tested without a fretboard on screen.
+     * @param {number[]} midis
+     * @param {{midi:number, fret:number, string:number}[]} cells
+     * @param {number} hand  the fret the hand is centred on
+     * @param {{span?:number, avoidStrings?:number[]}} [opts]
+     * @returns {{midi:number, fret:number, string:number}[]|null} null if they do not fit
+     */
+    static placeOnNeck(midis, cells, hand, opts = {}) {
+        const notes = (midis || []).slice().sort((a, b) => a - b);
+        if (!notes.length) return [];
+        const avoid = new Set(opts.avoidStrings || []);
+
+        if (notes.length === 1) {
+            let best = null, bestCost = Infinity;
+            for (const c of cells) {
+                if (c.midi !== notes[0]) continue;
+                const cost = Math.abs(c.fret - hand) + (avoid.has(c.string) ? 100 : 0);
+                if (cost < bestCost || (cost === bestCost && best && c.fret < best.fret)) { best = c; bestCost = cost; }
+            }
+            return best ? [{ midi: best.midi, fret: best.fret, string: best.string }] : null;
+        }
+
+        const span = typeof opts.span === 'number' ? opts.span : 4;
+        const maxFret = cells.reduce((m, c) => Math.max(m, c.fret), 0);
+        let best = null, bestCost = Infinity;
+        for (let w = 1; w <= Math.max(1, maxFret - span); w++) {
+            const centre = w + span / 2;
+            const options = notes.map(m => cells.filter(c => c.midi === m && !avoid.has(c.string) &&
+                (c.fret === 0 || (c.fret >= w && c.fret <= w + span))));
+            if (options.some(o => !o.length)) continue;
+            // Small search: at most six notes, at most six strings.
+            let localBest = null, localCost = Infinity;
+            const used = new Set(), pick = [];
+            const walk = (i, cost) => {
+                if (cost >= localCost) return;
+                if (i === notes.length) { localCost = cost; localBest = pick.slice(); return; }
+                for (const c of options[i]) {
+                    if (used.has(c.string)) continue;
+                    used.add(c.string); pick.push(c);
+                    walk(i + 1, cost + (c.fret === 0 ? 0 : Math.abs(c.fret - centre)));
+                    used.delete(c.string); pick.pop();
+                }
+            };
+            walk(0, 0);
+            if (!localBest) continue;
+            const total = localCost + Math.abs(centre - hand) * 0.75;
+            if (total < bestCost) { bestCost = total; best = localBest; }
+        }
+        return best ? best.map(c => ({ midi: c.midi, fret: c.fret, string: c.string })) : null;
+    }
+
+    _neckCells() {
+        if (!this.gridEl) return [];
+        return Array.from(this.gridEl.querySelectorAll('.fret-cell')).map(cell => ({
+            midi: parseInt(cell.dataset.midi, 10),
+            fret: parseInt(cell.dataset.fret, 10),
+            string: parseInt(cell.dataset.stringIndex, 10)
+        }));
+    }
+
+    _heldMap() {
+        if (!this._held) { this._held = new Map(); this._hand = 5; }
+        return this._held;
+    }
+
+    _settleHand(lastFret) {
+        const frets = Array.from(this._heldMap().values()).map(p => p.fret).filter(f => f > 0);
+        if (frets.length) this._hand = frets.reduce((a, b) => a + b, 0) / frets.length;
+        else if (typeof lastFret === 'number' && lastFret > 0) this._hand = lastFret;
+    }
+
+    /** Live input (a MIDI keyboard, the typing keyboard): light where it is played. */
+    midiNoteOn(midi) {
+        if (typeof midi !== 'number') return;
+        const held = this._heldMap();
+        if (held.has(midi)) return;   // already sounding (in a chord, say): it stays where it is
+        const avoidStrings = Array.from(held.values()).map(p => p.string);
+        const placed = GuitarFretboardVisualizer.placeOnNeck([midi], this._neckCells(), this._hand, { avoidStrings });
+        if (!placed) return;   // off the neck
+        held.set(midi, placed[0]);
+        this._settleHand(placed[0].fret);
+        this.applyState();
+    }
+
+    midiNoteOff(midi) {
+        const held = this._heldMap();
+        if (!held.delete(midi)) return;
+        this._settleHand();
+        this.applyState();
+    }
+
+    /**
+     * A whole chord at once, as one hand shape. Returns false when it cannot
+     * be held in one position (the caller can fall back to setFocusNotes,
+     * which lights its pitch classes across the neck).
+     * opts.avoidStrings: strings already taken (a melody note held above it).
+     */
+    midiChordOn(midis, opts = {}) {
+        const held = this._heldMap();
+        const placed = GuitarFretboardVisualizer.placeOnNeck(midis, this._neckCells(), this._hand,
+            { span: 4, avoidStrings: opts.avoidStrings || [] });
+        if (!placed) return false;
+        placed.forEach(p => held.set(p.midi, p));
+        this._settleHand();
+        this.applyState();
+        return true;
+    }
+
+    clearMidiNotes() {
+        const held = this._heldMap();
+        if (!held.size) return;
+        held.clear();
+        this.applyState();
+    }
+
     getEnharmonicEquivalent(note) {
         const pairs = { 'C#':'Db','Db':'C#','D#':'Eb','Eb':'D#','F#':'Gb','Gb':'F#','G#':'Ab','Ab':'G#','A#':'Bb','Bb':'A#' };
         return pairs[note] || note;
@@ -657,6 +847,8 @@ class GuitarFretboardVisualizer {
                 glow: '0 0 18px rgba(59,130,246,0.95), inset 0 1px 4px rgba(255,255,255,0.5)' }
             : { fill: 'radial-gradient(circle, rgba(253,224,71,1) 0%, rgba(245,158,11,0.9) 100%)',
                 glow: '0 0 18px rgba(245,158,11,0.95), inset 0 1px 4px rgba(255,255,255,0.5)' };
+
+        const heldAt = new Set(Array.from((this._held || new Map()).values()).map(p => p.string + ':' + p.fret));
 
         const cells = Array.from(this.gridEl.querySelectorAll('.fret-cell'));
         for (const cell of cells) {
@@ -740,6 +932,19 @@ class GuitarFretboardVisualizer {
                         label.style.fontWeight = '400';
                         label.style.textShadow = 'none';
                     }
+                }
+            }
+
+            // PLAYED NOW (a MIDI or typing keyboard is holding it): on top of
+            // everything, because it is what the hand is doing this instant.
+            if (heldAt.has(cell.dataset.stringIndex + ':' + f)) {
+                cell.style.opacity = '1';
+                cell.style.background = 'radial-gradient(circle, rgba(236,254,255,1) 0%, rgba(34,211,238,0.95) 100%)';
+                cell.style.boxShadow = '0 0 22px rgba(34,211,238,1), 0 0 0 2px rgba(255,255,255,0.85)';
+                if (label) {
+                    label.style.color = '#000';
+                    label.style.fontWeight = '900';
+                    label.style.textShadow = 'none';
                 }
             }
         }

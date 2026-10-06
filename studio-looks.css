@@ -1,0 +1,1004 @@
+/* ==========================================================================
+   STUDIO LOOKS — layout reorganizations of the full studio
+   --------------------------------------------------------------------------
+   OG CONTRACT: every layout rule is scoped under body[data-look="<non-og>"]
+   or body[data-look]:not([data-look="og"]). Nothing here can match when
+   data-look="og". Unscoped rules define brand-new .look-* classes only.
+
+   GEOMETRY IS DATA. A look's grid (areas, columns, rows, and its own
+   narrower layouts) lives in its definition in studio-looks.js and reaches
+   this file as --look-areas / --look-cols / --look-rows on .workspace.
+   Custom properties, not inline grid-template-*, so the small-screen
+   fallback at the bottom (one stacked column, !important) still wins.
+
+   ZONE TYPES ARE STYLED BY TYPE. A rail, a drawer, a mosaic... behave the
+   same in any look, including one a person builds. Rules keyed to a
+   particular look id are decoration only (its colours and borders), plus
+   the two zone tweaks a look makes at its own widths.
+   ========================================================================== */
+
+/* Module sizes come from MODULES in studio-looks.js as --m-min-w,
+   --m-min-h and --m-ideal-w on each module; these are the fallbacks. */
+body[data-look]:not([data-look="og"]) .look-item {
+    --m-min-w: 250px;   /* below this the module's own content overflows */
+    --m-min-h: 180px;
+    --m-ideal-w: 320px; /* where it stops looking cramped */
+    min-height: 0;
+    min-width: 0;
+}
+
+/* Shades for zone backgrounds — tokens, so a lighter theme can redefine them. */
+body[data-look]:not([data-look="og"]) {
+    --look-shade-1: rgba(0, 0, 0, 0.25);
+    --look-shade-2: rgba(0, 0, 0, 0.35);
+    --look-shade-3: rgba(0, 0, 0, 0.4);
+    --look-shade-4: rgba(0, 0, 0, 0.45);
+    --look-shade-5: rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- shared shell (non-OG only) ---------------------------------- */
+body[data-look]:not([data-look="og"]) .workspace {
+    /* No !important: the inline display ModuleSelector writes must keep winning
+       or the workspace renders behind the landing page. StudioLooks clears that
+       inline value itself once the studio is actually launched. */
+    display: grid;
+    align-items: stretch;
+    position: relative;
+    gap: 6px;
+    padding: 6px;
+    overflow: auto;          /* never hidden: clipping a module is worse than scrolling it */
+    min-height: 0;
+    grid-template-areas: var(--look-areas, none);
+    grid-template-columns: var(--look-cols, minmax(0, 1fr));
+    grid-template-rows: var(--look-rows, minmax(0, 1fr));
+}
+
+body[data-look]:not([data-look="og"]) .workspace-column { display: none !important; }
+
+.look-zone { display: none; }
+
+body[data-look]:not([data-look="og"]) .look-zone {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    position: relative;
+}
+/* each zone's grid-area is set from the look (any letter a-z); a zone the
+   layout in force does not place is hidden rather than auto-placed */
+body[data-look]:not([data-look="og"]) .look-zone[data-off-grid] { display: none !important; }
+
+/* A module in a column zone never compresses below the height its own
+   renderer needs; the zone scrolls instead. */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="column"] > .look-item {
+    flex: 0 0 auto;
+    min-height: var(--m-min-h);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="column"] > .look-item:only-of-type,
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="column"] > [data-module="sheet"] {
+    flex: 1 1 auto;
+}
+body[data-look]:not([data-look="og"]) [data-module="chordstrip"] { flex: 0 0 auto; }
+
+body[data-look]:not([data-look="og"]) .look-zone-label {
+    flex: 0 0 auto;
+    font-family: var(--font-tech);
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    opacity: 0.75;
+    padding: 2px 4px 4px;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 2px;
+    position: sticky;
+    top: 0;
+    background: var(--bg-app);
+    z-index: 3;
+}
+
+/* a zone's one-line purpose, under its label */
+body[data-look]:not([data-look="og"]) .look-zone-why {
+    flex: 0 0 auto;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+    padding: 0 4px 4px;
+    max-width: 72ch;
+}
+/* in a row the caption is its own line above the modules (a max-width let
+   it sit beside them, eating half the row) */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > .look-zone-why { flex: 1 0 100%; max-width: none; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-zone-why,
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="drawer"]:not(.look-drawer-open) > .look-zone-why { display: none; }
+
+/* After a look's first visit its captions fold behind a "?" on the label
+   (and show while the label is hovered); the first visit shows them all. */
+body[data-look]:not([data-look="og"]) .look-zone.look-has-why:not(.look-why-open) > .look-zone-why { display: none; }
+body[data-look]:not([data-look="og"]) .look-zone.look-has-why > .look-zone-label:hover + .look-zone-why { display: block; }
+.look-why-toggle {
+    margin-left: 6px;
+    width: 15px;
+    height: 15px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.6rem;
+    line-height: 13px;
+    letter-spacing: 0;
+    cursor: pointer;
+    vertical-align: middle;
+    opacity: 0.8;
+}
+.look-why-toggle:hover,
+.look-why-toggle:focus-visible,
+.look-why-toggle[aria-expanded="true"] { opacity: 1; color: var(--accent-primary); }
+
+/* What each module is for, beside its code name (REF::CIRCLE_OF_FIFTHS says
+   little to someone learning) — only where the header has room for both, so
+   the module's own name is never cut short. Rotated spines and strips are
+   left alone (size containment would collapse them). */
+body[data-look]:not([data-look="og"]) .look-zone:not([data-flow="rail"]):not([data-flow="strips"]) > .look-item > .module-header {
+    container: lookhead / inline-size;
+}
+@container lookhead (min-width: 440px) {
+    body[data-look]:not([data-look="og"]) .look-item > .module-header > span[data-purpose] {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    body[data-look]:not([data-look="og"]) .look-item > .module-header > span[data-purpose]::after {
+        content: attr(data-purpose);
+        margin-left: 10px;
+        font-family: var(--font-ui);
+        font-size: 0.68rem;
+        font-weight: 400;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--text-muted);
+    }
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="orbit"] > .look-item > .module-header > span[data-purpose]::after { content: none; }
+
+/* A reading zone's steps say what each step is for */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="reading"] > .look-item > .module-header[data-step-text] { flex-wrap: wrap; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="reading"] > .look-item > .module-header[data-step-text]::after {
+    content: attr(data-step-text);
+    flex: 1 0 100%;
+    order: 5;
+    padding-top: 4px;
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-main);
+}
+
+/* rail spines and tile nameplates are controls: show focus */
+body[data-look]:not([data-look="og"]) .look-item > .module-header[role="button"]:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+}
+
+/* row flow: each module claims at least the width its content needs */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    align-items: stretch;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > .look-item {
+    flex: 1 1 var(--m-ideal-w);
+    min-width: var(--m-min-w);
+    min-height: var(--m-min-h);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > [data-module="chordstrip"] {
+    flex: 1 0 100%;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > .look-zone-label {
+    writing-mode: vertical-rl;
+    border-bottom: none;
+    border-right: 1px solid var(--border-light);
+    position: static;
+    padding: 4px 3px;
+    margin: 0 2px 0 0;
+    flex: 0 0 auto;
+}
+
+body.look-dragging { user-select: none; cursor: col-resize; }
+body.look-dragging[data-drag-axis="y"] { cursor: row-resize; }
+
+/* ---------- divider ----------------------------------------------------- */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="divider"] { overflow: visible; padding: 0; }
+.look-divider {
+    width: 100%;
+    height: 100%;
+    background: var(--border-light);
+    border-radius: 4px;
+    cursor: col-resize;
+    transition: background 0.15s ease;
+}
+.look-divider:hover,
+.look-divider:focus-visible { background: var(--accent-primary); }
+.look-divider:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.look-divider[data-axis="y"] { cursor: row-resize; }
+
+/* ==========================================================================
+   ZONE TYPES
+   ========================================================================== */
+
+/* ---------- rail: modules collapse to labelled spines and fly out --------- */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] {
+    overflow: visible;
+    background: var(--look-shade-3);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 4px 2px;
+    gap: 4px;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-zone-label {
+    writing-mode: vertical-rl;
+    border: none;
+    position: static;
+    align-self: center;
+    padding: 4px 0;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item {
+    min-width: 0;
+    width: 100%;
+    min-height: 0;
+    flex: 0 0 auto;
+    border-color: transparent;
+    background: transparent;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item > .module-content { display: none; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item > .module-header {
+    writing-mode: vertical-rl;
+    height: auto;
+    padding: 12px 4px;
+    justify-content: flex-start;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item > .module-header:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+/* fly-out is sized from the module's own requirement, not a flat 360 */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item.look-rail-open {
+    position: fixed;
+    width: clamp(var(--m-min-w), var(--m-ideal-w), 42vw);
+    max-height: min(74vh, 720px);
+    z-index: 160;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent-primary);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.65);
+    border-radius: var(--radius-md);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item.look-rail-open > .module-header {
+    writing-mode: horizontal-tb;
+    padding: 8px 10px;
+    border: none;
+    border-bottom: 1px solid var(--border-light);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item.look-rail-open > .module-content {
+    display: flex;
+    max-height: calc(min(74vh, 720px) - 40px);
+    overflow: auto;
+}
+
+/* ---------- strips: mixer channel strips, scrolling sideways ---------------
+   Uniform in FEEL, not in pixels: each strip is as wide as its module needs.
+   A flat 248px clipped the circle (240px canvas). */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"] {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 3px;
+    align-items: stretch;
+    padding-bottom: 6px;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"] > .look-item {
+    --strip-chrome: 46px;   /* rotated nameplate + padding + borders */
+    flex: 0 0 auto;
+    width: calc(clamp(var(--m-min-w), var(--m-ideal-w), 620px) + var(--strip-chrome));
+    min-width: calc(var(--m-min-w) + var(--strip-chrome));
+    display: flex;
+    flex-direction: row;
+    border-radius: 0;
+    border-right: 2px solid var(--border-light);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"] > .look-item > .module-header {
+    writing-mode: vertical-rl;
+    flex: 0 0 26px;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 8px 2px;
+    font-size: 0.64rem;
+    letter-spacing: 0.1em;
+    border-bottom: none;
+    border-right: 1px solid var(--border-light);
+    background: var(--look-shade-2);
+    white-space: nowrap;
+    overflow: hidden;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"] > .look-item > .module-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: auto;
+    padding: 6px;
+}
+
+/* ---------- orbit: one module held square and centred ----------------------
+   The solar canvas draws from Math.min(w,h), so its box is held SQUARE. No
+   border-radius on the module: 50% on a non-square box made an oval. */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="orbit"] {
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 4px;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="orbit"] > .look-item {
+    aspect-ratio: 1 / 1;
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    min-width: var(--m-min-w);
+    min-height: var(--m-min-h);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-md);
+    background:
+        radial-gradient(circle at 50% 52%, var(--accent-glow), transparent 62%),
+        var(--look-shade-3);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="orbit"] > .look-item > .module-header {
+    justify-content: center;
+    border-bottom: none;
+    background: transparent;
+    font-size: 0.66rem;
+    flex: 0 0 auto;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="orbit"] > .look-item > .module-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* ---------- page: a centred page of measured width ------------------------ */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="page"] {
+    align-items: center;
+    background: var(--look-shade-4);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 6px;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="page"] > .look-item {
+    width: 100%;
+    max-width: 980px;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="page"] > [data-module="sheet"] { flex: 1 1 auto; }
+
+/* ---------- drawer: everything behind one handle -------------------------- */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="drawer"] {
+    overflow: visible;
+    background: var(--look-shade-3);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 4px 2px;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="drawer"] > .look-zone-label { display: none; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="drawer"] > .look-item { display: none; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="drawer"].look-drawer-open {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: clamp(300px, 34vw, 420px);
+    z-index: 150;
+    overflow: auto;
+    background: var(--bg-panel);
+    border-color: var(--accent-primary);
+    box-shadow: -14px 0 40px rgba(0, 0, 0, 0.6);
+    padding: 6px;
+    gap: 6px;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="drawer"][data-side="left"].look-drawer-open {
+    right: auto;
+    left: 0;
+    box-shadow: 14px 0 40px rgba(0, 0, 0, 0.6);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="drawer"].look-drawer-open > .look-item {
+    display: flex;
+    flex: 0 0 auto;
+    min-height: var(--m-min-h);
+}
+.look-drawer-handle {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: var(--font-tech);
+    cursor: pointer;
+    padding: 10px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.12em;
+}
+.look-drawer-handle:hover { color: var(--accent-primary); border-color: var(--accent-primary); }
+.look-drawer-handle .look-drawer-word { writing-mode: vertical-rl; font-size: 0.6rem; }
+.look-zone.look-drawer-open .look-drawer-handle { flex-direction: row; padding: 6px 10px; }
+.look-zone.look-drawer-open .look-drawer-handle .look-drawer-word { writing-mode: horizontal-tb; }
+
+/* ---------- bench: one instrument across the full width ------------------- */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="bench"] {
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-md);
+    background: var(--look-shade-4);
+    padding: 4px;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="bench"] > .look-item { flex: 1 1 auto; min-height: 0; }
+
+/* ---------- compact: a rail of small modules -------------------------------
+   Height is capped per module, not with one flat number, so the circle still
+   gets its 240px canvas while a list gets far less. */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="compact"] > .look-item > .module-header {
+    font-size: 0.7rem;
+    padding: 5px 8px;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="compact"] > .look-item > .module-content {
+    max-height: var(--m-min-h);
+    padding: 6px;
+}
+
+/* ---------- legend: a full-width strip between accent rules --------------- */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="legend"] {
+    max-height: clamp(96px, 16vh, 150px);
+    border-top: 1px solid var(--accent-primary);
+    border-bottom: 1px solid var(--accent-primary);
+    padding: 3px 0;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="legend"] > .look-item { border: none; min-height: 0; }
+
+/* ---------- tabs + solo: one module at a time ------------------------------ */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="tabs"] { overflow: visible; gap: 4px; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="solo"] { padding: 0; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="solo"] > .look-item { display: none; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="solo"] > .look-item.look-solo-active {
+    display: flex;
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: var(--m-min-h);
+    border-color: var(--accent-primary);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="solo"] > .look-item.look-solo-active > .module-content {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.look-tabbar {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 2px;
+}
+.look-tab {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom: none;
+    color: var(--text-muted);
+    font-family: var(--font-tech);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.look-tab:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.04); }
+.look-tab.active {
+    color: var(--accent-primary);
+    border-color: var(--border-light);
+    border-bottom: 2px solid var(--accent-primary);
+    background: rgba(0, 0, 0, 0.4);
+}
+.look-tab-glyph { font-size: 0.85rem; }
+@media (max-width: 720px) {
+    .look-tab { padding: 6px 8px; font-size: 0; gap: 0; }   /* glyphs only */
+    .look-tab-glyph { font-size: 1rem; }
+}
+
+/* ---------- mosaic: equal tiles sized to the viewport ----------------------
+   Column count follows the viewport; tall modules claim two rows; the zone
+   scrolls rather than clipping; a nameplate click zooms a tile. */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(clamp(240px, 21vw, 320px), 1fr));
+    grid-auto-rows: minmax(190px, 1fr);
+    gap: 5px;
+    overflow: auto;
+    align-content: start;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > .look-item {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-module="circle"],
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-module="solar"],
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-module="sheet"] { grid-row: span 2; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-module="chordstrip"] { grid-column: 1 / -1; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > .look-item > .module-header {
+    padding: 4px 8px;
+    font-size: 0.66rem;
+    cursor: zoom-in;
+    flex: 0 0 auto;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > .look-item > .module-content {
+    padding: 5px;
+    overflow: auto;
+    min-height: 0;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > .look-item.look-zoom {
+    grid-column: span 2;
+    grid-row: span 2;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 1px var(--accent-primary), 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > .look-item.look-zoom > .module-header { cursor: zoom-out; }
+
+/* ---------- reading: a measured column of numbered steps ------------------- */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="reading"] {
+    align-items: center;
+    padding: 18px 16px 48px;
+    gap: 22px;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="reading"] > .look-item {
+    width: 100%;
+    max-width: 900px;
+    flex: 0 0 auto;
+    min-height: var(--m-min-h);
+    position: relative;
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="reading"] > .look-item::before {
+    content: attr(data-step);
+    position: absolute;
+    left: -34px;
+    top: 4px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary);
+    font-family: var(--font-tech);
+    font-size: 0.72rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-app);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="reading"] > .look-item::after {
+    content: '';
+    position: absolute;
+    left: -21px;
+    top: 34px;
+    bottom: -24px;
+    width: 1px;
+    background: linear-gradient(var(--border-light), transparent);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="reading"] > .look-item:last-child::after { display: none; }
+/* below ~1000px the gutter badge would sit off-canvas: tuck it inside */
+@media (max-width: 1000px) {
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="reading"] { padding: 14px 10px 40px; }
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="reading"] > .look-item::before {
+        left: auto;
+        right: 6px;
+        top: -13px;
+        background: var(--bg-panel);
+    }
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="reading"] > .look-item::after { display: none; }
+}
+
+/* ---------- the instrument dock, when a look sizes it (Luthier grows it) --- */
+body[data-look-dock]:not([data-look="og"]) .bottom-deck { height: var(--look-dock-height); }
+
+/* ==========================================================================
+   TONES — how a zone a person builds can be set apart
+   ========================================================================== */
+body[data-look]:not([data-look="og"]) .look-zone[data-tone="quiet"],
+body[data-look]:not([data-look="og"]) .look-zone[data-tone="accent"],
+body[data-look]:not([data-look="og"]) .look-zone[data-tone="input"],
+body[data-look]:not([data-look="og"]) .look-zone[data-tone="tool"] {
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 5px;
+    background: var(--look-shade-1);
+}
+body[data-look]:not([data-look="og"]) .look-zone[data-tone="accent"] { border-color: var(--accent-primary); background: var(--look-shade-2); }
+body[data-look]:not([data-look="og"]) .look-zone[data-tone="input"] { border-color: var(--mod-input-color); }
+body[data-look]:not([data-look="og"]) .look-zone[data-tone="tool"] { border-color: var(--mod-tool-color); }
+body[data-look]:not([data-look="og"]) .look-zone[data-tone="accent"] > .look-zone-label { color: var(--accent-primary); }
+body[data-look]:not([data-look="og"]) .look-zone[data-tone="input"] > .look-zone-label { color: var(--mod-input-color); }
+body[data-look]:not([data-look="og"]) .look-zone[data-tone="tool"] > .look-zone-label { color: var(--mod-tool-color); }
+
+/* ==========================================================================
+   THE BUILT-IN LOOKS' OWN DECORATION
+   ========================================================================== */
+
+/* Signal Chain: numbered stages in the accent colour; RENDER boxed */
+body[data-look="signal-chain"] .look-zone-label {
+    color: var(--accent-primary);
+    opacity: 1;
+    border-bottom: 2px solid var(--accent-primary);
+}
+body[data-look="signal-chain"] .look-zone[data-zone="c"] {
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-md);
+    padding: 4px;
+    background: var(--look-shade-2);
+}
+/* stacked 2x2, MONITOR is a full-width row: its modules sit side by side */
+@media (max-width: 1340px) {
+    body[data-look="signal-chain"] .look-zone[data-zone="d"] { flex-direction: row; flex-wrap: wrap; }
+    body[data-look="signal-chain"] .look-zone[data-zone="d"] > .look-item {
+        flex: 1 1 var(--m-ideal-w); min-width: var(--m-min-w);
+    }
+}
+
+/* Stage & Wings: the stage boxed in the accent colour */
+body[data-look="stage-wings"] .look-zone[data-zone="b"] {
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-md);
+    background: var(--look-shade-5);
+    padding: 4px;
+}
+body[data-look="stage-wings"] .look-zone[data-zone="b"] > [data-module="sheet"] { flex: 1 1 auto; }
+
+/* Two-Up: ASK in the tool colour, ANSWER in the accent */
+body[data-look="two-up"] .look-zone[data-zone="a"],
+body[data-look="two-up"] .look-zone[data-zone="b"] {
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 6px;
+    background: var(--look-shade-1);
+}
+body[data-look="two-up"] .look-zone[data-zone="b"] { border-color: var(--accent-primary); }
+body[data-look="two-up"] .look-zone[data-zone="a"] > .look-zone-label { color: var(--mod-tool-color); }
+body[data-look="two-up"] .look-zone[data-zone="b"] > .look-zone-label { color: var(--accent-primary); }
+
+/* Orrery: the ribbon ruled off from the orbit */
+body[data-look="orrery"] .look-zone[data-zone="f"] {
+    border-top: 1px solid var(--accent-primary);
+    padding-top: 4px;
+}
+
+/* Luthier: stacked, the theory rail becomes a row of small modules */
+@media (max-width: 1040px) {
+    body[data-look="luthier"] .look-zone[data-zone="b"] { flex-direction: row; flex-wrap: wrap; }
+    body[data-look="luthier"] .look-zone[data-zone="b"] > .look-item {
+        flex: 1 1 var(--m-ideal-w); min-width: var(--m-min-w);
+    }
+}
+
+/* Lab Bench: the two analysis tools labelled in the tool colour */
+body[data-look="lab-bench"] .look-zone[data-zone="a"] > .look-zone-label,
+body[data-look="lab-bench"] .look-zone[data-zone="b"] > .look-zone-label {
+    color: var(--mod-tool-color);
+    border-bottom-color: var(--mod-tool-color);
+}
+
+/* Split Brain: the inventing deck in the input colour, the judging deck in the accent */
+body[data-look="split-brain"] .look-zone[data-zone="a"] {
+    border: 1px solid var(--mod-input-color);
+    border-radius: var(--radius-md);
+    padding: 5px;
+    background: var(--look-shade-1);
+}
+body[data-look="split-brain"] .look-zone[data-zone="b"] {
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-md);
+    padding: 5px;
+    background: var(--look-shade-2);
+}
+body[data-look="split-brain"] .look-zone[data-zone="a"] > .look-zone-label { color: var(--mod-input-color); }
+body[data-look="split-brain"] .look-zone[data-zone="b"] > .look-zone-label { color: var(--accent-primary); }
+
+/* ==========================================================================
+   GLOBAL SMALL-SCREEN FALLBACK
+   Under 860px no look's premise survives, so every one of them degrades to a
+   single readable column — matching how OG already behaves under 900px.
+   ========================================================================== */
+@media (max-width: 860px) {
+    body[data-look]:not([data-look="og"]) .workspace {
+        grid-template-areas: none !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        grid-template-rows: none !important;
+        grid-auto-rows: auto;
+        grid-auto-flow: row;
+        overflow: visible;
+        height: auto;
+    }
+    body[data-look]:not([data-look="og"]) .look-zone {
+        grid-area: auto !important;
+        overflow: visible;
+        max-height: none !important;
+    }
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"],
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"] {
+        flex-direction: column;
+        flex-wrap: nowrap;   /* wrapping a column put modules side by side again */
+    }
+    /* stacked, a module's basis is its own height, not the row's 100% width */
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > .look-item { flex: 0 0 auto; }
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="divider"] { display: none !important; }
+    body[data-look]:not([data-look="og"]) .look-item { min-width: 0 !important; }
+
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] {
+        grid-template-columns: minmax(0, 1fr);
+        grid-auto-rows: auto;
+    }
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > .look-item { grid-row: auto !important; grid-column: auto !important; }
+
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item > .module-header { writing-mode: horizontal-tb; }
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item > .module-content { display: flex; }
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item.look-rail-open {
+        position: static;
+        width: auto;
+        max-height: none;
+    }
+
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"] > .look-item {
+        width: 100%;
+        min-width: 0;
+        flex-direction: column;
+    }
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"] > .look-item > .module-header {
+        writing-mode: horizontal-tb;
+        flex: 0 0 auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-light);
+    }
+
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="drawer"].look-drawer-open {
+        position: fixed;
+        inset: var(--header-height) 0 0 0;
+        width: auto;
+    }
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="drawer"] > .look-item { display: none; }
+
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="orbit"] > .look-item {
+        aspect-ratio: 1 / 1;
+        width: 100%;
+        height: auto;
+    }
+}
+
+/* ==========================================================================
+   WIREFRAME PREVIEWS  (new classes; inert in OG)
+   ========================================================================== */
+.look-wire { display: block; }
+.look-wire-bg { fill: rgba(0, 0, 0, 0.45); stroke: var(--border-light); stroke-width: 0.8; }
+.look-wire-k0 { fill: rgba(255, 255, 255, 0.13); stroke: var(--border-light); stroke-width: 0.6; }
+.look-wire-k1 { fill: var(--accent-primary); opacity: 0.55; }
+.look-wire-k2 { fill: var(--text-muted); opacity: 0.4; }
+.look-wire-k3 { fill: var(--accent-secondary); opacity: 0.45; }
+
+/* ==========================================================================
+   LANDING PICKER
+   ========================================================================== */
+#look-picker {
+    margin: 0 0 26px 0;
+    padding: 20px;
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.28);
+    text-align: left;
+}
+.look-picker-head h3 {
+    margin: 0 0 6px 0;
+    color: var(--text-main);
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+.look-picker-head p {
+    margin: 0 0 16px 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    max-width: 68ch;
+    line-height: 1.5;
+}
+.look-kbd {
+    display: inline-block;
+    border: 1px solid var(--border-light);
+    border-radius: 3px;
+    padding: 0 5px;
+    font-family: var(--font-tech);
+    color: var(--text-main);
+}
+.look-picker-rail {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+}
+.look-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+    text-align: left;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-main);
+    font-family: inherit;
+    transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+.look-card:hover {
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.05);
+}
+.look-card.selected {
+    border-color: var(--accent-primary);
+    background: var(--accent-glow);
+    box-shadow: inset 0 0 0 1px var(--accent-primary);
+}
+.look-card-wire { display: block; line-height: 0; }
+.look-card-wire svg { width: 100%; height: auto; }
+.look-card-name {
+    font-family: var(--font-tech);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.look-card.selected .look-card-name { color: var(--accent-primary); }
+.look-card-tag { font-size: 0.68rem; color: var(--text-muted); line-height: 1.3; }
+.look-picker-note {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-light);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    min-height: 2.4em;
+}
+.look-picker-note strong { color: var(--accent-primary); }
+@media (max-width: 560px) {
+    #look-picker { padding: 14px; }
+    .look-picker-rail { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 8px; }
+}
+
+/* ---------- suggestions above the full list ------------------------------- */
+.look-suggest { margin: 0 0 18px; }
+.look-suggest h4,
+.look-picker-all {
+    margin: 0 0 6px;
+    font-family: var(--font-tech);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-primary);
+}
+.look-picker-all { color: var(--text-muted); }
+.look-suggest-reason { margin: 0 0 10px; color: var(--text-muted); font-size: 0.82rem; }
+.look-suggest-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.look-suggest-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    color: var(--text-main);
+    font-family: inherit;
+    cursor: pointer;
+}
+.look-suggest-card .look-card-wire { flex: 0 0 72px; }
+.look-suggest-card:hover,
+.look-suggest-card:focus-visible,
+.look-suggest-card.selected { border-color: var(--accent-primary); background: var(--accent-glow); }
+.look-suggest-words { display: flex; flex-direction: column; gap: 3px; font-size: 0.78rem; line-height: 1.35; }
+.look-suggest-words strong {
+    font-family: var(--font-tech);
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.look-suggest-words span { color: var(--text-muted); }
+
+/* ==========================================================================
+   IN-STUDIO POPOVER
+   ========================================================================== */
+.look-popover {
+    position: fixed;
+    top: 48px;
+    right: 12px;
+    z-index: 400;
+    width: min(440px, calc(100vw - 24px));
+    max-height: 76vh;
+    overflow: auto;
+    display: none;
+    background: var(--bg-panel);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-md);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    padding: 10px;
+}
+.look-popover.open { display: block; }
+.look-popover-head {
+    font-family: var(--font-tech);
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    color: var(--accent-primary);
+    padding: 2px 2px 8px;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 8px;
+}
+.look-popover-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 6px;
+}
+.look-pop-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: stretch;
+    padding: 5px;
+    background: transparent;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-muted);
+    font-family: inherit;
+}
+.look-pop-item:hover { border-color: var(--accent-primary); color: var(--text-main); }
+.look-pop-item.selected {
+    border-color: var(--accent-primary);
+    background: var(--accent-glow);
+    color: var(--accent-primary);
+}
+.look-pop-wire { line-height: 0; }
+.look-pop-wire svg { width: 100%; height: auto; }
+.look-pop-name {
+    font-family: var(--font-tech);
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.look-popover-foot {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-light);
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    min-height: 3.2em;
+}

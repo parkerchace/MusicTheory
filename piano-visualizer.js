@@ -646,8 +646,13 @@ class PianoVisualizer {
             const maxScale = 1.65;
             scale = Math.max(minScale, Math.min(maxScale, scale));
 
+            // When height (or maxScale) is the limit, the keyboard keeps its
+            // shape and is narrower than the host: centre it rather than
+            // leaving all the spare width on the right.
+            const spare = containerWidth - totalWidth * scale;
+            const offsetX = spare > 1 ? Math.floor(spare / 2) : 0;
             this.keysInner.style.transformOrigin = 'left top';
-            this.keysInner.style.transform = `scale(${scale})`;
+            this.keysInner.style.transform = offsetX ? `translateX(${offsetX}px) scale(${scale})` : `scale(${scale})`;
             this.pianoElement.style.height = `${totalHeight * scale}px`;
 
             // Prevent the element itself from forcing horizontal scroll on its parent
@@ -1717,6 +1722,63 @@ class PianoVisualizer {
     }
 
     /**
+     * Mark which of the live notes are the melody (harmonize mode), so the
+     * tune stands out from the chord sounding under it.
+     * @param {number[]} midis
+     */
+    setMarkedNotes(midis) {
+        const next = new Set((midis || []).filter(m => typeof m === 'number'));
+        const was = this._markedMidiSet || new Set();
+        if (next.size === was.size && Array.from(next).every(m => was.has(m))) return;
+        this._markedMidiSet = next;
+        this.applyState();
+    }
+
+    /**
+     * Make sure lo..hi is on the keyboard, shifting the visible range as
+     * little as possible (and keeping its width). Live input calls this so a
+     * played note is never lit off-screen. Returns true if the range moved.
+     */
+    ensureMidiVisible(lo, hi = lo) {
+        if (typeof lo !== 'number') return false;
+        const start = this.options.startMidi;
+        const end = (typeof this.options.endMidi === 'number')
+            ? this.options.endMidi
+            : start + (this.options.octaves || 2) * 12 - 1;
+        if (lo >= start && hi <= end) return false;
+        const width = end - start;
+        let s = lo < start ? lo - 2 : hi - width + 2;
+        s = Math.max(21, Math.min(108 - width, s));
+        while ([1, 3, 6, 8, 10].includes(((s % 12) + 12) % 12)) s -= 1;   // begin on a white key
+        this.updateRange(s, s + width);
+        return true;
+    }
+
+    /**
+     * Letters drawn on the keys: which computer key plays each one.
+     * @param {Object<number,string>|null} map midi -> label, or null to clear
+     */
+    setKeyHints(map) {
+        this._keyHints = map || null;
+        this._drawKeyHints();
+    }
+
+    _drawKeyHints() {
+        if (!this.pianoElement) return;
+        this.pianoElement.querySelectorAll('.pv-key-hint').forEach(n => n.remove());
+        if (!this._keyHints) return;
+        this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key').forEach(key => {
+            const text = this._keyHints[parseInt(key.dataset.midi, 10)];
+            if (!text) return;
+            const hint = document.createElement('span');
+            hint.className = 'pv-key-hint';
+            hint.textContent = text;
+            hint.setAttribute('aria-hidden', 'true');
+            key.appendChild(hint);
+        });
+    }
+
+    /**
      * Play a sequence of note names by visually stepping through them.
      * No audio output; purely visual highlight in the center octave.
      * opts: { bpm?: number, rhythm?: 'even', stepMs?: number, gapMs?: number, onStep?: (note, idx)=>void }
@@ -1769,7 +1831,7 @@ class PianoVisualizer {
     applyState() {
         // Reset all keys
         this.pianoElement.querySelectorAll('.piano-white-key, .piano-black-key').forEach(key => {
-            key.classList.remove('active', 'highlighted', 'root', 'third', 'fifth', 'seventh', 'ninth', 'eleventh', 'extension');
+            key.classList.remove('active', 'highlighted', 'root', 'third', 'fifth', 'seventh', 'ninth', 'eleventh', 'extension', 'midi-melody');
             // Reset styling
             if (key.classList.contains('piano-white-key')) {
                 key.style.background = 'linear-gradient(to bottom, #ffffff, #e0e0e0)';
@@ -2025,11 +2087,23 @@ class PianoVisualizer {
                 if (key) {
                     key.classList.add('active', 'midi-active');
                     const isBlack = key.classList.contains('piano-black-key');
-                    key.style.background = isBlack
-                        ? 'linear-gradient(180deg, #22d3ee 0%, #0ea5e9 100%)'
-                        : 'linear-gradient(180deg, #a7f3d0 0%, #34d399 100%)';
-                    key.style.borderColor = isBlack ? '#0ea5e9' : '#059669';
-                    key.style.boxShadow = '0 0 0 3px rgba(34,197,94,0.55), 0 6px 10px rgba(0,0,0,0.35)';
+                    const isMelody = !!(this._markedMidiSet && this._markedMidiSet.has(midi));
+                    key.classList.toggle('midi-melody', isMelody);
+                    if (isMelody) {
+                        // the tune: the melody blue the focus view uses, so it reads
+                        // apart from the green of the chord under it
+                        key.style.background = isBlack
+                            ? 'linear-gradient(180deg, #60a5fa 0%, #2563eb 100%)'
+                            : 'linear-gradient(180deg, #bfdbfe 0%, #3b82f6 100%)';
+                        key.style.borderColor = '#1d4ed8';
+                        key.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.7), 0 6px 10px rgba(0,0,0,0.35)';
+                    } else {
+                        key.style.background = isBlack
+                            ? 'linear-gradient(180deg, #22d3ee 0%, #0ea5e9 100%)'
+                            : 'linear-gradient(180deg, #a7f3d0 0%, #34d399 100%)';
+                        key.style.borderColor = isBlack ? '#0ea5e9' : '#059669';
+                        key.style.boxShadow = '0 0 0 3px rgba(34,197,94,0.55), 0 6px 10px rgba(0,0,0,0.35)';
+                    }
                 }
             });
         }
@@ -2083,6 +2157,9 @@ class PianoVisualizer {
                 key.classList.remove('focus-note');
             });
         }
+
+        // A re-render rebuilds the keys; put the typing-keyboard letters back.
+        if (this._keyHints) this._drawKeyHints();
     }
 
     /** Is this MIDI pitch anywhere on the drawn keyboard? */

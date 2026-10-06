@@ -121,16 +121,18 @@ class MIDIInputManager {
     }
 
     /**
-     * Process MIDI note on
+     * Process MIDI note on.
+     * opts.silent: light and notify, but make no sound — for a source that
+     * plays its own (the typing keyboard follows the instrument last touched).
      */
-    noteOn(midi, velocity, inputId) {
-        if (!this.audioEngine) return;
+    noteOn(midi, velocity, inputId, opts) {
+        const silent = !!(opts && opts.silent);
 
         // Normalize velocity to 0-1 range
         const normalizedVelocity = velocity / 127;
 
         // Play the note with long duration (will be stopped on note-off)
-        if (typeof this.audioEngine.playNote === 'function') {
+        if (!silent && this.audioEngine && typeof this.audioEngine.playNote === 'function') {
             this.audioEngine.playNote(midi, 10.0, 0, normalizedVelocity);
         }
 
@@ -150,9 +152,10 @@ class MIDIInputManager {
     /**
      * Process MIDI note off
      */
-    noteOff(midi, inputId) {
+    noteOff(midi, inputId, opts) {
+        const silent = !!(opts && opts.silent);
         // Stop the note via audio engine
-        if (this.audioEngine && typeof this.audioEngine.stopNote === 'function') {
+        if (!silent && this.audioEngine && typeof this.audioEngine.stopNote === 'function') {
             this.audioEngine.stopNote(midi);
         }
         

@@ -22,7 +22,16 @@ class ScaleRelationshipExplorer {
                 relative: []
             },
             selectedRelationshipFilter: 'all',
-            builderRoot: null
+            builderRoot: null,
+            // Results are paged, not truncated. The catalog is ~1,500 scale
+            // types across 12 roots, so an ordinary chord is inside thousands
+            // of them; a hard cap of 50 with an "...and N more" line put the
+            // other several thousand permanently out of reach.
+            page: 0,
+            pageSize: 50,
+            rootFilter: 'all',
+            nameQuery: '',
+            parseError: null
         };
 
         this.containerElement = null;
@@ -88,6 +97,7 @@ class ScaleRelationshipExplorer {
                             style="flex: 1; background: var(--bg-input); border: 1px solid var(--border-light); color: var(--text-main); padding: 8px; font-family: var(--font-tech);">
                         <button id="sre-analyze-btn" style="background: var(--accent-primary); color: #000; border: none; padding: 0 15px; font-weight: bold; cursor: pointer;">ANALYZE</button>
                     </div>
+                    ${this.renderTonicSelector()}
                     ${this.renderChordSyntaxGuide()}
                     ${this.renderChordBuilder()}
                 </div>
@@ -119,6 +129,30 @@ class ScaleRelationshipExplorer {
         this.bindApplyScaleEvents();
         this.bindPreviewEvents();
         this.bindChordBuilderEvents();
+        this.bindResultControlEvents();
+        this.restoreFocus();
+    }
+
+    /**
+     * render() replaces the panel's whole innerHTML, so anything typed into a
+     * field that triggers a re-render loses focus and caret mid-word. Callers
+     * name the field they want back.
+     */
+    rememberFocus(selector, caret) {
+        this._restoreFocusTarget = { selector, caret };
+    }
+
+    restoreFocus() {
+        const target = this._restoreFocusTarget;
+        this._restoreFocusTarget = null;
+        if (!target || !this.containerElement) return;
+        const el = this.containerElement.querySelector(target.selector);
+        if (!el) return;
+        el.focus();
+        if (typeof el.setSelectionRange === 'function') {
+            const pos = (target.caret == null) ? el.value.length : target.caret;
+            try { el.setSelectionRange(pos, pos); } catch (_) {}
+        }
     }
 
     bindChordBuilderEvents() {
@@ -342,6 +376,351 @@ class ScaleRelationshipExplorer {
         `;
     }
 
+    /** Pitch class of any spelling the engine can read, or null. */
+    pitchClassOf(note) {
+        if (!note) return null;
+        if (typeof this.musicTheory.pitchClassOf === 'function') {
+            return this.musicTheory.pitchClassOf(note);
+        }
+        const v = this.musicTheory.noteValues ? this.musicTheory.noteValues[note] : undefined;
+        return v === undefined ? null : v;
+    }
+
+    /**
+     * Relationship-filtered results, before the tonic and name filters.
+     * Shared so the tonic buttons' counts and the list they page through are
+     * the same set — a button reading "50" that yields 43 rows is a bug.
+     */
+    getRelationshipFiltered() {
+        const labelMap = {
+            tonic: 'Tonic',
+            dominant: 'Dominant',
+            subdominant: 'Subdominant',
+            mediant: 'Mediant'
+        };
+        const key = this.state.selectedRelationshipFilter;
+        if (key === 'all') return this.state.containingScales;
+        return this.state.containingScales.filter(sc => sc.relationshipLabel === labelMap[key]);
+    }
+
+    /**
+     * WHICH TONIC THE SCALE IS BUILT ON — not the chord's root.
+     *
+     * "Where can I play a C#7 if the scale is rooted on C" is the question the
+     * panel exists to answer, and it had no control at all: the results came
+     * back ordered by an opinion about relevance and you scrolled looking for
+     * the tonic you actually wanted, through a list that stopped at 50 anyway.
+     *
+     * It sits directly under the chord field because that is where the hand
+     * already is, and it is deliberately the ONLY row of note buttons up here:
+     * a second row that re-rooted the chord instead read as this one and sent
+     * people the wrong way.
+     *
+     * All twelve tonics, always, in a fixed place, each carrying how many
+     * scales rooted there contain the chord. A tonic with none is greyed
+     * rather than dropped — "nothing rooted on D holds this chord" is an
+     * answer, and a row that reshuffles itself per chord cannot be aimed at.
+     */
+    renderTonicSelector() {
+        const scales = this.getRelationshipFiltered();
+        const counts = new Map();
+        scales.forEach(sc => counts.set(sc.root, (counts.get(sc.root) || 0) + 1));
+        const analyzed = !!this.state.parsedChord;
+        const chord = analyzed ? `${this.state.parsedChord.root}${this.state.parsedChord.type}` : '';
+
+        const button = (value, label, count) => {
+            const selected = this.state.rootFilter === value;
+            const empty = analyzed && count === 0;
+            const style = selected
+                ? 'background: var(--accent-primary); color: #000; border: 1px solid var(--accent-primary); font-weight: bold;'
+                : empty
+                    ? 'background: transparent; color: var(--text-muted); border: 1px dashed var(--border-light); opacity: 0.45;'
+                    : 'background: rgba(255,255,255,0.06); color: var(--text-main); border: 1px solid var(--border-light);';
+            const title = !analyzed
+                ? `Show only scales rooted on ${label}`
+                : value === 'all'
+                    ? `Every tonic — ${count} scale${count === 1 ? '' : 's'} in all`
+                    : empty
+                        ? `No scale rooted on ${label} contains ${chord}`
+                        : `${count} scale${count === 1 ? '' : 's'} rooted on ${label} contain ${chord}`;
+            // The count is the point of the button, so it is only hidden before
+            // there is a chord to count against.
+            const badge = analyzed
+                ? `<span style="opacity: 0.55; font-size: 0.65rem; margin-left: 3px;">${count}</span>`
+                : '';
+            return `<button type="button" class="sre-tonic-btn" data-tonic="${value}" title="${title}"
+                style="${style} font-size: 0.75rem; padding: 3px 7px; cursor: pointer; border-radius: 3px; font-family: var(--font-tech); text-transform: none;">${label}${badge}</button>`;
+        };
+
+        return `
+            <div class="sre-tonic-selector" style="margin-top: 10px;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                    Scale tonic
+                    <span style="text-transform: none; letter-spacing: 0; opacity: 0.7;">&mdash; find ${chord ? `<code style="color: var(--accent-primary);">${chord}</code>` : 'the chord'} in scales rooted on&hellip;</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                    ${button('all', 'Any', scales.length)}
+                    ${this.getScaleRoots().map(r => button(r, r, counts.get(r) || 0)).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * WHAT COUNTS AS A CHORD SYMBOL.
+     *
+     * The field only ever understood the ~32 exact keys in chordFormulas. Type
+     * Cadd9, F6/9, Bbm13, A7alt, C#m(maj7), G7/B — all ordinary symbols — and
+     * it parsed to nothing and the panel said "Enter a chord" as if you had
+     * typed nothing at all, with no hint that the root was fine and the
+     * suffix was not.
+     *
+     * A symbol is a root, a core quality, an extension, and a pile of
+     * alterations. Read it that way. The engine's table is still consulted
+     * first, so every symbol that worked before produces exactly what it did
+     * before; this only decides what happens where it used to give up.
+     *
+     * Returns { root, type, bass, notes } or { error } naming the part that
+     * could not be read.
+     */
+    parseChordSymbol(symbol) {
+        const raw = String(symbol == null ? '' : symbol).trim();
+        if (!raw) return { error: null };
+
+        // Accidental and jazz glyphs people actually type or paste.
+        let text = raw
+            .replace(/\u{1D12A}/gu, '##').replace(/\u{1D12B}/gu, 'bb')
+            .replace(/[♯]/g, '#').replace(/[♭]/g, 'b').replace(/[♮]/g, '')
+            .replace(/[Δ∆](?=\s*\d)/g, 'maj')   // Δ7 / Δ9 -> maj7 / maj9
+            .replace(/[Δ∆]/g, 'maj7')           // bare Δ is maj7
+            .replace(/[øØ]/g, 'm7b5')
+            .replace(/[°˚◦]/g, 'dim')
+            .replace(/[–—−]/g, '-')
+            .replace(/\s+/g, '');
+
+        const rootMatch = text.match(/^([A-Ga-g])([#b]{0,2})(.*)$/i);
+        if (!rootMatch) {
+            return { error: `"${raw}" does not start with a note name (A-G).` };
+        }
+        const root = rootMatch[1].toUpperCase() + rootMatch[2].replace(/B/g, 'b');
+        if (this.pitchClassOf(root) === null) {
+            return { error: `"${root}" is not a note this engine can read.` };
+        }
+
+        let suffix = rootMatch[3];
+
+        // A slash bass, but not the slash in 6/9 or 7/11.
+        let bass = null;
+        const slash = suffix.lastIndexOf('/');
+        if (slash !== -1) {
+            const after = suffix.slice(slash + 1);
+            const bm = after.match(/^([A-Ga-g])([#b]{0,2})$/i);
+            if (bm) {
+                bass = bm[1].toUpperCase() + bm[2].replace(/B/g, 'b');
+                suffix = suffix.slice(0, slash);
+            }
+        }
+
+        // The engine's table first, but only on an EXACT formula key, so every
+        // symbol that already worked is untouched. Its looser paths are kept
+        // for last: the synthetic "base(modifiers)" one answers m(maj7) with a
+        // plain minor triad, quietly dropping the maj7 — a wrong chord is
+        // worse than no chord, so the rule parser gets the first crack at
+        // anything the table does not name outright.
+        const formulas = this.musicTheory.chordFormulas || {};
+        let exactKey = null;
+        if (formulas[suffix]) {
+            exactKey = suffix;
+        } else if (typeof this.musicTheory.normalizeChordType === 'function') {
+            const normalized = this.musicTheory.normalizeChordType(suffix);
+            if (formulas[normalized]) exactKey = normalized;
+        }
+
+        let notes = [];
+        if (exactKey) {
+            try { notes = this.musicTheory.getChordNotes(root, exactKey) || []; } catch (_) { notes = []; }
+        }
+
+        let builtError = null;
+        if (!notes.length) {
+            const built = this.qualityToIntervals(suffix);
+            if (built.error) {
+                builtError = built.error;
+            } else {
+                notes = built.intervals
+                    .map(iv => this.musicTheory.getNoteFromInterval(root, iv))
+                    .filter(Boolean);
+            }
+        }
+
+        if (!notes.length) {
+            try { notes = this.musicTheory.getChordNotes(root, suffix) || []; } catch (_) { notes = []; }
+        }
+
+        if (!notes.length && builtError) {
+            return { error: `${root}: ${builtError}` };
+        }
+
+        if (!notes.length) {
+            return { error: `Could not work out the notes of "${raw}".` };
+        }
+
+        // The bass is part of the sonority, so a scale that lacks it does not
+        // contain the chord.
+        if (bass) {
+            const bassPc = this.pitchClassOf(bass);
+            const known = new Set(notes.map(n => this.pitchClassOf(n)));
+            if (bassPc !== null && !known.has(bassPc)) notes = [bass, ...notes];
+        }
+
+        return { root, type: suffix, bass, notes };
+    }
+
+    /**
+     * Turn a chord suffix into semitone intervals from the root.
+     *
+     * Reads the core quality off the front, then consumes modifiers in any
+     * order until nothing is left; whatever it cannot consume is reported
+     * rather than silently dropped, so "Cmaj7zz" says what it choked on.
+     */
+    qualityToIntervals(suffix) {
+        let s = String(suffix || '').replace(/[()\[\]\s,]/g, '');
+        if (!s) return { intervals: [0, 4, 7] };
+
+        let third = 4;
+        let fifth = 7;
+        let seventh = null;
+        let sixth = false;
+        let dim = false;
+        let omit3 = false;
+        let omit5 = false;
+        const extras = new Set();
+        let ninth = null;   // set by an extension or by b9/#9
+
+        // --- core quality -------------------------------------------------
+        if (/^alt/.test(s)) {
+            // Altered dominant: 3rd and b7 with every fifth and ninth altered.
+            s = s.slice(3);
+            third = 4; omit5 = true; seventh = 10;
+            [13, 15, 6, 8].forEach(i => extras.add(i));
+        } else if (/^5(?![0-9])/.test(s)) {
+            s = s.slice(1);
+            omit3 = true;
+        } else if (/^(minor|min|m)(?!aj)/.test(s)) {
+            s = s.replace(/^(minor|min|m)/, '');
+            third = 3;
+        } else if (/^-/.test(s)) {
+            // Leading hyphen is the jazz minor shorthand. A hyphen further in
+            // ('7-5') is a flattened degree and is handled as a modifier.
+            s = s.slice(1);
+            third = 3;
+        } else if (/^dim/.test(s)) {
+            s = s.slice(3);
+            third = 3; fifth = 6; dim = true;
+        } else if (/^aug/.test(s)) {
+            s = s.slice(3);
+            fifth = 8;
+        } else if (/^\+(?![0-9])/.test(s)) {
+            s = s.slice(1);
+            fifth = 8;
+        }
+
+        // A major-seventh marker can follow a minor core: m(maj7).
+        let majSeventh = false;
+        const majMatch = s.match(/^(maj|Maj|MAJ|Ma(?![a-z]))/);
+        if (majMatch) {
+            s = s.slice(majMatch[0].length);
+            majSeventh = true;
+        }
+
+        // --- extension ----------------------------------------------------
+        const ext = s.match(/^(13|11|9|7|6)/);
+        if (ext) {
+            s = s.slice(ext[0].length);
+            const n = ext[0];
+            if (n === '6') {
+                sixth = true;
+            } else {
+                seventh = majSeventh ? 11 : (dim ? 9 : 10);
+                if (n === '9') ninth = 14;
+                if (n === '11') { ninth = 14; extras.add(17); }
+                if (n === '13') {
+                    ninth = 14;
+                    extras.add(21);
+                    // The 11th is left out of dominant and major 13ths (it
+                    // clashes with the 3rd) but belongs in a minor 13th.
+                    if (third === 3) extras.add(17);
+                }
+            }
+        } else if (majSeventh && /^$/.test(s)) {
+            // "Cmaj" on its own is the plain triad, not a major seventh.
+        } else if (majSeventh) {
+            // "maj" followed by modifiers only, e.g. Cmaj#11
+        }
+
+        // --- modifiers, in any order -------------------------------------
+        const MODS = [
+            [/^sus2/, () => { third = 2; }],
+            [/^sus4/, () => { third = 5; }],
+            [/^sus(?![0-9])/, () => { third = 5; }],
+            [/^add(9|2)/, () => { extras.add(14); }],
+            [/^add(11|4)/, () => { extras.add(17); }],
+            [/^add(13|6)/, () => { extras.add(21); }],
+            [/^add#11/, () => { extras.add(18); }],
+            [/^add#9/, () => { extras.add(15); }],
+            [/^addb9/, () => { extras.add(13); }],
+            [/^(b5|-5)/, () => { fifth = 6; }],
+            [/^(#5|\+5)/, () => { fifth = 8; }],
+            [/^b9/, () => { ninth = (ninth === 14 || ninth === null) ? 13 : ninth; extras.add(13); }],
+            [/^#9/, () => { ninth = (ninth === 14 || ninth === null) ? 15 : ninth; extras.add(15); }],
+            [/^#11/, () => { extras.add(18); }],
+            [/^b13/, () => { extras.add(20); }],
+            [/^#13/, () => { extras.add(22); }],
+            [/^b11/, () => { extras.add(16); }],
+            [/^b6/, () => { extras.add(8); }],
+            [/^alt/, () => {
+                // Altered dominant: no plain fifth, both ninths, both fifths.
+                omit5 = true;
+                if (seventh === null) seventh = 10;
+                [13, 15, 6, 8].forEach(i => extras.add(i));
+            }],
+            [/^(no3|omit3)/, () => { omit3 = true; }],
+            [/^(no5|omit5)/, () => { omit5 = true; }],
+            [/^\/9/, () => { extras.add(14); }],      // the 6/9 chord
+            [/^\/11/, () => { extras.add(17); }],
+            [/^\/13/, () => { extras.add(21); }],
+            [/^maj7/, () => { seventh = 11; }],
+            [/^7/, () => { if (seventh === null) seventh = dim ? 9 : 10; }],
+            [/^6/, () => { sixth = true; }],
+            [/^9/, () => { if (seventh === null) seventh = 10; if (ninth === null) ninth = 14; }],
+            [/^11/, () => { if (seventh === null) seventh = 10; extras.add(17); }],
+            [/^13/, () => { if (seventh === null) seventh = 10; extras.add(21); }]
+        ];
+
+        let guard = 0;
+        while (s && guard++ < 24) {
+            const hit = MODS.find(([re]) => re.test(s));
+            if (!hit) break;
+            const m = s.match(hit[0]);
+            hit[1]();
+            s = s.slice(m[0].length);
+        }
+
+        if (s) {
+            return { error: `could not read "${s}" in the chord quality. See the spelling guide below.` };
+        }
+
+        const out = new Set([0]);
+        if (!omit3) out.add(third);
+        if (!omit5) out.add(fifth);
+        if (sixth) out.add(9);
+        if (seventh !== null) out.add(seventh);
+        if (ninth !== null) out.add(ninth);
+        extras.forEach(i => out.add(i));
+
+        return { intervals: Array.from(out).sort((a, b) => a - b) };
+    }
+
     handleInput(value) {
         this.state.inputChord = value;
         this.analyzeChord(value);
@@ -355,36 +734,40 @@ class ScaleRelationshipExplorer {
     }
 
     analyzeChord(chordStr) {
+        // A new chord means a new result set, so paging and the name search
+        // start over. The chosen tonic does NOT: "what fits over a C root"
+        // is a question you ask of one chord after another, and clearing it
+        // each time would make you re-pick C on every single lookup.
+        this.state.page = 0;
+        this.state.nameQuery = '';
+        this.state.parseError = null;
+
         if (!chordStr) {
             this.state.parsedChord = null;
             this.state.containingScales = [];
             return;
         }
 
-        let root, type, notes;
-        
+        let result;
         try {
-            // Try to parse root and type
-            const match = chordStr.match(/^([A-G][#b]?)(.*)$/i);
-            if (match) {
-                root = this.normalizeNote(match[1]);
-                type = match[2];
-                
-                // Get notes from engine
-                if (this.musicTheory.getChordNotes) {
-                    notes = this.musicTheory.getChordNotes(root, type);
-                }
-            }
+            result = this.parseChordSymbol(chordStr);
         } catch (e) {
             console.error('Error parsing chord:', e);
+            result = { error: 'Something went wrong reading that chord.' };
         }
 
-        if (notes && notes.length > 0) {
-            this.state.parsedChord = { root, type, notes };
-            this.findContainingScales(notes);
+        if (result && result.notes && result.notes.length > 0) {
+            this.state.parsedChord = {
+                root: result.root,
+                type: result.type,
+                bass: result.bass || null,
+                notes: result.notes
+            };
+            this.findContainingScales(result.notes);
         } else {
             this.state.parsedChord = null;
             this.state.containingScales = [];
+            this.state.parseError = (result && result.error) || null;
         }
     }
 
@@ -454,12 +837,16 @@ class ScaleRelationshipExplorer {
             }
 
             if (allIn) {
-                const isCurrentScale = scale.root === activeRoot && scale.name === activeScaleName;
+                // Compared by pitch, not spelling: the library may hold this
+                // very scale as Db while the list calls it C#.
+                const isCurrentScale = !!activeRoot &&
+                    getVal(scale.root) === getVal(activeRoot) &&
+                    scale.name === activeScaleName;
                 // Determine match quality: exact (diatonic) vs. just "contains notes"
                 // Exact matches will be prioritized in sorting
                 let isDiatonicMatch = false;
                 if (this.musicTheory && typeof this.musicTheory.getDiatonicChord === 'function' && 
-                    scale.root === parsedChordRoot && parsedChordType) {
+                    parsedChordRoot && getVal(scale.root) === getVal(parsedChordRoot) && parsedChordType) {
                     try {
                         // Check if the input chord type matches the diatonic chord for degree I
                         const diatonicI = this.musicTheory.getDiatonicChord(1, scale.root, scale.name);
@@ -536,8 +923,40 @@ class ScaleRelationshipExplorer {
         this.state.containingScales = containing;
     }
 
+    /**
+     * The roots here used to be the twelve sharp spellings, four of which
+     * (C#, D#, G#, A#) are not keys the library will accept: setKeyAndScale
+     * throws "Invalid key" for them, so Apply on a third of every result
+     * failed into a console message and the panel just sat there. Ask the
+     * engine which keys are real and use those spellings — they still cover
+     * all twelve pitch classes, and now every row listed can be applied.
+     */
+    getScaleRoots() {
+        const fallback = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+        let keys = fallback;
+        try {
+            if (typeof this.musicTheory.getKeys === 'function') {
+                const k = this.musicTheory.getKeys();
+                if (Array.isArray(k) && k.length) keys = k;
+            }
+        } catch (_) { /* fall back to the circle-of-fifths spellings */ }
+
+        // One root per pitch class, ordered chromatically so the root filter
+        // reads C, Db, D... rather than in circle-of-fifths order.
+        const byPc = new Map();
+        keys.forEach(k => {
+            const pc = this.pitchClassOf(k);
+            if (pc !== null && !byPc.has(pc)) byPc.set(pc, k);
+        });
+        fallback.forEach(k => {
+            const pc = this.pitchClassOf(k);
+            if (pc !== null && !byPc.has(pc)) byPc.set(pc, k);
+        });
+        return Array.from(byPc.keys()).sort((a, b) => a - b).map(pc => byPc.get(pc));
+    }
+
     getAllScales() {
-        const roots = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const roots = this.getScaleRoots();
         // Get scale types from engine if possible
         const types = Object.keys(this.musicTheory.scales || {});
         
@@ -550,96 +969,16 @@ class ScaleRelationshipExplorer {
         return scales;
     }
 
-    getScaleVibe(scale) {
-        const name = scale.name.toLowerCase();
-        
-        // Comprehensive vibe mapping
-        const vibes = {
-            // Western Modes
-            'major': 'Bright, Stable, Triumphant',
-            'minor': 'Sad, Serious, Emotional',
-            'aeolian': 'Melancholic, Epic, Emotional',
-            'dorian': 'Soulful, Jazzy, Sophisticated',
-            'phrygian': 'Dark, Exotic, Spanish',
-            'lydian': 'Dreamy, Ethereal, Floating',
-            'mixolydian': 'Bluesy, Rock, Unresolved',
-            'locrian': 'Unstable, Tense, Dark',
-            
-            // Melodic Minor Modes
-            'melodic': 'Smooth, Jazz-Noir, Ascending',
-            'melodic_minor': 'Smooth, Jazz-Noir, Ascending',
-            'dorian_b2': 'Dark Jazz, Phrygian-Dorian',
-            'lydian_augmented': 'Mysterious, Spacey, Modern',
-            'lydian_dominant': 'Overtone, Acoustic, Bright',
-            'mixolydian_b6': 'Melancholic, Romantic, Hindu',
-            'locrian_nat2': 'Half-Diminished, Complex',
-            'altered': 'Tense, Jazz-Dominant, Resolving',
-            
-            // Harmonic Minor Modes
-            'harmonic': 'Classical, Exotic, Dramatic',
-            'harmonic_minor': 'Classical, Exotic, Dramatic',
-            'phrygian_dominant': 'Flamenco, Jewish, Intense',
-            'harmonic_major': 'Dreamy, Unsettled, Romantic',
-            'double_harmonic_major': 'Byzantine, Surf Rock, Exotic',
-            
-            // Symmetrical & Modern
-            'whole_tone': 'Dreamy, Floating, Ambiguous',
-            'octatonic_dim': 'Tense, Symmetrical, Diminished',
-            'octatonic_dom': 'Bluesy, Symmetrical, Jazz',
-            'augmented': 'Unsettled, Floating, Strange',
-            'prometheus': 'Mystic, Scriabin, Ethereal',
-            'tritone': 'Dissonant, Angular, Modern',
-            
-            // Pentatonics
-            'major_pentatonic': 'Open, Folk, Pastoral',
-            'minor_pentatonic': 'Bluesy, Rock, Versatile',
-            'blues_minor_pentatonic': 'Gritty, Soulful, Expressive',
-            'blues_major_pentatonic': 'Country, Soul, Bright',
-            'egyptian_pentatonic': 'Suspended, Ancient, Open',
-            
-            // World / Ethnic
-            'hirajoshi': 'Japanese, Contemplative, Dark',
-            'iwato': 'Japanese, Exotic, Sharp',
-            'insen': 'Japanese, Melancholic, Traditional',
-            'yo': 'Japanese, Bright, Folk',
-            'hijaz': 'Middle Eastern, Deep, Passionate',
-            'persian': 'Exotic, Chromatic, Intense',
-            'spanish_phrygian': 'Flamenco, Passionate, Dark',
-            'spanish_gypsy': 'Exotic, Traveling, Minor',
-            'hungarian_minor': 'Gypsy, Exotic, Intense',
-            
-            // Jazz
-            'bebop_major': 'Jazz, Chromatic, Passing',
-            'bebop_dominant': 'Jazz, Bebop, Fluid',
-            'bebop_minor': 'Jazz, Minor, Rhythmic',
-            
-            // Classical / Other
-            'enigmatic': 'Verdi, Strange, Wandering',
-            'neapolitan_major': 'Opera, Dramatic, Bright',
-            'neapolitan_minor': 'Opera, Dramatic, Dark'
-        };
-
-        if (vibes[name]) return vibes[name];
-
-        // Fallback heuristics
-        if (name.includes('pentatonic')) return 'Open, Folk, Versatile';
-        if (name.includes('blues')) return 'Gritty, Soulful';
-        if (name.includes('bebop')) return 'Jazz, Chromatic, Fluid';
-        if (name.includes('raga')) return 'Indian Classical, Meditative';
-        if (name.includes('maqam')) return 'Arabic, Microtonal, Expressive';
-        if (name.includes('diminished')) return 'Tense, Symmetrical';
-        if (name.includes('augmented')) return 'Unsettled, Floating';
-        if (name.includes('lydian')) return 'Dreamy, Bright';
-        if (name.includes('phrygian')) return 'Dark, Exotic';
-        if (name.includes('mixolydian')) return 'Dominant, Bluesy';
-        
-        return 'Unique, Distinctive, Colorful';
-    }
-
     getRomanNumeral(chordRoot, scaleRoot, scaleName) {
         try {
             const scaleNotes = this.musicTheory.getScaleNotes(scaleRoot, scaleName);
-            const index = scaleNotes.indexOf(chordRoot);
+            // By pitch: a Db chord sitting in a scale spelled with C# is still
+            // that degree, and returning '?' for it made whole roots look broken.
+            const rootPc = this.pitchClassOf(chordRoot);
+            let index = scaleNotes.indexOf(chordRoot);
+            if (index === -1 && rootPc !== null) {
+                index = scaleNotes.findIndex(n => this.pitchClassOf(n) === rootPc);
+            }
             if (index === -1) return '?';
             
             // Runs to XII: octatonic has eight degrees, and stopping at VII
@@ -662,20 +1001,38 @@ class ScaleRelationshipExplorer {
 
     renderResults() {
         if (!this.state.parsedChord) {
+            // Saying "enter a chord" to someone who just entered one tells them
+            // nothing about which part of it was not understood.
+            if (this.state.parseError) {
+                return `<div style="padding: 8px; border: 1px solid var(--border-light); border-left: 3px solid var(--accent-secondary); border-radius: 4px; color: var(--text-main); font-size: 0.85rem;">
+                    <strong style="color: var(--accent-secondary);">Not understood:</strong> ${this.state.parseError}
+                </div>`;
+            }
             return '<div style="color: var(--text-muted); font-style: italic;">Enter a chord to see containing scales.</div>';
         }
 
         let html = `
             <div style="margin-bottom: 10px; font-size: 0.9rem;">
                 <span style="color: var(--accent-secondary);">Parsed:</span> 
-                <strong>${this.state.parsedChord.root}${this.state.parsedChord.type}</strong> 
+                <strong>${this.state.parsedChord.root}${this.state.parsedChord.type}${this.state.parsedChord.bass ? '/' + this.state.parsedChord.bass : ''}</strong> 
                 <span style="color: var(--text-muted);">[${this.state.parsedChord.notes.join(', ')}]</span>
             </div>
         `;
 
+        if (this.state.parseError) {
+            html += `<div style="margin-bottom: 8px; padding: 6px 8px; border: 1px solid var(--border-light); border-left: 3px solid var(--accent-secondary); border-radius: 4px; color: var(--text-main); font-size: 0.8rem;">${this.state.parseError}</div>`;
+        }
+
         if (this.state.containingScales.length === 0) {
             html += '<div style="color: var(--text-muted);">No matching scales found in the library.</div>';
             return html;
+        }
+
+        if (this.state.rootFilter !== 'all') {
+            html += `<div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px;">
+                Tonic <strong style="color: var(--accent-primary);">${this.state.rootFilter}</strong> only.
+                <button type="button" class="sre-tonic-btn" data-tonic="all" style="background: transparent; border: 1px solid var(--border-light); color: var(--text-muted); font-size: 0.7rem; padding: 1px 6px; cursor: pointer; border-radius: 3px; margin-left: 4px;">Clear</button>
+            </div>`;
         }
 
         // Quick filters for relationship perspective
@@ -693,29 +1050,57 @@ class ScaleRelationshipExplorer {
             `).join('')}
         </div>`;
 
-        html += `<div style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">`;
-        
-        // Apply relationship filter then cap results
-        const filterKey = this.state.selectedRelationshipFilter;
-        const labelMap = {
-            tonic: 'Tonic',
-            dominant: 'Dominant',
-            subdominant: 'Subdominant',
-            mediant: 'Mediant'
-        };
-        const filtered = filterKey === 'all'
-            ? this.state.containingScales
-            : this.state.containingScales.filter(s => s.relationshipLabel === labelMap[filterKey]);
-        const displayScales = filtered.slice(0, 50);
+        // The tonic buttons live up beside the chord field, so the list only
+        // has to apply what they and the name box have already chosen.
+        let filtered = this.getRelationshipFiltered();
+        if (this.state.rootFilter !== 'all') {
+            filtered = filtered.filter(sc => sc.root === this.state.rootFilter);
+        }
+
+        const query = this.state.nameQuery.trim().toLowerCase();
+        if (query) {
+            filtered = filtered.filter(sc => sc.name.toLowerCase().replace(/_/g, ' ').includes(query));
+        }
+
+        html += `<div class="sre-result-controls" style="margin-bottom: 8px;">
+            <input type="text" id="sre-scale-search" value="${this.state.nameQuery.replace(/"/g, '&quot;')}"
+                placeholder="Filter by scale name..." autocapitalize="off" autocorrect="off" spellcheck="false"
+                style="width: 100%; box-sizing: border-box; background: var(--bg-input); border: 1px solid var(--border-light); color: var(--text-main); font-size: 0.75rem; padding: 3px 6px; border-radius: 3px; font-family: var(--font-tech);">
+        </div>`;
+
+        const total = filtered.length;
+        const pageSize = this.state.pageSize;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        // A filter can shrink the list under the page you were on.
+        const page = Math.min(Math.max(0, this.state.page), totalPages - 1);
+        this.state.page = page;
+        const first = page * pageSize;
+        const displayScales = filtered.slice(first, first + pageSize);
+
+        if (total === 0) {
+            const where = this.state.rootFilter !== 'all' ? ` rooted on ${this.state.rootFilter}` : '';
+            html += `<div style="color: var(--text-muted); font-size: 0.85rem; padding: 8px 0;">
+                No scale${where}${query ? ` matching "${query}"` : ''} contains ${this.state.parsedChord.root}${this.state.parsedChord.type}.
+                ${this.state.rootFilter !== 'all' ? `<button type="button" class="sre-tonic-btn" data-tonic="all" style="background: transparent; border: 1px solid var(--border-light); color: var(--accent-primary); font-size: 0.7rem; padding: 2px 7px; cursor: pointer; border-radius: 3px; margin-left: 4px;">Show any tonic</button>` : ''}
+            </div>`;
+            return html;
+        }
+
+        html += `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+            ${first + 1}&ndash;${first + displayScales.length} of ${total}${this.state.rootFilter !== 'all' ? ` scale${total === 1 ? '' : 's'} rooted on ${this.state.rootFilter}` : ' matching scales'}${total !== this.state.containingScales.length ? ` (${this.state.containingScales.length} before filters)` : ''}
+        </div>`;
+
+        html += this.renderPager(page, totalPages, total);
+
+        html += `<div id="sre-results-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">`;
 
         displayScales.forEach((scale, index) => {
-            const vibe = this.getScaleVibe(scale);
             const roman = this.getRomanNumeral(this.state.parsedChord.root, scale.root, scale.name);
             const citation = scale.citation || {};
             const description = citation.description || '';
             const urlRaw = citation.url || (citation.references && citation.references[0] ? citation.references[0].url : '');
             const url = this.getSafeExternalUrl(urlRaw);
-            const uniqueId = `sre-scale-${index}`;
+            const uniqueId = `sre-scale-p${page}-${index}`;
             
             // Relationship badge
             const relationshipBadge = scale.relationshipLabel && scale.relationshipLabel !== 'Related'
@@ -747,7 +1132,6 @@ class ScaleRelationshipExplorer {
                             ${roman}
                         </div>
                     ${headerClose}
-                    <div style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 4px; font-style: italic;">"${vibe}"</div>
                     ${description ? `<div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; line-height: 1.3;">${description}</div>` : ''}
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 6px;">
@@ -766,13 +1150,129 @@ class ScaleRelationshipExplorer {
             `;
         });
         
-        if (this.state.containingScales.length > 50) {
-            html += `<div style="text-align: center; color: var(--text-muted); font-style: italic;">...and ${this.state.containingScales.length - 50} more</div>`;
+        html += `</div>`;
+
+        // Repeated below the list: after scrolling a page of results, the
+        // controls at the top are off screen.
+        html += this.renderPager(page, totalPages, total, true);
+
+        return html;
+    }
+
+    /**
+     * Pages, with somewhere to go.
+     *
+     * The list used to stop dead at 50 and print "...and 1043 more", which
+     * names what it is withholding without handing any of it over. These are
+     * real pages: first/prev/next/last, a page number you can type into, and
+     * a page size, so every match in the catalog is reachable in a fixed
+     * number of clicks rather than none at all.
+     */
+    renderPager(page, totalPages, total, isFooter) {
+        const SIZES = [25, 50, 100, 200];
+        const atStart = page <= 0;
+        const atEnd = page >= totalPages - 1;
+
+        const step = (target, label, disabled, title) => {
+            const style = disabled
+                ? 'background: transparent; color: var(--text-muted); border: 1px solid var(--border-light); opacity: 0.35; cursor: default;'
+                : 'background: rgba(255,255,255,0.06); color: var(--text-main); border: 1px solid var(--border-light); cursor: pointer;';
+            return `<button type="button" class="sre-page-btn" data-page="${target}" ${disabled ? 'disabled' : ''} title="${title}"
+                style="${style} font-size: 0.75rem; padding: 3px 8px; border-radius: 3px; font-family: var(--font-tech);">${label}</button>`;
+        };
+
+        // The page field is the only way to cross a long list in one move, so
+        // it is a real input rather than a run of numbered buttons that would
+        // not fit 22 pages of results anyway.
+        const jump = totalPages > 1
+            ? `<span style="font-size: 0.75rem; color: var(--text-muted);">Page
+                   <input type="number" class="sre-page-input" value="${page + 1}" min="1" max="${totalPages}"
+                       style="width: 4.5em; background: var(--bg-input); border: 1px solid var(--border-light); color: var(--text-main); font-size: 0.75rem; padding: 2px 4px; border-radius: 3px; font-family: var(--font-tech);">
+                   of ${totalPages}</span>`
+            : `<span style="font-size: 0.75rem; color: var(--text-muted);">Page 1 of 1</span>`;
+
+        const size = isFooter ? '' : `<label style="font-size: 0.75rem; color: var(--text-muted); margin-left: auto;">Per page
+                <select id="sre-page-size" style="background: var(--bg-input); border: 1px solid var(--border-light); color: var(--text-main); font-size: 0.75rem; padding: 2px 4px; border-radius: 3px; font-family: var(--font-tech);">
+                    ${SIZES.map(n => `<option value="${n}"${n === this.state.pageSize ? ' selected' : ''}>${n}</option>`).join('')}
+                </select>
+            </label>`;
+
+        return `<div class="sre-pager" style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin: ${isFooter ? '8px 0 0' : '0 0 8px'};">
+            ${step(0, '&laquo; First', atStart, 'First page')}
+            ${step(page - 1, '&lsaquo; Prev', atStart, 'Previous page')}
+            ${jump}
+            ${step(page + 1, 'Next &rsaquo;', atEnd, 'Next page')}
+            ${step(totalPages - 1, 'Last &raquo;', atEnd, 'Last page')}
+            ${size}
+        </div>`;
+    }
+
+    bindResultControlEvents() {
+        if (!this.containerElement) return;
+
+        this.containerElement.querySelectorAll('.sre-tonic-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.state.rootFilter = btn.getAttribute('data-tonic') || 'all';
+                this.state.page = 0;
+                this.render();
+            });
+        });
+
+        const search = this.containerElement.querySelector('#sre-scale-search');
+        if (search) {
+            // Re-rendering on each keystroke wipes the field, so ask for the
+            // caret back before doing it.
+            search.addEventListener('input', () => {
+                const caret = search.selectionStart;
+                this.state.nameQuery = search.value;
+                this.state.page = 0;
+                this.rememberFocus('#sre-scale-search', caret);
+                this.render();
+            });
         }
 
-        html += `</div>`;
-        
-        return html;
+        this.containerElement.querySelectorAll('.sre-page-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (btn.disabled) return;
+                const target = parseInt(btn.getAttribute('data-page'), 10);
+                if (Number.isNaN(target)) return;
+                this.goToPage(target);
+            });
+        });
+
+        this.containerElement.querySelectorAll('.sre-page-input').forEach(input => {
+            const jump = () => {
+                const n = parseInt(input.value, 10);
+                if (Number.isNaN(n)) return;
+                this.goToPage(n - 1);
+            };
+            input.addEventListener('change', jump);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); jump(); }
+            });
+        });
+
+        const pageSize = this.containerElement.querySelector('#sre-page-size');
+        if (pageSize) {
+            pageSize.addEventListener('change', () => {
+                const size = parseInt(pageSize.value, 10) || 50;
+                // Keep the first row you were looking at on screen rather than
+                // throwing you back to the top of the list.
+                const anchor = this.state.page * this.state.pageSize;
+                this.state.pageSize = size;
+                this.state.page = Math.floor(anchor / size);
+                this.render();
+            });
+        }
+    }
+
+    goToPage(target) {
+        this.state.page = Math.max(0, target);
+        this.render();
+        // A new page starts at its own first row; leaving the scroll where it
+        // was makes page 4 look like it opens in the middle.
+        const list = this.containerElement && this.containerElement.querySelector('#sre-results-list');
+        if (list) list.scrollTop = 0;
     }
 
     bindFilterEvents() {
@@ -783,6 +1283,7 @@ class ScaleRelationshipExplorer {
                 e.preventDefault();
                 const key = btn.getAttribute('data-filter');
                 this.state.selectedRelationshipFilter = key || 'all';
+                this.state.page = 0;
                 // Re-render to apply filter
                 this.render();
             });
@@ -807,9 +1308,14 @@ class ScaleRelationshipExplorer {
         if (typeof window !== 'undefined' && window.modularApp && window.modularApp.scaleLibrary) {
             try {
                 window.modularApp.scaleLibrary.setKeyAndScale(root, scaleName);
+                this.state.parseError = null;
                 console.log('[ScaleRelationshipExplorer] Applied scale:', { root, scaleName });
             } catch (e) {
+                // setKeyAndScale throws on a key it does not accept, and this
+                // catch used to swallow it: the button looked dead. Say so.
                 console.error('[ScaleRelationshipExplorer] Failed to apply scale:', e);
+                this.state.parseError = `Could not load ${root} ${String(scaleName).replace(/_/g, ' ')}: ${e && e.message ? e.message : 'the library refused it'}.`;
+                this.render();
             }
         }
     }

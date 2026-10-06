@@ -76,15 +76,18 @@
     /**
      * Maps raw intervals to their "Harmonic Physics" property.
      * This defines the 'Force' applied to the major/minor baseline.
+     * The prose that used to sit beside each one ("Ethereal lift, otherworldly,
+     * longing") described how a degree is supposed to feel, which is not
+     * something this file can know about anyone's music.
      */
     const PHYSICS_MAP = {
-        1: { attr: 'Compression', desc: 'Inward pressure, threat, severe intimacy' }, // b2
-        3: { attr: 'Melancholy', desc: 'The baseline weight of sad/minor physics' }, // b3
-        4: { attr: 'Stability', desc: 'The baseline lift of happy/major physics' }, // M3
-        6: { attr: 'Expansion', desc: 'Ethereal lift, otherworldly, longing' }, // #4
-        8: { attr: 'Shadow', desc: 'Romantic sorrow, darkening the major frame' }, // b6
-        10: { attr: 'Release', desc: 'Openness, bluesy freedom, informal' }, // b7
-        11: { attr: 'Pull', desc: 'Intense leading-tone drive toward home' } // M7
+        1: { attr: 'Compression' },  // b2
+        3: { attr: 'Melancholy' },   // b3
+        4: { attr: 'Stability' },    // M3
+        6: { attr: 'Expansion' },    // #4
+        8: { attr: 'Shadow' },       // b6
+        10: { attr: 'Release' },     // b7
+        11: { attr: 'Pull' }         // M7
     };
 
     /**

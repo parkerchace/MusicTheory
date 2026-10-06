@@ -75,7 +75,14 @@
         requestAnimationFrame(() => requestAnimationFrame(syncOnce));
     }
 
+    // A studio look that features the fretboard (e.g. Luthier) claims it: the
+    // guitar mounts in its module and the dock keeps only the piano. The user's
+    // stored checkbox choice is untouched and returns when the claim ends.
+    let guitarClaimed = false;
+    let reapply = null;
+
     function applyDockMode(mode) {
+        if (guitarClaimed) mode = 'piano';
         const dockGrid = $('instrument-dock');
         const panePiano = $('instrument-pane-piano');
         const paneGuitar = $('instrument-pane-guitar');
@@ -122,6 +129,12 @@
             if (dockGuitarContainer) moveGuitarMount('guitar-dock-container');
             nudgeVisualizersToResize('both');
         }
+
+        // The fretboard module was just shown or hidden; a studio look lays
+        // out only what is present, so tell it.
+        try {
+            window.dispatchEvent(new CustomEvent('studio:modulepresence', { detail: { source: 'instrument-dock', mode } }));
+        } catch (_) {}
     }
 
     function readBool(key, fallback) {
@@ -182,6 +195,7 @@
         };
 
         applyFromCheckboxes();
+        reapply = () => applyDockMode(getModeFromSelection(cbPiano.checked, cbGuitar.checked));
 
         cbPiano.addEventListener('change', applyFromCheckboxes);
         cbGuitar.addEventListener('change', applyFromCheckboxes);
@@ -205,6 +219,16 @@
             });
         }
     }
+
+    window.InstrumentDock = {
+        claimGuitar(on) {
+            on = !!on;
+            if (on === guitarClaimed) return;
+            guitarClaimed = on;
+            if (reapply) reapply();
+        },
+        isGuitarClaimed() { return guitarClaimed; }
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

@@ -135,14 +135,24 @@
         }
 
         /* ==================== CONTROL DECK (TOP) ==================== */
+        /* The bar wraps onto a second row when its controls do not fit, rather
+           than squeezing the key/scale slot to nothing and letting everything
+           overlap. Its real height is published as --header-height (by
+           studio-looks.js) so whatever sits under it follows. */
         .control-deck {
-            height: var(--header-height);
+            min-height: 38px;
+            height: auto;
             background: rgba(5, 10, 15, 0.9);
             border-bottom: 1px solid var(--accent-primary);
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            padding: 0 12px;
-            gap: 16px;
+            padding: 3px 12px;
+            gap: 4px 12px;
+        }
+        /* below 1500px the wordmark gives its room to the controls; Home stays */
+        @media (max-width: 1500px) {
+            .control-deck .app-brand > span { display: none; }
         }
 
         /* Hide internal titles since we have module headers */

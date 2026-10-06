@@ -61,9 +61,13 @@ window.mountLearnModuleIfReady = function(instrument) {
         }
     } else {
         if (window.LearnPianoNotes && !window._learnPianoInstance) {
-            window._learnPianoInstance = new window.LearnPianoNotes();
+            window._learnPianoInstance = window.learnPianoNotesInstance || new window.LearnPianoNotes();
             window._learnPianoInstance.mount('#learn-piano-notes-container');
         }
+        // One instance under both names. The MIDI listeners (and the typing
+        // keyboard, which goes through them) feed window.learnPianoNotesInstance;
+        // under only the private name, this page never heard a keyboard.
+        if (window._learnPianoInstance) window.learnPianoNotesInstance = window._learnPianoInstance;
     }
 };
 // ==================== MODULAR APPLICATION ====================
@@ -398,6 +402,7 @@ window.mountLearnModuleIfReady = function(instrument) {
 
                     this.pianoVisualizer.renderScale(data);
                     this.scaleCircleExplorer.setKey(data.key);
+                    if (this.scaleCircleExplorer.setScaleType) this.scaleCircleExplorer.setScaleType(data.scale);
                     this.scaleCircleExplorer.setScaleNotes(data.notes);
                     if (this.sheetMusicGenerator && this.sheetMusicGenerator.setKeyAndScale) {
                         this.sheetMusicGenerator.setKeyAndScale(data.key, data.scale, data.notes);
@@ -510,6 +515,31 @@ window.mountLearnModuleIfReady = function(instrument) {
                 // Propagate manual Roman/chord display tokens into SheetMusicGenerator
                 this.numberGenerator.on('displayTokensChanged', (evt) => {
                     try {
+                        // ONE GENERATOR OWNS THE SHEET AT A TIME.
+                        //
+                        // Pressing Generate ran two of them. The words went to the
+                        // lexical path, which rebuilds chords out of display tokens
+                        // below, AND to the arc path, which harmonises the same text
+                        // with the approach and departure engines. Both then wrote
+                        // the staff, and whichever finished last was what appeared —
+                        // so the same button produced two different harmonisations of
+                        // one input, at random.
+                        //
+                        // The two are not equivalent. Reconstructing a chord from its
+                        // display token is lossy in exactly the way that matters here:
+                        // the rebuild below produces {root, chordType, chordNotes,
+                        // fullName, degree} and nothing else, so a chord borrowed from
+                        // some collection arrives as an anonymous chord symbol with no
+                        // record of where it came from. Nothing downstream can colour
+                        // it, name its source, or explain it, because by then there is
+                        // nothing left to say.
+                        //
+                        // So while an arc generation owns the sheet, this path updates
+                        // everything else it drives and leaves the staff alone. Typing
+                        // a progression by hand still renders through here — that is
+                        // the case this path is for, and it is not in competition with
+                        // anything when it happens.
+                        if (window.__sheetOwnedByArc) return;
                         const rawTokens = evt && evt.rawTokens ? evt.rawTokens : (evt && evt.tokens ? evt.tokens : null);
                         const tokens = evt && evt.tokens ? evt.tokens : null;
                         const precomputed = (evt && Array.isArray(evt.chords) && evt.chords.length === (tokens && tokens.length)) ? evt.chords : null;
@@ -1788,10 +1818,16 @@ window.mountLearnModuleIfReady = function(instrument) {
                 if (!mm._uiNoteHandlersAttached) {
                     mm._uiNoteHandlersAttached = true;
 
-                    mm.on('noteOn', ({ midi }) => {
+                    mm.on('noteOn', ({ midi, inputId }) => {
                         // Global full keyboard
                         if (window.modularApp.pianoVisualizer && typeof window.modularApp.pianoVisualizer.midiNoteOn === 'function') {
                             window.modularApp.pianoVisualizer.midiNoteOn(midi);
+                        }
+                        // The fretboard shows it where a hand would play it. Chord
+                        // mode places whole chords itself, as one shape.
+                        const gf = window.modularApp.guitarFretboard;
+                        if (gf && typeof gf.midiNoteOn === 'function' && !(inputId === 'qwerty' && window.QwertyChords && window.QwertyChords.active && window.QwertyChords.active())) {
+                            gf.midiNoteOn(midi);
                         }
                         // Learn: Piano Notes (1-octave keyboard)
                         if (window.learnPianoNotesInstance && typeof window.learnPianoNotesInstance.midiNoteOn === 'function') {
@@ -1803,6 +1839,8 @@ window.mountLearnModuleIfReady = function(instrument) {
                         if (window.modularApp.pianoVisualizer && typeof window.modularApp.pianoVisualizer.midiNoteOff === 'function') {
                             window.modularApp.pianoVisualizer.midiNoteOff(midi);
                         }
+                        const gf = window.modularApp.guitarFretboard;
+                        if (gf && typeof gf.midiNoteOff === 'function') gf.midiNoteOff(midi);
                         if (window.learnPianoNotesInstance && typeof window.learnPianoNotesInstance.midiNoteOff === 'function') {
                             window.learnPianoNotesInstance.midiNoteOff(midi);
                         }
@@ -2047,16 +2085,11 @@ window.mountLearnModuleIfReady = function(instrument) {
                 returnBtn.addEventListener('click', returnToLanding);
             }
             
-            // Keyboard shortcut: Escape key to return to landing
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && !e.target.matches('input, textarea')) {
-                    const landingPage = document.getElementById('landing-page');
-                    if (landingPage && landingPage.style.display === 'none') {
-                        returnToLanding();
-                    }
-                }
-            });
-            
+            // Escape no longer leaves the studio. Every panel, fly-out and the
+            // typing keyboard use Escape to put themselves away, and a key that
+            // also threw away the whole workspace made each of those a trap.
+            // The Home button is the way back to the landing page.
+
             // Setup Settings Dropdown
             const settingsBtn = document.getElementById('settings-dropdown-btn');
             const settingsPanel = document.getElementById('settings-dropdown-panel');

@@ -177,9 +177,11 @@ function run(mode){
         if(!mode) return;
 
         // ROOTED WHERE THE MODE SAYS.
-        var tgtPc=null;
+        var tgtPc=null, tgtChord=null;
         for(var i=seq.indexOf(ev)+1;i<seq.length;i++){
-          if(seq[i]&&!seq[i].approachStrategy&&seq[i].chordObj){ tgtPc=pcOf(seq[i].chordObj.root); break; }
+          if(seq[i]&&!seq[i].approachStrategy&&seq[i].chordObj){
+            tgtChord=seq[i].chordObj; tgtPc=pcOf(tgtChord.root); break;
+          }
         }
         if(tgtPc===null) return;
         var srcPc=pcOf(hint.root);
@@ -195,13 +197,18 @@ function run(mode){
             st.wrongRoot++;
             if(st.samples.length<6) st.samples.push(K.join(' ')+': '+hint.root+' is not the target root');
           }
-          // THE WITHHELD CHORD. Sounding the source scale's own tonic chord is
-          // the one thing this variant is defined by not doing.
-          var tonic=null;
-          try{ tonic=mt.getDiatonicChord(1,hint.root,hint.scaleName); }catch(e){}
-          if(tonic&&setKey(tonic)&&setKey(tonic)===setKey(ev.chordObj)){
+          // THE CHORD THAT IS ACTUALLY WITHHELD IS THE TARGET, NOT THE
+          // COLLECTION'S TONIC. This used to compare against degree 1 of the
+          // source scale, which forbade a chord merely for sitting on the
+          // target's root — approaching Em7 out of E bebop minor, that ruled
+          // out Em6, which is a different chord and is half of what makes that
+          // collection worth borrowing. The arrival is what has to be first
+          // heard at the arrival, so compare against the TARGET chord, at every
+          // degree, which also covers the symmetric collections where the same
+          // chord recurs at several degrees.
+          if(tgtChord&&setKey(ev.chordObj)&&setKey(ev.chordObj)===setKey(tgtChord)){
             st.soundedWithheld++;
-            if(st.samples.length<6) st.samples.push(K.join(' ')+': '+ev.chord+' IS the withheld tonic of '+hint.root+' '+hint.scaleName);
+            if(st.samples.length<6) st.samples.push(K.join(' ')+': '+ev.chord+' IS the target chord, sounded before the arrival');
           }
         }
 
@@ -213,7 +220,31 @@ function run(mode){
           var p=pcOf(n.noteName); if(p===null) return;
           st.melTotal++;
           if(sp[p]) st.melIn++;
-          else if(!(n.chromaticReason&&String(n.chromaticReason).trim().length)) st.melUnnamed++;
+          // A NOTE OVER AN APPROACH IS NAMED FOUR WAYS, NOT TWO.
+          //
+          //   1. it is in the BORROWED collection — the line went where the
+          //      harmony went;
+          //   2. it is in the HOME key — the line stayed where it was while the
+          //      harmony left, which is the anchoring device and not an
+          //      accident. This is the one the melody is *supposed* to do under
+          //      a long note: the tune is what the borrowing is heard against,
+          //      so it holds in the key while the collection moves underneath;
+          //   3. it carries a chromaticReason;
+          //   4. it is a SUSPENSION — a chord tone of the chord BEFORE, held
+          //      over and sounding against the new one.
+          //
+          // Only 1 and 3 were recognised. Both of the others appeared the
+          // moment the melody was told to hold rather than follow, and both are
+          // about as named as a device gets — so counting them as unexplained
+          // accidentals was the check not knowing about a device rather than
+          // the engine playing a wrong note.
+          //
+          // What still fails, and is the check worth having: a note outside
+          // BOTH collections, with no reason and no role. That is a genuinely
+          // unaccountable accidental and nothing here excuses one.
+          else if(!homePcs[p]
+                  && !(n.chromaticReason&&String(n.chromaticReason).trim().length)
+                  && String(n.role||'')!=='suspension') st.melUnnamed++;
         });
       });
       if(lastCore){/* keep the reference honest */}
@@ -300,7 +331,7 @@ say('');
         +' · shipped unattributed : '+x.noSource);
     if(label!=='MODE OFF (the control)'){
       say('    rooted somewhere other than the mode says : '+x.wrongRoot);
-      say('    the withheld tonic chord sounded          : '+x.soundedWithheld);
+      say('    the target chord sounded before arrival    : '+x.soundedWithheld);
       say('    approach runs with no explanation         : '+x.noExplain);
       say('    STRUCTURAL chords outside the key         : '+x.borrowed
           +' · excursions '+x.excursions+' · modulations '+x.modulations+' · secondary dominants '+x.secondaries);
@@ -353,7 +384,7 @@ want('the default draws from a fifth above the target', on.wrongRoot===0,
 want('the advanced toggle draws from the target\'s own root', adv.wrongRoot===0,
      adv.wrongRoot+' wrongly rooted');
 // The defining refusal of the advanced variant.
-want('...and NEVER sounds that scale\'s tonic chord before the arrival',
+want('...and NEVER sounds the TARGET chord before the arrival',
      adv.soundedWithheld===0, adv.soundedWithheld+' sounded');
 want('the advanced toggle actually changes which family fires',
      (adv.families.parallelTarget||0)>0 && (off.families.parallelTarget||0)===0,

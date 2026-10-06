@@ -702,35 +702,35 @@
                     
                     if (this.chordType === 'major') {
                         availableOptions = [
-                            { id: 'maj7', label: 'Major 7th', int: 4, desc: 'Jazzy, stable, dreamy' },
-                            { id: 'dom7', label: 'Dominant 7th', int: 3, desc: 'Bluesy, tension craving release' },
-                            { id: 'maj6', label: 'Major 6th', int: 2, desc: 'Warm, consonant, pentatonic' }
+                            { id: 'maj7', label: 'Major 7th', int: 4 },
+                            { id: 'dom7', label: 'Dominant 7th', int: 3 },
+                            { id: 'maj6', label: 'Major 6th', int: 2 }
                         ];
                     } 
                     else if (this.chordType === 'minor') {
                         availableOptions = [
-                            { id: 'min7', label: 'Minor 7th', int: 3, desc: 'The standard smooth minor sound' },
-                            { id: 'minmaj7', label: 'Min-Maj 7th', int: 4, desc: 'Mysterious, Noir, Hitchcock' },
-                            { id: 'min6', label: 'Minor 6th', int: 2, desc: 'Bright Dorian flavor' }
+                            { id: 'min7', label: 'Minor 7th', int: 3 },
+                            { id: 'minmaj7', label: 'Min-Maj 7th', int: 4 },
+                            { id: 'min6', label: 'Minor 6th', int: 2 }
                         ];
                     }
                     else if (this.chordType === 'dim') {
                         availableOptions = [
-                            { id: 'dim7', label: 'Diminished 7th', int: 3, desc: 'Symmetrical, very tense (Full Dim)' }, // 6+3=9
-                            { id: 'm7b5', label: 'Minor 7th (Half-Dim)', int: 4, desc: 'Tristan chord, softer tension' } // 6+4=10
+                            { id: 'dim7', label: 'Diminished 7th', int: 3 }, // 6+3=9
+                            { id: 'm7b5', label: 'Minor 7th (Half-Dim)', int: 4 } // 6+4=10
                         ];
                     }
                     else if (this.chordType === 'aug') {
                         availableOptions = [
-                            { id: 'maj7aug', label: 'Major 7th', int: 3, desc: 'Modern jazz, highly dissonant, staple voicing' },
-                            { id: 'aug7', label: 'Augmented Dominant 7th', int: 2, desc: 'Whole Tone scale flavor, rare alteration' }
+                            { id: 'maj7aug', label: 'Major 7th', int: 3 },
+                            { id: 'aug7', label: 'Augmented Dominant 7th', int: 2 }
                         ];
                     }
                     else if (this.chordType.includes('sus')) {
                         availableOptions = [
-                            { id: 'dom7', label: 'Dominant 7th', int: 3, desc: 'Mixolydian flavor' },
-                            { id: 'maj7', label: 'Major 7th', int: 4, desc: 'Modern, stable voicing' },
-                            { id: '6', label: '6th', int: 2, desc: 'Open, quartal sound' }
+                            { id: 'dom7', label: 'Dominant 7th', int: 3 },
+                            { id: 'maj7', label: 'Major 7th', int: 4 },
+                            { id: '6', label: '6th', int: 2 }
                         ]; 
                     }
                 } else if (currentExtCount === 1) {
@@ -748,9 +748,9 @@
                     
                     // Filter options based on chord type and 7th choice
                     let ninthOptions = [
-                        { id: 'b9', label: 'Flat 9 (b9)', int: distToFlat9, desc: 'Dark, Spanish Phrygian' },
-                        { id: 'nat9', label: 'Natural 9th', int: distToNat9, desc: 'Rich, standard beauty' },
-                        { id: 'shp9', label: 'Sharp 9 (#9)', int: distToSharp9, desc: 'Hendrix chord tension' }
+                        { id: 'b9', label: 'Flat 9 (b9)', int: distToFlat9 },
+                        { id: 'nat9', label: 'Natural 9th', int: distToNat9 },
+                        { id: 'shp9', label: 'Sharp 9 (#9)', int: distToSharp9 }
                     ];
                     
                     // Context-aware filtering
@@ -785,8 +785,8 @@
                     
                     // Filter based on context
                     let eleventhOptions = [
-                        { id: 'nat11', label: 'Natural 11th', int: distToNat11, desc: 'Smooth, suspended feel' },
-                        { id: 'shp11', label: 'Sharp 11 (#11)', int: distToSharp11, desc: 'Lydian brightness' }
+                        { id: 'nat11', label: 'Natural 11th', int: distToNat11 },
+                        { id: 'shp11', label: 'Sharp 11 (#11)', int: distToSharp11 }
                     ];
                     
                     // Natural 11 clashes with the major 3rd, so less common in major/dominant chords
@@ -815,8 +815,8 @@
                     const seventhId = this.extensionIds[0];
                     
                     let thirteenthOptions = [
-                        { id: 'nat13', label: 'Natural 13th', int: distToNat13, desc: 'Full, complex jazz sound' },
-                        { id: 'b13', label: 'Flat 13 (b13)', int: distToFlat13, desc: 'Altered/Minor flavor' }
+                        { id: 'nat13', label: 'Natural 13th', int: distToNat13 },
+                        { id: 'b13', label: 'Flat 13 (b13)', int: distToFlat13 }
                     ];
                     
                     // Natural 13 works better on major/dominant contexts
@@ -877,7 +877,6 @@
                             </div>
                             <div style="flex:1;">
                                 <div style="font-weight:700; color:var(--text-main);">${opt.label}</div>
-                                <div style="font-size:0.8rem; color:var(--text-muted);">${opt.desc}</div>
                             </div>
                             <div style="font-size:0.9rem; font-weight:600; color:var(--text-muted); background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:4px;">+${opt.int} semi</div>
                         </div>
@@ -980,10 +979,10 @@
 
         getTheoryExplanation() {
             const explanations = {
-                'major': '<strong>Major triads</strong> use a major third (4 half-steps) then a minor third (3 half-steps). This creates a stable, happy sound used in most pop, rock, and classical music.',
-                'minor': '<strong>Minor triads</strong> flip it: minor third (3 half-steps) then major third (4 half-steps). This creates a darker, sadder sound often used for emotional depth.',
-                'dim': '<strong>Diminished triads</strong> stack two minor thirds (3+3). This creates tension and instability, often used as a transition chord.',
-                'aug': '<strong>Augmented triads</strong> stack two major thirds (4+4). This creates a dreamy, floating quality used in jazz and film scores.'
+                'major': '<strong>Major triads</strong> use a major third (4 half-steps) then a minor third (3 half-steps).',
+                'minor': '<strong>Minor triads</strong> flip it: minor third (3 half-steps) then major third (4 half-steps).',
+                'dim': '<strong>Diminished triads</strong> stack two minor thirds (3+3). Often used as a transition chord.',
+                'aug': '<strong>Augmented triads</strong> stack two major thirds (4+4).'
             };
             return explanations[this.chordType] || '';
         }
@@ -1101,11 +1100,9 @@
             const info = this.step4Panel ? this.step4Panel.querySelector('#extended-chord-info') : null;
             if (info) {
                 let typeText = 'Basic Triad';
-                let desc = 'The foundation of harmony.';
                 
                 if (this.extensionMeta) {
                     typeText = this.extensionMeta.name;
-                    desc = this.extensionMeta.description;
                 }
                 
                 if (this.inversion > 0) {
@@ -1121,7 +1118,6 @@
                     <div style="margin-bottom:8px;"><strong>Type:</strong> ${typeText}</div>
                     <div style="margin-bottom:8px;"><strong>Notes:</strong> ${formattedNotes.join(' – ')}</div>
                     <div style="margin-bottom:8px;"><strong>Formula:</strong> ${intervals.join('+')}</div>
-                    <div style="color:var(--text-muted); font-size:0.9rem; padding-top:8px; border-top:1px solid var(--border-light);">${desc}</div>
                 `;
             }
             
@@ -1228,18 +1224,15 @@
             const extensionInfo = {
                 'dom7': { 
                     intervals: [3], 
-                    name: 'Dominant 7th',
-                    description: 'Adds tension and wants to resolve. Common in blues, jazz, and rock.'
+                    name: 'Dominant 7th'
                 },
                 'maj7': { 
                     intervals: [4], 
-                    name: 'Major 7th',
-                    description: 'Creates a dreamy, sophisticated sound. Popular in jazz and R&B.'
+                    name: 'Major 7th'
                 },
                 '9th': { 
                     intervals: [3, 4],
-                    name: '9th chord',
-                    description: 'Adds complexity and richness. Widely used in jazz and funk.'
+                    name: '9th chord'
                 }
             };
             

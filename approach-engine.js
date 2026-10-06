@@ -302,6 +302,42 @@ class ApproachEngine {
     }
 
     /**
+     * WHAT THIS COLLECTION IS CALLED WHEN THE TARGET IS ITS ROOT.
+     *
+     * A scale rooted a fifth above the target stands where a dominant stands,
+     * which is the procedure. This is the REASON it resolves: re-rooted on the
+     * target, the same seven notes are very often an ordinary scale on that
+     * target — so the approach material and the arrival are one collection
+     * heard from two tonics, and the resolution is a change of centre rather
+     * than a change of notes. When the re-rooted reading has a name a player
+     * knows, that is the strongest possible argument for the choice, and it is
+     * worth preferring over a collection that merely shares a lot of notes.
+     *
+     * @returns {string|null} the id naming this set rooted on `targetPc`
+     */
+    parentNameOnTarget(notes, targetPc) {
+        if (!Number.isFinite(targetPc) || targetPc < 0) return null;
+        let mask = 0;
+        (notes || []).forEach((n) => {
+            const pc = this.pitchValue(n);
+            if (Number.isFinite(pc) && pc >= 0) mask |= 1 << pc;
+        });
+        if (!mask) return null;
+        const rot = ApproachEngine.rotateMask(mask, (12 - (targetPc % 12)) % 12);
+
+        if (!this._maskToId) {
+            const map = new Map();
+            for (const entry of this.scaleMaskIndex()) {
+                const prev = map.get(entry.mask0);
+                if (!prev || entry.rank < prev.rank) map.set(entry.mask0, entry);
+            }
+            this._maskToId = map;
+        }
+        const hit = this._maskToId.get(rot);
+        return hit ? hit.scaleId : null;
+    }
+
+    /**
      * SHARED-ROOT SCALE SEARCH.
      *
      * To approach a chord, find scales that contain a chord built on the SAME
@@ -571,11 +607,56 @@ class ApproachEngine {
      * things like Asus2(add11,♭13,#5), which is a true description of some
      * pitches and not a chord symbol.
      */
-    approachScaleFamilies(target, maxBeats, advanced, homeScaleNotes) {
+    approachScaleFamilies(target, maxBeats, advanced, homeScaleNotes, opts = {}) {
         const plans = [];
+        // WHERE THE COLLECTION IS ROOTED, AND HOW WIDE THE LIBRARY OPENS.
+        //
+        // `advanced` was a boolean meaning "also draw from the target's own
+        // root", so the own-root family could only ever be an ADDITION to the
+        // fifth-above one and never a choice. They are two co-equal devices —
+        // a fifth above for major targets, the target's own root for minor —
+        // and asking for the second alone is a thing a player does. `source`
+        // says which, and `advanced` is kept as its derived shorthand so
+        // existing callers keep working.
+        //
+        //   fifth   a collection rooted a fifth above the target
+        //   root    a collection rooted on the target's own root
+        //   both    offer both families and let the piece choose
+        //
+        // `palette` says how much of the library is in play:
+        //
+        //   lands   the ones that land — mixolydian above, bebop on the root —
+        //           pinned to the front, everything else still behind them
+        //   sevens  seven-note collections only, the older behaviour
+        //   all     the whole library, nothing pinned
+        const source = opts.source || (advanced ? 'both' : 'fifth');
+        const palette = opts.palette || 'lands';
+        const wantFifth = source === 'fifth' || source === 'both';
+        const wantRoot = source === 'root' || source === 'both';
+        const sizes = palette === 'sevens' ? [7] : [7, 8];
+        const poolLimit = palette === 'all' ? 60 : 40;
+        // Move `scaleId` to the front, adding it if the ranking cut it. A
+        // pinned collection is a DEFAULT, not a restriction: it leads the list
+        // and the rest of the library follows it, so the common answer is one
+        // click away and the other thousand-odd are still reachable.
+        const pinFirst = (list, scaleId, rootNote, decorate) => {
+            if (palette !== 'lands' || !scaleId) return list;
+            const at = list.findIndex(c => c.scaleId === scaleId);
+            if (at > 0) { const [hit] = list.splice(at, 1); list.unshift(hit); return list; }
+            if (at === 0) return list;
+            const notes = this.scaleNotes(rootNote, scaleId);
+            if (!notes || !notes.length) return list;
+            list.unshift(decorate({ scaleId, size: notes.length, notes, rank: 0 }));
+            return list;
+        };
         if (!this.mt || typeof this.mt.getDiatonicChord !== 'function') return plans;
         const t = target.root;
         const tq = String(target.chordType || 'maj7');
+        const minorTarget = /^m(?!aj)/.test(tq);
+        // A dominant seventh reads as "not minor" to the test above and is not
+        // a major chord either: its seventh is flat, so the collection that
+        // lands on it is a different mode from the one that lands on maj7.
+        const dominantTarget = /^(7|9|11|13)/.test(tq);
         const tRoman = target.roman || target.fullName || this.fullName(t, tq);
         const tPc = this.pitchValue(t);
         if (!Number.isFinite(tPc) || tPc < 0) return plans;
@@ -655,8 +736,88 @@ class ApproachEngine {
 
         // --- a fifth above the target -----------------------------------
         const fifth = spellLike((tPc + 7) % 12, t);
-        const fifthScales = this.scalesRootedAt(fifth, { sizes: [7], limit: 16, mustContainPc: tPc })
-            .filter(c => !isHomeCollection(c.notes));
+        // SELECT ON THE CHORD, NOT JUST ON ITS ROOT.
+        //
+        // `mustContainPc` asks only that the collection hold the target's
+        // ROOT, and the chord-tone overlap below was computed and then spent
+        // entirely on pricing spice — nothing ranked by it. So a collection
+        // holding one note of the chord it was approaching could be offered
+        // ahead of one holding three, which is the opposite of what makes an
+        // approach land.
+        //
+        // ORDERING, IN PRIORITY: how much of the target CHORD the collection
+        // already contains; then whether the collection re-rooted on the
+        // target is a scale with a NAME, and how ordinary that name is; then
+        // familiarity.
+        //
+        // THE NAME IS THE TIEBREAK, NOT THE CRITERION, and the difference
+        // matters. Approaching E from a fifth above, B major and B mixolydian
+        // hold the SAME amount of an E chord — all of it — so overlap alone
+        // cannot separate them, and it is the name on the target that does:
+        // rooted on E those two collections are E lydian and E major, and the
+        // ordinary one is the one that lands. That is a tie being broken.
+        // Promote the name above overlap and it stops being a tiebreak and
+        // starts overruling the chord: approaching Fm7, the collection whose
+        // name on F is plain F MAJOR sorts to the front holding two notes of
+        // four, ahead of the one holding all four, and the approach argues
+        // with the quality of the chord it is approaching.
+        //
+        // Sizes [7, 8], matching the target's-own-root family below. Of the
+        // library's collections roughly a fifth have eight notes, and the
+        // ones that matter here are real approach material: a scale whose
+        // alternate degrees give a diminished seventh and a sixth chord is
+        // exactly what a half-step-below approach is made of. Excluding them
+        // was never argued for — the seven-note filter was written against
+        // collections SMALLER than seven, which cannot harmonise.
+        const decorateFifth = (c) => {
+            const parent = this.parentNameOnTarget(c.notes, tPc);
+            const parentRank = parent
+                ? ((typeof ScaleColour !== 'undefined')
+                    ? ScaleColour.familiarityOf(parent, {}) : 0)
+                : 9999;
+            return { ...c, chordOverlap: overlapOf(c.notes), parent, parentRank };
+        };
+        const fifthScales = !wantFifth ? [] : pinFirst(
+            this.scalesRootedAt(fifth, { sizes, limit: poolLimit, mustContainPc: tPc })
+                .filter(c => !isHomeCollection(c.notes))
+                .map(decorateFifth)
+                .sort((a, b) =>
+                    (b.chordOverlap - a.chordOverlap)
+                    || (a.parentRank - b.parentRank)
+                    || (a.rank - b.rank))
+                .slice(0, 16),
+            // Mixolydian is the one that lands here, and the reason is the one
+            // parentNameOnTarget already knows: rooted on the target these are
+            // the target's own major scale, so approach and arrival are one
+            // collection heard from two centres.
+            //
+            // WHICH MODE LANDS DEPENDS ON THE QUALITY OF THE CHORD, and there
+            // are three answers, not two.
+            //
+            // The rule underneath all of them is one thing: pin the collection
+            // a fifth above whose notes RE-ROOTED ON THE TARGET are the
+            // target's own parent scale, so approach and arrival are one
+            // collection heard from two centres. Which mode that is depends on
+            // what the target's parent scale is.
+            //
+            //   maj7 target → its parent is its own major scale, and a fifth
+            //     above that is MIXOLYDIAN. Holds all four notes of the chord.
+            //   7 target → a dominant seventh's parent is the major scale a
+            //     fourth below it, so on the target that is MIXOLYDIAN, and a
+            //     fifth above THAT is DORIAN. Approaching A7, E dorian is
+            //     D major — it holds A, C#, E and G, all four.
+            //   m7 target → not this family's to answer. It is the bebop
+            //     collection on the target's own root, pinned below.
+            //
+            // The dominant case was being handed mixolydian, and that is the
+            // very error the minor case exists to prevent. Against A7, E
+            // mixolydian carries G# where the chord has G natural: three of
+            // four, pinned in front of collections holding all four. A
+            // preference must never outrank the chord it is approaching, and
+            // "major or not" is too coarse a question to keep that promise —
+            // a dominant seventh is not a major chord.
+            minorTarget ? null : (dominantTarget ? 'dorian' : 'mixolydian'),
+            fifth, decorateFifth);
         for (const cand of fifthScales) {
             const { scaleId, size, notes } = cand;
             const rootPc = this.pitchValue(fifth);
@@ -682,47 +843,99 @@ class ApproachEngine {
             // target is the SCALE'S ROOT, and it has to be named in the same
             // breath or the sentence is not describing what happened.
             const why = `whose root ${fifth} is a fifth above ${target.root}`;
+            // The sharper reason, when it holds: these same notes rooted on the
+            // target are an ordinary scale there, so the approach and the
+            // arrival are one collection heard from two centres.
+            const parentWhy = cand.parent
+                ? ` The same seven notes rooted on ${target.root} are ${target.root} `
+                  + `${this.prettyScale(cand.parent)} — approach and arrival are one collection `
+                  + `heard from two centres, which is why it lands rather than merely fits.`
+                : '';
+            const held = Math.round((cand.chordOverlap || 0) * (targetPcs.size || 1));
+            const overlapWhy = held > 0
+                ? ` It already holds ${held} of ${targetPcs.size} notes of ${target.fullName}.`
+                : '';
 
-            if (tonicChord) {
-                plans.push({
-                    id: `fifth:${scaleId}@${fifth}:tonic`, family: 'fifthAbove', spice, beats: 0.5,
-                    build: () => {
-                        const ev = eventFor(tonicChord, fifth, scaleId, notes, 'fifth-above-scale', 1);
-                        ev.explain = `${tonicChord.fullName} — the tonic chord of ${src}, the scale ${why}. `
-                            + `Standing a fifth above the target is where a dominant stands, so the whole `
-                            + `collection already points at ${target.fullName}; which of the library's `
-                            + `${fifth} scales it is decides what the pointing sounds like.`;
-                        return [ev];
+            // WALK CONSECUTIVE DEGREES INTO THE TARGET — AND NEVER OPEN ON
+            // THE COLLECTION'S OWN TONIC CHORD.
+            //
+            // This family used to offer three things: the borrowed collection's
+            // tonic chord alone; the chord one step from the target; and the
+            // two together. The first and third are the reason a borrowed
+            // approach could arrive sounding like a change of key.
+            //
+            // The collection here is rooted A FIFTH ABOVE the target, so its
+            // tonic chord is a rival centre. Sounding it first states that
+            // centre, and the chord that follows is then heard as belonging to
+            // it rather than as pointing at the target. In D major, approaching
+            // A7 out of E major, the pair came out `Emaj7 → B7` — degree 1 then
+            // degree 5, which is I–V of E. The approach tonicized E and then
+            // reached A7 from inside the key it had just invented, which is a
+            // borrowing borrowed from a borrowing. Measured before this change,
+            // 57% of every fifth-above approach opened on the collection's
+            // tonic; worse, `Amaj7 → E7 → Dmaj7` tonicized the dominant in
+            // order to arrive home.
+            //
+            // THE RULE THAT REPLACES IT is the one the target's-own-root family
+            // already uses: a walk is a run of CONSECUTIVE degrees ending on a
+            // degree adjacent to the target. Consecutive degrees cannot spell a
+            // cadence, so no rival centre is asserted — the collection is heard
+            // as a scale being walked rather than as a key being visited.
+            //
+            // Degree 1 is not forbidden outright, only as an OPENING. A walk
+            // that passes through it on the way in is a passing chord like any
+            // other; it is the first chord of a gesture that says where the
+            // music is. This is deliberately narrower than the blanket
+            // withholding that was removed for the own-root family, because
+            // there the collection is rooted ON the target and its tonic chord
+            // is the target's own centre, not a rival one — which is exactly
+            // what makes the sixth-diminished alternation work and must stay.
+            const chordAtDeg = [];
+            for (let d = 1; d <= size; d++) chordAtDeg[d] = mkChord(fifth, scaleId, d, notes);
+            const degWrap = (d) => ((d - 1 + size * 4) % size) + 1;
+
+            [['up', -1, degWrap(targetDegree - 1)],
+             ['down', 1, degWrap(targetDegree + 1)]].forEach(([dir, step, landing]) => {
+                for (let len = 1; len <= 4; len++) {
+                    const beats = len * 0.5;
+                    if (beats > maxBeats + 1e-6) break;
+                    const degs = [];
+                    for (let i = len - 1; i >= 0; i--) degs.push(degWrap(landing + step * i));
+                    // The opening chord is what states a centre, so that is the
+                    // one position degree 1 may not take.
+                    if (degs[0] === 1) continue;
+                    const chords = degs.map(d => chordAtDeg[d]);
+                    if (chords.some(c => !c)) continue;
+                    // Consecutive degrees can still spell the same chord twice
+                    // running in a symmetric collection; a repeat is not a step.
+                    let repeats = false;
+                    for (let i = 1; i < chords.length; i++) {
+                        if (this.sameChordNotes(chords[i].chordNotes || [], chords[i - 1].chordNotes || [])) {
+                            repeats = true; break;
+                        }
                     }
-                });
-            }
-            [['below', below], ['above', above]].forEach(([side, c]) => {
-                if (!c) return;
-                const deg = side === 'below'
-                    ? ((targetDegree - 2 + size) % size) + 1 : (targetDegree % size) + 1;
-                plans.push({
-                    id: `fifth:${scaleId}@${fifth}:${side}`, family: 'fifthAbove',
-                    spice: Math.min(1, spice + 0.04), beats: 0.5,
-                    build: () => {
-                        const ev = eventFor(c, fifth, scaleId, notes, 'fifth-above-scale', deg);
-                        ev.explain = `${c.fullName} — degree ${deg} of ${src}, the scale ${why}. Inside `
-                            + `that scale ${c.root} sits one step ${side} ${target.root}, so it steps `
-                            + `into ${target.fullName}.`;
-                        return [ev];
-                    }
-                });
-                if (tonicChord && maxBeats >= 1 && !this.sameChordNotes(
-                        tonicChord.chordNotes || [], c.chordNotes || [])) {
+                    if (repeats) continue;
                     plans.push({
-                        id: `fifth:${scaleId}@${fifth}:cell-${side}`, family: 'fifthAbove',
-                        spice: Math.min(1, spice + 0.08), beats: 1,
+                        id: `fifth:${scaleId}@${fifth}:${dir}${landing}x${len}`, family: 'fifthAbove',
+                        spice: Math.min(1, spice + (len - 1) * 0.05), beats,
                         build: () => {
-                            const a = eventFor(tonicChord, fifth, scaleId, notes, 'fifth-above-scale', 1);
-                            const b = eventFor(c, fifth, scaleId, notes, 'fifth-above-scale', deg);
-                            a.explain = `${tonicChord.fullName} → ${c.fullName} — both from ${src}, the scale `
-                                + `${why}: its own tonic chord, then its chord one step ${side} ${target.root}, `
-                                + `into ${target.fullName}.`;
-                            return [a, b];
+                            const evs = chords.map((c, i) =>
+                                eventFor(c, fifth, scaleId, notes, 'fifth-above-scale', degs[i]));
+                            const names = chords.map(c => c.fullName).join(' → ');
+                            const where = len === 1
+                                ? `Inside that scale ${chords[0].root} sits one step `
+                                  + `${dir === 'up' ? 'below' : 'above'} ${target.root}, so it steps into `
+                                  + `${target.fullName}.`
+                                : `Degrees ${degs.join(', ')} of that scale, consecutive, walking `
+                                  + `${dir === 'up' ? 'up' : 'down'} into ${target.fullName} — a scale `
+                                  + `being walked rather than a key being visited.`;
+                            evs[0].explain = `${names} — from ${src}, the scale ${why}. ${where}`
+                                + overlapWhy + parentWhy;
+                            for (let i = 1; i < evs.length; i++) {
+                                evs[i].explain = `${chords[i].fullName} — degree ${degs[i]} of ${src}, `
+                                    + `the scale ${why}, on the way into ${target.fullName}.`;
+                            }
+                            return evs;
                         }
                     });
                 }
@@ -730,78 +943,190 @@ class ApproachEngine {
         }
 
         // --- the target's own root, tonic chord withheld -------------------
-        if (advanced) {
-            const parScales = this.scalesRootedAt(t, { sizes: [7, 8], limit: 14 })
-                .filter(c => !isHomeCollection(c.notes));
+        if (wantRoot) {
+            // RANKED, NOT SAMPLED. This family asked for fourteen collections
+            // and took whatever `scalesRootedAt` handed back — and that method
+            // does not return the top fourteen, it takes four from the head
+            // and then STRIDES across the rest of the library to fill the
+            // quota. So which collections a chord got approached from was an
+            // artifact of the stride, and the family alone among the families
+            // here had no ordering of its own.
+            //
+            // Ask for a wide pool, then rank it the way the fifth-above family
+            // is ranked, and cut to the same fourteen. Overlap leads here
+            // rather than the parent name: this collection is ALREADY rooted
+            // on the target, so re-rooting it on the target is a no-op and
+            // parentNameOnTarget would return its own name for every
+            // candidate — no discrimination at all. What separates them is how
+            // much of the chord being approached they actually hold.
+            const decorateRoot = (c) => ({ ...c, chordOverlap: overlapOf(c.notes) });
+            // THE ONE THAT LANDS ON A MINOR CHORD IS THE BEBOP COLLECTION, and
+            // ranking on overlap alone will not find it. Against a m7 target
+            // `bebop_minor` holds three of four chord tones — it carries the
+            // natural seventh, not the ♭7 — so every ordinary seven-note
+            // collection holding all four outranks it and it falls outside the
+            // cut. That is the ranking working correctly and still missing the
+            // device, because what makes this collection the right one is not
+            // how much of the chord it holds: it is that its alternate degrees
+            // ARE a diminished seventh and a sixth chord, so the degree a step
+            // below the target is the dim7 a half step under it. Pin it, and
+            // let overlap order everything behind it.
+            const bebop = minorTarget ? 'bebop_minor' : 'bebop_major';
+            const parScales = pinFirst(
+                this.scalesRootedAt(t, { sizes, limit: poolLimit })
+                    .filter(c => !isHomeCollection(c.notes))
+                    .map(decorateRoot)
+                    .sort((a, b) =>
+                        (b.chordOverlap - a.chordOverlap)
+                        || (a.rank - b.rank))
+                    .slice(0, 14),
+                bebop, t, decorateRoot);
             for (const cand of parScales) {
                 const { scaleId, size, notes } = cand;
-                // WITHHOLDING THE TONIC CHORD IS NOT THE SAME AS SKIPPING
-                // DEGREE 1. In a symmetric collection the same chord appears at
-                // several degrees — stack thirds anywhere in C diminished and
-                // you get Cdim7 again, spelled from E♭, G♭ or A. Refusing the
-                // degree while sounding the identical pitches at another one
-                // would keep the rule and break the point of it, which is that
-                // the arrival is the first time that chord is heard.
-                const withheldChord = this.scaleDegreeChord(t, scaleId, 1, notes);
-                const withheldTones = withheldChord ? (withheldChord.chordNotes || withheldChord.diatonicNotes || []) : [];
-                const isWithheld = (c) => withheldTones.length
-                    && this.sameChordNotes(c.chordNotes || c.diatonicNotes || [], withheldTones);
-                // Degree 2 is a step above the target root and degree `size` a
-                // step below it — the two ways in that never touch degree 1.
-                const secondDeg = 2;
-                const lastDeg = size;
+                // WALK THE COLLECTION'S OWN CHORDS INTO THE TARGET.
+                //
+                // This family used to offer exactly two chords out of a whole
+                // collection — the degree a step above the target and the one a
+                // step below — and refused degree 1 outright. Both restrictions
+                // came from one rule: the arrival must be the first time the
+                // target chord is heard. That rule is right. It was simply
+                // enforced in the wrong place, and far too widely.
+                //
+                // THE INVARIANT IS ALREADY GUARANTEED, at every degree, by
+                // mkChord: it refuses any degree whose chord has the target's
+                // own notes, so the target cannot be sounded early even in a
+                // symmetric collection where the same chord recurs at several
+                // degrees — which is the case the old comment worried about and
+                // could not actually cover by refusing a degree NUMBER.
+                //
+                // What withholding degree 1 additionally forbade was the
+                // collection's tonic chord even when it is a DIFFERENT chord
+                // from the target. Approaching Em7 out of E bebop minor, degree
+                // 1 is Em6 — not the target, a genuine approach chord, and half
+                // of the alternation that makes that collection worth borrowing
+                // at all. The rule was throwing away the best chord in the
+                // scale to protect an arrival that mkChord was already
+                // protecting.
+                //
+                // So: every degree that yields a plain stacked-thirds chord is
+                // walkable, and a walk is a run of CONSECUTIVE degrees, taken
+                // modulo the collection's size so it may pass through degree 1,
+                // ending on a degree adjacent to the target root. Symmetric and
+                // eight-note collections fall out of this rather than needing a
+                // case: in a sixth-diminished collection consecutive degrees
+                // alternate a diminished seventh with a sixth chord, so the
+                // walk IS the alternation, and in any other collection it is an
+                // ordinary stepwise approach.
+                const chordAt = [];
+                for (let d = 1; d <= size; d++) chordAt[d] = mkChord(t, scaleId, d, notes);
                 const spice = Math.min(0.98, Math.max(0.3,
                     0.45 + (1 - overlapOf(notes)) * 0.4 + (cand.rank > 1 ? 0.14 : 0)));
                 const src = `${t} ${this.prettyScale(scaleId)}`;
-                const withheld = `Its own ${t} chord is deliberately never sounded — the ${t}-ness is saved `
-                    + `for the arrival`;
+                const degName = (d) => ((d - 1 + size) % size) + 1;
 
-                [[secondDeg, 'down', 3], [lastDeg, 'up', size - 1]].forEach(([landing, dir, prior]) => {
-                    const landChord = mkChord(t, scaleId, landing, notes);
-                    if (!landChord || isWithheld(landChord)) return;
-                    plans.push({
-                        id: `par:${scaleId}@${t}:${dir}1`, family: 'parallelTarget', spice, beats: 0.5,
-                        build: () => {
-                            const ev = eventFor(landChord, t, scaleId, notes, 'parallel-target-scale', landing);
-                            ev.explain = `${landChord.fullName} — degree ${landing} of ${src}, a scale rooted `
-                                + `on the target's OWN root, stepping ${dir} into ${target.fullName}. ${withheld}.`;
-                            return [ev];
+                // LENGTH IS A WINDOW, NOT A CONSTANT. Too brief and the borrowed
+                // collection goes by before it can be heard as a colour at all;
+                // too long and it stops decorating the key and starts replacing
+                // it. One to four chords, and the shorter ones are priced lower
+                // so they stay the common case.
+                // WHERE A WALK IS ALLOWED TO END. A step below the target root
+                // is the last degree, a step above it is degree 2 — and degree
+                // 1 is the third way in, the collection's own tonic chord
+                // resolving into the target.
+                //
+                // That third landing is self-limiting, which is why it can be
+                // offered unconditionally. In an ordinary collection rooted on
+                // the target, degree 1 IS the target chord, so mkChord returns
+                // null for it and the landing simply never fires. It only opens
+                // where the collection's tonic chord genuinely differs from the
+                // chord being approached — E bebop minor giving Em6 into Em7,
+                // a sixth resolving to a seventh, which is the pair the whole
+                // sixth-diminished sound is built out of.
+                [['up', -1, size], ['up', -1, 1], ['down', 1, 2]].forEach(([dir, step, landing]) => {
+                    for (let len = 1; len <= 4; len++) {
+                        const beats = len * 0.5;
+                        if (beats > maxBeats + 1e-6) break;
+                        const degs = [];
+                        for (let i = len - 1; i >= 0; i--) degs.push(degName(landing + step * i));
+                        const chords = degs.map(d => chordAt[d]);
+                        if (chords.some(c => !c)) continue;
+                        // Consecutive degrees can still spell the same chord
+                        // twice running in a symmetric collection; a repeat is
+                        // not a step.
+                        let repeats = false;
+                        for (let i = 1; i < chords.length; i++) {
+                            if (this.sameChordNotes(chords[i].chordNotes || [], chords[i - 1].chordNotes || [])) {
+                                repeats = true; break;
+                            }
                         }
-                    });
-                    if (maxBeats < 1 || prior === 1 || prior > size) return;
-                    const priorChord = mkChord(t, scaleId, prior, notes);
-                    if (!priorChord || isWithheld(priorChord)) return;
-                    if (this.sameChordNotes(priorChord.chordNotes || [], landChord.chordNotes || [])) return;
-                    plans.push({
-                        id: `par:${scaleId}@${t}:${dir}2`, family: 'parallelTarget',
-                        spice: Math.min(1, spice + 0.06), beats: 1,
-                        build: () => {
-                            const a = eventFor(priorChord, t, scaleId, notes, 'parallel-target-scale', prior);
-                            const b = eventFor(landChord, t, scaleId, notes, 'parallel-target-scale', landing);
-                            a.explain = `${priorChord.fullName} → ${landChord.fullName} → ${target.fullName} — `
-                                + `degrees ${prior} and ${landing} of ${src}, a scale rooted on the target's OWN `
-                                + `root, walking ${dir} into it. ${withheld}.`;
-                            return [a, b];
-                        }
-                    });
+                        if (repeats) continue;
+                        plans.push({
+                            id: `par:${scaleId}@${t}:${dir}${landing}x${len}`, family: 'parallelTarget',
+                            spice: Math.min(1, spice + (len - 1) * 0.05), beats,
+                            build: () => {
+                                const evs = chords.map((c, i) =>
+                                    eventFor(c, t, scaleId, notes, 'parallel-target-scale', degs[i]));
+                                const names = chords.map(c => c.fullName).join(' → ');
+                                // EVERY CHORD NAMES ITS OWN SOURCE, not just the
+                                // first of the walk. A four-chord walk is two
+                                // beats and can cross a bar line, and anything
+                                // reading these per bar then met a borrowed
+                                // chord carrying no attribution at all — the one
+                                // thing this mode is not allowed to ship.
+                                evs.forEach((ev, i) => {
+                                    ev.explain = i === 0
+                                        ? `${names} → ${target.fullName} — degree`
+                                          + `${degs.length > 1 ? 's' : ''} ${degs.join(', ')} of ${src}, a `
+                                          + `scale rooted on the target's OWN root, walking ${dir} into it. `
+                                          + `The target chord itself is never sounded before the arrival.`
+                                        : `${chords[i].fullName} — degree ${degs[i]} of ${src}, continuing `
+                                          + `the walk ${dir} into ${target.fullName}.`;
+                                });
+                                return evs;
+                            }
+                        });
+                    }
                 });
             }
         }
 
+        // PINNING THE COLLECTION IS NOT ENOUGH TO BE HEARD. Ordering the
+        // candidate list puts the collection that lands at the front, but what
+        // finally gets played is drawn by weight from the whole catalog, and
+        // each collection contributes a different NUMBER of plans — the bebop
+        // collection yields two where an ordinary seven-note one yields four.
+        // Front of the list, half the tickets: pinning changed the order of
+        // something nothing downstream reads in order. Mark the plans instead,
+        // and let `plan()` weight them. Still a default and not a restriction —
+        // every other collection keeps its tickets.
+        if (palette === 'lands') {
+            const heads = new Set();
+            if (wantFifth && !minorTarget) heads.add('fifth:mixolydian');
+            if (wantRoot) heads.add(`par:${minorTarget ? 'bebop_minor' : 'bebop_major'}`);
+            plans.forEach((p) => {
+                if (heads.has(String(p.id).split('@')[0])) p.preferred = true;
+            });
+        }
         return plans.filter(p => p.beats <= maxBeats + 1e-6);
     }
 
     buildCatalog(target, { maxBeats = 1.5, diatonicOnly = false, mode = null, advanced = false,
-                          homeScaleNotes = null } = {}) {
+                          homeScaleNotes = null, source = null, palette = null } = {}) {
+        // Both new keys go in the cache key. A catalog built for "the ones that
+        // land, rooted on the target" is a different catalog from one built for
+        // "the whole library, a fifth above", and keying only on `advanced`
+        // would serve the first answer to the second question.
         const key = `${target.root}|${target.chordType || 'maj7'}|${maxBeats}|${diatonicOnly ? 'dia' : 'all'}`
-            + `|${mode || 'default'}|${advanced ? 'adv' : 'std'}|${(homeScaleNotes || []).join('')}`;
+            + `|${mode || 'default'}|${advanced ? 'adv' : 'std'}|${source || 'auto'}|${palette || 'lands'}`
+            + `|${(homeScaleNotes || []).join('')}`;
         if (this._catalogCache[key]) return this._catalogCache[key];
 
         // The mode REPLACES the catalog rather than adding to it. Mixing the
         // ordinary families back in would make the one thing the mode exists to
         // demonstrate the minority of what is heard.
         if (mode === 'approach-scales') {
-            const only = this.approachScaleFamilies(target, maxBeats, advanced, homeScaleNotes);
+            const only = this.approachScaleFamilies(target, maxBeats, advanced, homeScaleNotes,
+                { source, palette });
             this._catalogCache[key] = only;
             this.lastCatalogSize = only.length;
             return only;
@@ -812,6 +1137,10 @@ class ApproachEngine {
         const tq = String(target.chordType || 'maj7');
         const tRoman = target.roman || target.fullName || this.fullName(t, tq);
         const minorTarget = /^m(?!aj)/.test(tq);
+        // A dominant seventh reads as "not minor" to the test above and is not
+        // a major chord either: its seventh is flat, so the collection that
+        // lands on it is a different mode from the one that lands on maj7.
+        const dominantTarget = /^(7|9|11|13)/.test(tq);
 
         // --- dominant family (formula-built; not scale-derived) ---
         const domDefs = diatonicOnly ? [] : [
@@ -1136,6 +1465,8 @@ class ApproachEngine {
             diatonicOnly: !!opts.diatonicOnly,
             mode: opts.mode || null,
             advanced: !!opts.advanced,
+            source: opts.source || null,
+            palette: opts.palette || null,
             homeScaleNotes: opts.homeScaleNotes || null
         });
         if (!catalog.length) return null;
@@ -1148,6 +1479,10 @@ class ApproachEngine {
             let w = 1 / (0.12 + Math.abs(p.spice - colorLevel));
             if (darkTone && (p.family === 'planing' || /subV7|7b9|iiø/.test(p.id))) w *= 1.35;
             if (brightTone && (p.family === 'pivot' || /^dom:V7/.test(p.id))) w *= 1.25;
+            // The collection the palette says lands. Three, not ten: enough
+            // that it is what the ear usually meets, not so much that the rest
+            // of the library stops being reachable.
+            if (p.preferred) w *= 3;
             return w;
         });
         const totalW = weights.reduce((s, w) => s + w, 0);

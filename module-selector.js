@@ -615,13 +615,38 @@ class ModuleSelector {
         if (controlDeck) controlDeck.style.display = 'flex';
         if (bottomDeck) bottomDeck.style.display = 'flex';
 
-        // If specific modules were selected and useSelectedOnly flag is true, hide non-selected modules
+        // If specific modules were selected and useSelectedOnly flag is true, hide non-selected modules.
+        // Otherwise this is the full studio: undo any earlier selected launch.
         if (useSelectedOnly && this.selectedModules.size > 0) {
             this.filterWorkspaceModules(Array.from(this.selectedModules));
+        } else {
+            this.showAllWorkspaceModules();
         }
 
         // First-time visitor prompt for tutorial (moved from tutorial-system.js)
         // Tutorial prompt logic now handled in tutorial-system.js after launch-workspace-btn click
+    }
+
+    /**
+     * Undo filterWorkspaceModules. Only what it hid comes back: other code
+     * hides modules too (the instrument dock hides the sidebar fretboard
+     * while the guitar is docked), and that is not ours to undo.
+     */
+    showAllWorkspaceModules() {
+        let changed = false;
+        document.querySelectorAll('.studio-module[data-selector-hidden]').forEach(mod => {
+            mod.style.removeProperty('display');
+            mod.removeAttribute('data-selector-hidden');
+            changed = true;
+        });
+        if (changed) this._announcePresence();
+    }
+
+    /** Studio looks lay out only the modules that are present; tell them. */
+    _announcePresence() {
+        try {
+            window.dispatchEvent(new CustomEvent('studio:modulepresence', { detail: { source: 'module-selector' } }));
+        } catch (_) {}
     }
 
     filterWorkspaceModules(selectedModuleIds) {
@@ -645,21 +670,28 @@ class ModuleSelector {
             containers.forEach(c => visibleContainers.add(c));
         });
 
-        // Hide/show studio modules based on selection
-        const studioModules = document.querySelectorAll('.studio-module');
-        studioModules.forEach(mod => {
-            const contentDiv = mod.querySelector('.module-content > div');
-            if (contentDiv) {
-                const containerId = contentDiv.id;
-                if (visibleContainers.has(containerId)) {
-                    mod.style.display = 'block';
-                } else {
-                    mod.style.display = 'none';
+        // Hide/show studio modules based on selection. A module is kept when it
+        // holds a selected container anywhere inside it: matching only its
+        // first `.module-content > div` missed the sheet, whose provenance
+        // panels are inserted ahead of #sheet-music-container.
+        const holdsSelected = (mod) => Array.from(visibleContainers).some(id => {
+            const el = document.getElementById(id);
+            return !!el && mod.contains(el);
+        });
+        document.querySelectorAll('.studio-module').forEach(mod => {
+            if (holdsSelected(mod)) {
+                if (mod.hasAttribute('data-selector-hidden')) {
+                    mod.style.removeProperty('display');
+                    mod.removeAttribute('data-selector-hidden');
                 }
+            } else if (mod.style.display !== 'none') {
+                mod.style.display = 'none';
+                mod.setAttribute('data-selector-hidden', '');
             }
         });
 
         console.log('[ModuleSelector] Filtered workspace. Visible modules:', Array.from(visibleContainers));
+        this._announcePresence();
     }
 }
 

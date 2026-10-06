@@ -54,6 +54,10 @@ class NumberGenerator {
 
         // Render scheduler to coalesce rapid UI updates
         this._renderPending = false;
+
+        // Last thing 🎼 Common Progression loaded, so it never hands back the
+        // same progression twice in a row.
+        this._lastProgressionName = null;
     }
 
     initialize() {
@@ -510,15 +514,38 @@ class NumberGenerator {
 
     /**
      * Apply transformation
+     *
+     * Retrograde and rotation only ever re-ordered `currentNumbers`. When the
+     * box was showing display tokens — which it is on load, and after anything
+     * typed or inserted — those were left untouched, so the numbers reversed
+     * underneath a box and a staff that went on showing the original order.
+     * Re-ordering a token list is exactly the same permutation, so the two stay
+     * the same progression; a transformation that CHANGES the degrees (invert,
+     * randomize) has no such mapping and says the new degrees in the scale's
+     * own words instead.
      */
     applyTransformation(transformation, options = {}) {
         this.saveToHistory();
 
         let numbers = [...this.state.currentNumbers];
+        const hadTokens = Array.isArray(this.state.displayTokens)
+            && this.state.displayTokens.length === numbers.length;
+        const permute = hadTokens ? (fn) => {
+            this.state.displayTokens = fn(this.state.displayTokens.slice());
+            if (Array.isArray(this.state.displayRawTokens)) {
+                this.state.displayRawTokens = fn(this.state.displayRawTokens.slice());
+            }
+            if (Array.isArray(this.state.displayChords)) {
+                this.state.displayChords = fn(this.state.displayChords.slice());
+            }
+        } : () => {};
+        let tokensFollowed = false;
 
         switch (transformation) {
             case 'retrograde':
                 numbers.reverse();
+                permute(a => a.reverse());
+                tokensFollowed = hadTokens;
                 break;
 
             case 'invert':
@@ -531,6 +558,8 @@ class NumberGenerator {
                 for (let i = 0; i < rotateLeft; i++) {
                     numbers.push(numbers.shift());
                 }
+                permute(a => { for (let i = 0; i < rotateLeft; i++) a.push(a.shift()); return a; });
+                tokensFollowed = hadTokens;
                 break;
 
             case 'rotate_right':
@@ -538,6 +567,8 @@ class NumberGenerator {
                 for (let i = 0; i < rotateRight; i++) {
                     numbers.unshift(numbers.pop());
                 }
+                permute(a => { for (let i = 0; i < rotateRight; i++) a.unshift(a.pop()); return a; });
+                tokensFollowed = hadTokens;
                 break;
 
             case 'randomize':
@@ -550,7 +581,30 @@ class NumberGenerator {
                 return;
         }
 
+        if (tokensFollowed) {
+            // The reordered tokens are the answer; re-emit them so the staff
+            // follows, then set the numbers to match.
+            this.releaseSheetOwnership();
+            this.state.currentNumbers = numbers;
+            this.state.redoStack = [];
+            this.emit('numbersChanged', {
+                numbers: this.state.currentNumbers,
+                type: this.state.numberType,
+                source: transformation
+            });
+            this.saveHistory();
+            this.setDisplayTokens(this.state.displayTokens, {
+                rawTokens: this.state.displayRawTokens,
+                chords: this.state.displayChords || undefined,
+                source: this.state.displayTokensSource || transformation
+            });
+            return;
+        }
+
+        this.releaseSheetOwnership();
+        this.clearManualEntry();
         this.setNumbers(numbers, this.state.numberType);
+        this.publishDisplayTokensFromNumbers(transformation);
     }
 
     /**
@@ -809,63 +863,118 @@ class NumberGenerator {
     }
 
     /**
-     * Common progressions per scale type (based on music theory research)
+     * Common progressions per family of scale.
+     *
+     * Every entry is `{ name, degrees }` — the fallback below builds the same
+     * shape. It used to return bare arrays, so `randomProgression.degrees` came
+     * back undefined and the button threw on any scale that wasn't one of the
+     * eleven keys here (which is most of the 1400+ in the library).
+     *
+     * `degrees` can only say WHICH degree of the current scale, never an
+     * accidental — degree 7 of the major scale is vii°, and nothing typed here
+     * can make it a bVII. Names that promised accidentals the numbers could not
+     * deliver ("I-bVII-IV-I" in major, which actually played I-vii°-IV-I) have
+     * been renamed to what they play, or moved to the mode where they are true.
+     * In a modal list a flat IS honest: bVII in mixolydian is that mode's own
+     * seventh degree, not a borrowed chord.
      */
     getCommonProgressions() {
         return {
             major: [
+                // three and four chords
                 { name: 'I-IV-V-I (Classic)', degrees: [1, 4, 5, 1] },
                 { name: 'I-vi-IV-V (50s Progression)', degrees: [1, 6, 4, 5] },
                 { name: 'I-V-vi-IV (Pop Progression)', degrees: [1, 5, 6, 4] },
                 { name: 'ii-V-I (Jazz Cadence)', degrees: [2, 5, 1] },
                 { name: 'I-vi-ii-V (Turnaround)', degrees: [1, 6, 2, 5] },
                 { name: 'IV-V-iii-vi (Royal Road)', degrees: [4, 5, 3, 6] },
-                { name: 'I-iii-IV-iv (Chromatic Descent)', degrees: [1, 3, 4] },
                 { name: 'vi-IV-I-V (Sensitive)', degrees: [6, 4, 1, 5] },
                 { name: 'I-IV-vi-V (Canon)', degrees: [1, 4, 6, 5] },
-                { name: 'I-bVII-IV-I (Mixolydian Vamp)', degrees: [1, 7, 4, 1] },
-                { name: 'I-bIII-bVII-IV (Chromatic Rock)', degrees: [1, 3, 7, 4] },
-                { name: 'I-bVI-bIII-bVII (Borrowed Minor)', degrees: [1, 6, 3, 7] },
-                { name: 'I-II-IV-I (Lydian Modal)', degrees: [1, 2, 4, 1] },
+                { name: 'I-iii-IV (Ascending Approach)', degrees: [1, 3, 4] },
+                { name: 'I-ii-I (Supertonic Turn)', degrees: [1, 2, 1] },
+                { name: 'I-iii-IV-V (Rising)', degrees: [1, 3, 4, 5] },
+                { name: 'I-V-vi-iii (Descending)', degrees: [1, 5, 6, 3] },
+                { name: 'IV-iii-ii-I (Stepwise Descent)', degrees: [4, 3, 2, 1] },
+                { name: 'ii-V-I-vi (Turnaround Loop)', degrees: [2, 5, 1, 6] },
+                // five and six chords
                 { name: 'iii-vi-ii-V-I (Circle)', degrees: [3, 6, 2, 5, 1] },
-                { name: 'I-bII-I (Neapolitan)', degrees: [1, 2, 1] }
+                { name: 'I-vi-ii-V-I (Full Turnaround)', degrees: [1, 6, 2, 5, 1] },
+                { name: 'vi-ii-V-I-IV (Circle to Subdominant)', degrees: [6, 2, 5, 1, 4] },
+                { name: 'I-IV-ii-V-I (Subdominant Cycle)', degrees: [1, 4, 2, 5, 1] },
+                { name: 'vii-iii-vi-ii-V-I (Falling Fifths)', degrees: [7, 3, 6, 2, 5, 1] },
+                { name: 'I-V-vi-iii-IV-I (Canon, first half)', degrees: [1, 5, 6, 3, 4, 1] },
+                // seven and eight chords
+                { name: 'I-iii-vi-IV-ii-V-I (Descending Thirds Cadence)', degrees: [1, 3, 6, 4, 2, 5, 1] },
+                { name: 'I-IV-vii-iii-vi-ii-V-I (Full Circle of Fifths)', degrees: [1, 4, 7, 3, 6, 2, 5, 1] },
+                { name: 'vi-ii-V-I-IV-vii-iii-vi (Cycle from vi)', degrees: [6, 2, 5, 1, 4, 7, 3, 6] },
+                { name: 'I-V-vi-iii-IV-I-IV-V (Pachelbel Canon)', degrees: [1, 5, 6, 3, 4, 1, 4, 5] },
+                { name: 'I-vi-ii-V-I-vi-ii-V (Rhythm Changes A)', degrees: [1, 6, 2, 5, 1, 6, 2, 5] },
+                { name: 'I-IV-ii-V-iii-vi-ii-V (Jazz Turnaround Chain)', degrees: [1, 4, 2, 5, 3, 6, 2, 5] },
+                { name: 'I-vi-IV-V-I-vi-ii-V (Doo-Wop Extended)', degrees: [1, 6, 4, 5, 1, 6, 2, 5] },
+                { name: 'I-ii-iii-IV-V-vi-vii-I (Ascending Harmonisation)', degrees: [1, 2, 3, 4, 5, 6, 7, 1] },
+                { name: 'I-vii-vi-V-IV-iii-ii-I (Descending Harmonisation)', degrees: [1, 7, 6, 5, 4, 3, 2, 1] },
+                // twelve
+                { name: 'I-I-I-I-IV-IV-I-I-V-IV-I-V (12-Bar Blues)', degrees: [1, 1, 1, 1, 4, 4, 1, 1, 5, 4, 1, 5] }
             ],
             minor: [
-                { name: 'i-iv-V (Minor Cadence)', degrees: [1, 4, 5] },
+                { name: 'i-iv-v (Minor Cadence)', degrees: [1, 4, 5] },
                 { name: 'i-VI-III-VII (Andalusian)', degrees: [1, 6, 3, 7] },
-                { name: 'i-iv-i-V (Minor Blues)', degrees: [1, 4, 1, 5] },
-                { name: 'i-VII-VI-V (Descending)', degrees: [1, 7, 6, 5] },
+                { name: 'i-iv-i-v (Minor Blues)', degrees: [1, 4, 1, 5] },
+                { name: 'i-VII-VI-v (Descending)', degrees: [1, 7, 6, 5] },
                 { name: 'i-VI-VII-i (Aeolian Vamp)', degrees: [1, 6, 7, 1] },
-                { name: 'iv-i-V-i (Plagal Minor)', degrees: [4, 1, 5, 1] },
+                { name: 'iv-i-v-i (Plagal Minor)', degrees: [4, 1, 5, 1] },
                 { name: 'i-III-VII-VI (Flamenco)', degrees: [1, 3, 7, 6] },
                 { name: 'i-v-i-iv (Doomy)', degrees: [1, 5, 1, 4] },
-                { name: 'i-bII-bVI-V (Chromatic)', degrees: [1, 2, 6, 5] },
-                { name: 'i-iv-bVII-i (Minor Rock)', degrees: [1, 4, 7, 1] }
+                { name: 'i-ii-VI-v (Minor Descent)', degrees: [1, 2, 6, 5] },
+                { name: 'i-iv-VII-i (Minor Rock)', degrees: [1, 4, 7, 1] },
+                { name: 'ii-v-i (Natural Minor Cadence)', degrees: [2, 5, 1] },
+                { name: 'i-VII-VI-VII-i (Aeolian Arch)', degrees: [1, 7, 6, 7, 1] },
+                { name: 'i-VI-iv-v-i (Minor Turnaround)', degrees: [1, 6, 4, 5, 1] },
+                { name: 'i-III-VI-iv-v (Minor Ballad)', degrees: [1, 3, 6, 4, 5] },
+                { name: 'VII-III-VI-ii-v-i (Minor Falling Fifths)', degrees: [7, 3, 6, 2, 5, 1] },
+                { name: 'i-III-VII-iv-VI-v-i (Epic Minor)', degrees: [1, 3, 7, 4, 6, 5, 1] },
+                { name: 'iv-VII-III-VI-ii-v-i (Minor Cycle)', degrees: [4, 7, 3, 6, 2, 5, 1] },
+                { name: 'i-iv-VII-III-VI-ii-v-i (Minor Circle of Fifths)', degrees: [1, 4, 7, 3, 6, 2, 5, 1] },
+                { name: 'i-VI-III-VII-i-VI-iv-v (Extended Andalusian)', degrees: [1, 6, 3, 7, 1, 6, 4, 5] },
+                { name: 'i-VII-VI-v-iv-III-ii-i (Full Minor Descent)', degrees: [1, 7, 6, 5, 4, 3, 2, 1] }
             ],
             dorian: [
                 { name: 'i-IV-i (Dorian Vamp)', degrees: [1, 4, 1] },
                 { name: 'i-ii-IV-i (Modal Jazz)', degrees: [1, 2, 4, 1] },
-                { name: 'i-IV-VII-i (So What)', degrees: [1, 4, 7, 1] },
+                { name: 'i-IV-bVII-i (So What)', degrees: [1, 4, 7, 1] },
                 { name: 'ii-i-ii-IV (Dorian Funk)', degrees: [2, 1, 2, 4] },
-                { name: 'i-VII-IV-i (Dorian Rock)', degrees: [1, 7, 4, 1] },
-                { name: 'i-ii-i-VII (Dorian Groove)', degrees: [1, 2, 1, 7] },
-                { name: 'i-bVII-IV-i (Chromatic Dorian)', degrees: [1, 7, 4, 1] }
+                { name: 'i-bVII-IV-i (Dorian Rock)', degrees: [1, 7, 4, 1] },
+                { name: 'i-ii-i-bVII (Dorian Groove)', degrees: [1, 2, 1, 7] },
+                { name: 'i-bIII-IV-i (Dorian Lift)', degrees: [1, 3, 4, 1] },
+                { name: 'i-IV-i-IV-bVII-i (Dorian Loop)', degrees: [1, 4, 1, 4, 7, 1] },
+                { name: 'i-ii-IV-bVII-i (Dorian Cycle)', degrees: [1, 2, 4, 7, 1] },
+                { name: 'bVII-bIII-vi-ii-v-i (Dorian Falling Fifths)', degrees: [7, 3, 6, 2, 5, 1] },
+                { name: 'i-IV-ii-v-bVII-bIII-i (Long Dorian)', degrees: [1, 4, 2, 5, 7, 3, 1] },
+                { name: 'i-ii-bIII-IV-v-vi-bVII-i (Dorian Ascent)', degrees: [1, 2, 3, 4, 5, 6, 7, 1] }
             ],
             phrygian: [
                 { name: 'i-bII-i (Phrygian Cadence)', degrees: [1, 2, 1] },
-                { name: 'i-bII-bVII-i (Spanish)', degrees: [1, 2, 7, 1] },
+                { name: 'i-bII-bvii-i (Spanish)', degrees: [1, 2, 7, 1] },
                 { name: 'i-bII-bIII-bII (Exotic)', degrees: [1, 2, 3, 2] },
                 { name: 'bII-i (Half Cadence)', degrees: [2, 1] },
-                { name: 'i-bVII-bVI-bII (Flamenco)', degrees: [1, 7, 6, 2] },
-                { name: 'i-bII-i-bVII (Dark Vamp)', degrees: [1, 2, 1, 7] }
+                { name: 'i-bvii-bVI-bII (Flamenco)', degrees: [1, 7, 6, 2] },
+                { name: 'i-bII-i-bvii (Dark Vamp)', degrees: [1, 2, 1, 7] },
+                { name: 'i-bII-bvii-bVI-i (Phrygian Descent)', degrees: [1, 2, 7, 6, 1] },
+                { name: 'i-bvii-bVI-bII-i (Extended Flamenco)', degrees: [1, 7, 6, 2, 1] },
+                { name: 'i-iv-bVII-bIII-bVI-bII-i (Phrygian Cycle)', degrees: [1, 4, 7, 3, 6, 2, 1] },
+                { name: 'i-bII-bIII-iv-v-bVI-bvii-i (Phrygian Ascent)', degrees: [1, 2, 3, 4, 5, 6, 7, 1] }
             ],
             lydian: [
                 { name: 'I-II-I (Lydian Vamp)', degrees: [1, 2, 1] },
                 { name: 'I-II-vii-I (Bright)', degrees: [1, 2, 7, 1] },
-                { name: 'I-II-IV-I (Lydian Cadence)', degrees: [1, 2, 4, 1] },
+                { name: 'I-II-V-I (Lydian Cadence)', degrees: [1, 2, 5, 1] },
                 { name: 'II-I-II-vii (Dreamy)', degrees: [2, 1, 2, 7] },
                 { name: 'I-vii-II-I (Floating)', degrees: [1, 7, 2, 1] },
-                { name: 'I-II-iii-II (Lydian Jazz)', degrees: [1, 2, 3, 2] }
+                { name: 'I-II-iii-II (Lydian Jazz)', degrees: [1, 2, 3, 2] },
+                { name: 'I-vi-II-V-I (Lydian Turnaround)', degrees: [1, 6, 2, 5, 1] },
+                { name: 'I-II-iii-II-I (Lydian Arch)', degrees: [1, 2, 3, 2, 1] },
+                { name: 'vii-iii-vi-II-V-I (Lydian Falling Fifths)', degrees: [7, 3, 6, 2, 5, 1] },
+                { name: 'I-V-vi-iii-I-II-V-I (Long Lydian)', degrees: [1, 5, 6, 3, 1, 2, 5, 1] }
             ],
             mixolydian: [
                 { name: 'I-bVII-I (Mixolydian Vamp)', degrees: [1, 7, 1] },
@@ -873,44 +982,159 @@ class NumberGenerator {
                 { name: 'I-IV-bVII-I (Classic Rock)', degrees: [1, 4, 7, 1] },
                 { name: 'I-bVII-IV-bVII (Jam)', degrees: [1, 7, 4, 7] },
                 { name: 'bVII-IV-I (Backdoor)', degrees: [7, 4, 1] },
-                { name: 'I-v-bVII-IV (Mixo Blues)', degrees: [1, 5, 7, 4] }
+                { name: 'I-v-bVII-IV (Mixo Blues)', degrees: [1, 5, 7, 4] },
+                { name: 'I-v-IV-bVII-I (Mixolydian Cycle)', degrees: [1, 5, 4, 7, 1] },
+                { name: 'IV-I-bVII-IV-I (Jam Loop)', degrees: [4, 1, 7, 4, 1] },
+                { name: 'I-bVII-IV-I-bVII-IV-I (Extended Rock Vamp)', degrees: [1, 7, 4, 1, 7, 4, 1] },
+                { name: 'vi-ii-v-I-IV-bVII-I (Mixolydian Falling Fifths)', degrees: [6, 2, 5, 1, 4, 7, 1] },
+                { name: 'I-ii-iii-IV-v-vi-bVII-I (Mixolydian Ascent)', degrees: [1, 2, 3, 4, 5, 6, 7, 1] }
             ],
             locrian: [
                 { name: 'i-bII-bIII (Locrian Descent)', degrees: [1, 2, 3] },
                 { name: 'i-bV-bII (Diminished)', degrees: [1, 5, 2] },
                 { name: 'bII-i (Locrian Cadence)', degrees: [2, 1] },
-                { name: 'i-bVII-bVI-bV (Dark)', degrees: [1, 7, 6, 5] },
-                { name: 'i-bII-i-bV (Unstable)', degrees: [1, 2, 1, 5] }
-            ],
-            'barry_harris_major': [
-                { name: 'I-vi-ii-V (8-tone Turnaround)', degrees: [1, 6, 2, 5] },
-                { name: 'I-#Idim-ii-#iidim (Chromatic)', degrees: [1, 8, 2, 3] },
-                { name: 'I-IV-#IVdim-V (Passing Dim)', degrees: [1, 4, 8, 5] },
-                { name: 'vi-#vidim-V-I (Dim Approach)', degrees: [6, 7, 5, 1] },
-                { name: 'I-8-7-6-5-4-3-2 (Descending)', degrees: [1, 8, 7, 6, 5, 4, 3, 2] }
-            ],
-            'barry_harris_minor': [
-                { name: 'i-iv-V (Minor 6dim)', degrees: [1, 4, 5] },
-                { name: 'i-#idim-ii-V (Chromatic Minor)', degrees: [1, 8, 2, 5] },
-                { name: 'i-VI-iidim-V (Dim Passing)', degrees: [1, 6, 8, 5] },
-                { name: 'iv-#ivdim-i (Plagal Dim)', degrees: [4, 8, 1] }
+                { name: 'i-bvii-bVI-bV (Dark)', degrees: [1, 7, 6, 5] },
+                { name: 'i-bII-i-bV (Unstable)', degrees: [1, 2, 1, 5] },
+                { name: 'i-bIII-bV-bvii-i (Locrian Arch)', degrees: [1, 3, 5, 7, 1] },
+                { name: 'i-iv-bvii-bIII-bVI-bII-i (Locrian Cycle)', degrees: [1, 4, 7, 3, 6, 2, 1] },
+                { name: 'i-bII-bIII-iv-bV-bVI-bvii-i (Locrian Ascent)', degrees: [1, 2, 3, 4, 5, 6, 7, 1] }
             ],
             harmonic_minor: [
-                { name: 'i-iv-V7-i (Harmonic Cadence)', degrees: [1, 4, 5, 1] },
-                { name: 'i-VI-III-VII (Harmonic Andalusian)', degrees: [1, 6, 3, 7] },
-                { name: 'i-VII-i (Leading Tone)', degrees: [1, 7, 1] },
-                { name: 'iv-V7-i (Minor Perfect)', degrees: [4, 5, 1] },
-                { name: 'i-bII-V-i (Phrygian Dominant)', degrees: [1, 2, 5, 1] },
-                { name: 'i-III+-VI-V (Augmented)', degrees: [1, 3, 6, 5] }
+                { name: 'i-iv-V-i (Harmonic Cadence)', degrees: [1, 4, 5, 1] },
+                { name: 'i-bVI-bIII-vii (Harmonic Andalusian)', degrees: [1, 6, 3, 7] },
+                { name: 'i-vii-i (Leading Tone)', degrees: [1, 7, 1] },
+                { name: 'iv-V-i (Minor Perfect)', degrees: [4, 5, 1] },
+                { name: 'i-ii-V-i (Half-Diminished Cadence)', degrees: [1, 2, 5, 1] },
+                { name: 'i-bIII-bVI-V (Augmented Colour)', degrees: [1, 3, 6, 5] },
+                { name: 'i-bVI-ii-V-i (Harmonic Turnaround)', degrees: [1, 6, 2, 5, 1] },
+                { name: 'i-iv-bVII-bIII (Harmonic Drift)', degrees: [1, 4, 7, 3] },
+                { name: 'iv-bVII-bIII-bVI-ii-V-i (Harmonic Minor Cycle)', degrees: [4, 7, 3, 6, 2, 5, 1] },
+                { name: 'i-iv-vii-bIII-bVI-ii-V-i (Full Harmonic Circle)', degrees: [1, 4, 7, 3, 6, 2, 5, 1] }
             ],
             melodic_minor: [
                 { name: 'i-ii-V-i (Melodic Jazz)', degrees: [1, 2, 5, 1] },
                 { name: 'i-IV-V-i (Melodic Cadence)', degrees: [1, 4, 5, 1] },
                 { name: 'ii-V-i (Jazz Minor)', degrees: [2, 5, 1] },
                 { name: 'i-bIII-IV-i (Melodic Vamp)', degrees: [1, 3, 4, 1] },
-                { name: 'IV-V-i (Lydian Dominant)', degrees: [4, 5, 1] }
+                { name: 'IV-V-i (Lydian Dominant)', degrees: [4, 5, 1] },
+                { name: 'ii-V-i-IV (Melodic Turnaround)', degrees: [2, 5, 1, 4] },
+                { name: 'i-vi-ii-V-i (Melodic Minor Turnaround)', degrees: [1, 6, 2, 5, 1] },
+                { name: 'vii-bIII-vi-ii-V-i (Melodic Falling Fifths)', degrees: [7, 3, 6, 2, 5, 1] },
+                { name: 'i-IV-vii-bIII-vi-ii-V-i (Melodic Minor Circle)', degrees: [1, 4, 7, 3, 6, 2, 5, 1] }
+            ],
+            bebop_major: [
+                { name: 'I-vi-ii-V (8-Tone Turnaround)', degrees: [1, 6, 2, 5] },
+                { name: 'I-VIII-ii-iii (Chromatic Passing)', degrees: [1, 8, 2, 3] },
+                { name: 'I-IV-VIII-V (Passing Diminished)', degrees: [1, 4, 8, 5] },
+                { name: 'vi-vii-V-I (Diminished Approach)', degrees: [6, 7, 5, 1] },
+                { name: 'I-VIII-vii-vi-V-IV-iii-ii (Full Descent)', degrees: [1, 8, 7, 6, 5, 4, 3, 2] },
+                { name: 'I-vi-ii-V-I-vi-ii-V (8-Tone Rhythm Changes)', degrees: [1, 6, 2, 5, 1, 6, 2, 5] },
+                { name: 'I-ii-iii-IV-V-vi-vii-VIII (8-Tone Ascent)', degrees: [1, 2, 3, 4, 5, 6, 7, 8] }
+            ],
+            bebop_minor: [
+                { name: 'i-iv-V (Minor 6-Diminished)', degrees: [1, 4, 5] },
+                { name: 'i-VIII-ii-V (Chromatic Minor)', degrees: [1, 8, 2, 5] },
+                { name: 'i-VI-VIII-V (Diminished Passing)', degrees: [1, 6, 8, 5] },
+                { name: 'iv-VIII-i (Plagal Diminished)', degrees: [4, 8, 1] },
+                { name: 'i-VIII-VII-VI-V-iv-III-ii (Minor Full Descent)', degrees: [1, 8, 7, 6, 5, 4, 3, 2] },
+                { name: 'i-VI-ii-V-i-VI-ii-V (8-Tone Minor Turnarounds)', degrees: [1, 6, 2, 5, 1, 6, 2, 5] }
             ]
         };
+    }
+
+    /**
+     * Which progression list a scale belongs to.
+     *
+     * The keys above are families ("major", "dorian"); the scale library
+     * identifies its 1400+ scales by id ("aeolian", "lydian_augmented",
+     * "bebop_major", "double_harmonic_minor"). Matching the two literally —
+     * which is all this used to do — meant the ONLY scale that ever found a
+     * list was "major": natural minor is "aeolian", and nothing in the library
+     * is called "minor" or "barry_harris_major" at all.
+     *
+     * @returns {string|null} a key of getCommonProgressions(), or null when the
+     *   scale is far enough from any of them that a generated run is honester.
+     */
+    resolveProgressionFamily(scale) {
+        const id = String(scale == null ? '' : scale).toLowerCase().trim().replace(/[\s-]+/g, '_');
+        if (!id) return null;
+
+        const EXACT = {
+            major: 'major', ionian: 'major',
+            minor: 'minor', aeolian: 'minor', natural_minor: 'minor',
+            dorian: 'dorian', phrygian: 'phrygian', lydian: 'lydian',
+            mixolydian: 'mixolydian', locrian: 'locrian',
+            harmonic_minor: 'harmonic_minor', melodic_minor: 'melodic_minor',
+            jazz_minor: 'melodic_minor',
+            bebop_major: 'bebop_major', bebop_dominant: 'bebop_major',
+            bebop_minor: 'bebop_minor', bebop_melodic_minor: 'bebop_minor',
+            barry_harris_major: 'bebop_major', barry_harris_minor: 'bebop_minor'
+        };
+        if (EXACT[id]) return EXACT[id];
+
+        // A variant keeps its parent's harmony closely enough to borrow its
+        // progressions: "dorian_b2" is still a dorian. Longest word first, so
+        // "bebop_melodic_minor" isn't claimed by "bebop" or by "melodic_minor".
+        const FAMILIES = [
+            ['bebop_melodic_minor', 'bebop_minor'],
+            ['bebop_major', 'bebop_major'],
+            ['bebop_minor', 'bebop_minor'],
+            ['harmonic_minor', 'harmonic_minor'],
+            ['melodic_minor', 'melodic_minor'],
+            ['mixolydian', 'mixolydian'],
+            ['phrygian', 'phrygian'],
+            ['locrian', 'locrian'],
+            ['dorian', 'dorian'],
+            ['lydian', 'lydian'],
+            ['aeolian', 'minor'],
+            ['ionian', 'major'],
+            ['bebop', 'bebop_major']
+        ];
+        for (const [word, family] of FAMILIES) {
+            if (id.startsWith(word)) return family;
+        }
+        for (const [word, family] of FAMILIES) {
+            if (id.indexOf(word) !== -1) return family;
+        }
+        return null;
+    }
+
+    /**
+     * Progressions built from the shape of whatever scale is loaded.
+     *
+     * Used when a scale belongs to no family above — a pentatonic, a blues, one
+     * of the library's rarer symmetric sets. Degrees are generated against the
+     * scale's real note count, so a five-note scale is never handed a "7".
+     *
+     * @returns {{name: string, degrees: number[]}[]} the same shape as the table.
+     */
+    buildFallbackProgressions(scaleLength) {
+        const n = Math.max(2, Number(scaleLength) || 7);
+        const run = Array.from({ length: n }, (_, i) => i + 1);
+        const noAdjacentRepeats = (a) => a.filter((v, i) => i === 0 || v !== a[i - 1]);
+
+        const shapes = [
+            { label: 'Tonic–Subdominant–Dominant', degrees: noAdjacentRepeats([1, Math.min(4, n), Math.min(5, n), 1]) },
+            { label: 'Tonic–Submediant–Subdominant–Dominant', degrees: noAdjacentRepeats([1, Math.min(6, n), Math.min(4, n), Math.min(5, n)]) },
+            { label: 'Cadential Turnaround', degrees: [1, 6, 2, 5, 1] },
+            { label: 'Falling Fifths', degrees: [7, 3, 6, 2, 5, 1] },
+            { label: 'Long Falling Fifths', degrees: [1, 4, 7, 3, 6, 2, 5, 1] },
+            { label: 'Full Ascent', degrees: run.concat([1]) },
+            { label: 'Full Descent', degrees: [1].concat(run.slice().reverse()) }
+        ];
+
+        const seen = new Set();
+        const out = [];
+        shapes.forEach((shape) => {
+            const degrees = shape.degrees;
+            if (degrees.length < 2) return;
+            if (Math.max.apply(null, degrees) > n) return;   // asks for a degree this scale doesn't have
+            const key = degrees.join(',');
+            if (seen.has(key)) return;
+            seen.add(key);
+            out.push({ name: `${degrees.join('-')} (${shape.label})`, degrees });
+        });
+        return out;
     }
 
     /**
@@ -918,24 +1142,25 @@ class NumberGenerator {
      */
     getCommonProgressionsForScale(scale) {
         const allProgressions = this.getCommonProgressions();
-        const scaleKey = scale.toLowerCase().replace(/\s+/g, '_');
-        
-        if (allProgressions[scaleKey]) {
-            return allProgressions[scaleKey];
+        const scaleLength = (this.currentScaleNotes && this.currentScaleNotes.length > 0)
+            ? this.currentScaleNotes.length
+            : 7;
+
+        const family = this.resolveProgressionFamily(scale);
+        const list = (family && allProgressions[family]) ? allProgressions[family] : null;
+        if (list) {
+            // A family's list is written for seven degrees (eight for bebop).
+            // Against a shorter member of that family, an entry asking for a
+            // degree the scale hasn't got would silently resolve to "?" in the
+            // numbers box and to nothing on the staff.
+            const fits = list.filter(p =>
+                p && Array.isArray(p.degrees) && p.degrees.length > 0 &&
+                p.degrees.every(d => typeof d === 'number' && d >= 1 && d <= scaleLength)
+            );
+            if (fits.length) return fits;
         }
 
-        // DYNAMIC FALLBACK: If scale is unknown, generate a diatonic discovery progression
-        // that uses the core degrees of the scale.
-        const scaleLength = (this.currentScaleNotes && this.currentScaleNotes.length > 0) 
-            ? this.currentScaleNotes.length 
-            : 7;
-        
-        // Generate 3 variations of discovery progressions
-        return [
-            [1, Math.min(4, scaleLength), Math.min(5, scaleLength), 1],
-            [1, Math.min(6, scaleLength), Math.min(4, scaleLength), Math.min(5, scaleLength)],
-            [Math.min(2, scaleLength), Math.min(5, scaleLength), 1, 1]
-        ];
+        return this.buildFallbackProgressions(scaleLength);
     }
 
     /**
@@ -943,22 +1168,123 @@ class NumberGenerator {
      */
     loadRandomCommonProgression() {
         const progressions = this.getCommonProgressionsForScale(this.currentScale);
-        if (!progressions || progressions.length === 0) {
+        const usable = (progressions || []).filter(p =>
+            p && Array.isArray(p.degrees) && p.degrees.length > 0
+        );
+        if (!usable.length) {
             console.warn('No common progressions found for scale:', this.currentScale);
-            return;
+            this.showToast('No common progression fits this scale', 2200);
+            return false;
         }
-        
-        const randomProgression = progressions[Math.floor(Math.random() * progressions.length)];
-        this.setNumbers(randomProgression.degrees, this.state.numberType);
-        
+
+        // Pressing the button twice and getting the same progression back reads
+        // as the button not working, which is the complaint this whole path was
+        // reported under. With more than one to choose from, never repeat.
+        let chosen = usable[Math.floor(Math.random() * usable.length)];
+        if (usable.length > 1) {
+            for (let tries = 0; tries < 12 && chosen.name === this._lastProgressionName; tries++) {
+                chosen = usable[Math.floor(Math.random() * usable.length)];
+            }
+        }
+        this._lastProgressionName = chosen.name;
+
+        this.applyProgressionDegrees(chosen.degrees, 'common-progression');
+
         // Show a brief notification of which progression was loaded
-        this.showToast(`Loaded: ${randomProgression.name}`, 3000);
-        
+        this.showToast(`Loaded: ${chosen.name}`, 3000);
+
         this.emit('progressionLoaded', {
-            name: randomProgression.name,
-            degrees: randomProgression.degrees,
+            name: chosen.name,
+            degrees: chosen.degrees.slice(),
             scale: this.currentScale
         });
+        return true;
+    }
+
+    /**
+     * Put a run of degrees on screen AND on the staff.
+     *
+     * setNumbers() alone was never enough for a button press. Two things sat
+     * between it and what the user actually sees:
+     *
+     *  - render() prefers displayTokens over currentNumbers, and the studio
+     *    seeds displayTokens on load. So a progression loaded over the top of
+     *    them changed the numbers underneath while the box went on showing
+     *    "Imaj7 vi7 ii7 V7" — the button looked dead.
+     *  - the sheet is fed by `displayTokensChanged` and by nothing else, so a
+     *    change that never emits it leaves the staff on the previous chords.
+     *
+     * Clearing the manual entry first also means the `numbersChanged` listeners
+     * never see the new numbers paired with the old tokens.
+     */
+    applyProgressionDegrees(degrees, source = 'progression') {
+        if (!Array.isArray(degrees) || !degrees.length) return false;
+        this.releaseSheetOwnership();
+        this.clearManualEntry();
+        this.setNumbers(degrees.slice(), this.state.numberType);
+        this.publishDisplayTokensFromNumbers(source);
+        return true;
+    }
+
+    /**
+     * Hand the staff back from a word/arc generation.
+     *
+     * An arc generation claims the sheet (`window.__sheetOwnedByArc`) and, until
+     * now, only typing in the numbers box released it. Generate New and Common
+     * Progression are the same deliberate act on the same numbers, so after any
+     * word generation both went on updating everything EXCEPT the staff, for the
+     * rest of the session — the "sometimes" in "sometimes not working".
+     */
+    releaseSheetOwnership() {
+        try {
+            if (typeof window !== 'undefined') window.__sheetOwnedByArc = false;
+        } catch (_) { /* non-fatal */ }
+    }
+
+    /**
+     * Say what the current numbers are in the scale's own words, and tell the
+     * sheet. Same tokens typing those degrees by hand would produce, carrying
+     * the chord each one names so no listener has to parse it back apart.
+     */
+    publishDisplayTokensFromNumbers(source = 'generator') {
+        const numbers = this.getCurrentNumbers();
+        if (!Array.isArray(numbers) || !numbers.length) {
+            this.setDisplayTokens(null, { source });
+            return false;
+        }
+        const key = this.currentKey || 'C';
+        const scale = this.currentScale || 'major';
+        const tokens = [];
+        const chords = [];
+        numbers.forEach((n) => {
+            let token;
+            try {
+                token = (typeof n === 'number') ? this.numberToRoman(n) : String(n);
+            } catch (_) {
+                token = String(n);
+            }
+            if (!token || token === '?') return;
+            tokens.push(token);
+            let chord = null;
+            if (typeof n === 'number' && this.musicTheory && typeof this.musicTheory.getDiatonicChord === 'function') {
+                try {
+                    const diat = this.musicTheory.getDiatonicChord(n, key, scale);
+                    if (diat && diat.root) {
+                        chord = { degree: n, root: diat.root, chordType: diat.chordType, notes: diat.diatonicNotes };
+                    }
+                } catch (_) { /* fall through with null */ }
+            }
+            chords.push(chord);
+        });
+        if (!tokens.length) return false;
+
+        const haveAllChords = chords.length === tokens.length && chords.every(c => c && c.root);
+        this.setDisplayTokens(tokens, {
+            rawTokens: tokens.slice(),
+            source,
+            chords: haveAllChords ? chords : undefined
+        });
+        return true;
     }
 
     /**
@@ -1148,7 +1474,6 @@ class NumberGenerator {
         }));
         const scaleDisplayName = this.getScaleDisplayName(this.currentScale);
         const miniPianoSVG = this.renderMiniPiano();
-        const scaleTip = this.getScaleTip(this.currentScale);
 
         // This scale's own name for each of its degrees — "Imaj7(b5)",
         // "vi6" — as this box writes them and as the mini chord strip shows
@@ -1553,21 +1878,25 @@ class NumberGenerator {
         }
         
         document.getElementById('generate-btn').addEventListener('click', () => {
+            // Drop the old manual/display tokens BEFORE generating, so the
+            // numbersChanged listeners never see new numbers paired with the
+            // tokens of the run they replace. Publishing the new tokens
+            // afterwards is what puts them on the staff — the sheet listens to
+            // displayTokensChanged and to nothing else, so the previous version
+            // of this handler, which only cleared the tokens, left the staff on
+            // whatever was there before.
+            this.releaseSheetOwnership();
+            this.clearManualEntry();
             this.generateNumbers(undefined, this.getNumberType());
-            // Clear any manual/display tokens so the manual input box reflects
-            // the newly generated numeric sequence (sheet music already updates).
-            this.state.displayTokens = null;
-            this.state.displayRawTokens = null;
-            this.state.manualRawInput = null;
-            this.state.isManualEditing = false;
+            this.publishDisplayTokensFromNumbers('generate-new');
             this.render();
         });
-        
+
         document.getElementById('common-progression-btn').addEventListener('click', () => {
             this.loadRandomCommonProgression();
             this.render();
         });
-        
+
         document.getElementById('retrograde-btn').addEventListener('click', () => {
             this.applyTransformation('retrograde');
             this.render();
@@ -1751,7 +2080,15 @@ class NumberGenerator {
             const tokens = this.splitManualTokens(raw);
             this.setDisplayTokens(tokens.length ? tokens : null, { rawTokens: tokens.slice() });
         } else {
-            this.setDisplayTokens(null);
+            // Bare degrees — "2 5 1 6". This used to clear the display tokens,
+            // which emits displayTokensChanged with nothing in it, and the sheet
+            // (which is fed by that event and by no other) ignores an empty one.
+            // So typing a progression as numbers updated the box, the piano and
+            // the explorer, and left the staff on the previous chords. Saying
+            // the same degrees in the scale's own words — the identical tokens
+            // typing them as numerals would produce — is what reaches the sheet.
+            this.releaseSheetOwnership();
+            this.publishDisplayTokensFromNumbers('manual-numbers');
         }
 
         // After committing numeric input we treat editing as finished
@@ -2371,38 +2708,40 @@ class NumberGenerator {
     }
 
     /**
-     * Get helpful tips for each scale
+     * How each scale is BUILT, in one line. Not how it is supposed to feel:
+     * the tips used to end in a mood ("dreamy, floating", "sad, melancholic
+     * sound") that told a player what to hear before they had heard it.
      * Full citations with references are shown in Scale Library
      */
     getScaleTip(scaleType) {
         const tips = {
-            major: 'The foundation scale - happy and bright sound',
-            dorian: 'Minor scale with raised 6th - jazzy, sophisticated',
-            phrygian: 'Minor scale with lowered 2nd - Spanish, exotic',
-            lydian: 'Major scale with raised 4th - dreamy, floating',
-            mixolydian: 'Major scale with lowered 7th - blues, rock',
-            aeolian: 'Natural minor - sad, melancholic sound',
-            locrian: 'Minor scale with lowered 2nd & 5th - dark, unstable',
-            melodic: 'Minor scale with raised 6th & 7th - smooth ascending',
-            altered: '7th mode of melodic minor - ultra-dissonant for V7 chords',
-            harmonic: 'Minor scale with raised 7th - classical, Middle Eastern',
-            harmonic_major: 'Major scale with lowered 6th - exotic major sound',
-            double_harmonic_major: 'Major with ♭2 & ♭6 - Byzantine, Arabic vibe',
-            phrygian_dominant: '5th mode of harmonic minor - Spanish flamenco sound',
-            whole_tone: 'All whole steps - symmetrical, impressionistic',
+            major: 'The foundation scale',
+            dorian: 'Minor scale with raised 6th',
+            phrygian: 'Minor scale with lowered 2nd',
+            lydian: 'Major scale with raised 4th',
+            mixolydian: 'Major scale with lowered 7th',
+            aeolian: 'Natural minor',
+            locrian: 'Minor scale with lowered 2nd & 5th',
+            melodic: 'Minor scale with raised 6th & 7th',
+            altered: '7th mode of melodic minor - used over V7 chords',
+            harmonic: 'Minor scale with raised 7th',
+            harmonic_major: 'Major scale with lowered 6th',
+            double_harmonic_major: 'Major with ♭2 & ♭6',
+            phrygian_dominant: '5th mode of harmonic minor',
+            whole_tone: 'All whole steps - symmetrical',
             octatonic_dim: 'Half-whole pattern - symmetrical, diminished harmony',
-            octatonic_dom: 'Half-whole dominant pattern - jazz harmony',
-            major_pentatonic: '5-note major scale - universal, folk music',
-            minor_pentatonic: '5-note minor scale - blues, rock foundation',
-            egyptian_pentatonic: 'Suspended pentatonic - ancient, mystical',
-            blues_hexatonic: 'Minor pentatonic + ♭5 "blue note" - classic blues',
-            hijaz: 'Middle Eastern scale with augmented 2nd - exotic tension',
-            hirajoshi: 'Japanese scale - meditative, traditional',
-            iwato: 'Japanese scale - dark, mysterious',
-            insen: 'Japanese scale - contemplative, sparse',
-            yo: 'Japanese scale - bright, uplifting',
-            raga_bhairav: 'Indian raga (12-TET approx) - morning devotional',
-            raga_todi: 'Indian raga - morning raga with unique character',
+            octatonic_dom: 'Half-whole dominant pattern',
+            major_pentatonic: '5-note major scale',
+            minor_pentatonic: '5-note minor scale',
+            egyptian_pentatonic: 'Suspended pentatonic',
+            blues_hexatonic: 'Minor pentatonic + ♭5 "blue note"',
+            hijaz: 'Middle Eastern scale with augmented 2nd',
+            hirajoshi: 'Japanese scale',
+            iwato: 'Japanese scale',
+            insen: 'Japanese scale',
+            yo: 'Japanese scale',
+            raga_bhairav: 'Indian raga (12-TET approx) - morning raga',
+            raga_todi: 'Indian raga - morning raga',
             raga_marwa: 'Indian raga - evening raga',
             barry_major6dim: 'Barry Harris: Major 6th + diminished passing tones',
             barry_dom7dim: 'Barry Harris: Dominant 7th + diminished passing tones',
@@ -2416,22 +2755,23 @@ class NumberGenerator {
             bebop_dominant: 'Mixolydian with major 7th passing tone',
             bebop_minor: 'Dorian with major 3rd passing tone',
             bebop_dorian: 'Dorian with chromatic passing tone',
-            hungarian_minor: 'Gypsy minor - exotic Eastern European sound',
-            persian: 'Persian scale - Middle Eastern flavor',
-            spanish_phrygian: 'Spanish Phrygian - flamenco foundation',
+            hungarian_minor: 'Gypsy minor',
+            persian: 'Persian scale',
+            spanish_phrygian: 'Spanish Phrygian - used in flamenco',
             spanish_gypsy: 'Spanish Gypsy - Phrygian with major 3rd',
-            flamenco: 'Flamenco mode - Spanish traditional',
-            neapolitan_major: 'Neapolitan major - dramatic ♭2',
-            neapolitan_minor: 'Neapolitan minor - dark ♭2',
-            enigmatic: 'Verdi\'s enigmatic scale - mysterious',
+            flamenco: 'Flamenco mode',
+            neapolitan_major: 'Neapolitan major - ♭2',
+            neapolitan_minor: 'Neapolitan minor - ♭2',
+            enigmatic: 'Verdi\'s enigmatic scale',
             prometheus: 'Scriabin\'s mystic chord as scale',
             augmented: 'Hexatonic augmented pattern',
             tritone: 'Petrushka chord as scale'
         };
 
-        const tip = tips[scaleType] || 'Explore this unique scale';
-        
-        return `💡 ${tip}`;
+        const tip = tips[scaleType];
+        // No tip beats an invented one: the fallback used to call every scale
+        // it did not recognise "unique".
+        return tip ? `💡 ${tip}` : '';
     }
 }
 

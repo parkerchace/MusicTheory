@@ -60,6 +60,7 @@ var setTimeout=function(){return 0;};var clearTimeout=function(){};
 var requestAnimationFrame=function(){return 0;};var cancelAnimationFrame=function(){};
 var __e=eval;function load(f){__e(readFile(f));}
 ['scales-data-embedded.js','scale-taxonomy.js','scales-loader-embedded.js','music-theory-engine.js',
+ 'scale-colour.js',
  'functional-harmony.js','progression-library.js','harmony-complexity.js','form-planner.js',
  'voice-leading-engine.js','approach-engine.js','word-character-engine.js','melodic-line-engine.js',
  'piano-texture-engine.js','arc-ui-init.js'].forEach(load);
@@ -99,9 +100,15 @@ function sameSet(a,b){
 // would be no check at all.
 var INTERVALS=(window.SCALES&&window.SCALES.intervals)||mt.scales||{};
 function claimHolds(root,scaleId,notes){
+  // AGAINST THE ID'S OWN LENGTH, not a literal 7. The check that matters is
+  // that every note of the claimed source really belongs to the collection
+  // named — which is just as strict for an eight-note collection as a
+  // seven-note one. Hard-coding 7 made this verification double as a size
+  // restriction, so a perfectly well-attributed borrow from a bebop collection
+  // read as a false claim.
   var iv=INTERVALS[scaleId];
-  if(!iv||iv.length!==7) return false;
-  if(!notes||notes.length!==7) return false;
+  if(!iv||iv.length<7||iv.length>8) return false;
+  if(!notes||notes.length!==iv.length) return false;
   var rp=pcOf(root); if(rp===null) return false;
   var want={}; iv.forEach(function(x){want[((rp+x)%12+12)%12]=1;});
   return notes.every(function(n){var p=pcOf(n);return p!==null&&want[p];});
@@ -210,10 +217,25 @@ for(var k=0;k<KEYS.length;k++){
       if(!evt||!evt.chordObj) return;
       if(evt.approachStrategy) return;                 // approach runs name themselves
       if(evt.inHomeKey===false) return;                // a modulated bar is in another key
-      if(evt.cadenceGesture) return;                   // the ♭VI–♭VII–I gesture
+      if(evt.cadenceGesture) return;                   // withdrawn, kept for older takes
       if(evt.excursion) return;                        // this device
       if(evt.chordObj.secondaryDominant) return;
-      if(evt.chordObj.raisedLeadingTone) return;       // the cadential dominant
+      // A BORROW NAMES A COLLECTION, AND THE NAME IS CHECKED.
+      //
+      // This licence replaces a bare `raisedLeadingTone` flag, which asserted
+      // that a chord had been altered and asserted nothing about where the
+      // result came from. The rule now is that a chord outside the home scale
+      // must be diatonic to some NAMED collection — so the claim is verified
+      // against the scale data here rather than accepted, exactly as every
+      // other source claim in this harness is. A licence that cannot be
+      // checked is not a licence.
+      if(evt.chordObj.borrowedFrom){
+        var bf=evt.chordObj.borrowedFrom;
+        if(claimHolds(bf.root, bf.scaleName, bf.notes)){
+          var srcPcs=pcsOf(bf.notes);
+          if(chordTones(evt.chordObj).every(function(n){return srcPcs[pcOf(n)];})) return;
+        }
+      }
       var tones=chordTones(evt.chordObj);
       var foreign=tones.filter(function(n){return !homePcs[pcOf(n)];});
       if(foreign.length){

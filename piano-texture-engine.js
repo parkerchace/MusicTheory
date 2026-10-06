@@ -259,7 +259,7 @@
      *
      * @returns array of left-hand-shaped cells to add
      */
-    function answeringFills({ melodyEvents, chordPcsAt, scalePcs, beatsPerBar, totalBeats, rng, budget }) {
+    function answeringFills({ melodyEvents, chordPcsAt, scalePcs, scaleAt, beatsPerBar, totalBeats, rng, budget }) {
         const out = [];
         if (!melodyEvents.length || budget <= 0) return out;
 
@@ -275,10 +275,30 @@
         }
         if (!gaps.length) return out;
 
-        // The longest rests first: those are the phrase endings, which is where
-        // a reply belongs. Spending the budget on the first gaps in the piece
-        // instead would answer wherever the tune happened to breathe early.
-        gaps.sort((a, b) => (b.to - b.from) - (a.to - a.from));
+        // THE TUNE HOLDS, OR THE TUNE RUNS — AND THE GAP IS WHICH.
+        //
+        // Two things are done with a borrowed collection and they are opposites,
+        // so they have to be told apart or they cancel each other out. While the
+        // tune is SOUNDING it is the thing the borrowing is heard against, so it
+        // holds and stays in the key and the collection moves underneath it.
+        // Where the tune has STOPPED there is nothing to be heard against, and
+        // the collection becomes the material itself: a single-note run, in the
+        // register between the accompaniment and the tune, landing where the
+        // tune comes back.
+        //
+        // A rest is therefore the only place a run belongs, which makes the gap
+        // the discriminator and needs no new machinery to decide it. So the
+        // reply looks for the gaps the harmony is borrowing under first, and
+        // only then falls back to the longest rest. Sorting by length alone
+        // spent the budget almost entirely on plain gaps — measured, 13.9% of
+        // rests sit over a walk but only 7.7% of replies did.
+        const borrowedUnder = (g) => {
+            if (typeof scaleAt !== 'function') return false;
+            const a = scaleAt(g.from + 1e-6), b = scaleAt(Math.max(g.from, g.to - 0.5));
+            return !!((a && a.borrowed) || (b && b.borrowed));
+        };
+        gaps.forEach((g) => { g.borrowed = borrowedUnder(g); });
+        gaps.sort((a, b) => (b.borrowed - a.borrowed) || ((b.to - b.from) - (a.to - a.from)));
 
         let spent = 0;
         for (const gap of gaps) {
@@ -287,7 +307,18 @@
             const span = gap.to - gap.from;
             // Wait, then reply: at most half the rest, and never more than two
             // beats of it. The silence is part of the gesture.
-            const replyLen = Math.min(2, Math.max(1, Math.floor(span) / 2));
+            //
+            // EXCEPT WHEN THE REST EXISTS BECAUSE A WALK IS SOUNDING. Waiting
+            // is what makes a reply an answer to a phrase that has ended — the
+            // ending has to be heard before anything can reply to it. A rest
+            // the tune took so a borrowed collection could be played is not
+            // that: there is no silence to respect, the walk is already the
+            // event, and the line rides it rather than waiting it out. Held to
+            // half the gap it came out two notes long, which is a step, not a
+            // run through a collection.
+            const replyLen = gap.borrowed
+                ? Math.min(3, Math.max(1, span))
+                : Math.min(2, Math.max(1, Math.floor(span) / 2));
             const start = gap.to - replyLen;
             if (start < gap.from - 1e-6) continue;
 
@@ -297,8 +328,18 @@
             const pcs = chordPcsAt(start);
             if (!pcs.length) continue;
 
-            const step = 0.5;
-            const count = Math.max(2, Math.min(4, Math.round(replyLen / step)));
+            // A RUN IS A LINE, NOT A HAND-OVER, SO IT MOVES FASTER.
+            //
+            // A plain reply steps at a half beat, which over the one-beat gap
+            // the tune leaves for a walk is exactly two notes — a step, not a
+            // run through a collection, and not what "play the collection" can
+            // possibly mean. A borrowed reply therefore takes the same time at
+            // twice the rate, so the gap carries four notes and the collection
+            // is actually traversed. Measured, the gaps a walk opens run about
+            // one beat; halving the step is what makes that one beat legible as
+            // a scale rather than as two notes leaning somewhere.
+            const step = gap.borrowed ? 0.25 : 0.5;
+            const count = Math.max(2, Math.min(gap.borrowed ? 8 : 4, Math.round(replyLen / step)));
 
             // Step up into the note the melody comes back on, from a chord tone
             // below it. Rising into the re-entry is what makes the hand-over
@@ -307,7 +348,14 @@
             const target = Number.isFinite(gap.into) ? gap.into : null;
             if (target === null) continue;
 
-            const pool = scalePcs.length ? scalePcs : pcs;
+            // The collection actually sounding here. Over a walk that is the
+            // borrowed one — running the home scale through a borrowed bar is
+            // what made these replies sound like accompaniment carrying on
+            // rather than the collection being played.
+            const sounding = (typeof scaleAt === 'function') ? scaleAt(start) : null;
+            const soundingPcs = (sounding && Array.isArray(sounding.pcs) && sounding.pcs.length)
+                ? sounding.pcs : null;
+            const pool = soundingPcs || (scalePcs.length ? scalePcs : pcs);
             const notes = [];
             let cursor = target;
             for (let k = 0; k < count; k++) {
@@ -333,7 +381,10 @@
                     notes: [m],
                     beat: start + k * step,
                     duration: step,
-                    answersRest: true
+                    answersRest: true,
+                    // Named, for the same reason a borrowed chord is: a run
+                    // through a collection nobody can look up is decoration.
+                    runsCollection: (sounding && sounding.borrowed && sounding.name) || null
                 });
             });
             spent++;
@@ -1643,6 +1694,37 @@
                 return (best.chordObj.chordNotes || best.chordObj.diatonicNotes || [])
                     .map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0);
             };
+
+            // WHICH COLLECTION IS SOUNDING HERE, by the same latest-start rule
+            // `chordPcsAt` resolves the chord with. Over an approach that is the
+            // borrowed one and it is reported as borrowed; everywhere else it is
+            // the key's own scale. Anything that wants to PLAY the collection
+            // rather than just the chord — a run answering a rest — has to ask
+            // this rather than the fixed home scale, or it plays the key through
+            // a bar that has left it.
+            const scaleAt = (beat) => {
+                let best = null, bestStart = -Infinity;
+                for (const ev of seq) {
+                    if (!ev) continue;
+                    const st = ev.bar * beatsPerBar + (Number(ev.beat) || 0);
+                    const en = st + (Number(ev.duration) || beatsPerBar);
+                    if (beat >= st - 1e-6 && beat < en - 1e-6 && st > bestStart) {
+                        best = ev; bestStart = st;
+                    }
+                }
+                const hint = best && Array.isArray(best.scaleHintNotes) && best.scaleHintNotes.length
+                    ? best.scaleHintNotes : null;
+                if (!hint) return { pcs: scalePcs, borrowed: false, name: null };
+                const pcs = hint.map(n => this.pcOf(n)).filter(p => Number.isFinite(p) && p >= 0);
+                if (!pcs.length) return { pcs: scalePcs, borrowed: false, name: null };
+                const sh = best.scaleHint || {};
+                return {
+                    pcs,
+                    borrowed: !!best.approachStrategy,
+                    name: sh.root && sh.scaleName
+                        ? `${sh.root} ${String(sh.scaleName).replace(/_/g, ' ')}` : null
+                };
+            };
             let prevBass = null;
             const breathPhase = rng() * 2;
             const sv = sheetVoicing();
@@ -2265,6 +2347,7 @@
                 melodyEvents,
                 chordPcsAt,
                 scalePcs,
+                scaleAt,
                 beatsPerBar,
                 totalBeats: barCount * beatsPerBar,
                 rng,
@@ -2284,7 +2367,9 @@
                     patternName: 'answering the phrase',
                     section: sec.label,
                     hand: 'left',
-                    answersRest: true
+                    answersRest: true,
+                    runsCollection: cell.runsCollection || null,
+                    scaleHint: cell.runsCollection ? { name: cell.runsCollection } : null
                 });
                 filled++;
             });
@@ -2293,9 +2378,17 @@
                     section: '-', type: 'answeringFill',
                     startBar: Math.floor(fills[0].beat / beatsPerBar),
                     endBar: Math.floor(fills[fills.length - 1].beat / beatsPerBar),
-                    explain: 'Answering fill: where the tune stops, the left hand replies — a few steps '
-                        + 'rising into the note the melody comes back on, so the two hands hand over to '
-                        + 'each other instead of one accompanying the other throughout.'
+                    explain: (() => {
+                        const named = Array.from(new Set(fills.map(f => f.runsCollection).filter(Boolean)));
+                        const base = 'Answering fill: where the tune stops, the left hand replies — a few '
+                            + 'steps rising into the note the melody comes back on, so the two hands hand '
+                            + 'over to each other instead of one accompanying the other throughout.';
+                        return named.length
+                            ? base + ' Here the reply runs ' + named.join(' and ') + ' — while the tune is '
+                              + 'sounding a borrowed collection stays underneath it, but in the rest there '
+                              + 'is nothing to be heard against, so the collection is played as the line.'
+                            : base;
+                    })()
                 });
             }
 

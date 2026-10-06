@@ -774,6 +774,8 @@ class ScaleLibrary {
         if (document.getElementById('scale-picker-modal') && this.container.innerHTML.includes('scale-picker-modal')) {
             const nameSpan = document.querySelector('#scale-picker-btn > span.current-scale-name') || document.querySelector('#scale-picker-btn .current-scale-name');
             if (nameSpan) nameSpan.textContent = currentScaleLabel;
+            const pickerBtn = document.getElementById('scale-picker-btn');
+            if (pickerBtn) pickerBtn.title = currentScaleLabel + ' (choose a scale)';
             const keySelect = document.getElementById('key-select');
             if (keySelect) keySelect.value = this.state.currentKey;
             return;
@@ -791,7 +793,7 @@ class ScaleLibrary {
                         </select>
                     </div>
                     
-                    <button id="scale-picker-btn" class="scale-picker-button">
+                    <button id="scale-picker-btn" class="scale-picker-button" title="${currentScaleLabel} (choose a scale)">
                         <span class="current-scale-name">${currentScaleLabel}</span>
                         <span class="picker-icon">▼</span>
                     </button>
@@ -882,6 +884,20 @@ class ScaleLibrary {
                     font-weight: 600;
                     font-size: 0.92rem;
                     color: #f8fafc;
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                /* In the header bar the button keeps one width whatever the
+                   scale is called, so a long name ("Bb Lydian Augmented
+                   Pentatonic") cannot wrap the bar and shift the whole studio
+                   down; the full name is in its tooltip. */
+                #control-deck-keyscale-center .scale-picker-button {
+                    width: 180px;
+                    min-width: 0;
+                    flex: 0 0 180px;
                 }
                 
                 .picker-icon {

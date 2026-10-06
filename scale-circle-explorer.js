@@ -11,9 +11,16 @@
  */
 
 class ScaleCircleExplorer {
-        // Add a no-op setupResizeObserver to prevent errors if not implemented
+        // Redraw whenever the box the circle lives in changes size — a studio
+        // look moving the module, a divider drag, a mosaic tile zooming —
+        // not just when the window does.
         setupResizeObserver() {
-            // No-op: implement resize observer logic here if needed
+            if (this._fitRO || !this.containerElement || !window.ModuleFit) return;
+            const target = this.containerElement.closest('.module-content') || this.containerElement;
+            this._fitRO = window.ModuleFit.observe(target, () => {
+                this._resizeCircleCanvasToContainer();
+                this.renderCircleCanvas();
+            });
         }
     constructor(musicTheoryEngine) {
         if (!musicTheoryEngine) {
@@ -44,13 +51,57 @@ class ScaleCircleExplorer {
         const canvas = this.containerElement.querySelector('#circle-canvas');
         if (!canvas) return;
 
-        // Measure available width inside the visualization container
         const viz = this.containerElement.querySelector('.circle-visualization-container') || this.containerElement;
-        const rect = viz.getBoundingClientRect();
-        const available = Math.floor((rect && rect.width ? rect.width : 460) - 16);
+        let size;
+        const wrapper = this.containerElement.querySelector('.scale-circle-modern-wrapper');
+        const body = this.containerElement.closest('.module-content');
+        const fitting = !!(window.ModuleFit && window.ModuleFit.active());
+        if (wrapper && !fitting) wrapper.style.removeProperty('--circle-min');
+        if (fitting && wrapper && body) {
+            // Never wider than the box, so the circle is never cut off
+            // (hit-testing assumes CSS px == canvas px). Height depends on
+            // whether something outside the module fixes it:
+            //  - it doesn't (auto-height column): size from width, capped;
+            //  - it does, and the circle AND its controls fit at a useful
+            //    size: size to the space left beside/under the controls;
+            //  - it does, but that space is too small: the circle takes the
+            //    visible height and the controls scroll into view below it.
+            const fit = window.ModuleFit;
+            wrapper.style.setProperty('--circle-min', '0px');
+            const vizRoom = fit.measure(viz, canvas);
+            const bodyRoom = fit.measure(body, canvas);
+            if (!vizRoom.w) return;   // hidden (e.g. a closed drawer); the observer retries on show
 
-        // Keep it reasonable for sidebars
-        const size = Math.max(240, Math.min(available, 360));
+            let rowMin = 150;
+            if (!bodyRoom.definite) {
+                size = fit.fitAspect(vizRoom, 1, { min: 140, max: 720 }).w;
+            } else {
+                const leftover = vizRoom.definite ? vizRoom.h : 0;
+                if (leftover >= 140) {
+                    size = Math.min(vizRoom.w, leftover, 720);
+                } else {
+                    // Everything below the circle's own title scrolls; the
+                    // circle gets the visible height under that title.
+                    const zoom = parseFloat(body.style.zoom) || 1;
+                    const bcs = getComputedStyle(body);
+                    const vizTop = (viz.getBoundingClientRect().top - body.getBoundingClientRect().top) / zoom + body.scrollTop;
+                    const vizPad = 16;   // .circle-visualization-container padding
+                    const visible = body.clientHeight - vizTop - (parseFloat(bcs.paddingBottom) || 0) - vizPad - 4;
+                    size = Math.max(120, Math.min(vizRoom.w, visible, 720));
+                    rowMin = size + vizPad;
+                }
+            }
+            wrapper.style.setProperty('--circle-min', rowMin + 'px');
+        } else if (fitting) {
+            const room = window.ModuleFit.measure(viz, canvas);
+            if (!room.w) return;
+            size = window.ModuleFit.fitAspect(room, 1, { min: 140, max: 720 }).w;
+        } else {
+            // OG: the circle as it was built
+            const rect = viz.getBoundingClientRect();
+            const available = Math.floor((rect && rect.width ? rect.width : 460) - 16);
+            size = Math.max(240, Math.min(available, 360));
+        }
 
         // Only touch the backing store if we actually changed size
         if (canvas.width !== size || canvas.height !== size) {
@@ -134,7 +185,32 @@ class ScaleCircleExplorer {
         };
 
         const possibleNames = enharmonics[note] || [note];
-        return this.state.scaleNotes.some(scaleNote => possibleNames.includes(scaleNote));
+        if (this.state.scaleNotes.some(scaleNote => possibleNames.includes(scaleNote))) return true;
+        // Any spelling the table does not list (E#, B#, double accidentals): by pitch.
+        const pc = this._pitchClass(note);
+        return pc !== null && this.state.scaleNotes.some(n => this._pitchClass(n) === pc);
+    }
+
+    _pitchClass(note) {
+        const m = String(note || '').match(/^([A-G])([#b]*)/);
+        if (!m) return null;
+        const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]];
+        const acc = m[2].split('').reduce((a, c) => a + (c === '#' ? 1 : -1), 0);
+        return ((base + acc) % 12 + 12) % 12;
+    }
+
+    /** The name a circle position is drawn with: the scale's spelling if the scale uses that pitch. */
+    labelForKey(key) {
+        const pc = this._pitchClass(key);
+        const own = (this.state.scaleNotes || []).find(n => this._pitchClass(n) === pc);
+        return own ? String(own).replace(/-?\d+$/, '') : key;
+    }
+
+    /** The scale the app is in, so the context panel names it (it used to read "Major" in any mode). */
+    setScaleType(scaleType) {
+        if (!scaleType || scaleType === this.state.scaleType) return;
+        this.state.scaleType = scaleType;
+        this.render();
     }
 
     /**
@@ -1028,7 +1104,7 @@ class ScaleCircleExplorer {
             <div class="current-context">
                 <div class="context-card">
                     <h4>Current Key</h4>
-                    <div class="context-value">${this.state.currentKey} ${this.getKeySignatureInfo().type}</div>
+                    <div class="context-value">${this.state.currentKey}</div>
                 </div>
                 
                 <div class="context-card">
@@ -1181,31 +1257,25 @@ class ScaleCircleExplorer {
     getKeyOrder() {
         const allKeys = this.musicTheory.getKeys();
         
+        // The positions are KEYS, named the way keys are named: a sharp key's
+        // circle goes round to F# and C#, a flat key's to Gb and Db, and the far
+        // side is always Ab Eb Bb F. (It used to read G# D# A# E# in any sharp
+        // key — E# where F belongs, and no such key as G# major — and, in
+        // fourths, Bbb Ebb Abb for A D G.) What a position is *called* on the
+        // drawing follows the current scale's own spelling; see labelForKey().
+        const sig = (this.state.currentKey && this.musicTheory.keySignatures)
+            ? this.musicTheory.keySignatures[this.state.currentKey] : null;
+        const sharp = !!sig && sig.type === 'sharp';
+        const flat = !!sig && sig.type === 'flat';
+
         switch (this.state.mode) {
             case 'fifths':
-                // Circle of fifths with key signature-aware enharmonics
-                if (this.state.currentKey && this.musicTheory.keySignatures[this.state.currentKey]) {
-                    const keySig = this.musicTheory.keySignatures[this.state.currentKey];
-                    if (keySig.type === 'sharp') {
-                        return ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'G#', 'D#', 'A#', 'E#'];
-                    } else if (keySig.type === 'flat') {
-                        return ['C', 'G', 'D', 'A', 'E', 'B', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
-                    }
-                }
-                // Default circle of fifths
+                if (sharp) return ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Ab', 'Eb', 'Bb', 'F'];
+                if (flat) return ['C', 'G', 'D', 'A', 'E', 'B', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
                 return ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
-            
+
             case 'fourths':
-                // Circle of fourths with key signature-aware enharmonics
-                if (this.state.currentKey && this.musicTheory.keySignatures[this.state.currentKey]) {
-                    const keySig = this.musicTheory.keySignatures[this.state.currentKey];
-                    if (keySig.type === 'sharp') {
-                        return ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Fb', 'Bbb', 'Ebb', 'Abb'];
-                    } else if (keySig.type === 'flat') {
-                        return ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Fb', 'Bbb', 'Ebb', 'Abb'];
-                    }
-                }
-                // Default circle of fourths
+                if (sharp) return ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'F#', 'B', 'E', 'A', 'D', 'G'];
                 return ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'B', 'E', 'A', 'D', 'G'];
             
             case 'chromatic':
@@ -1338,6 +1408,11 @@ class ScaleCircleExplorer {
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
         const radius = Math.min(centerX, centerY) * 0.8;
+        // In a studio look the circle can be any size, so its dots and labels
+        // scale with it (tuned at 360px). OG draws them at their built size.
+        const u = (window.ModuleFit && window.ModuleFit.active())
+            ? Math.max(0.75, Math.min(1.6, canvas.width / 360))
+            : 1;
         
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1441,66 +1516,43 @@ class ScaleCircleExplorer {
                 const dx = this._lastMouse.x - x;
                 const dy = this._lastMouse.y - y;
                 const dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist <= 16) hoverHit = key;
+                if (dist <= 16 * u) hoverHit = key;
             }
 
             // Draw key point
             ctx.beginPath();
-            ctx.arc(x, y, 12, 0, 2 * Math.PI);
+            ctx.arc(x, y, 12 * u, 0, 2 * Math.PI);
             ctx.fillStyle = this.state.highlightedKeys.includes(key) ? colorWarning : 
                             (this.isNoteInScale(key)) ? colorAccentSecondary : colorTextMuted;
             ctx.fill();
             
             // Draw key label with improved contrast and size
             ctx.fillStyle = colorTextPrimary;
-            ctx.font = 'bold 16px Arial';
+            ctx.font = `bold ${Math.round(16 * u)}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             // Add subtle dark stroke for readability over complex backgrounds
             ctx.lineWidth = 3;
             ctx.strokeStyle = 'rgba(0,0,0,0.75)';
             
-            // Handle enharmonic equivalents based on current key signature
-            let displayKey = key;
-            
-            // Only show alternative enharmonics when they make sense for the current key
-            if (this.state.currentKey && this.musicTheory.keySignatures[this.state.currentKey]) {
-                const currentKeySig = this.musicTheory.keySignatures[this.state.currentKey];
-                
-                // For fifths mode, prefer the enharmonic that matches the key signature
-                if (this.state.mode === 'fifths') {
-                    if (key === 'Db' && currentKeySig.type === 'sharp') displayKey = 'C#';
-                    if (key === 'C#' && currentKeySig.type === 'flat') displayKey = 'Db';
-                    if (key === 'Gb' && currentKeySig.type === 'sharp') displayKey = 'F#';
-                    if (key === 'F#' && currentKeySig.type === 'flat') displayKey = 'Gb';
-                }
-                
-                // For fourths mode, prefer the enharmonic that matches the key signature
-                if (this.state.mode === 'fourths') {
-                    if (key === 'B' && currentKeySig.type === 'sharp') displayKey = 'Cb';
-                    if (key === 'Cb' && currentKeySig.type === 'flat') displayKey = 'B';
-                    if (key === 'E' && currentKeySig.type === 'sharp') displayKey = 'Fb';
-                    if (key === 'Fb' && currentKeySig.type === 'flat') displayKey = 'E';
-                }
-            } else {
-                // Fallback to original logic
-                if (key === 'Db' && this.state.mode === 'fifths') displayKey = 'C#';
-                if (key === 'Gb' && this.state.mode === 'fourths') displayKey = 'F#';
-            }
+            // A pitch the current scale uses is labelled the way the scale
+            // spells it (G# in E major, E# in C# major); any other position
+            // keeps its key name.
+            const displayKey = this.labelForKey(key);
             
             ctx.strokeText(displayKey, x, y);
             ctx.fillText(displayKey, x, y);
             
             // Draw dice emoji for generated notes
             if (this.isNoteGenerated(key)) {
-                ctx.font = '20px Arial';
-                ctx.fillText('🎲', x + 15, y - 15);
+                ctx.font = `${Math.round(20 * u)}px Arial`;
+                ctx.fillText('🎲', x + 15 * u, y - 15 * u);
             }
             
             // Hover ring for hovered key
             if (this.state.hoveredKey === key) {
                 ctx.beginPath();
-                ctx.arc(x, y, 18, 0, 2 * Math.PI);
+                ctx.arc(x, y, 18 * u, 0, 2 * Math.PI);
                 ctx.strokeStyle = colorAccent;
                 ctx.lineWidth = 2;
                 ctx.stroke();
@@ -1532,27 +1584,33 @@ class ScaleCircleExplorer {
         if (!canvas) return;
         
         const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        // canvas px per screen px (differs when a studio look scales the module)
+        const k = rect.width ? canvas.width / rect.width : 1;
+        const x = (e.clientX - rect.left) * k;
+        const y = (e.clientY - rect.top) * k;
         
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
         const radius = Math.min(centerX, centerY) * 0.8;
         
-        // Check if click is within circle
+        // Check if click is within circle (the key dots sit on its edge)
         const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
-        if (distance > radius) return;
+        if (distance > radius + 20) return;
         
-        // Find closest key
+        // The key whose dot is nearest, measured the way the dots are drawn
+        // (from 12 o'clock). The old angle maths measured from 3 o'clock, so
+        // most clicks picked a different key than the one under the pointer.
         const keyPositions = this.getKeyPositions();
-        const keys = Object.keys(keyPositions);
-        const angleStep = (2 * Math.PI) / keys.length;
-        const angle = Math.atan2(y - centerY, x - centerX);
-        
-        let normalizedAngle = angle < 0 ? angle + 2 * Math.PI : angle;
-        const index = Math.round(normalizedAngle / angleStep) % keys.length;
-        
-        const clickedKey = keys[index];
+        let clickedKey = null;
+        let nearest = Infinity;
+        Object.keys(keyPositions).forEach(key => {
+            const pos = keyPositions[key];
+            const kx = centerX + radius * pos.distance * Math.cos(pos.angle - Math.PI/2);
+            const ky = centerY + radius * pos.distance * Math.sin(pos.angle - Math.PI/2);
+            const d = Math.hypot(x - kx, y - ky);
+            if (d < nearest) { nearest = d; clickedKey = key; }
+        });
+        if (!clickedKey) return;
         this.setKey(clickedKey, { emitUserEvent: true });
     }
 
@@ -1560,8 +1618,9 @@ class ScaleCircleExplorer {
         const canvas = this.containerElement.querySelector('#circle-canvas');
         if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const k = rect.width ? canvas.width / rect.width : 1;
+        const x = (e.clientX - rect.left) * k;
+        const y = (e.clientY - rect.top) * k;
         this._lastMouse = { x, y };
 
         // Identify nearest key similar to click logic but with hit test threshold
@@ -1588,7 +1647,11 @@ class ScaleCircleExplorer {
             if (d < nearestDist) { nearestDist = d; nearest = { key, x: kx, y: ky, d }; }
         });
 
-        if (nearest && nearest.d <= 18) {
+        // hit radius follows the dot size (dots scale with the circle in a look)
+        const u = (window.ModuleFit && window.ModuleFit.active())
+            ? Math.max(0.75, Math.min(1.6, canvas.width / 360))
+            : 1;
+        if (nearest && nearest.d <= 18 * u) {
             if (this.state.hoveredKey !== nearest.key) {
                 this.state.hoveredKey = nearest.key;
                 this.renderCircleCanvas();

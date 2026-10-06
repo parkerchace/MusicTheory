@@ -12,6 +12,85 @@
  */
 
 /**
+ * THE VOICINGS, ONE LIST.
+ *
+ * The sheet's Voicing menu and the typing keyboard's chord mode offer the
+ * same choices, so they read them from here and cannot drift apart.
+ *
+ * `logic` entries hand each chord to the auto chooser with a weighting;
+ * `styles` are fixed shapes. One id is in both — "open" is a logic weighting
+ * AND a manual style — and when both shared the option value "open" the
+ * manual style could never be chosen: the menu handler read it as the
+ * logic. A style whose id is also a logic id is therefore written
+ * "style:<id>" in a menu, and voicingChoice() reads either form.
+ */
+const VOICING_CATALOGUE = {
+	logic: [
+		['smart', 'Smart (Balanced)'],
+		['smooth', 'Smooth (Minimal Movement)'],
+		['open', 'Open (Wide)'],
+		['jazz', 'Jazz (Color/Extensions)'],
+		['piano', 'Piano (Playable)']
+	],
+	styles: [
+		['close', 'Close position'],
+		['open', 'Open voicing'],
+		['drop2', 'Drop 2'],
+		['drop3', 'Drop 3'],
+		['drop2+4', 'Drop 2+4'],
+		['drop3+5', 'Drop 3+5'],
+		['spread', 'Spread voicing'],
+		['shell', 'Shell voicing (root/3rd/7th)'],
+		['shell-no3', 'Shell 1-2-5 (3rd down octave)'],
+		['shell-high3', 'Shell 1-5-3 (3rd up octave)'],
+		['quartal', 'Quartal voicing'],
+		['quintal', 'Quintal voicing'],
+		['cluster', 'Cluster (tight)'],
+		['gospel-shell', 'Gospel shell'],
+		['gospel-cluster', 'Gospel cluster'],
+		['jazz-rootless', 'Jazz rootless'],
+		['classical-balanced', 'Classical balanced'],
+		['add-tensions', 'Add tensions (9/11/13)']
+	]
+};
+const VOICING_LOGIC_IDS = VOICING_CATALOGUE.logic.map(e => e[0]);
+
+/** The option value a menu uses for a logic or a style id. */
+function voicingOptionValue(kind, id) {
+	if (kind === 'logic') return id;
+	return VOICING_LOGIC_IDS.includes(id) ? 'style:' + id : id;
+}
+
+/** What a menu value means: { kind: 'none' | 'logic' | 'style', id }. */
+function voicingChoice(value) {
+	const v = String(value || '');
+	if (!v || v === '__none') return { kind: 'none', id: null };
+	if (v.startsWith('style:')) return { kind: 'style', id: v.slice(6) };
+	if (VOICING_LOGIC_IDS.includes(v)) return { kind: 'logic', id: v };
+	return { kind: 'style', id: v };
+}
+
+/** The <option>s for a voicing menu, as HTML (labels are fixed strings). */
+function voicingOptionsHtml(opts = {}) {
+	const logic = VOICING_CATALOGUE.logic
+		.map(([id, label]) => `<option value="${voicingOptionValue('logic', id)}">${label}</option>`).join('');
+	const styles = VOICING_CATALOGUE.styles
+		.map(([id, label]) => `<option value="${voicingOptionValue('style', id)}">${label}</option>`).join('');
+	return (opts.none ? '<option value="__none">As generated (no voicing chosen)</option>' : '')
+		+ `<optgroup label="Intelligent Logic (Auto)">${logic}</optgroup>`
+		+ `<optgroup label="Manual Styles">${styles}</optgroup>`;
+}
+
+if (typeof window !== 'undefined') {
+	window.VoicingCatalogue = {
+		list: VOICING_CATALOGUE,
+		optionValue: voicingOptionValue,
+		choice: voicingChoice,
+		optionsHtml: voicingOptionsHtml
+	};
+}
+
+/**
  * THE VOICES.
  *
  * Everything used to be one triangle oscillator with one envelope, so a
@@ -207,10 +286,25 @@ class SheetMusicGenerator {
 			workLengthScale: 1,
 			// RUBATO / agogic stress: 0 metronomic, 1 freely expressive. Like
 			// swing it is a performance property and never a written duration.
+			// DEFAULTED ON, and this is the whole reason every piece sounded
+			// the same the whole way through. The feel plan below is section-
+			// aware and climax-aware — it broadens the close, leans on the
+			// climax, and keeps a repeated section from being played identically
+			// to its first hearing — but every one of those decisions is
+			// MULTIPLIED by this number, so at zero the plan computed a full set
+			// of expressive choices and then scaled all of them to nothing.
+			// A piece that never breathes is not neutral, it is metronomic.
+			// Enough to be heard as playing rather than as playback; well short
+			// of sounding unsteady.
 			rubato: (() => {
-				try { const v = parseFloat(localStorage.getItem('sheet.rubato')); return Number.isFinite(v) ? v : 0; }
-				catch (_) { return 0; }
+				try { const v = parseFloat(localStorage.getItem('sheet.rubato')); return Number.isFinite(v) ? v : 0.35; }
+				catch (_) { return 0.35; }
 			})(),
+			// Left at zero deliberately, unlike the other two. Swing is a
+			// STYLE — straight eighths are correct for most of what this
+			// generates, and defaulting it on would impose a genre rather than
+			// let a piece breathe. It is the one member of this family that
+			// should be asked for.
 			swing: (() => {
 				try { const v = parseFloat(localStorage.getItem('sheet.swing')); return Number.isFinite(v) ? v : 0; }
 				catch (_) { return 0; }
@@ -218,9 +312,13 @@ class SheetMusicGenerator {
 			// DISPLACED ACCENT: 0 on the grid, 1 a full push or lay-back. The
 			// third member of the same family — a way of playing the written
 			// rhythm, never a rewriting of it.
+			// A small amount by default, for the same reason as rubato: a note
+			// placed exactly on the grid every single time is the sound of a
+			// sequencer, not of a part being played. Small enough that the
+			// written rhythm is never in doubt.
 			displace: (() => {
-				try { const v = parseFloat(localStorage.getItem('sheet.displace')); return Number.isFinite(v) ? v : 0; }
-				catch (_) { return 0; }
+				try { const v = parseFloat(localStorage.getItem('sheet.displace')); return Number.isFinite(v) ? v : 0.12; }
+				catch (_) { return 0.12; }
 			})(),
 			// What a chord click and playback light up on the instrument
 			// visualizers: 'both' | 'chords' | 'melody' | 'off'. Persisted,
@@ -1195,37 +1293,9 @@ class SheetMusicGenerator {
 		const voicSelect = document.createElement('select');
 		voicSelect.style.fontSize = '0.8rem';
 		
-		// Populate with OptGroups
-		voicSelect.innerHTML = `
-			<option value="__none">As generated (no voicing chosen)</option>
-			<optgroup label="Intelligent Logic (Auto)">
-				<option value="smart">Smart (Balanced)</option>
-				<option value="smooth">Smooth (Minimal Movement)</option>
-				<option value="open">Open (Wide)</option>
-				<option value="jazz">Jazz (Color/Extensions)</option>
-				<option value="piano">Piano (Playable)</option>
-			</optgroup>
-			<optgroup label="Manual Styles">
-				<option value="close">Close position</option>
-				<option value="open">Open voicing</option>
-				<option value="drop2">Drop 2</option>
-				<option value="drop3">Drop 3</option>
-				<option value="drop2+4">Drop 2+4</option>
-				<option value="drop3+5">Drop 3+5</option>
-				<option value="spread">Spread voicing</option>
-				<option value="shell">Shell voicing (root/3rd/7th)</option>
-				<option value="shell-no3">Shell 1-2-5 (3rd down octave)</option>
-				<option value="shell-high3">Shell 1-5-3 (3rd up octave)</option>
-				<option value="quartal">Quartal voicing</option>
-				<option value="quintal">Quintal voicing</option>
-				<option value="cluster">Cluster (tight)</option>
-				<option value="gospel-shell">Gospel shell</option>
-				<option value="gospel-cluster">Gospel cluster</option>
-				<option value="jazz-rootless">Jazz rootless</option>
-				<option value="classical-balanced">Classical balanced</option>
-				<option value="add-tensions">Add tensions (9/11/13)</option>
-			</optgroup>
-		`;
+		// Populate with OptGroups — from the shared catalogue, so chord mode's
+		// menu offers exactly the same voicings.
+		voicSelect.innerHTML = voicingOptionsHtml({ none: true });
 
 		// SHOW WHAT IS ACTUALLY IN EFFECT.
 		//
@@ -1261,23 +1331,22 @@ class SheetMusicGenerator {
 		updateRefreshState();
 
 		voicSelect.addEventListener('change', () => {
-			const val = voicSelect.value;
-			const logicOptions = ['smart', 'smooth', 'open', 'jazz', 'piano']; // must match values in first optgroup
+			const choice = voicingChoice(voicSelect.value);
 
-			if (val === '__none') {
+			if (choice.kind === 'none') {
 				// Back to the arrangement the generator wrote. Everything the
 				// choice switched on goes off together, or the texture would be
 				// half-handed-over — which is the state that made these controls
 				// feel like they had a mind of their own.
 				this.state.autoVoicingAll = false;
 				try { window.__voicingUserChoice = false; } catch (_) {}
-			} else if (logicOptions.includes(val)) {
+			} else if (choice.kind === 'logic') {
 				this.state.autoVoicingAll = true;
-				this.state.voicingLogic = val;
+				this.state.voicingLogic = choice.id;
 				try { window.__voicingUserChoice = true; } catch (_) {}
 			} else {
 				this.state.autoVoicingAll = false;
-				this.state.voicingStyle = val;
+				this.state.voicingStyle = choice.id;
 				// Picking a voicing by hand is what hands the texture over to
 				// that voicing. Until this is set, generated music keeps the
 				// ordinary arrangement — chords in their own register, melody
@@ -2058,6 +2127,32 @@ class SheetMusicGenerator {
 		} catch (_) {}
 		this.controlsContainer = controls;
 		this.svgContainer = svgHost;
+
+		// 'auto' bars-per-line wraps to the width the sheet is given, so
+		// re-flow when a studio look, divider or window changes that width.
+		if (window.ModuleFit && this._widthROHost !== svgHost) {
+			if (this._widthRO) this._widthRO.disconnect();
+			this._widthROHost = svgHost;
+			this._lastFitWidth = 0;
+			this._widthRO = window.ModuleFit.observe(svgHost, () => {
+				if (this._barsPerLineIsFixed()) return;
+				const w = window.ModuleFit.active() ? this._sheetFitWidth() : 0;
+				if (Math.abs(w - this._lastFitWidth) < 8) return;
+				this._scheduleRender();
+			}, 120);
+		}
+	}
+
+	_barsPerLineIsFixed() {
+		return Number.isFinite(this.state.barsPerLine) && this.state.barsPerLine > 0;
+	}
+
+	// Width available to the staff inside the (padded) SVG host
+	_sheetFitWidth() {
+		const host = this.svgContainer;
+		if (!host || !host.isConnected) return 0;
+		const cs = getComputedStyle(host);
+		return Math.floor(host.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0));
 	}
 
 	// Build a compact, human-friendly one-paste sheet summary
@@ -2925,9 +3020,179 @@ class SheetMusicGenerator {
         if (!sel) return;
         sel.value = this._voicingChosen()
             ? (this.state.autoVoicingAll
-                ? (this.state.voicingLogic || 'smart')
-                : (this.state.voicingStyle || 'close'))
+                ? voicingOptionValue('logic', this.state.voicingLogic || 'smart')
+                : voicingOptionValue('style', this.state.voicingStyle || 'close'))
             : '__none';
+    }
+
+    /**
+     * VOICE ONE CHORD, LIVE — the way a bar of generated music is voiced.
+     *
+     * The typing keyboard's chord mode plays a chord the moment a key goes
+     * down, and wants the same decision the sheet makes: VL Combos explores
+     * styles and inversions; an auto logic (Smart, Smooth, Open, Jazz, Piano)
+     * scores the eighteen styles against the previous chord; a manual style is
+     * applied as asked, with octave-by-octave voice leading on top.
+     *
+     * That machinery reads its settings and its memory (`previousVoicing`,
+     * the refresh seed) off this sheet. A live player must not disturb the
+     * sheet's own continuity, so its settings and memory are swapped in, the
+     * decision is made synchronously, and everything is put back.
+     *
+     * @param {string[]} rawNotes chord tones, no octave, root first
+     * @param {{voicing?:string, voiceLeading?:boolean, combos?:boolean,
+     *          vlIntensity?:number, octaveOffset?:number}} settings
+     *        `voicing` is a menu value (a logic id or a style id)
+     * @param {{previous?:number[], seed?:number}} live the player's own memory;
+     *        updated in place with the chord just voiced
+     * @returns {{midi:number[], style:string|null, names:string[]}}
+     */
+    voiceChordLive(rawNotes, settings = {}, live = {}) {
+        const notes = (rawNotes || []).filter(Boolean);
+        if (!notes.length) return { midi: [], style: null, names: [] };
+
+        // Before the first render the voicing helpers do not exist yet:
+        // stack the chord upward from around middle C.
+        if (!this._voiceChordClose || !this._noteNameToMidi || !this._applyVoicingStyle) {
+            const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+            const pcOf = n => {
+                const m = String(n).match(/^([A-G])([#b]*)/);
+                if (!m) return null;
+                return (PC[m[1]] + m[2].split('').reduce((a, c) => a + (c === '#' ? 1 : -1), 0) + 12) % 12;
+            };
+            let prev = 47;
+            const midi = notes.map(pcOf).filter(p => p !== null).map(pc => {
+                let m = 48 + pc;
+                while (m <= prev) m += 12;
+                prev = m;
+                return m;
+            });
+            live.previous = midi.slice();
+            return { midi, style: 'close', names: [] };
+        }
+
+        const S = this.state;
+        const KEYS = ['voicingLogic', 'voicingStyle', 'voiceLeading', 'voiceLeadingMode', 'vlIntensity',
+                      'vlCombosVariant', 'octaveOffset', 'harmonizationMode', 'autoVoicingAll', 'currentChord'];
+        const saved = {};
+        KEYS.forEach(k => { saved[k] = S[k]; });
+        const savedPrev = this.previousVoicing;
+        const savedSeed = this.voicingRefreshSeed;
+        const savedLast = this._lastVLStyle;
+        const savedBase = this._baseStyleIncludedOnce;
+
+        try {
+            const choice = voicingChoice(settings.voicing || 'smart');
+            S.autoVoicingAll = choice.kind === 'logic';
+            if (choice.kind === 'logic') S.voicingLogic = choice.id;
+            else if (choice.kind === 'style') S.voicingStyle = choice.id;
+            else { S.autoVoicingAll = true; S.voicingLogic = 'smart'; }
+            S.voiceLeading = !!settings.voiceLeading;
+            S.voiceLeadingMode = settings.combos ? 'multi' : 'single';
+            if (typeof settings.vlIntensity === 'number') S.vlIntensity = settings.vlIntensity;
+            S.octaveOffset = settings.octaveOffset || 0;
+            // No melody to aim the top voice at; prefer the chord's root in the bass.
+            S.harmonizationMode = 'root';
+            S.currentChord = { root: notes[0] };
+
+            this.previousVoicing = Array.isArray(live.previous) && live.previous.length ? live.previous.slice() : null;
+            this.voicingRefreshSeed = live.seed || 0;
+            this._lastVLStyle = live.lastStyle;
+            this._baseStyleIncludedOnce = live.baseIncluded;
+
+            const spelled = notes.map(n => this._convertToKeySignatureSpelling(n));
+            let voiced = this._voiceChordClose(spelled, 'treble', S.octaveOffset);
+            let style;
+            if (S.voiceLeadingMode === 'multi') {
+                const c = chooseVoiceLeadingCombination.call(this, notes, 'treble');
+                voiced = (c && c.notes) || voiced;
+                style = (c && c.style) || S.voicingStyle;
+            } else if (S.autoVoicingAll && this._chooseAutoVoicing) {
+                const c = this._chooseAutoVoicing(voiced.slice());
+                voiced = c.notes;
+                style = c.style;
+                if (S.voiceLeading && this._applyVoiceLeading) voiced = this._applyVoiceLeading(voiced);
+            } else {
+                voiced = this._applyVoicingStyle(voiced, S.voicingStyle);
+                style = S.voicingStyle;
+                if (S.voiceLeading && this._applyVoiceLeading) voiced = this._applyVoiceLeading(voiced);
+            }
+
+            const midi = voiced.map(n => this._noteNameToMidi(n)).filter(m => Number.isFinite(m));
+            live.previous = midi.slice();
+            live.lastStyle = this._lastVLStyle;
+            live.baseIncluded = this._baseStyleIncludedOnce;
+            return { midi, style: style || null, names: voiced.slice() };
+        } finally {
+            KEYS.forEach(k => { S[k] = saved[k]; });
+            this.previousVoicing = savedPrev;
+            this.voicingRefreshSeed = savedSeed;
+            this._lastVLStyle = savedLast;
+            this._baseStyleIncludedOnce = savedBase;
+        }
+    }
+
+    /**
+     * EVERY INVERSION OF ONE VOICING STYLE, LIVE.
+     *
+     * The typing keyboard's inversion button and its inversion walk need all
+     * the inversions of a chord in the style being played, not only the one
+     * voiceChordLive() settles on.
+     *
+     * A style that spaces voices by their place in the stack (close, open,
+     * the drops, spread, quartal, quintal, keyboard style, gospel cluster)
+     * has one inversion per rotation of the chord: drop 2 of each close
+     * inversion is the drop-2 family. A style built from the root (the
+     * shells, rootless, gospel shell, added tensions, cluster) would lose
+     * what makes it that style if the chord were rotated under it, so its
+     * root-position shape is inverted instead: the bottom voice goes up an
+     * octave, once per inversion.
+     *
+     * @param {string[]} rawNotes chord tones, no octave, root first
+     * @param {string} style a style id (not a logic)
+     * @param {number} octaveOffset octaves from the register voiceChordLive starts at
+     * @returns {number[][]} one ascending MIDI voicing per inversion
+     */
+    voiceChordInversions(rawNotes, style, octaveOffset = 0) {
+        const notes = (rawNotes || []).filter(Boolean);
+        if (!notes.length) return [];
+        const rotate = (arr, r) => arr.slice(r).concat(arr.slice(0, r));
+        const asc = arr => arr.filter(m => Number.isFinite(m)).sort((a, b) => a - b);
+
+        if (!this._voiceChordClose || !this._noteNameToMidi || !this._applyVoicingStyle) {
+            // Before the first render: close position, stacked up from C3.
+            const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+            const pcs = notes.map(n => {
+                const m = String(n).match(/^([A-G])([#b]*)/);
+                return m ? (PC[m[1]] + m[2].split('').reduce((a, c) => a + (c === '#' ? 1 : -1), 0) + 12) % 12 : null;
+            }).filter(p => p !== null);
+            return pcs.map((_, r) => {
+                let prev = 47 + 12 * octaveOffset;
+                return rotate(pcs, r).map(pc => {
+                    let m = prev - ((prev - pc) % 12 + 12) % 12;
+                    while (m <= prev) m += 12;
+                    prev = m;
+                    return m;
+                });
+            });
+        }
+
+        const ROTATES = ['close', 'open', 'drop2', 'drop3', 'drop2+4', 'drop3+5', 'spread', 'quartal', 'quintal',
+                         'classical-balanced', 'gospel-cluster'];
+        const st = style || 'close';
+        const shape = (order) => {
+            const spelled = order.map(n => this._convertToKeySignatureSpelling(n));
+            const voiced = this._applyVoicingStyle(this._voiceChordClose(spelled, 'treble', octaveOffset), st);
+            return asc(voiced.map(n => this._noteNameToMidi(n)));
+        };
+
+        if (ROTATES.includes(st)) return notes.map((_, r) => shape(rotate(notes, r)));
+        const out = [shape(notes)];
+        for (let r = 1; r < out[0].length; r++) {
+            const prev = out[r - 1];
+            out.push(asc(prev.slice(1).concat(prev[0] + 12)));
+        }
+        return out;
     }
 
     /**
@@ -2951,6 +3216,56 @@ class SheetMusicGenerator {
         if (!m) return noteName;
         const oct = Math.max(0, Math.min(8, parseInt(m[2], 10) + offset));
         return `${m[1]}${oct}`;
+    }
+
+    /**
+     * WHERE THIS CHORD CAME FROM, AS SOMETHING YOU CAN SEE.
+     *
+     * Every borrowed chord already arrives here carrying its provenance — the
+     * collection it was drawn from, the family that produced it, and a sentence
+     * explaining it. None of it was ever drawn, so a piece whose whole subject
+     * is borrowed harmony rendered as undifferentiated black noteheads and the
+     * only way to check the engine was to read a panel beside the score.
+     *
+     * One hue per family, because the families are the thing being compared:
+     *
+     *   fifthAbove      a collection a fifth above the chord
+     *   parallelTarget  a collection on the chord's own root
+     *   departure       the whole collection changed underneath the key
+     *
+     * Returns null for anything plain, so ordinary diatonic chords keep the
+     * ordinary colour and the marked ones are the ones that mean something.
+     */
+    _provenanceStyle(event) {
+        if (!event) return null;
+        const hint = event.scaleHint || null;
+        const family = event.approachFamily || null;
+        const reason = hint && hint.reason ? String(hint.reason) : '';
+        if (!family && !/modulation|interchange|tonici|excursion/.test(reason)) return null;
+
+        let kind = 'departure';
+        if (family === 'fifthAbove') kind = 'fifthAbove';
+        else if (family === 'parallelTarget') kind = 'parallelTarget';
+        else if (family) kind = 'other';
+
+        const PALETTE = {
+            fifthAbove:     { color: '#38bdf8', word: 'a fifth above' },
+            parallelTarget: { color: '#fb923c', word: "the chord's own root" },
+            departure:      { color: '#a78bfa', word: 'the key moved' },
+            other:          { color: '#4ade80', word: 'borrowed' }
+        };
+        const pick = PALETTE[kind];
+        // Short enough to sit under a chord symbol without becoming another
+        // wall of text; the full sentence is on the tooltip.
+        const src = (hint && hint.root && hint.scaleName)
+            ? `${hint.root} ${String(hint.scaleName).replace(/_/g, ' ').replace(/\b(\w)/g, m => m)}`
+            : null;
+        return {
+            kind,
+            color: pick.color,
+            label: src || pick.word,
+            title: event.explain || (src ? `${src} — ${pick.word}` : pick.word)
+        };
     }
 
     _drawRhythmicNote(svg, x, y, duration, options = {}) {
@@ -3930,11 +4245,19 @@ class SheetMusicGenerator {
 		const headerWidth = 130; // reserved for clef + key signature + time signature
 		const firstBarX = staffLeft + headerWidth; // where bar 0 starts
 
-		// Wrapping: 'auto' keeps everything on one (scrollable) line; a fixed
-		// count wraps into stacked systems the way real notation does.
-		const barsPerLine = Number.isFinite(this.state.barsPerLine) && this.state.barsPerLine > 0
-			? Math.min(this.state.barsPerLine, dynamicBarCount)
+		// Wrapping: a fixed count wraps into stacked systems the way real
+		// notation does; 'auto' fits as many bars per system as the sheet's
+		// width allows, so the score never runs off the side of its module.
+		// (OG keeps the original behaviour: 'auto' is one scrollable line.)
+		const fitting = !!(window.ModuleFit && window.ModuleFit.active());
+		const fitWidth = (this._barsPerLineIsFixed() || !fitting) ? 0 : this._sheetFitWidth();
+		this._lastFitWidth = fitWidth;
+		const barsThatFit = fitWidth
+			? Math.max(1, Math.floor((fitWidth - firstBarX - 20) / barWidth))
 			: dynamicBarCount;
+		const barsPerLine = this._barsPerLineIsFixed()
+			? Math.min(this.state.barsPerLine, dynamicBarCount)
+			: Math.min(barsThatFit, dynamicBarCount);
 		const rowCount = Math.max(1, Math.ceil(dynamicBarCount / barsPerLine));
 		const barsInRow = (row) => Math.min(barsPerLine, dynamicBarCount - row * barsPerLine);
 
@@ -4779,6 +5102,9 @@ class SheetMusicGenerator {
 		this._voiceChordClose = voiceChordClose;
 		this._applyVoicingStyle = applyVoicingStyle;
 		this._noteNameToMidi = noteNameToMidi;
+		// ...and so voiceChordLive() can voice a chord the way a bar is voiced
+		this._chooseAutoVoicing = chooseAutoVoicing;
+		this._applyVoiceLeading = applyVoiceLeading;
 
         // Helper function to draw ledger lines for notes outside the staff
 		const drawLedgerLines = (svg, noteX, noteY, staffPosition, staffMeta, noteRadius) => {
@@ -5686,6 +6012,41 @@ class SheetMusicGenerator {
                         const rowBass = __bl.bass;
                         // Space notes by musical time, not array index — quarter note = 1/beatsPerBar of bar width.
                         const beatSlotWidth = barWidth / phraseBeatsPerBar;
+
+                        // WHERE THE BORROWED CHORDS IN THIS BAR CAME FROM.
+                        //
+                        // Keyed by beat, because that is what the note events
+                        // carry: a bar can hold an ordinary diatonic chord and a
+                        // borrowed approach into the next one, and colouring the
+                        // whole bar would say the wrong thing about both.
+                        const __provByBeat = new Map();
+                        ((bar && bar.beats) || []).forEach((bev) => {
+                            const st = this._provenanceStyle(bev);
+                            if (st) __provByBeat.set(Number(bev.beat) || 0, st);
+                        });
+                        const __provAt = (beat) => __provByBeat.get(Number(beat) || 0) || null;
+                        if (rowTreble && __provByBeat.size) {
+                            __provByBeat.forEach((st, beat) => {
+                                const lx = barX + beat * beatSlotWidth + (beatSlotWidth * 0.15);
+                                const lbl = document.createElementNS(svgNS, 'text');
+                                lbl.setAttribute('x', String(lx));
+                                // TIGHT TO THE STAFF, NOT UP WITH THE SYMBOLS.
+                                // At -16 this sat exactly in the chord-name row
+                                // and the two texts overprinted each other into
+                                // something neither could be read out of.
+                                lbl.setAttribute('y', String(rowTreble.topY - 4));
+                                lbl.setAttribute('fill', st.color);
+                                lbl.setAttribute('font-size', '7.5');
+                                lbl.setAttribute('opacity', '0.95');
+                                lbl.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
+                                lbl.setAttribute('text-anchor', 'middle');
+                                lbl.textContent = st.label;
+                                const tip = document.createElementNS(svgNS, 'title');
+                                tip.textContent = st.title;
+                                lbl.appendChild(tip);
+                                svg.appendChild(lbl);
+                            });
+                        }
 						// Track chord labels so we don't duplicate symbols every beat.
 						let __lastChordLabel = null;
 						let __chordLabelsDrawnInBar = 0;
@@ -5760,7 +6121,8 @@ class SheetMusicGenerator {
                                         // lead) is stemmed and coloured as a tune,
                                         // not as accompaniment.
                                         direction: lh.isMelody ? 'up' : 'down',
-                                        color: lh.isMelody ? '#f97316' : '#93c5fd',
+                                        color: (__provAt(lh.beat) && __provAt(lh.beat).color)
+                                            || (lh.isMelody ? '#f97316' : '#93c5fd'),
                                         isChord: names.length > 1 && !lh.isMelody,
                                         noteName: shifted,
                                         sigData: sigData,
@@ -5885,6 +6247,23 @@ class SheetMusicGenerator {
                                     return `${pn}[${this.__posLabel(noteToStaffPosition(pn, clef))}]`;
                                 }).join(' ');
                                 console.log(`[Sheet]     Chord tones: ${__chordToneDetail} | role=${event.harmonyRole||'?'} | chordDur=${chordDuration} | energy=${(event.energy||0).toFixed(3)}`);
+								const __prov = this._provenanceStyle(event);
+								if (__prov && staffMeta && Number.isFinite(staffMeta.topY)) {
+									// One label per borrowed chord, above the staff, naming the
+									// collection rather than repeating it on every notehead.
+									const lbl = document.createElementNS(svgNS, 'text');
+									lbl.setAttribute('x', String(x));
+									lbl.setAttribute('y', String(staffMeta.topY - 8));
+									lbl.setAttribute('fill', __prov.color);
+									lbl.setAttribute('font-size', '9');
+									lbl.setAttribute('font-family', 'Georgia, "Times New Roman", serif');
+									lbl.setAttribute('text-anchor', 'middle');
+									lbl.textContent = __prov.label;
+									const tip = document.createElementNS(svgNS, 'title');
+									tip.textContent = __prov.title;
+									lbl.appendChild(tip);
+									svg.appendChild(lbl);
+								}
 								event.chordObj.diatonicNotes.forEach((noteName) => {
 									const spelledName = (typeof convertToKeySignatureSpelling === 'function') ? convertToKeySignatureSpelling(noteName) : noteName;
 									// Honour the Octave control — the phrase renderer ignored
@@ -5896,7 +6275,7 @@ class SheetMusicGenerator {
 									const playableName = __shifted;
 									this._drawRhythmicNote(svg, x, y, chordDuration, {
 										direction: 'down',
-										color: '#d1d5db',
+										color: (__prov && __prov.color) || '#d1d5db',
 										isChord: true,
 										noteName: playableName,
 										sigData: sigData,

@@ -1,0 +1,246 @@
+/* ==========================================================================
+   MODULE FIT — the same modules, fitted to each look's form
+   --------------------------------------------------------------------------
+   OG (the full studio) is the reference: its modules are the design, and
+   nothing in this file applies to it. Every rule is scoped under
+   body[data-look]:not([data-look="og"]) — the same contract as
+   studio-looks.css — except the instrument-dock fix at the bottom.
+
+   In every other look a module keeps everything that makes it that module
+   (its sections, its controls, its colours) and fits the box the look gives
+   it in three ways:
+
+   1. Reflow. Each module body is a size container, so a module lays itself
+      out for ITS width: the circle puts its controls beside the circle when
+      there is room and under it when there is not; the sheet moves its
+      voicing panel under the staff; controls wrap.
+
+   2. Scale. What cannot reflow — rows of fixed-size buttons, a 480px grid
+      track — is scaled. module-fit.js picks a zoom for each module body:
+      just enough to remove sideways scrolling, and, in a fixed-height zone,
+      enough to fit the whole module if that can be done at a readable size.
+      Otherwise the module scrolls at full size.
+
+   3. Drawings fill. The circle, solar map and fretboard keep their shape and
+      size themselves to the room left after their controls.
+
+   Loaded after studio-looks.css.
+   ========================================================================== */
+
+/* ---------- shell ---------------------------------------------------------- */
+body[data-look]:not([data-look="og"]) .look-item > .module-content {
+    container: module / inline-size;
+    min-width: 0;
+    /* fill the module, so a fixed-height zone passes its height on */
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* A module's sections keep their natural height; flex used to squash
+   collapsible panels and control rows into each other. */
+body[data-look]:not([data-look="og"]) .look-item > .module-content > * { flex-shrink: 0; }
+
+/* ...except the slot holding a drawing: it takes the room that is left. */
+body[data-look]:not([data-look="og"]) .look-item > .module-content > :is(#scale-circle-container, #solar-dock-viewport, #guitar-fretboard-container) {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+}
+
+/* A flex:1 text box otherwise refuses to go below ~170px. */
+body[data-look]:not([data-look="og"]) .look-item :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    max-width: 100%;
+    min-width: 0;
+}
+
+/* ---------- circle of fifths ----------------------------------------------- */
+/* The module's own responsive design (header over circle over controls below
+   768px; circle beside controls above it) keyed to the MODULE's width
+   instead of the window's. Its grid shipped as minmax(480px,1fr) 300px, a
+   780px minimum that no look's zone can give it. */
+body[data-look]:not([data-look="og"]) .look-item #scale-circle-container {
+    display: flex;
+    flex-direction: column;
+}
+body[data-look]:not([data-look="og"]) .look-item .scale-circle-modern-wrapper {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "header" "visual" "controls";
+    grid-template-rows: auto 1fr auto;
+}
+body[data-look]:not([data-look="og"]) .look-item .scale-circle-modern-wrapper .circle-visualization-container {
+    min-width: 0;
+    /* --circle-min comes from scale-circle-explorer.js: 150px normally, or the
+       whole circle when a short zone makes it put the circle first and let
+       the controls scroll below it */
+    min-height: var(--circle-min, 150px);
+}
+/* Wide: the circle runs the full height on the left; its title and controls
+   share the column beside it (and the controls scroll there if they must). */
+@container module (min-width: 620px) {
+    body[data-look]:not([data-look="og"]) .look-item .scale-circle-modern-wrapper {
+        grid-template-columns: minmax(0, 1fr) clamp(240px, 34cqi, 300px);
+        grid-template-areas: "visual header" "visual controls";
+        grid-template-rows: auto 1fr;
+    }
+    body[data-look]:not([data-look="og"]) .look-item .scale-circle-modern-wrapper .circle-controls-modern {
+        overflow: auto;
+        min-height: 0;
+    }
+}
+
+/* ---------- solar map ------------------------------------------------------ */
+/* The module was built to put its controls "in a dedicated host below the
+   viewport" and falls back to floating them over the planets when there is
+   none. In a look, give it that: controls under the map, map fills the rest.
+   The canvas draws from min(width, height), so it stays round in any box. */
+body[data-look]:not([data-look="og"]) .look-item > .module-content:has(> #solar-dock-viewport) { min-height: 0 !important; }
+body[data-look]:not([data-look="og"]) #solar-dock-viewport {
+    display: flex;
+    flex-direction: column;
+    min-height: 0 !important;
+}
+body[data-look]:not([data-look="og"]) #solar-dock-viewport > #solar-controls {
+    position: static !important;
+    order: 1;
+    flex: 0 0 auto;
+    margin-top: 6px;
+    box-shadow: none !important;
+}
+body[data-look]:not([data-look="og"]) #solar-dock-viewport > canvas {
+    flex: 1 1 0;
+    width: 100% !important;
+    height: 0 !important;
+    /* module-fit.js replaces this: fill a fixed-height box, or about square
+       in an auto-height column */
+    min-height: clamp(200px, 86cqi, 560px);
+}
+
+/* ---------- sheet music ---------------------------------------------------- */
+body[data-look]:not([data-look="og"]) .look-item .sheet-music-module > * { flex-shrink: 0; }
+body[data-look]:not([data-look="og"]) .look-item .sheet-music-svg-host { min-width: 0; }
+/* 'auto' bars-per-line wraps to the width; one bar still needs ~320px, and
+   below that the staff scales down (it has a viewBox) instead of scrolling. */
+body[data-look]:not([data-look="og"]) .look-item .sheet-music-svg-host > svg { max-width: 100%; height: auto; }
+/* The score is the point of the module. In a zone too short to show the
+   module whole (a ribbon, a tile) the staff comes before the panels and the
+   controls, which scroll into view below it. */
+body[data-look]:not([data-look="og"]) [data-module="sheet"][data-fit-tight] > .module-content > #sheet-music-container { order: -1; }
+body[data-look]:not([data-look="og"]) [data-module="sheet"][data-fit-tight] .sheet-music-module > .sheet-music-svg-host { order: -1; }
+@container module (max-width: 719px) {
+    /* ...and in a narrow one */
+    body[data-look]:not([data-look="og"]) .look-item .sheet-music-module > .sheet-music-svg-host { order: -1; }
+    /* the voicing panel is a fixed 180px column beside the staff; under the
+       staff it lays its options out across the width instead */
+    body[data-look]:not([data-look="og"]) .look-item #sheet-music-container > div:has(> .sheet-music-voicing-panel) {
+        flex-direction: column;
+    }
+    body[data-look]:not([data-look="og"]) .look-item .sheet-music-voicing-panel {
+        width: auto !important;
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        align-items: start;
+        gap: 8px 12px !important;
+    }
+    body[data-look]:not([data-look="og"]) .look-item .sheet-music-voicing-panel > div:first-child[style*="position: absolute"] { display: none; }
+}
+
+/* STAGE: in a look about the score, the staff comes first — above the
+   provenance and "adjust this take" panels, above the toolbar — and the
+   toolbar and voicing column fold behind the header's [CONTROLS] switch.
+   (By width alone the staff only came first in zones under 720px, so the
+   score-first looks, being wide, showed the least of it.) */
+body[data-look]:not([data-look="og"]) [data-module="sheet"][data-stage] > .module-content > #sheet-music-container { order: -1; }
+body[data-look]:not([data-look="og"]) [data-module="sheet"][data-stage] .sheet-music-module > .sheet-music-svg-host { order: -1; }
+body[data-look]:not([data-look="og"]) [data-module="sheet"][data-stage]:not([data-controls-open]) .sheet-music-controls,
+body[data-look]:not([data-look="og"]) [data-module="sheet"][data-stage]:not([data-controls-open]) .sheet-music-voicing-panel { display: none !important; }
+
+/* ---------- grading key ---------------------------------------------------- */
+/* A tall list of tiers in OG's sidebar. Given a wide, short strip (Lab
+   Bench's legend, a ribbon) it reads like a legend: the heading and note
+   across the top, the tiers side by side. */
+@container module (min-width: 760px) {
+    body[data-look]:not([data-look="og"]) .look-item #grading-key-sidebar > div {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 2px 18px;
+        align-items: start;
+    }
+    body[data-look]:not([data-look="og"]) .look-item #grading-key-sidebar > div > :not(:has(> *)) {
+        grid-column: 1 / -1;
+    }
+}
+
+/* ==========================================================================
+   LOOK-LEVEL FIXES
+   ========================================================================== */
+
+/* Modules whose content lives elsewhere (key/scale → header bar) or that are
+   hidden (fretboard while the guitar is docked) take no space. */
+body[data-look]:not([data-look="og"]) .look-absent { display: none !important; }
+
+/* In stacking zones, modules keep their natural height and the zone scrolls.
+   Shrinking them is what made headers overlap in Luthier's theory rail. */
+body[data-look]:not([data-look="og"]) .look-zone:not([data-flow="row"]):not([data-flow="strips"]):not([data-flow="mosaic"]):not([data-flow="bench"]):not([data-flow="solo"]):not([data-flow="orbit"]):not([data-count="1"]) > .look-item {
+    flex-shrink: 0;
+}
+/* A module alone in a zone whose height the look fixes owns it and fills
+   it. (studio-looks.js writes data-count = modules actually present;
+   module-fit.js writes data-fixed after testing that the zone's height does
+   not come from its content — filling an auto row would collapse it.) */
+body[data-look]:not([data-look="og"]) .look-zone[data-count="1"][data-fixed]:not([data-flow="orbit"]):not([data-flow="rail"]):not([data-flow="drawer"]):not([data-flow="row"]) > .look-item:not(.look-absent) {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* A zone in an auto grid row keeps its modules at their natural height;
+   module-fit.js gives the zone a matching min-height (capped by the look). */
+body[data-look]:not([data-look="og"]) .look-zone[data-auto] > .look-item { flex-shrink: 0; }
+
+/* Row zones in a fixed-height band (Split Brain's decks, the ribbons): each
+   module takes the band's height — its size-contract minimum would push it
+   past the band — and fits itself inside. In an auto-height row the
+   percentage resolves to auto and the module keeps its natural height. */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > .look-item:not([data-module="chordstrip"]):not(.look-absent) {
+    height: 100%;
+    min-height: 0;
+}
+
+/* A row zone's rotated label was a flex item of its own; next to a
+   full-width chord strip it took a whole line. Pin it to the left edge. */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] { padding-left: 20px; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > .look-zone-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+}
+
+/* Zone heights (ribbons, Lab Bench's legend) and Orrery's row shares are part
+   of each look's definition now (studio-looks.js), applied inline; under
+   860px every look stacks, so they give way. */
+@media (max-width: 860px) {
+    body[data-look]:not([data-look="og"]) .look-zone { height: auto !important; }
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > .look-item { height: auto !important; }
+}
+
+/* In a mosaic, notation needs width more than any other tile. */
+@media (min-width: 861px) {
+    body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-module="sheet"] { grid-column: span 2; }
+}
+
+/* On a bench, the fretboard is centred in the room it is given. */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="bench"] > [data-module="fretboard"] > .module-content {
+    padding: 6px;
+    justify-content: center;
+}
+
+/* ==========================================================================
+   INSTRUMENT DOCK (every look, OG included — a layout bug, not a style)
+   The deck is a flex row; without this the dock shrinks to its content and a
+   piano-only dock (the user's choice, or Luthier taking the guitar) fills
+   half the deck and leaves the rest black.
+   ========================================================================== */
+#instrument-dock-root > #instrument-dock { flex: 1 1 auto; min-width: 0; }

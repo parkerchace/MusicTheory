@@ -7,6 +7,10 @@
     <title>Modular Music Theory Tools</title>
     <link rel="stylesheet" href="modular-music-theory.css">
     <link rel="stylesheet" href="modular-styles.css">
+    <link rel="stylesheet" href="studio-looks.css">
+    <link rel="stylesheet" href="module-fit.css">
+    <link rel="stylesheet" href="qwerty-keys.css">
+    <link rel="stylesheet" href="look-builder.css">
     <script src="generative-fractal.js"></script>
     <style>
 
@@ -304,15 +308,15 @@
         <!-- App Brand -->
         <div class="app-brand" style="display: flex; align-items: center; gap: 8px;">
             <button id="return-to-landing"
-                style="display: flex; flex-direction: column; align-items: center; gap: 2px; background: transparent; border: 1px solid var(--border-light); padding: 6px 12px; cursor: pointer; color: var(--text-main); font-family: var(--font-tech); transition: all 0.2s ease; border-radius: 2px;">
-                <span style="font-size: 1.2rem;">🏠</span>
+                style="display: flex; flex-direction: row; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--border-light); padding: 3px 10px; cursor: pointer; color: var(--text-main); font-family: var(--font-tech); transition: all 0.2s ease; border-radius: 2px;">
+                <span style="font-size: 1rem;" aria-hidden="true">🏠</span>
                 <span style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px;">Home</span>
             </button>
             <span>THEORY_STUDIO</span>
         </div>
 
         <!-- Primary Input Section -->
-        <div class="primary-input-section" style="display:flex; align-items:center; gap:12px;">
+        <div class="primary-input-section" style="display:flex; align-items:center; gap:8px;">
             <!-- Input Mode Toggle -->
             <div class="input-mode-toggle" style="display:flex; gap:4px;">
                 <button id="input-mode-words" class="input-mode-btn active" title="Word Input Mode">📝</button>
@@ -322,7 +326,7 @@
             <!-- Main Input Field -->
             <input type="text" id="global-word-input" class="form-input word-mode-input"
                 placeholder="Enter words: chase, woods, dark..."
-                style="width:300px; padding:6px 12px; font-size:0.8rem;">
+                style="width:clamp(150px, 12vw, 280px); padding:6px 12px; font-size:0.8rem;">
 
             <input type="text" id="global-manual-numbers" class="form-input number-mode-input"
                 placeholder="Enter degrees/chords..."
@@ -351,7 +355,7 @@
 
         <!-- Center slot: Key/Scale selector -->
         <div id="control-deck-keyscale-center"
-            style="flex: 1; display:flex; align-items:center; justify-content:center; min-width: 0;"></div>
+            style="flex: 1 0 auto; display:flex; align-items:center; justify-content:center;"></div>
 
         <!-- Secondary Controls -->
         <div class="secondary-controls" style="display:flex; align-items:center; gap:8px;">
@@ -574,6 +578,9 @@
                 <!-- Modules will be populated here by JavaScript -->
             </div>
 
+            <!-- Studio Look Picker (populated by studio-looks.js) -->
+            <div id="look-picker"></div>
+
             <!-- Ready to Dive In -->
             <div
                 style="text-align: center; padding: 30px; background: rgba(96, 165, 250, 0.1); border: 1px solid var(--border-light); border-radius: 4px;">
@@ -588,6 +595,7 @@
                         style="padding: 12px 30px; background: var(--accent-primary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.95rem;">Launch
                         Full Studio</button>
                 </div>
+                <div id="look-current-line" style="margin-top: 14px; font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-tech); letter-spacing: 0.08em;"></div>
             </div>
         </div>
     </div>
@@ -2125,6 +2133,7 @@
     
         .word-analysis-panel, .word-settings-panel { width: 320px !important; border-radius: 4px !important; box-shadow: -2px 0 10px rgba(0, 0, 0, 0.4) !important; } .word-analysis-panel .panel-header, .word-settings-panel .panel-header { padding: 8px 12px !important; font-size: 0.75rem !important; } .word-analysis-panel .panel-content, .word-settings-panel .panel-content { padding: 10px !important; } .analysis-section { margin-bottom: 8px !important; padding: 8px !important; } .analysis-section-title { font-size: 0.7rem !important; margin-bottom: 4px !important; } .analysis-item { padding: 2px 0 !important; font-size: 0.8rem !important; } .btn-close { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.2rem; line-height: 1; }
 </style>
+    <script src="module-fit.js"></script>
     <script src="music-theory-engine.js"></script>
 
     <!-- Semantic Contour Engine Foundation (Phase 2) -->
@@ -2142,12 +2151,14 @@
     <script src="harmony-complexity.js?v=3.8.0"></script>
     <script src="piano-texture-engine.js?v=3.8.0"></script>
     <script src="melodic-line-engine.js?v=3.8.0"></script>
+    <script src="scale-colour.js?v=1.0.0"></script>
     <script src="approach-engine.js?v=3.8.0"></script>
     <script src="music-provenance-panel.js?v=3.8.0"></script>
     <script src="composition-controls.js?v=3.8.0"></script>
     <script src="numeric-progression.js?v=3.8.0"></script>
     <script src="composition-timeline-ui.js?v=3.8.0"></script>
     <script src="arc-ui-init.js?v=3.8.0"></script>
+    <script src="scoring-methods.js?v=1.0.0" defer></script>
 
     <!-- Embedded scales data (CORS-safe for file:// protocol) -->
     <script src="scales-data-embedded.js"></script>
@@ -2176,6 +2187,8 @@
     <script src="solar-system-visualizer.v2.js"></script>
     <script src="module-selector.js"></script>
     <script src="instrument-dock.js" defer></script>
+    <script src="qwerty-keys.js" defer></script>
+    <script src="qwerty-chords.js" defer></script>
     <!-- <script src="grading-legend-help-system.js"></script> -->
     <!-- <script src="word-grading-visualization.js"></script> -->
     <!-- Bitwig MIDI removed as it is archived/legacy -->
@@ -2190,6 +2203,9 @@
     <script src="tutorial-system.js" defer></script>
 
     <script src="modular-app.js" defer></script>
+    <script src="look-schema.js" defer></script>
+    <script src="look-builder.js" defer></script>
+    <script src="studio-looks.js" defer></script>
 
     <script>
         (function () {
@@ -2301,6 +2317,22 @@
                 }
             }
             window.addEventListener('DOMContentLoaded', function () {
+                // In the help menu, with the other tools — not floating over the
+                // header's own buttons.
+                const helpPanel = document.getElementById('help-dropdown-panel');
+                if (helpPanel) {
+                    const item = document.createElement('div');
+                    item.className = 'module-toggle-item';
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = '💾 Save interaction log';
+                    b.title = 'Download a log of this session (for debugging)';
+                    b.style.cssText = 'width:100%; text-align:left; background:transparent; border:none; color:var(--text-muted); padding:6px; cursor:pointer;';
+                    b.addEventListener('click', saveLogToFile);
+                    item.appendChild(b);
+                    helpPanel.appendChild(item);
+                    return;
+                }
                 const btn = document.createElement('button');
                 btn.innerText = '💾';
                 btn.title = 'Save Interaction Log';
@@ -2393,414 +2425,10 @@
                 });
             }
 
-            // ==================== THEME SWITCHER ====================
-            const themeSwitcher = document.getElementById('theme-switcher');
-            const themeNames = ['clean-daw', 'channel-strip', 'matrix-fx', 'steam-2000'];
-            const themeLabels = {
-                'clean-daw': 'Clean DAW',
-                'channel-strip': 'Channel Strip',
-                'matrix-fx': 'Matrix FX',
-                'steam-2000': 'Steam 2000'
-            };
-
-            // Safe storage helper
-            const safeStorage = {
-                getItem: (key) => {
-                    try { return localStorage.getItem(key); } catch (e) { return null; }
-                },
-                setItem: (key, val) => {
-                    try { localStorage.setItem(key, val); } catch (e) { /* ignore */ }
-                }
-            };
-
-            // Load saved theme or use default
-            let currentThemeIndex = 0;
-            const savedTheme = safeStorage.getItem('music-theory-theme');
-            if (savedTheme && themeNames.includes(savedTheme)) {
-                currentThemeIndex = themeNames.indexOf(savedTheme);
-                document.body.setAttribute('data-theme', savedTheme);
-            }
-
-            // Update button text to show current theme
-            themeSwitcher.textContent = `[${themeLabels[themeNames[currentThemeIndex]]}]`;
-
-            // Cycle through themes on click
-            themeSwitcher.addEventListener('click', () => {
-                currentThemeIndex = (currentThemeIndex + 1) % themeNames.length;
-                const newTheme = themeNames[currentThemeIndex];
-                document.body.setAttribute('data-theme', newTheme);
-                safeStorage.setItem('music-theory-theme', newTheme);
-                themeSwitcher.textContent = `[${themeLabels[newTheme]}]`;
-                console.log('Theme switched to:', newTheme);
-            });
-
-            // Setup landing page theme button
-            const landingThemeBtn = document.getElementById('landing-theme-toggle');
-            if (landingThemeBtn) {
-                landingThemeBtn.addEventListener('click', () => {
-                    currentThemeIndex = (currentThemeIndex + 1) % themeNames.length;
-                    const newTheme = themeNames[currentThemeIndex];
-                    document.body.setAttribute('data-theme', newTheme);
-                    safeStorage.setItem('music-theory-theme', newTheme);
-                    themeSwitcher.textContent = `[${themeLabels[newTheme]}]`;
-                    console.log('Theme switched to:', newTheme);
-                });
-            }
+            // Theme switching lives in theme-switcher.js (one handler for both buttons).
         })();
 
-        // ==================== TUTORIAL SYSTEM ====================
-        (function () {
-            'use strict';
-
-            const tutorialSteps = [
-                {
-                    title: 'Welcome to Music Theory Studio',
-                    content: 'This tool helps you learn music theory step by step. Let\'s start with the basics: scales are collections of notes that sound good together.',
-                    target: '#scale-library-container',
-                    action: null
-                },
-                {
-                    title: 'Step 1: Choose Your Scale',
-                    content: 'Start with C Major - the simplest scale with no sharps or flats. Click the dropdown and select "C Major" to begin.',
-                    target: '#scale-library-container',
-                    action: () => {
-                        // Highlight scale dropdown
-                    }
-                },
-                {
-                    title: 'Step 2: See the Notes',
-                    content: 'Look at the Circle of Fifths on the left. The highlighted notes show which notes are in your chosen scale. C Major has: C, D, E, F, G, A, B.',
-                    target: '#scale-circle-container',
-                    action: null
-                },
-                {
-                    title: 'Step 3: Generate Numbers',
-                    content: 'Music uses numbers (degrees) to represent scale positions. Try the Number Generator to create a simple melody pattern like "1-3-5-1".',
-                    target: '#number-generator-container',
-                    action: null
-                },
-                {
-                    title: 'Step 4: Build Chords',
-                    content: 'Chords are multiple notes played together. The Sheet Music area shows chords built from your scale. These are the building blocks of harmony.',
-                    target: '[data-module="score"]',
-                    action: null
-                },
-                {
-                    title: 'Step 5: Play It',
-                    content: 'Click on the piano keys below to hear your scale and chords. The highlighted keys show which notes belong to your current scale.',
-                    target: '#piano-container',
-                    action: null
-                },
-                {
-                    title: 'Step 6: Explore Progressions',
-                    content: 'Try the manual input box at the top. Type chord numbers like "1 4 5 1" to create a classic chord progression. Press Enter to hear it!',
-                    target: '#global-manual-numbers',
-                    action: null
-                },
-                {
-                    title: 'You\'re Ready!',
-                    content: 'Now you understand the basics! Enable Demo Mode (button at top) to see explanations when you hover over any tool. Happy composing!',
-                    target: '#demo-mode-btn',
-                    action: null
-                }
-            ];
-
-            const demoTooltips = {
-                '#scale-library-container': {
-                    title: 'Scale Selector',
-                    content: 'Choose from hundreds of scales across different musical traditions. Each scale has a unique character and emotional quality.'
-                },
-                '#scale-circle-container': {
-                    title: 'Circle of Fifths',
-                    content: 'Visual reference showing all 12 notes. Highlighted notes belong to your current scale. Adjacent scales are closely related.'
-                },
-                '#number-generator-container': {
-                    title: 'Number Generator',
-                    content: 'Create melodies and progressions using scale degrees. Use patterns, random generation, or manual input to explore musical ideas.'
-                },
-                '#container-chord-container': {
-                    title: 'Container Chord Tool',
-                    content: 'Find what scales contain specific chords. Great for understanding chord-scale relationships and harmonic possibilities.'
-                },
-                '[data-module="score"]': {
-                    title: 'Sheet Music Generator',
-                    content: 'Visual notation of your progression. Shows chord symbols, staff notation, and harmonic analysis. Export as MIDI for your DAW.'
-                },
-                '[data-module="chord"]': {
-                    title: 'Chord Explorer',
-                    content: 'Interactive map of all diatonic chords in your scale. Click to hear, see voice leadings, and understand functional harmony.'
-                },
-                '#piano-container': {
-                    title: 'Piano Visualizer',
-                    content: 'Click keys to play notes and chords. Highlighted keys show your current scale. Visual feedback helps connect theory to sound.'
-                },
-                '#global-manual-numbers': {
-                    title: 'Manual Chord Input',
-                    content: 'Type chord progressions directly: "1 4 5 1" or "Cmaj7 Fmaj7". Supports Roman numerals, numbers, and chord symbols.'
-                },
-                '#global-grading-type': {
-                    title: 'Grading View',
-                    content: 'Change how chords are colored: Functional (tonic/dominant), Emotional (happy/sad), or Color (synesthesia-inspired).'
-                },
-                '#theme-switcher': {
-                    title: 'Theme Switcher',
-                    content: 'Cycle through visual themes: Clean DAW, Channel Strip, Matrix FX, or Steam 2000. Find your preferred workspace aesthetic.'
-                },
-                '#toggle-layout': {
-                    title: 'Layout Toggle',
-                    content: 'Switch between column layout and grid layout. Grid mode lets you drag-and-drop modules to customize your workspace.'
-                },
-                '.module-toggle-item': {
-                    title: 'Module Visibility',
-                    content: 'Show or hide individual modules. Customize your workspace to focus on the tools you\'re currently using.'
-                }
-            };
-
-            let currentStep = 0;
-            let easyModeActive = false;
-            let demoModeActive = false;
-
-            const overlay = document.getElementById('tutorial-overlay');
-            const highlight = document.getElementById('tutorial-highlight');
-            const tooltip = document.getElementById('tutorial-tooltip');
-            const tooltipTitle = document.getElementById('tutorial-title');
-            const tooltipContent = document.getElementById('tutorial-content');
-            const progress = document.getElementById('tutorial-progress');
-            const nextBtn = document.getElementById('tutorial-next');
-            const skipBtn = document.getElementById('tutorial-skip');
-            const demoTooltip = document.getElementById('demo-tooltip');
-            const demoTooltipTitle = document.getElementById('demo-tooltip-title');
-            const demoTooltipContent = document.getElementById('demo-tooltip-content');
-
-            const easyModeBtn = document.getElementById('easy-mode-btn');
-            const demoModeBtn = document.getElementById('demo-mode-btn');
-
-            // Easy Mode Button
-            easyModeBtn.addEventListener('click', () => {
-                easyModeActive = !easyModeActive;
-
-                if (easyModeActive) {
-                    startTutorial();
-                    easyModeBtn.style.color = 'var(--accent-secondary)';
-                    easyModeBtn.style.borderColor = 'var(--accent-secondary)';
-
-                    // Add badge
-                    if (!document.querySelector('.easy-mode-badge')) {
-                        const badge = document.createElement('div');
-                        badge.className = 'easy-mode-badge';
-                        badge.textContent = 'Easy Mode Active';
-                        document.body.appendChild(badge);
-                    }
-                } else {
-                    stopTutorial();
-                    easyModeBtn.style.color = '';
-                    easyModeBtn.style.borderColor = '';
-
-                    const badge = document.querySelector('.easy-mode-badge');
-                    if (badge) badge.remove();
-                }
-            });
-
-            // Demo Mode Button
-            demoModeBtn.addEventListener('click', () => {
-                demoModeActive = !demoModeActive;
-
-                if (demoModeActive) {
-                    enableDemoMode();
-                    demoModeBtn.style.color = 'var(--accent-primary)';
-                    demoModeBtn.style.borderColor = 'var(--accent-primary)';
-
-                    // Add badge
-                    if (!document.querySelector('.demo-mode-badge')) {
-                        const badge = document.createElement('div');
-                        badge.className = 'demo-mode-badge';
-                        badge.textContent = 'Demo Mode Active';
-                        document.body.appendChild(badge);
-                    }
-                } else {
-                    disableDemoMode();
-                    demoModeBtn.style.color = '';
-                    demoModeBtn.style.borderColor = '';
-
-                    const badge = document.querySelector('.demo-mode-badge');
-                    if (badge) badge.remove();
-                }
-            });
-
-            function startTutorial() {
-                currentStep = 0;
-                showTutorialStep();
-            }
-
-            function stopTutorial() {
-                overlay.classList.remove('active');
-                highlight.style.display = 'none';
-                tooltip.classList.remove('active');
-                progress.classList.remove('active');
-                easyModeActive = false;
-            }
-
-            function showTutorialStep() {
-                if (currentStep >= tutorialSteps.length) {
-                    stopTutorial();
-                    return;
-                }
-
-                const step = tutorialSteps[currentStep];
-
-                // Update content
-                tooltipTitle.textContent = step.title;
-                tooltipContent.textContent = step.content;
-
-                // Update progress
-                progress.textContent = `Step ${currentStep + 1} of ${tutorialSteps.length}`;
-                progress.classList.add('active');
-
-                // Show overlay
-                overlay.classList.add('active');
-                tooltip.classList.add('active');
-
-                // Highlight target element
-                if (step.target) {
-                    const target = document.querySelector(step.target);
-                    if (target) {
-                        const rect = target.getBoundingClientRect();
-                        highlight.style.display = 'block';
-                        highlight.style.left = rect.left + 'px';
-                        highlight.style.top = rect.top + 'px';
-                        highlight.style.width = rect.width + 'px';
-                        highlight.style.height = rect.height + 'px';
-
-                        // Position tooltip near target
-                        positionTooltip(tooltip, rect);
-
-                        // Allow clicking through overlay on target
-                        target.style.position = 'relative';
-                        target.style.zIndex = '10000';
-                    }
-                }
-
-                // Execute action if any
-                if (step.action) {
-                    step.action();
-                }
-
-                // Update button text
-                if (currentStep === tutorialSteps.length - 1) {
-                    nextBtn.textContent = 'Finish';
-                } else {
-                    nextBtn.textContent = 'Next';
-                }
-            }
-
-            function positionTooltip(tooltip, targetRect) {
-                const tooltipRect = tooltip.getBoundingClientRect();
-                const padding = 20;
-
-                // Try to position to the right
-                let left = targetRect.right + padding;
-                let top = targetRect.top;
-
-                // If doesn't fit on right, try left
-                if (left + tooltipRect.width > window.innerWidth) {
-                    left = targetRect.left - tooltipRect.width - padding;
-                }
-
-                // If doesn't fit on left either, position below
-                if (left < 0) {
-                    left = targetRect.left;
-                    top = targetRect.bottom + padding;
-                }
-
-                // Keep within viewport
-                left = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
-                top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
-
-                tooltip.style.left = left + 'px';
-                tooltip.style.top = top + 'px';
-            }
-
-            nextBtn.addEventListener('click', () => {
-                // Reset previous target z-index
-                const prevStep = tutorialSteps[currentStep];
-                if (prevStep && prevStep.target) {
-                    const prevTarget = document.querySelector(prevStep.target);
-                    if (prevTarget) {
-                        prevTarget.style.zIndex = '';
-                    }
-                }
-
-                currentStep++;
-                showTutorialStep();
-            });
-
-            skipBtn.addEventListener('click', () => {
-                stopTutorial();
-            });
-
-            // Demo Mode: Hover tooltips
-            function enableDemoMode() {
-                Object.keys(demoTooltips).forEach(selector => {
-                    const elements = document.querySelectorAll(selector);
-                    elements.forEach(el => {
-                        el.addEventListener('mouseenter', handleDemoHover);
-                        el.addEventListener('mouseleave', handleDemoLeave);
-                    });
-                });
-            }
-
-            function disableDemoMode() {
-                Object.keys(demoTooltips).forEach(selector => {
-                    const elements = document.querySelectorAll(selector);
-                    elements.forEach(el => {
-                        el.removeEventListener('mouseenter', handleDemoHover);
-                        el.removeEventListener('mouseleave', handleDemoLeave);
-                    });
-                });
-                demoTooltip.classList.remove('show');
-            }
-
-            function handleDemoHover(e) {
-                const el = e.currentTarget;
-
-                // Find matching tooltip data
-                let tooltipData = null;
-                for (const selector in demoTooltips) {
-                    if (el.matches(selector)) {
-                        tooltipData = demoTooltips[selector];
-                        break;
-                    }
-                }
-
-                if (!tooltipData) return;
-
-                demoTooltipTitle.textContent = tooltipData.title;
-                demoTooltipContent.textContent = tooltipData.content;
-
-                // Position tooltip
-                const rect = el.getBoundingClientRect();
-                let left = rect.right + 10;
-                let top = rect.top;
-
-                // Keep within viewport
-                if (left + 300 > window.innerWidth) {
-                    left = rect.left - 310;
-                }
-                if (left < 10) {
-                    left = rect.left;
-                    top = rect.bottom + 10;
-                }
-
-                demoTooltip.style.left = left + 'px';
-                demoTooltip.style.top = top + 'px';
-                demoTooltip.classList.add('show');
-            }
-
-            function handleDemoLeave() {
-                demoTooltip.classList.remove('show');
-            }
-
-        })();
+        // The guided tour and Demo Mode live in tutorial-system.js (one copy, one set of handlers).
     </script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -3129,12 +2757,38 @@
                     if (!globalWordInput || !globalWordInput.value.trim()) return;
                     const text = globalWordInput.value.trim();
                     console.log('[LexicalIntegration] Regenerate pressed - using weights:', lexicalWeights);
+                    // THE ARC OWNS THE STAFF FOR THIS PRESS. Both generators below
+                    // read the same words: the lexical pass drives the word panel and
+                    // the numbers box, and the arc pass harmonises the text with the
+                    // approach and departure engines. Only the second knows where a
+                    // borrowed chord came from, so only the second is allowed to draw
+                    // the sheet — otherwise the two race and the lossy one sometimes
+                    // wins. Released the moment the numbers box is edited by hand.
+                    // The primary Generate button claims the staff in
+                    // scoring-methods.js; this legacy quick-action does the same
+                    // so both entry points behave alike.
+                    const arcWillRun = !!(window.compositionTimeline
+                        && window.compositionTimeline.currentProfile);
+                    if (arcWillRun) window.__sheetOwnedByArc = true;
                     processWordsInput(text);
                     // Re-fire arc generation so the sheet music also regenerates
-                    if (window.compositionTimeline && window.compositionTimeline.currentProfile) {
+                    if (arcWillRun) {
                         window.compositionTimeline.analyzeAndRender(text);
                         window.compositionTimeline.triggerGeneration();
                     }
+                });
+            }
+
+            // TYPING A PROGRESSION TAKES THE STAFF BACK. The arc holds the sheet
+            // only until the numbers box is used directly — that path exists to put
+            // a hand-written progression on the staff, and it is not competing with
+            // anything when the user is the one driving it.
+            const manualNumbers = document.getElementById('global-manual-numbers');
+            if (manualNumbers) {
+                ['input', 'change'].forEach((evtName) => {
+                    manualNumbers.addEventListener(evtName, () => {
+                        window.__sheetOwnedByArc = false;
+                    });
                 });
             }
 
