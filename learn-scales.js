@@ -2153,12 +2153,11 @@ class LearnScales {
                             </div>
 
                             <div style="background: rgba(96, 165, 250, 0.1); border: 1px solid var(--accent-primary); border-radius: 8px; padding: 20px; margin: 24px 0;">
-                                <div style="font-weight: 700; margin-bottom: 12px; font-size: 1.1rem;">📚 Recommended Next Modules</div>
+                                <div style="font-weight: 700; margin-bottom: 12px; font-size: 1.1rem;">📚 Next in the course</div>
                                 <ul style="margin: 0; padding-left: 24px; line-height: 1.8;">
-                                    <li><strong>Learn Inversions:</strong> Understand how to rearrange chord notes</li>
-                                    <li><strong>Chord Explorer:</strong> Deep dive into chord types and voicings</li>
-                                    <li><strong>Progression Builder:</strong> Create and analyze chord progressions</li>
-                                    <li><strong>Scale Relationships:</strong> Advanced scale and mode connections</li>
+                                    <li><a href="#" data-course-lesson="b-inversions"><strong>Inversions</strong></a>: the same chord with a different note on the bottom</li>
+                                    <li><a href="#" data-course-lesson="i-close-voicing"><strong>Intermediate: Voicings</strong></a>: open a chord up so a melody fits on top</li>
+                                    <li><a href="#" data-course-lesson="i-bebop-major"><strong>Intermediate: Bebop major</strong></a>: an eight-note scale with just two chords in it</li>
                                 </ul>
                             </div>
 
@@ -2185,6 +2184,14 @@ class LearnScales {
                     `;
                 },
                 setup: function() {
+                    document.querySelectorAll('[data-course-lesson]').forEach(a => {
+                        a.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const page = document.getElementById('learn-scales-page');
+                            if (page) page.style.display = 'none';
+                            if (window.Course) window.Course.start(a.getAttribute('data-course-lesson'));
+                        });
+                    });
                     const completeBtn = document.getElementById('complete-lesson-9');
                     if (completeBtn) {
                         completeBtn.addEventListener('click', () => {

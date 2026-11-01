@@ -1,0 +1,11 @@
+# GitHub Pages renders README.md as the site's front page.
+# Matching the title to the README's own heading stops the theme from printing
+# a second header above it, and the image is the preview card shared links show.
+title: Music Theory Studio
+description: Type a few words and get a piece of music that can explain itself. A browser studio for composing, playing and learning music theory.
+theme: jekyll-theme-primer
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: /media/studio-signal-chain.jpg

@@ -582,7 +582,60 @@ class MusicTheoryEngine {
                 }
             }
         }
+        // Everything else (five-, six-, eight-note collections) was spelled by
+        // key signature, and C has none — so C bebop major came out with a G♯
+        // and C blues with a D♯ and an A♯. Spell from the tonic by degree
+        // instead, the way a player names them: ♭3, ♭6, ♭7, never ♯2, ♯5, ♯6.
+        if (intervals.length !== 7) {
+            const spelled = this.spellByScaleDegree(key, intervals);
+            if (spelled) return spelled.map((n, i) => n || this.getNoteFromIntervalInKey(key, intervals[i], keyForSignature));
+        }
         return intervals.map(interval => this.getNoteFromIntervalInKey(key, interval, keyForSignature));
+    }
+
+    /**
+     * Spell any collection from its tonic by scale degree: ♭2 ♭3 ♭6 ♭7 and ♯4,
+     * except where that name would put two notes on one letter and the other
+     * name would not — the whole-half octatonic's ♯5 sits under a 6, so it is
+     * G♯ A rather than A♭ A. Returns one name per interval, or null for a note
+     * that would need E♯/B♯/C♭/F♭ (the caller spells those by key signature).
+     */
+    spellByScaleDegree(key, intervals) {
+        if (!Array.isArray(intervals) || !intervals.length) return null;
+        const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+        const NATURAL = [0, 2, 4, 5, 7, 9, 11];
+        const root = String(key || 'C');
+        const rootIdx = LETTERS.indexOf(root.charAt(0).toUpperCase());
+        const rootPc = this.pitchClassOf(root);
+        if (rootIdx < 0 || !Number.isFinite(rootPc)) return null;
+
+        const has = new Set(intervals.map(i => ((i % 12) + 12) % 12));
+        // Letter offset (0 = tonic's letter … 6 = seventh) for each semitone.
+        const degreeOf = (s) => {
+            switch (s) {
+                case 0: return 0;
+                case 1: case 2: return 1;
+                case 3: return (has.has(4) && !has.has(2) && !has.has(1)) ? 1 : 2;   // ♯2 only beside a 3 with no 2
+                case 4: return 2;
+                case 5: return 3;
+                case 6: return (has.has(5) && !has.has(7) && !has.has(8)) ? 4 : 3;   // ♭5 only when 4 is taken and the G letter free
+                case 7: return 4;
+                case 8: return (has.has(9) && !has.has(7)) ? 4 : 5;                  // ♯5 only when 6 is taken and 5 free
+                case 9: return 5;
+                default: return 6;                                                   // 10, 11
+            }
+        };
+        const RARE = new Set(['E#', 'B#', 'Cb', 'Fb']);
+        return intervals.map(interval => {
+            const s = ((interval % 12) + 12) % 12;
+            const li = (rootIdx + degreeOf(s)) % 7;
+            const targetPc = (rootPc + s) % 12;
+            let dev = (((targetPc - NATURAL[li]) % 12) + 12) % 12;
+            if (dev > 6) dev -= 12;
+            if (dev < -1 || dev > 1) return null;
+            const name = LETTERS[li] + (dev > 0 ? '#' : dev < 0 ? 'b' : '');
+            return RARE.has(name) ? null : name;
+        });
     }
 
     /**
@@ -1441,11 +1494,46 @@ class MusicTheoryEngine {
         // seventh chord after its triad, arriving by a different door. The
         // synthetic name is uglier and says what is actually there:
         // sus2(add6).
+        // A stack with no name from its bottom note is often a plain chord
+        // with another note in the bass: E–G–A–C is C6 over E, not
+        // "Em(add11, ♯5)". And in an eight-note scale whose tonic chord is a
+        // sixth chord (bebop major, bebop minor) every other degree is that
+        // same chord again — A–C–E–G there is C6/A, the way a player reads it,
+        // even though Am7 is also true. Kept as a separate field: the root and
+        // chordType are what everything else voices and grades from.
+        let inversionName = null;
+        if (!chordType) inversionName = this.nameAsInversion(stacked.notes);
+        if (scaleNotes.length === 8 && degree % 8 !== 1) {
+            const tonic = this.buildScaleChord(key, scaleId, 1, defaultSize).notes;
+            const tonicType = this.classifyChordTypeFromNotes(scaleNotes[0], tonic);
+            const pcs = (ns) => ns.map(n => this.pitchClassOf(n)).sort((a, b) => a - b).join(',');
+            if (/^m?6$/.test(tonicType || '') && pcs(tonic) === pcs(stacked.notes)) {
+                inversionName = scaleNotes[0] + tonicType + '/' + root;
+            }
+        }
+
         if (!chordType) {
             chordType = this.generateSyntheticChordType(root, stacked.notes);
         }
 
-        return { root, chordType, fullName: root + chordType, diatonicNotes: stacked.notes };
+        return { root, chordType, fullName: root + chordType, diatonicNotes: stacked.notes, inversionName };
+    }
+
+    /**
+     * Name a chord whose bottom note is not its root: try each other chord
+     * tone as the root against the common qualities, and return "C6/E" for the
+     * first that fits, or null.
+     */
+    nameAsInversion(notes) {
+        if (!Array.isArray(notes) || notes.length < 3) return null;
+        const bass = notes[0];
+        const types = ['maj7', '7', '6', 'm6', 'm7', 'm7b5', 'dim7', 'mMaj7', 'maj', 'm', 'dim', 'aug'];
+        for (const type of types) {
+            for (const r of notes.slice(1)) {
+                if (this.classifyChordTypeFromNotes(r, notes) === type) return r + type + '/' + bass;
+            }
+        }
+        return null;
     }
 
     /**

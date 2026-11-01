@@ -819,6 +819,7 @@
                 profile,
                 points: (window.compositionTimeline && window.compositionTimeline.points) || [],
                 canvasMode: (window.compositionTimeline && window.compositionTimeline.canvasMode) || 'bezier',
+                contourMeaning: (window.ContourMeaning && window.ContourMeaning.current()) || 'piece',
                 input: text,
                 seed,
                 method: (window.__generationMethod || 'contour')

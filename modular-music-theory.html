@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="module-fit.css">
     <link rel="stylesheet" href="qwerty-keys.css">
     <link rel="stylesheet" href="look-builder.css">
+    <link rel="stylesheet" href="course.css">
     <script src="generative-fractal.js"></script>
     <style>
 
@@ -530,53 +531,39 @@
 
             <!-- Instrument Preference Selector (use dropdown below instead) -->
 
-            <!-- Skill Level Selector -->
-            <div style="display: flex; justify-content: center; gap: 12px; margin-bottom: 40px; flex-wrap: wrap;">
-                <button class="skill-level-btn" data-level="beginner"
-                    style="padding: 10px 20px; background: var(--accent-primary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Beginner</button>
-                <button class="skill-level-btn" data-level="intermediate"
-                    style="padding: 10px 20px; background: transparent; border: 2px solid var(--accent-primary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Intermediate</button>
-                <button class="skill-level-btn" data-level="advanced"
-                    style="padding: 10px 20px; background: transparent; border: 2px solid var(--accent-primary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Advanced</button>
-                <button class="skill-level-btn" data-level="all"
-                    style="padding: 10px 20px; background: transparent; border: 2px solid var(--accent-secondary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Show
-                    All</button>
-            </div>
-
-            <!-- Beginner Path -->
-            <div id="beginner-section"
-                style="display: block; text-align: center; padding: 30px; background: rgba(52, 211, 153, 0.1); border: 2px solid var(--accent-secondary); border-radius: 8px; margin-bottom: 40px;">
-                <h3 style="color: var(--text-main); margin-top: 0;">🎹 Start Here: Learn Music Fundamentals</h3>
-                <p style="color: var(--text-muted); margin: 0 0 20px 0; font-size: 0.9rem;">Master the basics with
-                    structured, interactive lessons before exploring the full studio.</p>
-                <div style="margin-bottom: 18px;">
-                    <label for="instrument-select" style="font-weight: bold; margin-right: 8px;">Instrument:</label>
-                    <select id="instrument-select" style="padding: 6px 16px; font-size: 1rem; border-radius: 4px;">
+            <!-- THE COURSE: lessons in order, apart from the tools (course.js) -->
+            <section id="course-section" class="course-section" aria-labelledby="course-heading">
+                <div class="course-section-head">
+                    <h2 id="course-heading">Course</h2>
+                    <p>Lessons, in order. Each one tells you something, lets you hear it, and opens the studio tools it uses.</p>
+                </div>
+                <div class="course-level-tabs" role="tablist" aria-label="Course level">
+                    <button class="skill-level-btn active" data-level="beginner" role="tab">Beginner</button>
+                    <button class="skill-level-btn" data-level="intermediate" role="tab">Intermediate</button>
+                    <button class="skill-level-btn" data-level="advanced" role="tab">Advanced</button>
+                    <button class="skill-level-btn" data-level="all" role="tab">Whole course</button>
+                </div>
+                <div class="course-instrument">
+                    <label for="instrument-select">Instrument for the Learn pages:</label>
+                    <select id="instrument-select">
                         <option value="piano">Piano</option>
                         <option value="guitar">Guitar</option>
                     </select>
                 </div>
-                <button id="launch-learn-notes-btn"
-                    style="padding: 12px 30px; background: var(--accent-secondary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.95rem;">Learn
-                    Notes</button>
-                <div style="margin-top: 18px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
-                    <button id="launch-learn-scales-btn"
-                        style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-secondary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Learn
-                        Scales</button>
-                    <button id="launch-learn-chords-btn"
-                        style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-secondary); color: var(--text-main); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Learn
-                        Chords</button>
-                    <button id="launch-learn-inversions-btn"
-                        style="padding: 10px 24px; background: transparent; border: 2px solid var(--accent-primary); color: var(--text-highlight); cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.9rem;">Learn
-                        Inversions</button>
-                </div>
-            </div>
+                <div id="course-path" data-level="beginner"></div>
+            </section>
+            <script src="course.js"></script>
 
-            <!-- Module Grid -->
-            <div id="module-grid"
-                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px;">
-                <!-- Modules will be populated here by JavaScript -->
-            </div>
+            <!-- THE TOOLS: every studio module, always available -->
+            <section class="tools-section" aria-labelledby="tools-heading">
+                <div class="course-section-head">
+                    <h2 id="tools-heading">Studio tools</h2>
+                    <p>Every tool is always available, whatever your level. Select some to open the studio with just those, or launch the full studio below.</p>
+                </div>
+                <div id="module-grid" class="tools-grid">
+                    <!-- Populated by module-selector.js -->
+                </div>
+            </section>
 
             <!-- Studio Look Picker (populated by studio-looks.js) -->
             <div id="look-picker"></div>
@@ -2137,10 +2124,6 @@
     <script src="music-theory-engine.js"></script>
 
     <!-- Semantic Contour Engine Foundation (Phase 2) -->
-    <script src="compromise.min.js"></script>
-    <script src="nrc-lexicon.js"></script>
-    <script src="word-senses-embedded.js"></script>
-    <script src="word-database.js"></script>
     <script src="context-engine.js"></script>
     <script src="semantic-contour-engine.js?v=3.8.0"></script>
     <script src="scale-intelligence-engine.js?v=3.8.0"></script>
@@ -2156,6 +2139,7 @@
     <script src="music-provenance-panel.js?v=3.8.0"></script>
     <script src="composition-controls.js?v=3.8.0"></script>
     <script src="numeric-progression.js?v=3.8.0"></script>
+    <script src="contour-meaning.js?v=3.8.0"></script>
     <script src="composition-timeline-ui.js?v=3.8.0"></script>
     <script src="arc-ui-init.js?v=3.8.0"></script>
     <script src="scoring-methods.js?v=1.0.0" defer></script>
@@ -2206,6 +2190,7 @@
     <script src="look-schema.js" defer></script>
     <script src="look-builder.js" defer></script>
     <script src="studio-looks.js" defer></script>
+    <script src="course-runner.js" defer></script>
 
     <script>
         (function () {

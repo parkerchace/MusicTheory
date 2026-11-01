@@ -1,0 +1,491 @@
+/* ==================================================================
+   THE COURSE — landing sections (course.js) and the in-studio lesson
+   card, module outlines and Learn chips (course-runner.js).
+   Theme colours come from the app's variables, so every theme works.
+   ================================================================== */
+
+/* ---------- landing: course and tools, as two labelled sections ---------- */
+.course-section,
+.tools-section {
+    margin-bottom: 36px;
+}
+.course-section-head h2 {
+    margin: 0 0 4px;
+    font-size: 1.35rem;
+    color: var(--text-main);
+    letter-spacing: 0.02em;
+}
+.course-section-head p {
+    margin: 0 0 16px;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    line-height: 1.45;
+    max-width: 760px;
+}
+.course-section {
+    padding: 22px 22px 8px;
+    border: 2px solid var(--accent-secondary);
+    border-radius: 8px;
+    background: rgba(52, 211, 153, 0.06);
+}
+
+.course-level-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.course-level-tabs .skill-level-btn {
+    padding: 9px 18px;
+    background: transparent;
+    border: 2px solid var(--accent-primary);
+    color: var(--text-main);
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    font-family: var(--font-tech);
+}
+.course-level-tabs .skill-level-btn.active {
+    background: var(--accent-primary);
+    color: #000;
+}
+
+.course-instrument {
+    display: none;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.course-instrument label { margin-right: 8px; }
+.course-instrument select { padding: 4px 10px; border-radius: 4px; font-size: 0.9rem; }
+.course-section:has(#course-path[data-level="beginner"]) .course-instrument,
+.course-section:has(#course-path[data-level="all"]) .course-instrument { display: block; }
+
+/* every level is rendered once; the tabs show one (or all) */
+#course-path .course-level { display: none; margin-bottom: 18px; }
+#course-path[data-level="all"] .course-level,
+#course-path[data-level="beginner"] .course-level[data-level="beginner"],
+#course-path[data-level="intermediate"] .course-level[data-level="intermediate"],
+#course-path[data-level="advanced"] .course-level[data-level="advanced"] { display: block; }
+
+.course-level-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-bottom: 6px; }
+.course-level-name {
+    font-family: var(--font-tech);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-secondary);
+}
+.course-level-blurb { color: var(--text-muted); font-size: 0.9rem; }
+.course-source { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; }
+
+.course-unit {
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    background: var(--bg-panel);
+    margin: 10px 0;
+    overflow: hidden;
+}
+.course-unit-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-light);
+}
+.course-unit-title { font-weight: 700; color: var(--text-main); }
+.course-unit-progress { font-family: var(--font-tech); font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+
+.course-lessons { list-style: none; margin: 0; padding: 0; counter-reset: lesson; }
+.course-lesson { counter-increment: lesson; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+.course-lesson:first-child { border-top: 0; }
+.course-lesson-btn {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    column-gap: 10px;
+    width: 100%;
+    text-align: left;
+    padding: 10px 14px;
+    background: transparent;
+    border: 0;
+    color: var(--text-main);
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 0.92rem;
+    text-transform: none;
+    letter-spacing: normal;
+    line-height: 1.35;
+}
+.course-lesson-btn::before {
+    content: counter(lesson);
+    grid-row: 1 / span 3;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-tech);
+    font-size: 0.75rem;
+}
+.course-lesson.is-done .course-lesson-btn::before {
+    content: '\2713';
+    background: var(--accent-secondary);
+    border-color: var(--accent-secondary);
+    color: #000;
+}
+.course-lesson-btn:hover,
+.course-lesson-btn:focus-visible { background: var(--accent-glow); outline: none; }
+.course-lesson-title { font-weight: 600; }
+.course-lesson-sub { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+.course-lesson-meta { color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; font-family: var(--font-tech); }
+.course-mod {
+    display: inline-block;
+    margin: 0 4px 0 0;
+    padding: 0 6px;
+    border: 1px solid var(--border-light);
+    border-radius: 3px;
+    font-family: var(--font-ui);
+}
+
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+.module-card-usedin { font-size: 0.8rem; color: var(--text-muted); margin: 8px 0 10px; line-height: 1.5; }
+.module-card-usedin a { color: var(--accent-secondary); }
+
+/* ---------- studio: the lesson card docked beside the workspace ---------- */
+:root { --course-w: min(330px, 28vw); }
+
+body.course-on:not(.course-folded) .workspace { margin-right: calc(var(--course-w) + 12px); }
+
+#course-card { display: none; }
+body.course-on:not(.course-folded) #course-card {
+    display: block;
+    position: fixed;
+    right: 8px;
+    width: var(--course-w);
+    z-index: 900;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 8px 12px 0;
+    background: var(--bg-panel);
+    color: var(--text-main);
+    border: 1px solid var(--accent-secondary);
+    border-radius: 6px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    line-height: 1.42;
+}
+.course-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.course-card-where {
+    font-family: var(--font-tech);
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-secondary);
+}
+.course-card-actions { display: flex; gap: 4px; }
+.course-icon {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--border-light);
+    color: var(--text-main);
+    border-radius: 4px;
+    cursor: pointer;
+}
+.course-card-title { font-size: 0.98rem; margin: 3px 0 0; color: var(--text-main); line-height: 1.25; }
+.course-card-src { font-size: 0.68rem; color: var(--text-muted); font-style: italic; margin-bottom: 5px; }
+.course-card-body p { margin: 0 0 5px; }
+.course-card-body b { color: var(--text-highlight); }
+.course-sec {
+    margin: 7px 0 4px;
+    font-family: var(--font-tech);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-light);
+    padding-top: 5px;
+}
+.course-hears, .course-mods, .course-opts { display: flex; flex-wrap: wrap; gap: 4px; }
+.course-hear, .course-modchip, .course-opt, .course-checkbtn, .course-nav {
+    text-transform: none;
+    letter-spacing: normal;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--accent-primary);
+    background: transparent;
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 0.74rem;
+    font-family: var(--font-ui);
+}
+.course-hear:hover, .course-modchip:hover, .course-opt:hover, .course-checkbtn:hover, .course-nav:hover { background: var(--accent-glow); }
+.course-modchip { border: 0; padding: 0 4px; color: var(--accent-secondary); text-decoration: underline dotted; }
+.course-mods { align-items: center; margin-top: 4px; }
+.course-mods-lead { font-size: 0.68rem; color: var(--text-muted); }
+
+/* What to try: numbered steps, each able to point at its control or make
+   the setting, and ticked when the studio is set that way. */
+.course-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.course-step {
+    display: flex;
+    gap: 7px;
+    padding: 3px 5px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    transition: border-color 0.2s, background 0.2s;
+}
+.course-step b { color: var(--text-highlight); }
+.course-step-n {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary);
+    font-size: 0.62rem;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    margin-top: 1px;
+}
+.course-step-main { flex: 1; min-width: 0; }
+.course-step-acts { display: flex; gap: 4px; margin-top: 2px; flex-wrap: wrap; }
+.course-step-btn {
+    padding: 0 7px;
+    border-radius: 999px;
+    border: 1px solid var(--accent-primary);
+    background: transparent;
+    color: var(--text-main);
+    font-size: 0.68rem;
+    line-height: 1.5;
+    cursor: pointer;
+}
+.course-step-btn:hover { background: var(--accent-glow); }
+.course-step-do { border-color: var(--border-light); color: var(--text-muted); }
+.course-step.is-pointed { border-color: #fbbf24; background: rgba(251, 191, 36, 0.07); }
+.course-step.is-done { opacity: 0.72; }
+.course-step.is-done .course-step-n { background: var(--accent-secondary); border-color: var(--accent-secondary); color: #000; font-size: 0; }
+.course-step.is-done .course-step-n::before { content: '\2713'; font-size: 0.66rem; }
+.course-step.is-done .course-step-do { display: none; }
+
+/* The pointer: a ring drawn over the control (fixed, so a clipping parent
+   cannot cut it off) and a callout with the step, kept beside it. */
+#course-ring, #course-callout { position: fixed; display: none; z-index: 1200; }
+#course-ring.is-on {
+    display: block;
+    pointer-events: none;
+    border: 3px solid #fbbf24;
+    border-radius: 8px;
+    box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.25), 0 0 18px rgba(251, 191, 36, 0.45);
+    animation: course-ring 1.4s ease-in-out infinite;
+}
+@keyframes course-ring {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2), 0 0 12px rgba(251, 191, 36, 0.35); }
+    50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0.12), 0 0 24px rgba(251, 191, 36, 0.55); }
+}
+#course-callout.is-on {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    max-width: 240px;
+    padding: 4px 8px;
+    background: #fbbf24;
+    color: #1c1405;
+    border-radius: 6px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    line-height: 1.35;
+    font-weight: 600;
+}
+#course-callout::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--arrow-x, 20px) - 7px);
+    top: -7px;
+    border: 7px solid transparent;
+    border-top: 0;
+    border-bottom-color: #fbbf24;
+}
+#course-callout.is-above::before { top: auto; bottom: -7px; border-bottom: 0; border-top: 7px solid #fbbf24; }
+.course-callout-n {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #1c1405;
+    color: #fbbf24;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+}
+.course-callout-t b { color: inherit; }
+#course-callout .course-callout-x {
+    flex: none;
+    margin-left: 2px;
+    padding: 0 4px;
+    background: transparent;
+    border: 0;
+    color: #1c1405;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) { #course-ring.is-on { animation: none; } }
+.course-q { margin-bottom: 4px; font-weight: 600; }
+.course-opt.is-right { background: var(--accent-secondary); border-color: var(--accent-secondary); color: #000; }
+.course-opt.is-wrong { border-color: #f87171; color: #fca5a5; }
+.course-verdict { min-height: 1.4em; margin-top: 6px; font-size: 0.82rem; }
+.course-verdict.is-ok { color: var(--accent-secondary); }
+.course-verdict.is-ok::before { content: '\2713  '; }
+.course-verdict.is-no { color: #fca5a5; }
+.course-card-foot {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    gap: 6px;
+    justify-content: space-between;
+    margin: 8px -12px 0;
+    padding: 6px 12px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-light);
+}
+.course-nav[disabled] { opacity: 0.4; cursor: default; }
+.course-next { background: var(--accent-primary); color: #000; font-weight: 700; }
+.course-exit { border-color: var(--border-light); }
+
+.course-idx-level {
+    margin: 12px 0 2px;
+    font-family: var(--font-tech);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-secondary);
+    font-size: 0.75rem;
+}
+.course-idx-unit { color: var(--text-muted); font-size: 0.78rem; margin: 6px 0 2px; }
+.course-idx { margin: 0 0 4px; padding-left: 20px; }
+.course-idx-btn {
+    background: transparent;
+    border: 0;
+    padding: 3px 0;
+    color: var(--text-main);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    text-transform: none;
+    letter-spacing: normal;
+}
+.course-idx-btn:hover { color: var(--accent-primary); }
+.course-idx-btn.is-done::after { content: '  \2713'; color: var(--accent-secondary); }
+.course-idx-btn.is-current { color: var(--accent-primary); font-weight: 700; }
+.course-idx-page { font-size: 0.68rem; color: var(--text-muted); border: 1px solid var(--border-light); border-radius: 3px; padding: 0 4px; }
+#course-card > .course-idx:last-child,
+#course-card > ol:last-child { margin-bottom: 14px; }
+
+.course-recap { margin: 8px 0 0; }
+.course-recap dt { font-weight: 700; color: var(--text-highlight); margin-top: 8px; }
+.course-recap dd { margin: 2px 0 0; color: var(--text-main); }
+
+/* folded: a pill brings it back */
+#course-pill { display: none; }
+body.course-on.course-folded #course-pill {
+    display: block;
+    position: fixed;
+    right: 12px;
+    top: calc(var(--header-height, 38px) + 16px);
+    z-index: 900;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--accent-secondary);
+    background: var(--bg-panel);
+    color: var(--text-main);
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+/* the header's way in */
+.course-open-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--accent-secondary);
+    padding: 3px 10px;
+    cursor: pointer;
+    color: var(--text-main);
+    font-family: var(--font-tech);
+    border-radius: 2px;
+}
+.course-open-btn { padding: 3px 7px; font-size: 1rem; line-height: 1.2; }
+body.course-on .course-open-btn { background: var(--accent-secondary); color: #000; }
+
+/* the modules a lesson is about */
+.course-spot {
+    outline: 2px solid var(--accent-secondary) !important;
+    outline-offset: -2px;
+}
+@keyframes course-flash {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+    30% { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.55); }
+}
+.course-flash { animation: course-flash 1.1s ease-out 1; }
+
+/* Learn chips: in a look's module headers only (OG keeps its own headers),
+   and not where the header is a rotated rail spine or a strip nameplate. */
+.course-chip { display: none; }
+.look-item > .module-header > .course-chip {
+    display: inline-block;
+    margin-left: auto;
+    flex: none;
+    padding: 1px 7px;
+    font-family: var(--font-tech);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-secondary);
+    background: transparent;
+    border: 1px solid var(--accent-secondary);
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.look-item > .module-header > .course-chip:hover { background: rgba(52, 211, 153, 0.15); }
+[data-flow="rail"] .look-item > .module-header > .course-chip,
+[data-flow="strips"] .look-item > .module-header > .course-chip { display: none; }
+
+@media (max-width: 900px) {
+    :root { --course-w: min(360px, calc(100vw - 16px)); }
+    body.course-on:not(.course-folded) .workspace { margin-right: 0; }
+}
+
+/* Home and Course side by side take what Home alone took: both icon-only,
+   named by their tooltips (the header has no room to spare at 1440px). */
+.app-brand:has(#course-open-btn) #return-to-landing { padding: 3px 7px; }
+.app-brand:has(#course-open-btn) #return-to-landing span:last-child { display: none; }
+
+/* The app sets every button in the tech face, !important. Course text is
+   reading text, so these buttons take the UI face back the same way. */
+#course-path .course-lesson-btn,
+#course-card .course-hear, #course-card .course-modchip, #course-card .course-opt,
+#course-card .course-checkbtn, #course-card .course-nav, #course-card .course-idx-btn,
+#course-card .course-step-btn, #course-callout .course-callout-x {
+    font-family: var(--font-ui) !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+}
+#course-path .course-lesson-meta { font-family: var(--font-tech); }

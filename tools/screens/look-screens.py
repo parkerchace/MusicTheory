@@ -4,12 +4,16 @@
 Stdlib only (this machine has no Node), plus the system Google Chrome.
 
     python3 tools/screens/look-screens.py shots  [--size 1440x900] [--looks og,focus]
+    python3 tools/screens/look-screens.py course [--size 1440x900] [--out DIR]
     python3 tools/screens/look-screens.py checks [--size 1440x900] [--only name,...]
 
 Run from the app folder or anywhere; paths resolve from this file.
 
 `shots` launches the studio, generates a piece from "chase, woods, dark" (the
 SCREEN-BLOAT.md method) and saves tools/screens/out/<WxH>/<look>.png.
+
+`course` saves the landing page at each course level and every studio lesson
+as it opens (course.js), to tools/screens/out/course-<WxH>/.
 
 `checks` runs each scenario in CHECKS on a freshly loaded page and prints
 ok/FAIL lines like the jsc tests; the exit code is the number of failures.
@@ -1223,6 +1227,244 @@ CHECKS.update({
 })
 
 
+
+# ---------------------------------------------------------------- contour
+def _mouse(b, kind, x, y):
+    b.cdp.call('Input.dispatchMouseEvent', type=kind, x=x, y=y, button='left',
+               buttons=0 if kind == 'mouseReleased' else 1, clickCount=1)
+
+
+def _type_words(b, words):
+    b.cdp.js(f"""(async () => {{
+      const inp = document.getElementById('global-word-input');
+      inp.focus(); inp.value = {json.dumps(words)};
+      inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
+      await new Promise(r => setTimeout(r, 600));
+    }})()""")
+
+
+def chk_contour_drawn_by_hand(b):
+    """A stroke with the real mouse redraws the part it crosses, survives new
+    words, and the piece's energy follows it."""
+    _type_words(b, 'chase woods dark')
+    before = b.cdp.js("""(() => { const tl = window.compositionTimeline;
+      const r = tl.canvas.getBoundingClientRect();
+      return { source: tl.curveSource, name: tl.suggestion && tl.suggestion.name,
+               caption: tl._caption.textContent, rect: [r.left, r.top, r.width, r.height] }; })()""")
+    L, T, W, H = before['rect']
+    # Edge to edge: low, high in the middle, low from three-quarters on.
+    path = [(0.01, 0.85), (0.15, 0.85), (0.3, 0.5), (0.5, 0.1), (0.6, 0.1), (0.75, 0.9), (0.99, 0.9)]
+    xs = [(L + W * fx, T + H * fy) for fx, fy in path]
+    _mouse(b, 'mousePressed', *xs[0])
+    for (x0, y0), (x1, y1) in zip(xs, xs[1:]):
+        for k in range(1, 9):
+            _mouse(b, 'mouseMoved', x0 + (x1 - x0) * k / 8, y0 + (y1 - y0) * k / 8)
+    _mouse(b, 'mouseReleased', *xs[-1])
+    drawn = b.cdp.js("""(() => { const tl = window.compositionTimeline; const c = tl.curve, n = c.length - 1;
+      const at = (x) => +c[Math.round(x * n)].toFixed(2);
+      return { source: tl.curveSource, open: tl._isOpen, at10: at(0.1), at55: at(0.55), at75: at(0.75),
+               points: tl.points.length, caption: tl._caption.textContent }; })()""")
+    _type_words(b, 'chase woods dark and the long night')
+    kept = b.cdp.js("""(() => { const tl = window.compositionTimeline; const c = tl.curve, n = c.length - 1;
+      return { source: tl.curveSource, at55: +c[Math.round(0.55 * n)].toFixed(2) }; })()""")
+    played = b.cdp.js("""(async () => {
+      let got = null;
+      document.addEventListener('musicGenerated', (e) => { got = e.detail; }, { once: true });
+      document.getElementById('generation-run').click();
+      for (let i = 0; i < 120 && !got; i++) await new Promise(r => setTimeout(r, 100));
+      if (!got || !got.arc) return null;
+      const ep = got.arc.energyProfile, c = window.compositionTimeline.curve;
+      const curveAt = (t) => c[Math.round(t * (c.length - 1))];
+      let worst = 0;
+      ep.forEach((v, i) => { const t = ep.length > 1 ? i / (ep.length - 1) : 0; worst = Math.max(worst, Math.abs(v - curveAt(t))); });
+      const peak = ep.indexOf(Math.max(...ep)) / Math.max(1, ep.length - 1);
+      return { beats: ep.length, worstGap: +worst.toFixed(3), peakAt: +peak.toFixed(2) };
+    })()""")
+    ok = (before['source'] == 'suggested' and bool(before['name'])
+          and drawn['source'] == 'drawn' and drawn['at10'] < 0.25 and drawn['at55'] > 0.8 and drawn['at75'] < 0.2
+          and drawn['open'] and 'Your contour' in drawn['caption']
+          and kept['source'] == 'drawn' and kept['at55'] == drawn['at55']
+          and played is not None and played['worstGap'] < 0.08 and 0.35 <= played['peakAt'] <= 0.65)
+    return {'ok': ok, 'detail': {'before': before, 'drawn': drawn, 'kept': kept, 'played': played}}
+
+
+def chk_contour_touch_and_suggest(b):
+    """A finger draws too, and Suggest a shape hands back a named, different shape."""
+    _type_words(b, 'grief')
+    res = b.cdp.js("""(async () => {
+      const tl = window.compositionTimeline, cv = tl.canvas, r = cv.getBoundingClientRect();
+      const ev = (type, fx, fy) => cv.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true,
+        pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0, buttons: type === 'pointerup' ? 0 : 1,
+        clientX: r.left + r.width * fx, clientY: r.top + r.height * fy }));
+      ev('pointerdown', 0.2, 0.9); ev('pointermove', 0.5, 0.05); ev('pointermove', 0.8, 0.9); ev('pointerup', 0.8, 0.9);
+      await new Promise(r => setTimeout(r, 50));
+      const c = tl.curve, n = c.length - 1;
+      const touch = { source: tl.curveSource, at50: +c[Math.round(0.5 * n)].toFixed(2), action: getComputedStyle(cv).touchAction };
+      const btn = [...document.querySelectorAll('#composition-timeline-panel button')].find(x => /Suggest a shape/.test(x.textContent));
+      const names = [];
+      for (let i = 0; i < 4; i++) { btn.click(); names.push(tl.suggestion && tl.suggestion.name); }
+      return { touch, names, source: tl.curveSource, caption: tl._caption.textContent };
+    })()""")
+    names = res['names']
+    ok = (res['touch']['source'] == 'drawn' and res['touch']['at50'] > 0.85 and res['touch']['action'] == 'none'
+          and all(names) and len(set(names)) == len(names) and res['source'] == 'suggested'
+          and res['caption'].startswith('Suggested: ' + names[-1]))
+    return {'ok': ok, 'detail': res}
+
+
+CHECKS.update({
+    'contour: drawn by hand, kept across new words, and played as drawn': ({'music-theory-look': 'og'}, True, chk_contour_drawn_by_hand),
+    'contour: a finger draws too; Suggest a shape names a different shape each press': ({'music-theory-look': 'og'}, True, chk_contour_touch_and_suggest),
+    'words: no lexicon libraries load, and words still set the mood': ({'music-theory-look': 'og'}, True, """
+      (() => {
+        const gone = typeof window.nlp === 'undefined' && !window.NRC_DATA && !window.WORD_SENSES_DATA
+          && typeof window.WordDatabase === 'undefined';
+        const lex = (t) => new ContextEngine().parseInput(t).metadata.lexical;
+        const grief = lex('grief'), joy = lex('she laughed and the room lit up'), none = lex('asdf qwerty');
+        return { ok: gone && grief.avgValence < -0.4 && joy.avgValence > 0.3 && none.avgValence === 0,
+                 detail: { gone, grief: grief.avgValence, joy: joy.avgValence, unknown: none.avgValence } };
+      })()"""),
+})
+
+def chk_course_landing(b):
+    res = b.cdp.js("""(async () => {
+      const shown = () => [...document.querySelectorAll('#course-path .course-level')]
+        .filter(l => getComputedStyle(l).display !== 'none').map(l => l.dataset.level);
+      const lessons = (lv) => document.querySelectorAll('#course-path .course-level[data-level="' + lv + '"] .course-lesson').length;
+      const out = { start: shown() };
+      for (const lv of ['intermediate', 'advanced', 'all']) {
+        document.querySelector('.skill-level-btn[data-level="' + lv + '"]').click();
+        await new Promise(r => setTimeout(r, 100));
+        out[lv] = shown();
+      }
+      out.counts = { beginner: lessons('beginner'), intermediate: lessons('intermediate'), advanced: lessons('advanced') };
+      out.toolCards = [...document.querySelectorAll('#module-grid .module-card')].map(c => c.dataset.moduleId);
+      out.learnButtons = ['launch-learn-notes-btn', 'launch-learn-scales-btn', 'launch-learn-chords-btn', 'launch-learn-inversions-btn']
+        .every(id => !!document.getElementById(id));
+      return out;
+    })()""")
+    ok = (res['start'] == ['beginner'] and res['intermediate'] == ['intermediate'] and res['advanced'] == ['advanced']
+          and len(res['all']) == 3 and res['counts']['intermediate'] >= 6 and res['counts']['advanced'] >= 6
+          and 'learn-scales' not in res['toolCards'] and 'guitar-fretboard' in res['toolCards'] and res['learnButtons'])
+    return {'ok': ok, 'detail': res}
+
+
+def chk_course_lesson_roundtrip(b):
+    res = b.cdp.js("""(async () => {
+      StudioLooks.apply('signal-chain'); await new Promise(r => setTimeout(r, 300));
+      Course.start('i-bebop-major'); await new Promise(r => setTimeout(r, 900));
+      const during = { look: StudioLooks.current(), scale: modularApp.scaleLibrary.getCurrentScale(),
+        spots: [...document.querySelectorAll('.course-spot')].length, card: !!document.querySelector('#course-card h2'),
+        strip: [...document.querySelectorAll('#mini-chord-strip .mini-name')].map(n => n.textContent) };
+      document.querySelector('#course-card [data-act="next"]').click(); await new Promise(r => setTimeout(r, 900));
+      const next = { lesson: CourseRunner.current(), mode: QwertyChords.mode() };
+      document.querySelector('#course-card [data-act="exit"]').click(); await new Promise(r => setTimeout(r, 500));
+      return { during, next, after: StudioLooks.current(), on: document.body.classList.contains('course-on') };
+    })()""")
+    d = res['during']
+    ok = (d['look'] == 'luthier' and d['scale'] == 'bebop_major' and d['spots'] >= 1 and d['card']
+          and d['strip'][:3] == ['C6', 'Ddim7', 'C6/E'] and res['next']['lesson'] == 'i-harmonize-6-dim'
+          and res['next']['mode'] == 'harmonize' and res['after'] == 'signal-chain' and not res['on'])
+    return {'ok': ok, 'detail': res}
+
+
+def chk_course_checks_and_progress(b):
+    res = b.cdp.js("""(async () => {
+      const w = (ms) => new Promise(r => setTimeout(r, ms));
+      Course.start('i-drop-2'); await w(900);
+      const before = Course.isDone('i-drop-2');
+      // the way a player sets it: the typing keyboard's own menu, behind its gear
+      document.querySelector('.qk-chords-btn').click(); await w(150);
+      const keys = document.querySelector('.qk-chords-voicing select');
+      keys.value = 'drop2'; keys.dispatchEvent(new Event('change', { bubbles: true }));
+      await w(700);
+      const sheetFollowed = modularApp.sheetMusicGenerator._voicingSelectEl.value;
+      const firstTicked = CourseRunner.stepsDone().includes(0);
+      const partDone = Course.isDone('i-drop-2');
+      const steps = Course.get('i-drop-2').steps;
+      for (let k = 1; k < steps.length; k++) if (steps[k].set) { CourseRunner.doStep(k); await w(700); }
+      const voiced = Course.isDone('i-drop-2');
+      Course.start('a-five-of'); await w(900);
+      const opts = [...document.querySelectorAll('#course-card .course-opt')];
+      opts[0].click(); const wrong = Course.isDone('a-five-of');
+      opts[1].click(); const right = Course.isDone('a-five-of');
+      const stored = JSON.parse(localStorage.getItem('music-theory-course-progress') || '{}');
+      return { before, sheetFollowed, firstTicked, partDone, voiced, wrong, right, stored: Object.keys(stored) };
+    })()""")
+    ok = (not res['before'] and res['sheetFollowed'] == 'drop2' and res['firstTicked'] and not res['partDone']
+          and res['voiced'] and not res['wrong'] and res['right']
+          and 'i-drop-2' in res['stored'] and 'a-five-of' in res['stored'])
+    return {'ok': ok, 'detail': res}
+
+
+def chk_course_steps_point(b):
+    """Every step of every lesson, in that lesson's look: "Show me" lands a ring
+    on screen and clear of the lesson card, and "Do it for me" ticks the step."""
+    res = b.cdp.js("""(async () => {
+      const w = (ms) => new Promise(r => setTimeout(r, ms));
+      const bad = [];
+      let steps = 0;
+      for (const id of Course.order) {
+        const l = Course.get(id);
+        if (l.page) continue;
+        Course.start(id); await w(1000);
+        const cardEl = document.getElementById('course-card');
+        for (let k = 0; k < l.steps.length; k++) {
+          steps++;
+          // the buttons themselves: on a narrow screen they fold the card out of the way
+          cardEl.querySelector('[data-step-show="' + k + '"]').click();
+          // the ring shows once the control is in sight (opening the sheet's toolbar re-lays the look out first)
+          let r = null;
+          for (let t = 0; t < 12 && !r; t++) { await w(250); r = CourseRunner.pointerRect(); }
+          const card = cardEl.getBoundingClientRect();
+          const where = id + ' #' + (k + 1) + ' ' + l.steps[k].at;
+          if (!r) { bad.push(where + ': not in sight'); continue; }
+          // on screen, and not under the fixed header or behind the instrument dock (the qk chip lives in the dock)
+          const deck = document.querySelector('.control-deck').getBoundingClientRect().bottom;
+          const dockEl = document.querySelector('.bottom-deck');
+          const inDock = dockEl && dockEl.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+          const dockFixed = dockEl && getComputedStyle(dockEl).display !== 'none' && getComputedStyle(dockEl).position === 'fixed';
+          const dock = !inDock && dockFixed ? dockEl.getBoundingClientRect().top : innerHeight;
+          if (r.top < deck - 2 || r.left < -2 || r.bottom > dock + 2 || r.right > innerWidth + 2) bad.push(where + ': off screen [' + [r.top, r.bottom, deck, dock].map(Math.round) + ']');
+          if (r.right > card.left + 4 && r.left < card.right && r.bottom > card.top && r.top < card.bottom) bad.push(where + ': under the card');
+          if (l.steps[k].set) {
+            cardEl.querySelector('[data-step-do="' + k + '"]').click(); await w(900);
+            if (!CourseRunner.stepsDone().includes(k)) bad.push(where + ': Do it did not tick it');
+          }
+        }
+      }
+      CourseRunner.leave();
+      return { steps, bad };
+    })()""")
+    return {'ok': res['steps'] >= 30 and not res['bad'], 'detail': res}
+
+
+def chk_course_chips(b):
+    res = b.cdp.js("""(async () => {
+      StudioLooks.apply('og'); await new Promise(r => setTimeout(r, 300));
+      const og = [...document.querySelectorAll('.course-chip')].filter(c => getComputedStyle(c).display !== 'none').length;
+      StudioLooks.apply('lab-bench'); await new Promise(r => setTimeout(r, 600));
+      const chip = document.querySelector('[data-module="relations"] > .module-header > .course-chip')
+        || [...document.querySelectorAll('.course-chip')].find(c => c.closest('.look-item') && c.closest('.look-item').querySelector('#scale-relationship-container'));
+      const visible = chip ? getComputedStyle(chip).display !== 'none' : false;
+      if (chip) chip.click();
+      await new Promise(r => setTimeout(r, 300));
+      const listed = [...document.querySelectorAll('#course-card .course-idx-btn')].map(x => x.dataset.lesson);
+      return { og, visible, text: chip && chip.textContent, listed };
+    })()""")
+    ok = res['og'] == 0 and res['visible'] and 'a-scales-as-moods' in res['listed'] and 'a-fourth-away' in res['listed']
+    return {'ok': ok, 'detail': res}
+
+
+CHECKS.update({
+    'course: levels switch the lessons; tools stand apart and all show': ({'music-theory-look': 'og'}, False, chk_course_landing),
+    'course: a lesson opens its look and modules, and leaving puts the look back': ({'music-theory-look': 'og'}, True, chk_course_lesson_roundtrip),
+    'course: steps tick from either voicing menu, quizzes pass on the right answer, progress is kept by id': ({'music-theory-look': 'og'}, True, chk_course_checks_and_progress),
+    "course: a module's Learn chip lists its lessons (and OG has none)": ({'music-theory-look': 'og'}, True, chk_course_chips),
+    'course: every step points at its control on screen, and "Do it" ticks it': ({'music-theory-look': 'og'}, True, chk_course_steps_point),
+})
+
+
 def run_checks(b, url, only, relaunch=None, shard=(0, 1)):
     fails = 0
     errors = []
@@ -1264,7 +1506,8 @@ def run_checks(b, url, only, relaunch=None, shard=(0, 1)):
 
 def run_shots(b, url, looks, out):
     os.makedirs(out, exist_ok=True)
-    fresh(b, url, {'music-theory-look': 'og'})
+    # visited: the first-launch tour offer would sit over every shot
+    fresh(b, url, {'music-theory-look': 'og', 'music-theory-visited': 'true'})
     b.cdp.js(LAUNCH)
     print('generate:', b.cdp.js(GENERATE))
     ids = looks or b.cdp.js('StudioLooks.looks.map(l => l.id)')
@@ -1274,6 +1517,25 @@ def run_shots(b, url, looks, out):
         with open(os.path.join(out, f'{lid}.png'), 'wb') as f:
             f.write(base64.b64decode(shot['data']))
         print('  shot', lid)
+
+
+def run_course(b, url, out):
+    """The course: the landing page at each level, then every studio lesson as it opens."""
+    os.makedirs(out, exist_ok=True)
+    fresh(b, url, {'music-theory-look': 'og', 'music-theory-visited': 'true'})
+    for lvl in ['beginner', 'intermediate', 'advanced']:
+        b.cdp.js(f"""(async () => {{ document.querySelector('.skill-level-btn[data-level="{lvl}"]').click();
+          document.getElementById('course-section').scrollIntoView(); await new Promise(r => setTimeout(r, 400)); }})()""")
+        shot = b.cdp.call('Page.captureScreenshot', format='png')
+        with open(os.path.join(out, f'landing-{lvl}.png'), 'wb') as f:
+            f.write(base64.b64decode(shot['data']))
+        print('  shot landing', lvl)
+    for lid in b.cdp.js('Course.order'):
+        b.cdp.js(f"(async () => {{ Course.start({json.dumps(lid)}); await new Promise(r => setTimeout(r, 2600)); }})()")
+        shot = b.cdp.call('Page.captureScreenshot', format='png')
+        with open(os.path.join(out, f'lesson-{lid}.png'), 'wb') as f:
+            f.write(base64.b64decode(shot['data']))
+        print('  shot lesson', lid)
 
 
 GEOMETRY = """(async (id) => {
@@ -1336,7 +1598,7 @@ def compare_geometry(a_path, b_path, tol=2):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('mode', choices=['shots', 'checks', 'geometry', 'compare'])
+    ap.add_argument('mode', choices=['shots', 'course', 'checks', 'geometry', 'compare'])
     ap.add_argument('files', nargs='*')
     ap.add_argument('--size', default='1440x900')
     ap.add_argument('--looks', default='')
@@ -1354,6 +1616,9 @@ def main():
         if a.mode == 'shots':
             run_shots(b, url, [x for x in a.looks.split(',') if x],
                       a.out or os.path.join(HERE, 'out', f'{w}x{h}'))
+            return 0
+        if a.mode == 'course':
+            run_course(b, url, a.out or os.path.join(HERE, 'out', f'course-{w}x{h}'))
             return 0
         if a.mode == 'geometry':
             run_geometry(b, url, [x for x in a.looks.split(',') if x],

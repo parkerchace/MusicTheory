@@ -3751,6 +3751,260 @@ class SheetMusicGenerator {
 	 * Draw arc-energy guide directly from phrase beat energies.
 	 * This aligns Arc timing to the exact bar/beat coordinates used by sheet rendering.
 	 */
+	/**
+	 * The form of the take on the page, when that take can still be edited —
+	 * the last generation from words, not an expanded work or anything else
+	 * the sheet happens to be showing.
+	 */
+	_editableForm(phrase) {
+		try {
+			const form = phrase && phrase.form;
+			const inputs = window.__lastGenInputs;
+			const last = window.__lastMusicGenerated;
+			if (!form || !Array.isArray(form.sections) || !form.sections.length) return null;
+			if (!inputs || !inputs.context || !inputs.context.form) return null;
+			if (last && last.isWork) return null;
+			if (typeof window.insertSectionInLastGeneration !== 'function') return null;
+			if (!window.FormPlanner || typeof window.FormPlanner.suggestAt !== 'function') return null;
+			const live = inputs.context.form;
+			return (live === form || live.summary === form.summary) ? live : null;
+		} catch (_) { return null; }
+	}
+
+	/**
+	 * A PLUS ON EVERY SECTION BOUNDARY, and one after the last bar.
+	 *
+	 * Each sits on the barline where one section hands over to the next, just
+	 * left of the rehearsal letter it precedes. The barline itself is part of
+	 * the target — it lights up on hover — because that line IS the seam being
+	 * offered. Boundaries with nothing sensible to add (the start of a form
+	 * that already opens with an introduction) get no plus at all.
+	 *
+	 * Drawn inert; listeners are attached once the SVG is on the page.
+	 */
+	_drawFormInsertPoints(svg, phrase, layout) {
+		const form = this._editableForm(phrase);
+		if (!form || !layout || typeof layout.barLayout !== 'function') return;
+		const svgNS = 'http://www.w3.org/2000/svg';
+		const secs = form.sections;
+		const minor = typeof window.formHomeIsMinor === 'function'
+			&& window.formHomeIsMinor(window.__lastGenInputs.context);
+		const lastBar = Math.min(form.bars, phrase.bars.length) - 1;
+
+		for (let at = 0; at <= secs.length; at++) {
+			const atEnd = at === secs.length;
+			const bar = atEnd ? lastBar : secs[at].startBar;
+			if (!Number.isFinite(bar) || bar < 0 || bar > lastBar) continue;
+			if (!window.FormPlanner.suggestAt(form, at, { homeIsMinor: minor }).length) continue;
+
+			const bl = layout.barLayout(bar);
+			const top = bl.treble || bl.bass;
+			const bottom = bl.bass || bl.treble;
+			if (!top) continue;
+			const x = atEnd ? bl.barX + layout.barWidth : bl.barX;
+			const cy = top.topY - 34;
+			const cx = atEnd ? x - 9 : x - 13;
+			const y2 = bottom.topY + 4 * bottom.spacing;
+
+			const g = document.createElementNS(svgNS, 'g');
+			g.setAttribute('class', 'sheet-form-insert');
+			g.setAttribute('data-insert-at', String(at));
+			g.setAttribute('tabindex', '0');
+			g.setAttribute('role', 'button');
+			const where = atEnd ? `after ${secs[secs.length - 1].label}`
+				: at === 0 ? `before ${secs[0].label}`
+				: `between ${secs[at - 1].label} and ${secs[at].label}`;
+			g.setAttribute('aria-label', `Add a section ${where}`);
+			g.style.cursor = 'pointer';
+
+			const tip = document.createElementNS(svgNS, 'title');
+			tip.textContent = `Add a section ${where} — suggestions follow from the form`;
+			g.appendChild(tip);
+
+			// The seam: invisible until hovered, and wide enough to hit.
+			const hit = document.createElementNS(svgNS, 'rect');
+			hit.setAttribute('x', String(x - 5));
+			hit.setAttribute('y', String(cy - 8));
+			hit.setAttribute('width', '10');
+			hit.setAttribute('height', String(Math.max(10, y2 - cy + 8)));
+			hit.setAttribute('fill', 'transparent');
+			g.appendChild(hit);
+			const seam = document.createElementNS(svgNS, 'line');
+			seam.setAttribute('class', 'sheet-form-insert-seam');
+			seam.setAttribute('x1', String(x));
+			seam.setAttribute('x2', String(x));
+			seam.setAttribute('y1', String(cy + 7));
+			seam.setAttribute('y2', String(y2));
+			seam.setAttribute('stroke', '#22d3ee');
+			seam.setAttribute('stroke-width', '2');
+			seam.setAttribute('stroke-dasharray', '3 3');
+			seam.setAttribute('opacity', '0');
+			g.appendChild(seam);
+
+			const ring = document.createElementNS(svgNS, 'circle');
+			ring.setAttribute('class', 'sheet-form-insert-ring');
+			ring.setAttribute('cx', String(cx));
+			ring.setAttribute('cy', String(cy));
+			ring.setAttribute('r', '7');
+			ring.setAttribute('fill', '#0f172a');
+			ring.setAttribute('stroke', '#22d3ee');
+			ring.setAttribute('stroke-width', '1.2');
+			ring.setAttribute('opacity', '0.55');
+			g.appendChild(ring);
+			const plus = document.createElementNS(svgNS, 'path');
+			plus.setAttribute('d', `M${cx - 3.5} ${cy}H${cx + 3.5}M${cx} ${cy - 3.5}V${cy + 3.5}`);
+			plus.setAttribute('stroke', '#22d3ee');
+			plus.setAttribute('stroke-width', '1.6');
+			plus.setAttribute('stroke-linecap', 'round');
+			plus.setAttribute('pointer-events', 'none');
+			g.appendChild(plus);
+
+			svg.appendChild(g);
+		}
+	}
+
+	/** Wire the plus marks drawn by _drawFormInsertPoints. */
+	_wireFormInsertPoints(svg) {
+		const marks = svg ? svg.querySelectorAll('.sheet-form-insert') : [];
+		marks.forEach((g) => {
+			const seam = g.querySelector('.sheet-form-insert-seam');
+			const ring = g.querySelector('.sheet-form-insert-ring');
+			const lit = (on) => {
+				if (seam) seam.setAttribute('opacity', on ? '0.8' : '0');
+				if (ring) ring.setAttribute('opacity', on ? '1' : '0.55');
+			};
+			g.addEventListener('mouseenter', () => lit(true));
+			g.addEventListener('mouseleave', () => lit(false));
+			g.addEventListener('focus', () => lit(true));
+			g.addEventListener('blur', () => lit(false));
+			const open = (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				const at = parseInt(g.getAttribute('data-insert-at'), 10);
+				const r = g.getBoundingClientRect();
+				this._openFormInsertMenu(at, { x: r.left + r.width / 2, y: r.top });
+			};
+			g.addEventListener('click', open);
+			g.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') open(e);
+			});
+		});
+	}
+
+	_closeFormInsertMenu() {
+		const m = this._formInsertMenu;
+		this._formInsertMenu = null;
+		if (m) {
+			try { m.remove(); } catch (_) {}
+			if (m.__cleanup) m.__cleanup();
+		}
+	}
+
+	/**
+	 * The menu a plus opens: what fits at this boundary, best first, each
+	 * with the reason it fits. Choosing one rebuilds the take with that
+	 * section added — same words, key and seed.
+	 */
+	_openFormInsertMenu(at, anchor) {
+		this._closeFormInsertMenu();
+		const inputs = window.__lastGenInputs;
+		const form = inputs && inputs.context && inputs.context.form;
+		if (!form || !window.FormPlanner) return;
+		const minor = typeof window.formHomeIsMinor === 'function' && window.formHomeIsMinor(inputs.context);
+		const offers = window.FormPlanner.suggestAt(form, at, { homeIsMinor: minor });
+		const secs = form.sections;
+
+		const menu = document.createElement('div');
+		menu.className = 'sheet-form-insert-menu';
+		menu.setAttribute('role', 'menu');
+		menu.style.cssText = 'position:fixed;z-index:10001;width:300px;max-width:calc(100vw - 24px);'
+			+ 'background:#0f172a;color:#e2e8f0;border:1px solid #22d3ee;border-radius:6px;'
+			+ 'box-shadow:0 8px 24px rgba(0,0,0,.5);font-size:12px;line-height:1.4;padding:6px;';
+
+		const head = document.createElement('div');
+		head.style.cssText = 'padding:4px 6px 6px;color:#94a3b8;font-size:11px;'
+			+ 'border-bottom:1px solid rgba(148,163,184,.2);margin-bottom:4px;';
+		head.textContent = at >= secs.length ? `After ${secs[secs.length - 1].label} — the end of the piece`
+			: at === 0 ? `Before ${secs[0].label} — the start of the piece`
+			: `Between ${secs[at - 1].label} (${secs[at - 1].role}) and ${secs[at].label} (${secs[at].role})`;
+		menu.appendChild(head);
+
+		const item = (title, detail, onPick) => {
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.setAttribute('role', 'menuitem');
+			b.style.cssText = 'display:block;width:100%;text-align:left;background:transparent;border:0;'
+				+ 'border-radius:4px;color:inherit;padding:6px;cursor:pointer;font:inherit;'
+				+ 'text-transform:none;letter-spacing:normal;box-shadow:none;transform:none;';
+			const t = document.createElement('div');
+			t.style.cssText = 'font-weight:700;color:#22d3ee;';
+			t.textContent = title;
+			b.appendChild(t);
+			if (detail) {
+				const d = document.createElement('div');
+				d.style.cssText = 'color:#cbd5e1;font-size:11px;margin-top:2px;';
+				d.textContent = detail;
+				b.appendChild(d);
+			}
+			b.addEventListener('mouseenter', () => { b.style.background = 'rgba(34,211,238,.1)'; });
+			b.addEventListener('mouseleave', () => { b.style.background = 'transparent'; });
+			b.addEventListener('focus', () => { b.style.background = 'rgba(34,211,238,.1)'; });
+			b.addEventListener('blur', () => { b.style.background = 'transparent'; });
+			b.addEventListener('click', (e) => { e.stopPropagation(); this._closeFormInsertMenu(); onPick(); });
+			menu.appendChild(b);
+			return b;
+		};
+
+		offers.forEach((o) => {
+			item(`${o.title} · ${o.spec.bars} bar${o.spec.bars === 1 ? '' : 's'}`, o.detail, () => {
+				const next = window.insertSectionInLastGeneration(at, o.spec);
+				if (!next) { this._expandToast('Could not add that section.'); return; }
+				this._expandToast(`<strong>Added: ${o.title}</strong><br>`
+					+ `${next.sections.map(s => s.label).join(' ')} · ${next.bars} bars`);
+			});
+		});
+
+		const history = window.__formEditHistory;
+		if (Array.isArray(history) && history.length && typeof window.undoFormEditInLastGeneration === 'function') {
+			const u = item('↶ Undo the last added section', null, () => {
+				window.undoFormEditInLastGeneration();
+			});
+			u.style.borderTop = '1px solid rgba(148,163,184,.2)';
+			u.style.marginTop = '4px';
+		}
+
+		document.body.appendChild(menu);
+		// Below the plus, kept on screen.
+		const w = menu.offsetWidth, h = menu.offsetHeight;
+		const left = Math.max(12, Math.min(window.innerWidth - w - 12, anchor.x - w / 2));
+		let top = anchor.y + 22;
+		if (top + h > window.innerHeight - 12) top = Math.max(12, anchor.y - h - 8);
+		menu.style.left = left + 'px';
+		menu.style.top = top + 'px';
+		this._formInsertMenu = menu;
+		const first = menu.querySelector('button');
+		if (first) first.focus();
+
+		const onDown = (e) => { if (!menu.contains(e.target)) this._closeFormInsertMenu(); };
+		const onKey = (e) => {
+			if (e.key === 'Escape') { this._closeFormInsertMenu(); return; }
+			if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+			const btns = Array.from(menu.querySelectorAll('button'));
+			const i = btns.indexOf(document.activeElement);
+			const n = btns.length;
+			if (!n) return;
+			e.preventDefault();
+			const to = i < 0 ? (e.key === 'ArrowDown' ? 0 : n - 1) : (i + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
+			btns[to].focus();
+		};
+		setTimeout(() => document.addEventListener('mousedown', onDown, true), 0);
+		document.addEventListener('keydown', onKey, true);
+		menu.__cleanup = () => {
+			document.removeEventListener('mousedown', onDown, true);
+			document.removeEventListener('keydown', onKey, true);
+		};
+	}
+
 	/** MIDI number for a note name, or NaN. */
 	_noteToMidiSafe(noteName) {
 		const midi = (window.MusicNotes && window.MusicNotes.midi)
@@ -6451,6 +6705,8 @@ class SheetMusicGenerator {
 						barLayout,
 						barsPerLine
 					});
+					try { this._drawFormInsertPoints(svg, phrase, { barLayout, barWidth }); }
+					catch (e) { console.warn('[Sheet] form insert points failed:', e); }
                     console.log('[Sheet] Render audit JSON:\n' + safeJson(renderAudit));
                     pushSheetTrace(traceId, 'render.audit', renderAudit);
                     pushSheetTrace(traceId, 'render.phraseMode.complete', {
@@ -6502,6 +6758,8 @@ class SheetMusicGenerator {
 				this.svgContainer.appendChild(svg);
 			}
 		} catch (_) {}
+
+		try { this._wireFormInsertPoints(svg); } catch (_) {}
 
 		// Attach chord label click listeners for audition + piano popup
 		try {

@@ -11,9 +11,9 @@ class SemanticContourEngine {
             'i': 0.9, 'e': 0.7, 'a': 0.5, 'o': 0.3, 'u': 0.2, 'y': 0.8
         };
         this.scaleIntelligence = typeof ScaleIntelligenceEngine !== 'undefined' ? new ScaleIntelligenceEngine() : null;
-        // The main generator already carries a real per-word lexicon (NRC
-        // emotion associations, category-based fallbacks, negation/intensifier
-        // handling via compromise.js) through ContextEngine. Reused here rather
+        // The main generator already reads what each word means (the
+        // WordCharacterEngine fields, with negation and intensifiers applied)
+        // through ContextEngine. Reused here rather
         // than reimplemented — see parseInput below for why this engine used
         // to ignore what the words MEANT entirely.
         this.contextEngine = typeof ContextEngine !== 'undefined' ? new ContextEngine() : null;
@@ -60,9 +60,9 @@ class SemanticContourEngine {
 
         // --- Blend in what the words actually MEAN ---
         //
-        // ContextEngine's lexical pass already scores each word against a
-        // ~700-word emotion lexicon (falling back to a heuristic for words
-        // outside it) and returns valence/arousal per word. Meaning leads
+        // ContextEngine's lexical pass already scores each word against the
+        // WordCharacterEngine fields (unknown words score neutral) and
+        // returns valence/arousal per word. Meaning leads
         // where the lexicon has something to say; sound fills in the rest —
         // short inputs and words the lexicon has never seen still need to
         // produce SOMETHING. The blend weight rises with how much of the

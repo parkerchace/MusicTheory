@@ -14,12 +14,14 @@ class CompositionTimelineUI {
         this.engine = typeof SemanticContourEngine !== 'undefined' ? new SemanticContourEngine() : null;
         this.currentProfile = null;
         
-        // Canvas Interaction State
-        this.points = []; // [{x, y, tension}]
-        this.isDragging = false;
-        this.draggedPointIndex = -1;
-        this.canvasMode = 'bezier'; // 'bezier' or 'sharp'
-        this.manualPointsMode = false; // If true, don't auto-generate on typing
+        // The contour: one energy value (0..1) per canvas column. `points` is
+        // the same curve in the shape the generator reads.
+        this.curve = null;
+        this.curveSource = null; // 'suggested' (dashed, follows the words) | 'drawn' (yours)
+        this.suggestion = null;  // { id, name, about, tone } while suggested
+        this.points = [];
+        // Kept for anything still passing it along; the curve is drawn as-is.
+        this.canvasMode = 'sharp';
 
         this.initializePanel();
         this.attachListeners();
@@ -106,7 +108,7 @@ class CompositionTimelineUI {
 
         // The panel is absolutely positioned against the input, so it has to
         // follow it when the page moves underneath.
-        const reposition = () => { if (this._isOpen) this.positionPanel(); };
+        const reposition = () => { if (this._isOpen) { this.positionPanel(); this.drawCanvas(); } };
         window.addEventListener('resize', reposition);
         window.addEventListener('scroll', reposition, true);
 
@@ -115,7 +117,10 @@ class CompositionTimelineUI {
             if (!panel) return;
             const clickedInsideInput = this.inputElement && this.inputElement.contains(e.target);
             const clickedInsidePanel = panel.contains(e.target);
-            if (!clickedInsideInput && !clickedInsidePanel) {
+            // A stroke that ends outside the panel is still drawing, not a
+            // click away from it.
+            const justDrew = this._lastStrokeEnd && (Date.now() - this._lastStrokeEnd) < 400;
+            if (!clickedInsideInput && !clickedInsidePanel && !justDrew) {
                 this.closePanel();
             }
         });
@@ -161,6 +166,7 @@ class CompositionTimelineUI {
         if (!panel) return;
         this._isOpen = true;
         this.positionPanel();
+        this.drawCanvas();
         panel.style.maxHeight = (this._maxOpenHeight || 420) + 'px';
         // Scroll rather than clip. With `overflow: hidden` anything past the
         // max height simply vanished, which is what made the timeline look
@@ -184,145 +190,184 @@ class CompositionTimelineUI {
         this.currentProfile = this.engine.parseInput(text);
         this._renderedFor = text;
         
-        // Generate baseline points for canvas based on profile ONLY if not in manual mode
-        if (!this.manualPointsMode || !this.points.length) {
-            this.generateBasePoints();
+        // A contour you drew is yours: typing more words does not replace it.
+        // A suggestion follows the words, but only when the words change —
+        // pressing Generate again must play the shape that is on screen.
+        if (this.curveSource !== 'drawn' && (!this.curve || this._suggestedFor !== text)) {
+            this.suggestShape();
         }
         
         this.renderPanel();
     }
 
     /**
-     * A library of genuinely different phrase shapes. Each roll picks a shape,
-     * so a word is INTERPRETED rather than assigned one fixed curve — "tomorrow"
-     * can arch, climb, sigh, or swell across takes.
-     * Values are energy 0..1 (converted to canvas Y, which is inverted).
+     * PHRASE SHAPES WITH A NAME AND A REASON.
+     *
+     * The contour is energy across the whole piece — how busy, how high, how
+     * loud, where the surprises land — so these are the arcs pieces actually
+     * take, not curves picked because sin() made them easy: where a climax
+     * sits, whether it is approached once or twice, what happens after it.
+     * Each is a list of [time, energy] keys (0..1), joined with cosine easing.
+     * Keys a hair apart make a cliff. `vary` nudges the keys so a shape
+     * suggested twice is the same idea, not the same drawing.
      */
-    static get ARC_SHAPES() {
+    static get CONTOUR_SHAPES() {
+        return [
+            { id: 'goldenClimax', name: 'Golden-section climax',
+              about: 'Builds slowly, peaks about three-fifths of the way through, then lets go faster than it came.',
+              keys: [[0, 0.22], [0.3, 0.45], [0.62, 0.95], [0.8, 0.5], [1, 0.18]] },
+            { id: 'sentence', name: 'Sentence',
+              about: 'An idea, the same idea again, then one longer push to the cadence.',
+              keys: [[0, 0.3], [0.12, 0.58], [0.25, 0.32], [0.37, 0.62], [0.5, 0.38], [0.85, 0.92], [1, 0.25]] },
+            { id: 'questionAnswer', name: 'Question and answer',
+              about: 'Two matching halves. The first stops in mid-air; the second comes home.',
+              keys: [[0, 0.3], [0.25, 0.75], [0.48, 0.6], [0.52, 0.32], [0.75, 0.75], [1, 0.12]] },
+            { id: 'buildDrop', name: 'Build and drop',
+              about: 'Tension stacks up, everything cuts out for a breath, then the biggest section lands.',
+              keys: [[0, 0.18], [0.58, 0.85], [0.6, 0.08], [0.67, 0.08], [0.69, 1], [0.92, 0.9], [1, 0.4]] },
+            { id: 'falseSummit', name: 'False summit',
+              about: 'Climbs to what feels like the top, slips back, then climbs higher still.',
+              keys: [[0, 0.2], [0.35, 0.72], [0.5, 0.42], [0.8, 1], [1, 0.22]] },
+            { id: 'lament', name: 'Lament',
+              about: 'Starts high and sinks in sighs. Each small lift lands lower than the one before.',
+              keys: [[0, 0.9], [0.14, 0.7], [0.2, 0.78], [0.36, 0.55], [0.42, 0.63], [0.6, 0.4], [0.66, 0.47], [0.84, 0.22], [1, 0.08]] },
+            { id: 'eyeOfStorm', name: 'Eye of the storm',
+              about: 'Loud from the start, a sudden still middle, then the storm comes back.',
+              keys: [[0, 0.78], [0.3, 0.92], [0.34, 0.15], [0.62, 0.2], [0.68, 0.95], [1, 0.82]] },
+            { id: 'tide', name: 'Tide',
+              about: 'Slow swells that never quite repeat. For music that breathes rather than argues.',
+              keys: [[0, 0.3], [0.2, 0.6], [0.38, 0.35], [0.6, 0.7], [0.78, 0.4], [1, 0.55]] },
+            { id: 'lateTwist', name: 'Late twist',
+              about: 'Level and settled for most of the piece, then a sudden surge near the end before it resolves.',
+              keys: [[0, 0.35], [0.66, 0.4], [0.72, 0.97], [0.86, 0.75], [1, 0.2]] },
+            { id: 'echoes', name: 'Echoes',
+              about: 'A strong opening statement, answered by smaller and smaller echoes.',
+              keys: [[0, 0.95], [0.18, 0.25], [0.3, 0.7], [0.45, 0.2], [0.56, 0.5], [0.7, 0.15], [0.8, 0.32], [1, 0.08]] },
+            { id: 'pulseCrescendo', name: 'Pulsing crescendo',
+              about: 'A steady throb that grows every time it comes round. Boléro, compressed.',
+              keys: [[0, 0.2], [0.1, 0.32], [0.17, 0.18], [0.3, 0.45], [0.37, 0.3], [0.5, 0.6], [0.57, 0.45], [0.7, 0.78], [0.77, 0.62], [0.92, 1], [1, 0.9]] },
+            { id: 'afterglow', name: 'Afterglow',
+              about: 'The climax comes late, then a long, quiet tail lets it settle.',
+              keys: [[0, 0.3], [0.5, 0.65], [0.7, 0.98], [0.8, 0.35], [1, 0.15]] },
+            { id: 'breathBeforePeak', name: 'Breath before the peak',
+              about: 'A climb that pulls back for a moment just short of the top, like the held breath before a last chorus.',
+              keys: [[0, 0.2], [0.55, 0.78], [0.62, 0.45], [0.7, 1], [0.88, 0.85], [1, 0.3]] },
+            { id: 'rondo', name: 'Refrain and episodes',
+              about: 'A home level that keeps coming back between excursions: one reaching up, one sinking down.',
+              keys: [[0, 0.5], [0.2, 0.5], [0.3, 0.88], [0.4, 0.5], [0.6, 0.5], [0.7, 0.15], [0.8, 0.5], [1, 0.45]] },
+            { id: 'falseStarts', name: 'False starts',
+              about: 'Two hesitant attempts that fall back, then it commits and goes all the way.',
+              keys: [[0, 0.25], [0.12, 0.55], [0.2, 0.25], [0.32, 0.62], [0.4, 0.28], [0.85, 0.98], [1, 0.4]] }
+        ];
+    }
+
+    /** Which shapes suit which tone. A lean, not a rule: 30% of picks ignore it. */
+    static get SHAPE_LEANINGS() {
         return {
-            arch:        (t) => Math.sin(t * Math.PI),
-            rise:        (t) => t,
-            fall:        (t) => 1 - t,
-            valley:      (t) => 1 - Math.sin(t * Math.PI),
-            wave:        (t) => 0.5 + 0.5 * Math.sin(t * Math.PI * 2),
-            surge:       (t) => Math.pow(t, 0.55),
-            sigh:        (t) => Math.pow(1 - t, 0.6),
-            lateBloom:   (t) => Math.pow(t, 2.2),
-            earlyPeak:   (t) => Math.sin(Math.pow(t, 0.55) * Math.PI),
-            plateau:     (t) => Math.min(1, Math.sin(Math.min(t, 0.5) * Math.PI) * 1.15),
-            terraced:    (t) => Math.floor(t * 3) / 3 + 0.12,
-            swell:       (t) => 0.5 + 0.5 * Math.sin(t * Math.PI * 1.5 - Math.PI / 2),
-            pulse:       (t) => 0.5 + 0.45 * Math.sin(t * Math.PI * 3),
-            hang:        (t) => 0.72 - 0.25 * Math.cos(t * Math.PI * 2)
+            joyful: ['sentence', 'goldenClimax', 'pulseCrescendo', 'questionAnswer'],
+            hopeful: ['breathBeforePeak', 'falseSummit', 'afterglow', 'goldenClimax'],
+            playful: ['questionAnswer', 'rondo', 'falseStarts', 'sentence'],
+            sad: ['lament', 'echoes', 'afterglow', 'tide'],
+            sorrow: ['lament', 'echoes', 'tide'],
+            dark: ['lateTwist', 'eyeOfStorm', 'lament', 'pulseCrescendo'],
+            angry: ['buildDrop', 'eyeOfStorm', 'pulseCrescendo', 'falseSummit'],
+            intense: ['buildDrop', 'falseSummit', 'pulseCrescendo', 'breathBeforePeak'],
+            mysterious: ['tide', 'lateTwist', 'falseStarts', 'rondo'],
+            dreamy: ['tide', 'afterglow', 'echoes'],
+            calm: ['tide', 'echoes', 'afterglow', 'questionAnswer'],
+            peaceful: ['tide', 'afterglow', 'questionAnswer'],
+            balanced: ['goldenClimax', 'sentence', 'questionAnswer', 'falseSummit']
         };
     }
 
-    generateBasePoints() {
-        this.points = [];
-        const wordCount = Math.max(1, this.currentProfile.wordTokens.length);
-        const syllableCount = (this.currentProfile.wordTokens || [])
-            .reduce((n, w) => n + ((w.syllables && w.syllables.length) || 1), 0);
+    /** Resolution of the drawn curve: one value per column across the canvas. */
+    static get CURVE_COLUMNS() { return 160; }
 
-        // Re-rolling used to reproduce an identical curve because nothing here
-        // varied. A per-roll seed gives a different (but still tone-appropriate)
-        // shape each time Auto-Generate is pressed.
-        this._arcRoll = (this._arcRoll || 0) + 1;
-        let seed = (this._arcRoll * 2654435761) >>> 0;
+    /**
+     * Put a suggested shape on the canvas, chosen from the words' tone, never
+     * one of the last few shown. It is drawn dashed until you draw on it.
+     */
+    suggestShape() {
+        const shapes = CompositionTimelineUI.CONTOUR_SHAPES;
+        this._suggestRoll = (this._suggestRoll || 0) + 1;
+        let seed = ((Date.now() ^ (this._suggestRoll * 2654435761)) >>> 0);
         const rnd = () => {
             seed = (seed * 1664525 + 1013904223) >>> 0;
             return seed / 4294967296;
         };
-        const vary = (amount) => (rnd() - 0.5) * 2 * amount;
 
-        // Map contour archetype to base curve shape. Every tone the engines can
-        // emit must land on a real shape — unmapped tones used to fall through
-        // to a flat line, which made the whole arc (canvas + sheet) flat.
-        // The arc must read the words the same way the GENERATOR does.
-        let tone = this.currentProfile.contourArchetype || 'balanced';
-        let energy = this.currentProfile.overallEnergy || 0.5;
-        let tension = this.currentProfile.globalTension || 0.5;
+        // The tone is read the way the generator reads it.
+        let tone = (this.currentProfile && this.currentProfile.contourArchetype) || 'balanced';
         try {
             const wce = (typeof WordCharacterEngine !== 'undefined') ? WordCharacterEngine : null;
-            const text = (this.currentProfile.wordTokens || []).map(w => w.originalWord).join(' ');
+            const text = ((this.currentProfile && this.currentProfile.wordTokens) || []).map(w => w.originalWord).join(' ');
             if (wce && text.trim()) {
                 const agg = wce.phraseCharacter(text);
-                if (agg && agg.matchedCount > 0) {
-                    tone = wce.toneFor(agg) || tone;
-                    energy = Math.max(0.05, Math.min(0.98,
-                        agg.motion * 0.45 + agg.attack * 0.25 + (agg.arousal + 1) / 2 * 0.3));
-                    tension = Math.max(0.05, Math.min(0.98,
-                        agg.tension * 0.7 + Math.max(0, -agg.valence) * 0.3));
-                }
+                if (agg && agg.matchedCount > 0) tone = wce.toneFor(agg) || tone;
             }
         } catch (_) {}
 
-        // Each tone LEANS toward some shapes but never owns one — that's what
-        // makes a word interpretable instead of always drawing the same bell.
-        const leanings = {
-            joyful: ['rise', 'surge', 'arch', 'lateBloom'],
-            hopeful: ['rise', 'lateBloom', 'swell', 'plateau'],
-            playful: ['wave', 'pulse', 'terraced', 'arch'],
-            sad: ['fall', 'sigh', 'valley', 'hang'],
-            sorrow: ['sigh', 'fall', 'hang'],
-            dark: ['valley', 'hang', 'fall', 'terraced'],
-            angry: ['earlyPeak', 'pulse', 'arch', 'surge'],
-            intense: ['surge', 'earlyPeak', 'arch', 'lateBloom'],
-            mysterious: ['wave', 'hang', 'valley', 'plateau'],
-            dreamy: ['swell', 'wave', 'plateau', 'hang'],
-            calm: ['plateau', 'hang', 'swell', 'sigh'],
-            peaceful: ['plateau', 'swell', 'hang'],
-            balanced: ['arch', 'wave', 'swell', 'rise']
-        };
-        const shapeNames = Object.keys(CompositionTimelineUI.ARC_SHAPES);
-        const pool = leanings[tone] || leanings.balanced;
-        // 70% from the tone's leanings, 30% from the whole library — occasional
-        // surprises, as asked.
-        const shapeName = (rnd() < 0.7)
-            ? pool[Math.floor(rnd() * pool.length)]
-            : shapeNames[Math.floor(rnd() * shapeNames.length)];
-        const shapeFn = CompositionTimelineUI.ARC_SHAPES[shapeName] || CompositionTimelineUI.ARC_SHAPES.arch;
-        this.lastArcShape = shapeName;
+        const recent = this._recentShapes || [];
+        const fresh = (ids) => ids.filter(id => !recent.includes(id));
+        const lean = CompositionTimelineUI.SHAPE_LEANINGS[tone] || CompositionTimelineUI.SHAPE_LEANINGS.balanced;
+        const all = shapes.map(s => s.id);
+        let pool = rnd() < 0.7 ? fresh(lean) : fresh(all);
+        if (!pool.length) pool = fresh(all).length ? fresh(all) : all;
+        const pickId = pool[Math.floor(rnd() * pool.length)];
+        const shape = shapes.find(s => s.id === pickId) || shapes[0];
+        this._recentShapes = [shape.id, ...recent].slice(0, 4);
 
-        // POINT COUNT is not syllable count. Syllables bias it — often matching,
-        // sometimes melismatic ("to-morr-oh-ohh-ohhh"), sometimes fewer and
-        // sustained.
-        let numTokens;
-        const roll = rnd();
-        if (roll < 0.5) numTokens = Math.max(2, syllableCount);              // one point per syllable
-        else if (roll < 0.75) numTokens = Math.max(2, syllableCount + 1 + Math.floor(rnd() * 3)); // melisma
-        else if (roll < 0.9) numTokens = Math.max(2, Math.ceil(syllableCount / 2)); // sustained
-        else numTokens = Math.max(2, wordCount);                              // one per word
-        numTokens = Math.min(12, numTokens);
+        // Same idea, not the same drawing: interior keys drift a little in
+        // time and height, ends stay put so the start and finish keep their sense.
+        const keys = shape.keys.map(([t, e], i, arr) => {
+            const interior = i > 0 && i < arr.length - 1;
+            const prevT = interior ? arr[i - 1][0] : 0;
+            const nextT = interior ? arr[i + 1][0] : 1;
+            const room = interior ? Math.min(t - prevT, nextT - t) : 0;
+            // Cliffs (keys a hair apart) keep their spacing.
+            const dt = room > 0.06 ? (rnd() - 0.5) * Math.min(0.06, room * 0.5) : 0;
+            const de = interior ? (rnd() - 0.5) * 0.1 : 0;
+            return [t + dt, Math.max(0.04, Math.min(0.97, e + de))];
+        });
 
-        const amp = 0.55 + energy * 0.4;
+        this.curve = this._curveFromKeys(keys);
+        this.curveSource = 'suggested';
+        this.suggestion = { id: shape.id, name: shape.name, about: shape.about, tone };
+        this._suggestedFor = this._renderedFor;
+        this._syncPoints();
+    }
 
-        for (let i = 0; i <= numTokens; i++) {
-            const normalizedX = i / numTokens;
-            // Canvas Y is inverted: high energy = low Y.
-            let normalizedY = 0.5 - (shapeFn(normalizedX) - 0.5) * amp;
-
-            // Word-level intention: the token at this point bends its segment.
-            try {
-                const toks = this.currentProfile.wordTokens || [];
-                const tok = toks.length ? toks[Math.min(Math.floor(normalizedX * toks.length), toks.length - 1)] : null;
-                const wce = (typeof WordCharacterEngine !== 'undefined') ? WordCharacterEngine : null;
-                if (tok && wce) {
-                    const ch = wce.analyzeWord(String(tok.originalWord || ''));
-                    if (ch && ch.matched) {
-                        normalizedY -= (ch.arousal * 0.12 + ch.motion * 0.10 - ch.sustain * 0.08);
-                    }
-                }
-            } catch (_) {}
-
-            normalizedY += (rnd() - 0.5) * 2 * (0.05 + tension * 0.06);
-            normalizedY = Math.max(0.08, Math.min(0.92, normalizedY));
-
-            this.points.push({
-                xNorm: normalizedX,
-                yNorm: normalizedY,
-                tension: tension
-            });
+    _curveFromKeys(keys) {
+        const n = CompositionTimelineUI.CURVE_COLUMNS;
+        const out = new Array(n);
+        for (let i = 0; i < n; i++) {
+            const t = i / (n - 1);
+            let j = 0;
+            while (j < keys.length - 2 && keys[j + 1][0] < t) j++;
+            const [t0, e0] = keys[j], [t1, e1] = keys[j + 1];
+            const f = t1 > t0 ? Math.max(0, Math.min(1, (t - t0) / (t1 - t0))) : 1;
+            out[i] = e0 + (e1 - e0) * (1 - Math.cos(f * Math.PI)) / 2;
         }
+        return out;
+    }
+
+    /** A flat line at the middle, to draw a contour from scratch. */
+    clearCurve() {
+        this.curve = new Array(CompositionTimelineUI.CURVE_COLUMNS).fill(0.5);
+        this.curveSource = 'drawn';
+        this.suggestion = null;
+        this._syncPoints();
+    }
+
+    /**
+     * The generator reads `points` and joins them with straight lines, so the
+     * curve is handed over at full resolution: what is on the canvas is
+     * exactly what plays.
+     */
+    _syncPoints() {
+        const c = this.curve || [];
+        const n = c.length;
+        this.points = c.map((e, i) => ({ xNorm: n > 1 ? i / (n - 1) : 0, yNorm: 1 - e, tension: 0.5 }));
     }
 
     renderPanel() {
@@ -343,24 +388,47 @@ class CompositionTimelineUI {
             gap: 8px;
             flex-wrap: wrap;
         `;
-        header.innerHTML = `
-            <div style="color: #22d3ee; font-weight: bold; font-size: 11px;">🎼 Semantic Contour Timeline</div>
-        `;
-        
-        const controls = document.createElement('div');
-        const modeBtn = document.createElement('button');
-        modeBtn.textContent = this.canvasMode === 'bezier' ? 'Mode: Smooth' : 'Mode: Sharp';
-        modeBtn.style.cssText = `
-            background: #0f3460; border: 1px solid #00d4ff; color: #00d4ff;
-            padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;
-        `;
-        modeBtn.onclick = () => {
-            this.canvasMode = this.canvasMode === 'bezier' ? 'sharp' : 'bezier';
-            modeBtn.textContent = this.canvasMode === 'bezier' ? 'Mode: Smooth' : 'Mode: Sharp';
-            this.drawCanvas();
-        };
-        controls.appendChild(modeBtn);
-        header.appendChild(controls);
+        // WHAT THE LINE IS A DRAWING OF. The same stroke can be the energy of
+        // the whole piece, the shape of each phrase, the melody itself, or a
+        // short motif — and the generator reads it differently for each.
+        const CM = (typeof window !== 'undefined') && window.ContourMeaning;
+        const meaning = CM ? CM.describe(CM.current()) : null;
+        this._headerTitle = document.createElement('div');
+        this._headerTitle.style.cssText = 'color: #22d3ee; font-weight: bold; font-size: 11px;';
+        header.appendChild(this._headerTitle);
+        const right = document.createElement('div');
+        right.style.cssText = 'display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+        if (CM) {
+            const lab = document.createElement('label');
+            lab.style.cssText = 'display: flex; align-items: center; gap: 5px; color: #94a3b8; font-size: 10px;';
+            lab.textContent = 'The line is';
+            const sel = document.createElement('select');
+            sel.id = 'contour-meaning-select';
+            sel.title = 'What the drawn line stands for. Each one is read differently when the music is generated.';
+            sel.style.cssText = 'background: #0f3460; color: #e2e8f0; border: 1px solid #22d3ee; '
+                + 'border-radius: 3px; font-size: 10px; padding: 2px 4px; cursor: pointer;';
+            CM.MEANINGS.forEach((m) => {
+                const o = document.createElement('option');
+                o.value = m.id;
+                o.textContent = m.label;
+                o.title = m.about;
+                sel.appendChild(o);
+            });
+            sel.value = meaning.id;
+            sel.addEventListener('click', (e) => e.stopPropagation());
+            sel.addEventListener('change', () => {
+                CM.set(sel.value);
+                this.updateMeaningLabels();
+                this.drawCanvas();
+                this.updateCaption();
+            });
+            lab.appendChild(sel);
+            right.appendChild(lab);
+        }
+        this._headerAxis = document.createElement('div');
+        this._headerAxis.style.cssText = 'color: #64748b; font-size: 10px;';
+        right.appendChild(this._headerAxis);
+        header.appendChild(right);
         panel.appendChild(header);
 
         // CANVAS
@@ -372,18 +440,26 @@ class CompositionTimelineUI {
         // wider than the box that holds it.
         const panelEl = document.getElementById(this.panelId);
         const avail = panelEl ? Math.max(300, panelEl.clientWidth - 20) : 580;
-        this.canvas.width = avail;
-        this.canvas.height = 120;
-        this.canvas.style.width = '100%';
+        // Backing store at device resolution so the line stays crisp.
+        this._dpr = Math.max(1, Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
+        this.canvas.width = Math.round(avail * this._dpr);
+        this.canvas.height = Math.round(150 * this._dpr);
         this.canvas.style.cssText = `
-            width: 100%; height: 120px;
+            width: 100%; height: 150px; display: block;
             background: #1a1a2e; border: 1px solid #0f3460; border-radius: 3px;
-            cursor: crosshair;
+            cursor: crosshair; touch-action: none;
         `;
+        this.updateMeaningLabels();
         
         this.attachCanvasListeners(this.canvas);
         canvasContainer.appendChild(this.canvas);
+
+        // Says whose line it is: a named suggestion, or yours.
+        this._caption = document.createElement('div');
+        this._caption.style.cssText = 'margin-top: 6px; color: #94a3b8; font-size: 10px; line-height: 1.5; overflow-wrap: anywhere;';
+        canvasContainer.appendChild(this._caption);
         panel.appendChild(canvasContainer);
+        this.updateCaption();
 
         this.drawCanvas();
 
@@ -473,19 +549,26 @@ class CompositionTimelineUI {
             border-top: 1px solid #0f3460;
         `;
         
-        const autoBtn = document.createElement('button');
-        autoBtn.innerHTML = '🔄 Auto-Generate Arc';
-        autoBtn.style.cssText = `
-            background: #0f3460; border: 1px solid #10b981; color: #10b981;
-            padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 11px;
-            font-weight: bold; margin-right: auto;
-        `;
-        autoBtn.onclick = () => {
-            this.manualPointsMode = false;
-            this.generateBasePoints();
-            this.drawCanvas();
+        const mkBtn = (label, colour, title, onClick) => {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.title = title;
+            b.style.cssText = `
+                background: #0f3460; border: 1px solid ${colour}; color: ${colour};
+                padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 11px;
+                font-weight: bold;
+            `;
+            b.onclick = (e) => { e.stopPropagation(); onClick(); };
+            return b;
         };
-        actions.appendChild(autoBtn);
+        const suggestBtn = mkBtn('💡 Suggest a shape', '#10b981',
+            'Replace the line with a named phrase shape that suits the words. Press again for another.',
+            () => { this.suggestShape(); this.drawCanvas(); this.updateCaption(); });
+        suggestBtn.style.marginRight = 'auto';
+        actions.appendChild(suggestBtn);
+        actions.appendChild(mkBtn('↺ Clear', '#94a3b8',
+            'Start from a flat line and draw your own.',
+            () => { this.clearCurve(); this.drawCanvas(); this.updateCaption(); }));
 
         const genBtn = document.createElement('button');
         genBtn.innerHTML = '✨ Generate Music';
@@ -641,138 +724,208 @@ class CompositionTimelineUI {
             (d.next ? `<br><span style="color:#fbbf24;">${d.next}</span>` : '');
     }
 
+    /**
+     * PRESS AND DRAG TO DRAW. Mouse, finger and pen all arrive as pointer
+     * events. A stroke writes every column it passes over, in either direction,
+     * so drawing across part of the line redraws just that part and leaves the
+     * rest alone. Drawing on a suggestion makes the whole line yours.
+     */
     attachCanvasListeners(canvas) {
-        let rect = null;
-
-        const getMousePos = (e) => {
-            if (!rect) rect = canvas.getBoundingClientRect();
+        const pos = (e) => {
+            const r = canvas.getBoundingClientRect();
+            let x = Math.max(0, Math.min(1, (e.clientX - r.left) / (r.width || 1)));
+            // Near an edge counts as the edge. A stroke begun a hair inside
+            // left the first columns at their old height, which read as an
+            // extra turn — an extra note in a motif nobody drew.
+            if (x < 0.03) x = 0;
+            if (x > 0.97) x = 1;
             return {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
+                x,
+                e: Math.max(0.03, Math.min(0.97, 1 - (e.clientY - r.top) / (r.height || 1)))
             };
         };
+        let last = null;
+        let frame = 0;
+        const redraw = () => {
+            if (frame) return;
+            frame = requestAnimationFrame(() => { frame = 0; this.drawCanvas(); });
+        };
 
-        const getPointRadius = () => 6;
-
-        canvas.addEventListener('mousedown', (e) => {
-            const pos = getMousePos(e);
-            const xNorm = pos.x / canvas.width;
-            const yNorm = pos.y / canvas.height;
-            
-            // Check if clicking a point
-            let hitIndex = -1;
-            for (let i = 0; i < this.points.length; i++) {
-                const px = this.points[i].xNorm * canvas.width;
-                const py = this.points[i].yNorm * canvas.height;
-                const dist = Math.hypot(pos.x - px, pos.y - py);
-                if (dist <= getPointRadius() + 5) {
-                    hitIndex = i;
-                    break;
-                }
+        canvas.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+            if (!this.curve) this.clearCurve();
+            if (this.curveSource !== 'drawn') {
+                this.curveSource = 'drawn';
+                this.updateCaption();
             }
-
-            if (hitIndex !== -1) {
-                if (e.button === 2) { // Right click
-                    if (this.points.length > 2) {
-                        this.points.splice(hitIndex, 1);
-                        this.drawCanvas();
-                    }
-                } else {
-                    this.isDragging = true;
-                    this.draggedPointIndex = hitIndex;
-                    this.manualPointsMode = true; // User is interacting
-                }
-            } else if (e.button === 0) {
-                // Add new point
-                this.manualPointsMode = true; // User is interacting
-                this.points.push({ xNorm, yNorm, tension: 0.5 });
-                this.points.sort((a, b) => a.xNorm - b.xNorm);
-                this.drawCanvas();
-            }
+            last = pos(e);
+            this._paintSegment(last, last);
+            redraw();
         });
 
-        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        canvas.addEventListener('pointermove', (e) => {
+            if (!last) return;
+            e.preventDefault();
+            // Coalesced events keep a fast stroke from becoming a few long
+            // straight segments.
+            const evs = (typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length)
+                ? e.getCoalescedEvents() : [e];
+            for (const ev of evs) {
+                const p = pos(ev);
+                this._paintSegment(last, p);
+                last = p;
+            }
+            redraw();
+        });
 
-        canvas.addEventListener('mousemove', (e) => {
-            if (!this.isDragging || this.draggedPointIndex === -1) return;
-            
-            const pos = getMousePos(e);
-            
-            // Constrain Y
-            let newYNorm = pos.y / canvas.height;
-            newYNorm = Math.max(0, Math.min(1, newYNorm));
-            
-            // Constrain X (don't let it cross neighbors)
-            let newXNorm = pos.x / canvas.width;
-            const minX = this.draggedPointIndex > 0 ? this.points[this.draggedPointIndex - 1].xNorm + 0.02 : 0;
-            const maxX = this.draggedPointIndex < this.points.length - 1 ? this.points[this.draggedPointIndex + 1].xNorm - 0.02 : 1;
-            newXNorm = Math.max(minX, Math.min(maxX, newXNorm));
-
-            this.points[this.draggedPointIndex].xNorm = newXNorm;
-            this.points[this.draggedPointIndex].yNorm = newYNorm;
-            
+        const end = () => {
+            if (!last) return;
+            last = null;
+            this._lastStrokeEnd = Date.now();
+            this._syncPoints();
             this.drawCanvas();
-        });
+            // The motif's note count follows the stroke.
+            this.updateCaption();
+        };
+        canvas.addEventListener('pointerup', end);
+        canvas.addEventListener('pointercancel', end);
+        canvas.addEventListener('lostpointercapture', end);
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
 
-        canvas.addEventListener('mouseup', () => {
-            this.isDragging = false;
-            this.draggedPointIndex = -1;
-        });
-        
-        canvas.addEventListener('mouseleave', () => {
-            this.isDragging = false;
-            this.draggedPointIndex = -1;
-            rect = null; // reset rect
-        });
+    /** Write a straight segment between two pointer positions into the curve. */
+    _paintSegment(a, b) {
+        const c = this.curve;
+        if (!c) return;
+        const n = c.length - 1;
+        const ia = Math.round(a.x * n), ib = Math.round(b.x * n);
+        if (ia === ib) { c[ia] = b.e; return; }
+        const step = ia < ib ? 1 : -1;
+        for (let i = ia; i !== ib + step; i += step) {
+            c[i] = a.e + (b.e - a.e) * ((i - ia) / (ib - ia));
+        }
+    }
+
+    /** Title, axis hint and screen-reader label for what the line stands for. */
+    updateMeaningLabels() {
+        const CM = (typeof window !== 'undefined') && window.ContourMeaning;
+        const m = CM ? CM.describe(CM.current()) : null;
+        if (this._headerTitle) this._headerTitle.textContent = '🎼 ' + (m ? m.title : 'Contour: draw the shape of the piece');
+        if (this._headerAxis) this._headerAxis.textContent = m ? m.axis : 'higher = busier, higher, louder';
+        if (this.canvas) {
+            this.canvas.setAttribute('aria-label', 'Contour. Press and drag to draw. '
+                + (m ? m.about : 'How the energy of the piece rises and falls.'));
+        }
+    }
+
+    updateCaption() {
+        const el = this._caption;
+        if (!el) return;
+        const CM = (typeof window !== 'undefined') && window.ContourMeaning;
+        const m = CM ? CM.describe(CM.current()) : null;
+        // What the line will be read as, after whose line it is.
+        let reading = m ? ` <span style="color:#cbd5e1;">${m.about}</span>` : '';
+        if (m && m.id === 'motif' && this.curve) {
+            const steps = CM.motifFromCurve(this.curve);
+            reading += steps.length
+                ? ` <span style="color:#fbbf24;">${steps.length + 1} notes: ${steps.map(d => (d > 0 ? '+' : '') + d).join(' ')} semitones.</span>`
+                : ' <span style="color:#fbbf24;">A flat line has no shape — draw a few turns.</span>';
+        }
+        if (this.curveSource === 'suggested' && this.suggestion) {
+            el.innerHTML = `<strong style="color:#10b981;">Suggested: ${this.suggestion.name}.</strong> ` +
+                `${this.suggestion.about} <span style="color:#64748b;">Draw over it to make it yours.</span>` + reading;
+        } else {
+            el.innerHTML = '<strong style="color:#00d4ff;">Your contour.</strong> ' +
+                '<span style="color:#64748b;">Draw across any part to redraw it. It stays when you change the words.</span>' + reading;
+        }
     }
 
     drawCanvas() {
-        if (!this.canvas || !this.points.length) return;
+        const c = this.curve;
+        if (!this.canvas || !c || !c.length) return;
+        // The panel is narrowed to the screen after the canvas is built, so
+        // match the backing store to the size actually shown, or a phone
+        // gets a shrunken drawing with unreadable labels.
+        const shownW = this.canvas.clientWidth, shownH = this.canvas.clientHeight;
+        if (shownW && shownH) {
+            const k0 = this._dpr || 1;
+            const bw = Math.round(shownW * k0), bh = Math.round(shownH * k0);
+            if (this.canvas.width !== bw) this.canvas.width = bw;
+            if (this.canvas.height !== bh) this.canvas.height = bh;
+        }
         const ctx = this.canvas.getContext('2d');
         const w = this.canvas.width;
         const h = this.canvas.height;
-        
-        // Clear
+        const k = this._dpr || 1;
+
         ctx.fillStyle = '#1a1a2e';
         ctx.fillRect(0, 0, w, h);
 
-        // Draw Line
+        // Quarter lines in time and energy, faint enough to draw over.
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([]);
         ctx.beginPath();
-        ctx.strokeStyle = '#00d4ff';
-        ctx.lineWidth = 2;
-
-        const screenPoints = this.points.map(p => ({
-            x: p.xNorm * w,
-            y: p.yNorm * h
-        }));
-
-        ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
-
-        if (this.canvasMode === 'sharp') {
-            for (let i = 1; i < screenPoints.length; i++) {
-                ctx.lineTo(screenPoints[i].x, screenPoints[i].y);
-            }
-        } else {
-            // Bezier curve
-            for (let i = 0; i < screenPoints.length - 1; i++) {
-                const p0 = screenPoints[i];
-                const p1 = screenPoints[i + 1];
-                const midX = (p0.x + p1.x) / 2;
-                ctx.bezierCurveTo(midX, p0.y, midX, p1.y, p1.x, p1.y);
-            }
+        for (let q = 1; q < 4; q++) {
+            ctx.moveTo(Math.round(w * q / 4) + 0.5, 0); ctx.lineTo(Math.round(w * q / 4) + 0.5, h);
+            ctx.moveTo(0, Math.round(h * q / 4) + 0.5); ctx.lineTo(w, Math.round(h * q / 4) + 0.5);
         }
         ctx.stroke();
 
-        // Draw Anchor Points
-        screenPoints.forEach((p, i) => {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-            ctx.fillStyle = i === this.draggedPointIndex ? '#ffffff' : '#00ff88';
-            ctx.fill();
-            ctx.strokeStyle = '#0f172a';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        });
+        const n = c.length - 1;
+        const X = (i) => (i / n) * w;
+        const Y = (e) => (1 - e) * h;
+        const drawn = this.curveSource === 'drawn';
+
+        // Area under the line, so the energy reads as an amount.
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        for (let i = 0; i <= n; i++) ctx.lineTo(X(i), Y(c[i]));
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fillStyle = drawn ? 'rgba(0, 212, 255, 0.14)' : 'rgba(16, 185, 129, 0.08)';
+        ctx.fill();
+
+        ctx.beginPath();
+        for (let i = 0; i <= n; i++) {
+            if (i === 0) ctx.moveTo(X(i), Y(c[i])); else ctx.lineTo(X(i), Y(c[i]));
+        }
+        ctx.strokeStyle = drawn ? '#00d4ff' : '#10b981';
+        ctx.lineWidth = 2 * k;
+        ctx.lineJoin = 'round';
+        ctx.setLineDash(drawn ? [] : [6 * k, 5 * k]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // As a motif the line is heard as its turns: mark the notes it becomes.
+        const CM = (typeof window !== 'undefined') && window.ContourMeaning;
+        const meaningId = CM ? CM.current() : 'piece';
+        if (meaningId === 'motif' && CM.motifFromCurve(c).length) {
+            const tp = CM.turningPoints(c);
+            ctx.fillStyle = '#fbbf24';
+            tp.indices.forEach((i) => {
+                ctx.beginPath();
+                ctx.arc(X(i), Y(c[i]), 4.5 * k, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        const ends = {
+            piece: ['start', 'end'],
+            phrase: ['each phrase begins', 'its cadence'],
+            melody: ['first note', 'last note'],
+            motif: ['first note', 'last note']
+        }[meaningId] || ['start', 'end'];
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+        ctx.font = `${10 * k}px sans-serif`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(ends[0], 4 * k, h - 14 * k);
+        ctx.textAlign = 'right';
+        ctx.fillText(ends[1], w - 4 * k, h - 14 * k);
+        ctx.textAlign = 'left';
     }
 
     triggerGeneration() {
@@ -799,6 +952,7 @@ class CompositionTimelineUI {
                 profile: this.currentProfile,
                 points: this.points,
                 canvasMode: this.canvasMode,
+                contourMeaning: (window.ContourMeaning && window.ContourMeaning.current()) || 'piece',
                 input: this.inputElement.value,
                 seed,
                 // Carried for the same reason the primary button carries it:

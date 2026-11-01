@@ -11,20 +11,11 @@ class ModuleSelector {
         // Preferred instrument for lessons (default to piano)
         this.preferredInstrument = localStorage.getItem('music-theory-instrument') || 'piano';
         
-        // Module definitions organized by skill level
+        // The studio's tools. Lessons are not here: they live in course.js, so a
+        // tool is never mistaken for course material. The level buckets only
+        // remain for the "Used in" ordering and the intent search.
         this.modules = {
             beginner: [
-                {
-                    id: 'learn-scales',
-                    name: 'Learn Scales',
-                    description: 'Master scales through structured lessons: whole/half steps, scale degrees, ear training, modes, and building chords from scales.',
-                    icon: '🎵',
-                    category: 'Learning',
-                    keywords: ['scales', 'modes', 'learn', 'lessons', 'theory', 'intervals', 'degrees', 'practice'],
-                    workspaceModules: ['scale-circle-container', 'piano-container'],
-                    supportedInstruments: ['piano','guitar','all'],
-                    isLearnModule: true
-                },
                 {
                     id: 'piano-visualizer',
                     name: 'Piano Visualizer',
@@ -33,10 +24,20 @@ class ModuleSelector {
                     category: 'Tools',
                     keywords: ['piano', 'keyboard', 'notes', 'midi', 'visual'],
                     workspaceModules: ['piano-container'],
-                    supportedInstruments: ['piano']
+                    supportedInstruments: ['all']
                 },
             ],
             intermediate: [
+                {
+                    id: 'circle-of-fifths',
+                    name: 'Circle of Fifths',
+                    description: 'Every key and its neighbours a fifth away; pick a key and the whole studio follows.',
+                    icon: '🧭',
+                    category: 'Reference',
+                    keywords: ['circle', 'fifths', 'keys', 'key signature'],
+                    workspaceModules: ['scale-circle-container'],
+                    supportedInstruments: ['all']
+                },
                 {
                     id: 'sheet-music',
                     name: 'Sheet Music Generator',
@@ -97,22 +98,22 @@ class ModuleSelector {
                     category: 'Instruments',
                     keywords: ['guitar', 'fretboard', 'tuning', 'positions'],
                     workspaceModules: ['guitar-fretboard-container'],
-                    supportedInstruments: ['guitar']
+                    supportedInstruments: ['all']
                 }
             ]
         };
 
         // Intent matching keywords
         this.intentMap = {
-            'learn scales': ['learn-scales', 'piano-visualizer'],
-            'learn chords': ['container-chord', 'container-chord'],
-            'learn harmony': ['learn-scales', 'container-chord'],
-            'improvise': ['learn-scales', 'piano-visualizer', 'container-chord'],
+            'learn scales': ['piano-visualizer'],
+            'learn chords': ['container-chord'],
+            'learn harmony': ['container-chord'],
+            'improvise': ['piano-visualizer', 'container-chord'],
             'write music': ['sheet-music', 'number-generator'],
             'compose': ['sheet-music', 'number-generator'],
             'reharmonize': ['container-chord', 'scale-relationships'],
             'analyze chords': ['container-chord', 'scale-relationships'],
-            'analyze scales': ['learn-scales', 'scale-relationships'],
+            'analyze scales': ['scale-relationships'],
             'play piano': ['piano-visualizer'],
             'guitar': ['guitar-fretboard'],
             'advanced': ['number-generator', 'solar-visualizer'],
@@ -189,8 +190,10 @@ class ModuleSelector {
 
             const containers = Array.from(document.querySelectorAll('[id$="-container"], #solar-dock-viewport'));
             containers.forEach(el => {
-                // Skip mini helpers and hidden containers — they should not get their own module header
-                if ((el.id && el.id.startsWith && el.id.startsWith('mini-')) || window.getComputedStyle(el).display === 'none') {
+                // Skip mini helpers and hidden containers — they should not get their own module header.
+                // The Learn pages are pages, not studio modules: wrapping them
+                // printed "LEARN SCALES CONTAINER" across the top of each one.
+                if ((el.id && el.id.startsWith && (el.id.startsWith('mini-') || el.id.startsWith('learn-'))) || window.getComputedStyle(el).display === 'none') {
                     return;
                 }
 
@@ -250,9 +253,9 @@ class ModuleSelector {
         // Skill level buttons
         document.querySelectorAll('.skill-level-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const level = e.target.getAttribute('data-level');
+                const level = e.currentTarget.getAttribute('data-level');
                 this.selectSkillLevel(level);
-                this.renderModuleGrid();
+                if (window.Course) window.Course.setLevel(level);
             });
         });
 
@@ -341,32 +344,24 @@ class ModuleSelector {
         const filtered = allModules.filter(mod => {
             const instr = mod.supportedInstruments || ['all'];
             return instr.includes(this.preferredInstrument) || instr.includes('all');
-        }).filter(mod => (this.currentSkillLevel === 'all' || this.getSkillLevel(mod.id) === this.currentSkillLevel));
+        });
 
-        // Deduplicate by workspace container to avoid duplicate modules (prefer first match)
-        const seenContainers = new Set();
-        const uniqueModules = [];
-        for (const mod of filtered) {
-            const containers = mod.workspaceModules || [];
-            // if any container is already represented, skip this module to avoid duplication
-            const hasOverlap = containers.some(c => seenContainers.has(c));
-            if (!hasOverlap) {
-                uniqueModules.push(mod);
-                containers.forEach(c => seenContainers.add(c));
-            }
-        }
+        // Every tool, whatever the course level: levels are for lessons.
+        // (De-duplicating by container used to drop the Piano and the
+        // Fretboard cards, whose containers another card also listed.)
+        const uniqueModules = filtered.filter((mod, i) => filtered.findIndex(m => m.id === mod.id) === i);
 
         grid.innerHTML = uniqueModules.map(mod => `
-            <div class="module-card" data-module-id="${mod.id}" data-skill-level="${this.getSkillLevel(mod.id)}" style="display: flex;">
+            <div class="module-card" data-module-id="${mod.id}" style="display: flex;">
                 <div style="font-size: 2rem;">${mod.icon}</div>
                 <div class="module-card-title">${mod.name}</div>
                 <div class="module-card-description">${mod.description}</div>
                 <div class="module-card-tags">
                     <span class="module-card-tag">${mod.category}</span>
-                    <span class="module-card-tag" style="background: transparent; border-color: var(--accent-secondary); color: var(--accent-secondary);">${this.getSkillLevel(mod.id)}</span>
                 </div>
-                <button class="btn-select-module ${mod.isLearnModule ? 'is-learn-module' : ''}" data-module-id="${mod.id}" style="margin-top: auto; padding: 10px 16px; background: var(--accent-primary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.85rem;">
-                    ${mod.isLearnModule ? 'Start Learning' : 'Select'}
+                ${this.usedInHtml(mod)}
+                <button class="btn-select-module" data-module-id="${mod.id}" style="margin-top: auto; padding: 10px 16px; background: var(--accent-primary); color: #000; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.85rem;">
+                    Select
                 </button>
             </div>
         `).join('');
@@ -374,20 +369,13 @@ class ModuleSelector {
         // Add select button listeners
         document.querySelectorAll('.btn-select-module').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const moduleId = e.target.getAttribute('data-module-id');
-
-                // Special handling for learn modules - launch them directly
-                if (e.target.classList.contains('is-learn-module')) {
-                    if (moduleId === 'learn-scales') {
-                        this.launchLearnScales();
-                    } else if (moduleId === 'piano-visualizer') {
-                        this.launchLearnPiano();
-                    } else if (moduleId === 'container-chord') {
-                        this.launchLearnChords();
-                    }
-                } else {
-                    this.toggleModuleSelection(moduleId);
-                }
+                this.toggleModuleSelection(e.currentTarget.getAttribute('data-module-id'));
+            });
+        });
+        grid.querySelectorAll('.module-card-lesson').forEach(a => {
+            a.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (window.Course) window.Course.start(a.getAttribute('data-lesson'));
             });
         });
     }
@@ -405,15 +393,31 @@ class ModuleSelector {
             }
         });
 
-        // Update grid visibility
-        document.querySelectorAll('[data-skill-level]').forEach(card => {
-            const cardLevel = card.getAttribute('data-skill-level');
-            if (level === 'all' || cardLevel === level) {
-                card.style.display = 'flex';
-            } else {
-                card.style.display = 'none';
-            }
-        });
+    }
+
+    /**
+     * Which lessons use this tool, as links: the one place a tool card points
+     * at the course. Tool ids here and module ids in course.js differ, so the
+     * card's containers are matched against studio-looks' module containers.
+     */
+    usedInHtml(mod) {
+        const C = window.Course;
+        if (!C) return '';
+        const byContainer = {
+            'number-generator-container': 'numgen', 'sheet-music-container': 'sheet', 'container-chord-container': 'chords',
+            'scale-relationship-container': 'relations', 'solar-dock-viewport': 'solar', 'guitar-fretboard-container': 'fretboard',
+            'scale-circle-container': 'circle'
+        };
+        const mids = (mod.workspaceModules || []).map(c => byContainer[c]).filter(Boolean);
+        const seen = new Set();
+        const lessons = [];
+        mids.forEach(mid => C.lessonsForModule(mid).forEach(l => { if (!seen.has(l.id)) { seen.add(l.id); lessons.push(l); } }));
+        if (!lessons.length) return '';
+        const more = lessons.length > 3 ? ` and ${lessons.length - 3} more` : '';
+        lessons.length = Math.min(lessons.length, 3);
+        const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        return '<div class="module-card-usedin">Used in: ' +
+            lessons.map(l => `<a href="#" class="module-card-lesson" data-lesson="${l.id}">${esc(l.title)}</a>`).join(' \u00b7 ') + more + '</div>';
     }
 
     handleIntentSearch(query) {

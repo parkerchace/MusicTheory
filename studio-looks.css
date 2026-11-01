@@ -110,7 +110,9 @@ body[data-look]:not([data-look="og"]) .look-zone-why {
 }
 /* in a row the caption is its own line above the modules (a max-width let
    it sit beside them, eating half the row) */
-body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > .look-zone-why { flex: 1 0 100%; max-width: none; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > .look-zone-why { flex: 1 0 100%; max-width: none; padding-left: 14px; box-sizing: border-box; }
+/* (the padding clears the row's vertical label, which the caption's box
+   starts under: Split Brain read "nvent from the top bar…") */
 body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-zone-why,
 body[data-look]:not([data-look="og"]) .look-zone[data-flow="drawer"]:not(.look-drawer-open) > .look-zone-why { display: none; }
 
@@ -272,6 +274,14 @@ body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item 
     white-space: nowrap;
     overflow: hidden;
 }
+/* a spine reads the module's plain name (Circle of 5ths), not its code
+   name (REF::CIRCLE_OF_FIFTHS); the fly-out keeps the full header */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item:not(.look-rail-open) > .module-header > span[data-label] { font-size: 0; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item:not(.look-rail-open) > .module-header > span[data-label]::before {
+    content: attr(data-label);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
 body[data-look]:not([data-look="og"]) .look-zone[data-flow="rail"] > .look-item > .module-header:hover {
     border-color: var(--accent-primary);
     color: var(--accent-primary);
@@ -309,7 +319,14 @@ body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"] {
     gap: 3px;
     align-items: stretch;
     padding-bottom: 6px;
+    /* the strips run off the right edge by design: say so with a scrollbar
+       you can see, not a hairline (the last strip just looked clipped) */
+    scrollbar-width: auto;
+    scrollbar-color: var(--accent-primary) var(--bg-panel);
 }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"]::-webkit-scrollbar { height: 12px; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"]::-webkit-scrollbar-track { background: var(--bg-panel); }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"]::-webkit-scrollbar-thumb { background: var(--accent-primary); border-radius: 6px; }
 body[data-look]:not([data-look="og"]) .look-zone[data-flow="strips"] > .look-item {
     --strip-chrome: 46px;   /* rotated nameplate + padding + borders */
     flex: 0 0 auto;

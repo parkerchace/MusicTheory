@@ -758,6 +758,21 @@
         root.dispatchEvent(new CustomEvent('qwerty:mode', { detail: { mode: m } }));
     }
 
+    /**
+     * The voicing chord mode plays — the ⚙ panel's menu, or a lesson setting
+     * the same voicing on the sheet and the keys at once. Announced, so the
+     * one voicing a lesson talks about can be kept the same in both places.
+     */
+    function setVoicing(v) {
+        if (!v || v === settings.voicing) return;
+        settings.voicing = v;
+        save();
+        forget();
+        if (voicingSelect && voicingSelect.value !== v) voicingSelect.value = v;
+        refresh();
+        root.dispatchEvent(new CustomEvent('qwerty:voicing', { detail: { voicing: v } }));
+    }
+
     function scaleNotes() {
         var lib = scaleLib(), mt = theory();
         if (!lib || !mt) return [];
@@ -1033,7 +1048,7 @@
     }
 
     /* ---------- the chip: what the keys play, and the settings ---------- */
-    var panel = null, settingsBtn = null, modeBtns = {}, syncPanel = function () {};
+    var panel = null, settingsBtn = null, modeBtns = {}, syncPanel = function () {}, voicingSelect = null;
     var invGroup = null, invBtn = null, walkBtn = null;
     var INV_ORDER = ['auto', 0, 1, 2, 3];
     var INV_WORDS = { auto: 'Auto', 0: 'Root', 1: '1st', 2: '2nd', 3: '3rd' };
@@ -1117,7 +1132,8 @@
         select.innerHTML = root.VoicingCatalogue ? root.VoicingCatalogue.optionsHtml({ none: false }) : '<option value="smart">Smart</option>';
         select.value = settings.voicing;
         if (select.value !== settings.voicing) select.value = 'smart';
-        select.addEventListener('change', function () { settings.voicing = select.value; save(); forget(); });
+        select.addEventListener('change', function () { setVoicing(select.value); });
+        voicingSelect = select;
         vLabel.appendChild(select);
         var vl = row('checkbox', 'qk-vl', 'Voice leading — move as little as possible', settings.voiceLeading, function (v) {
             settings.voiceLeading = v; save();
@@ -1403,6 +1419,7 @@
     root.QwertyChords.kind = kind;
     root.QwertyChords.mode = function () { return settings.mode; };
     root.QwertyChords.setMode = setMode;
+    root.QwertyChords.setVoicing = setVoicing;
     root.QwertyChords.settings = function () { return JSON.parse(JSON.stringify(settings)); };
     root.QwertyChords.timings = function () { return timings.slice(); };
     root.QwertyChords.forget = forget;

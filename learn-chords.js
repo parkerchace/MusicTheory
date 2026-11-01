@@ -57,8 +57,8 @@
             header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid var(--border-light);';
             header.innerHTML = `
                 <div>
-                    <div style="font-size:1.5rem; font-weight:700; color:var(--text-highlight);">🎹 Interval Builder</div>
-                    <div style="font-size:0.9rem; color:var(--text-muted); margin-top:4px;">Visualize how intervals stack to create chords</div>
+                    <div style="font-size:1.5rem; font-weight:700; color:var(--text-highlight);">🎹 Learn Chords</div>
+                    <div style="font-size:0.9rem; color:var(--text-muted); margin-top:4px;">Build a chord from intervals: a root, a third on top, a fifth on top of that</div>
                 </div>
                 <button id="back-to-landing-from-chords" class="btn" style="padding:8px 14px;">← Back</button>
             `;

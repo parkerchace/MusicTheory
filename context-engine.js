@@ -47,9 +47,6 @@ class ContextEngine {
             playful: ['playful', 'playful', 'lighthearted', 'fun', 'witty', 'cheeky']
         };
 
-        // Offline lexical physics fallback used when external lexical sources are absent.
-        this.fallbackWordPhysics = {};
-
         this.arcModifiers = {
             // Arc shape modifiers (look for these in text)
             rising: ['rising', 'ascending', 'climbing', 'building', 'growing'],
@@ -59,7 +56,6 @@ class ContextEngine {
             valley: ['valley', 'bottom', 'lowest', 'depths']
         };
 
-        this.wordDatabase = null;
         this.scaleIntelligence = null;
         this.scalePhysicsCache = null;
         this.defaultRoot = 'C';
@@ -144,8 +140,7 @@ class ContextEngine {
                     polaritySpread: lexicalHint.polaritySpread,
                     categoryHints: lexicalHint.categoryHints,
                     semanticWeight: lexicalHint.semanticWeight,
-                    perWordValues: lexicalHint.perWordValues || [],
-                    senseChoices: lexicalHint.senseChoices || []
+                    perWordValues: lexicalHint.perWordValues || []
                 }
             }
         };
@@ -743,18 +738,6 @@ class ContextEngine {
         return this._clamp((value + 1) / 2, 0, 1);
     }
 
-    _getWordDatabase() {
-        if (this.wordDatabase) return this.wordDatabase;
-        if (typeof WordDatabase !== 'undefined') {
-            try {
-                this.wordDatabase = new WordDatabase();
-            } catch (err) {
-                this.wordDatabase = null;
-            }
-        }
-        return this.wordDatabase;
-    }
-
     _getScaleIntelligence() {
         if (this.scaleIntelligence) return this.scaleIntelligence;
         if (typeof ScaleIntelligenceEngine !== 'undefined') {
@@ -1015,189 +998,27 @@ class ContextEngine {
             .filter(Boolean);
     }
 
-    _isNeutralEmotion(emotion) {
-        if (!emotion) return true;
-        const val = Math.abs(emotion.valence || 0);
-        const aro = Math.abs(emotion.arousal || 0);
-        const dom = Math.abs(emotion.dominance || 0);
-        return (val < 0.2 && aro < 0.2 && dom < 0.2) || ((val + aro + dom) < 0.38);
-    }
-
-    _fallbackLexicalEmotion(word) {
-        const token = String(word || '').toLowerCase();
-        if (!token) return null;
-
-        if (this.fallbackWordPhysics[token]) {
-            return this.fallbackWordPhysics[token];
-        }
-
-        // Stem and morphology fallback for unseen words.
-        for (const [stem, profile] of Object.entries(this.fallbackWordPhysics)) {
-            if (token.startsWith(stem) && stem.length >= 4) {
-                return profile;
-            }
-        }
-
-        let valence = 0;
-        let arousal = 0;
-        let dominance = 0;
-        let matched = false;
-
-        if (/^(un|dis|mis|anti|de)/.test(token)) {
-            valence -= 0.2;
-            dominance -= 0.1;
-            matched = true;
-        }
-
-        if (/(ing|rush|dash|burst|strike|crash)$/.test(token)) {
-            arousal += 0.45;
-            dominance += 0.15;
-            matched = true;
-        }
-
-        if (/(horr|terror|panic|dread|grim|void|abyss)/.test(token)) {
-            valence -= 0.35;
-            arousal += 0.35;
-            dominance -= 0.1;
-            matched = true;
-        }
-
-        if (/(less|void|empty|alone|silent)$/.test(token)) {
-            valence -= 0.25;
-            arousal -= 0.15;
-            matched = true;
-        }
-
-        if (/(bright|light|sun|gold|hope|glow)$/.test(token)) {
-            valence += 0.25;
-            arousal += 0.15;
-            matched = true;
-        }
-
-        if (!matched) return this._deriveWordFormEmotion(token);
-
-        return {
-            valence: this._clamp(valence, -1, 1),
-            arousal: this._clamp(arousal, -1, 1),
-            dominance: this._clamp(dominance, -1, 1),
-            category: 'fallback',
-            scale: null
-        };
-    }
-
-    _deriveWordFormEmotion(token) {
-        if (!token) return null;
-
-        // Deterministic word-form profile so unseen words still move context meaningfully.
-        let hash = 2166136261;
-        for (let i = 0; i < token.length; i++) {
-            hash ^= token.charCodeAt(i);
-            hash = Math.imul(hash, 16777619);
-        }
-        hash >>>= 0;
-
-        const len = token.length;
-        const vowels = (token.match(/[aeiouy]/g) || []).length;
-        const hardConsonants = (token.match(/[kgtdpbxqcz]/g) || []).length;
-        const softConsonants = (token.match(/[lmnrsvfhwy]/g) || []).length;
-        const vowelRatio = vowels / Math.max(1, len);
-        const hardRatio = hardConsonants / Math.max(1, len);
-        const softRatio = softConsonants / Math.max(1, len);
-
-        const h1 = (hash % 1000) / 1000;
-        const h2 = ((hash >>> 10) % 1000) / 1000;
-        const h3 = ((hash >>> 20) % 1000) / 1000;
-
-        let valence = (vowelRatio - 0.36) * 1.15 + (softRatio - hardRatio) * 0.65 + ((h1 - 0.5) * 0.28);
-        let arousal = (hardRatio * 0.95) + (len > 7 ? 0.05 : 0) + ((h2 - 0.5) * 0.45) - 0.35;
-        let dominance = ((len - 6) / 10) + (hardRatio * 0.4) + ((h3 - 0.5) * 0.35);
-
-        valence = this._clamp(valence, -1, 1);
-        arousal = this._clamp(arousal, -1, 1);
-        dominance = this._clamp(dominance, -1, 1);
-
-        // Prevent collapse to flat-neutral for arbitrary words.
-        if (Math.abs(valence) < 0.14 && Math.abs(arousal) < 0.14 && Math.abs(dominance) < 0.14) {
-            valence = h1 > 0.5 ? 0.24 : -0.24;
-            arousal = (h2 - 0.5) * 0.36;
-            dominance = (h3 - 0.5) * 0.3;
-        }
-
-        let scale = 'major';
-        if (arousal > 0.55 && valence < -0.15) scale = 'phrygian_dominant';
-        else if (valence < -0.3) scale = 'harmonic_minor';
-        else if (valence > 0.4 && arousal < 0.2) scale = 'major_pentatonic';
-        else if (valence > 0.2) scale = 'major';
-        else if (arousal > 0.45) scale = 'mixolydian';
-        else if (valence < 0) scale = 'dorian';
-        else scale = 'lydian';
-
-        return {
-            valence,
-            arousal,
-            dominance,
-            category: 'form-derived',
-            scale
-        };
-    }
-
     /**
-     * Uses compromise.js (loaded as window.nlp) to detect:
-     *   - POS tags (adjectives weighted 1.5×, verbs 1.2×, nouns 1.0×, other 0.7×)
-     *   - Negation ("not happy" → flip valence direction)
-     *   - Intensification ("very sad" → amplify)
-     * Returns a map of { word → { weight, negated, intensified } }
+     * What each word means, from WordCharacterEngine's hand-built fields — the
+     * same reading that sets the piece's tone, so the two can no longer
+     * disagree about a word.
+     *
+     * A word the fields don't know is NEUTRAL: it adds nothing rather than a
+     * guess. The guesser this replaced hashed a word's spelling into a
+     * valence, and with the big lexicons gone it scored "i miss you" as happy
+     * and "grief" as mildly positive. analyzePhrase already consumes
+     * "not" / "very" / "barely" and applies them to the word that follows, so
+     * negation and intensity arrive applied.
      */
-    _analyzeWithCompromise(text) {
-        if (typeof nlp === 'undefined') return {};
-        try {
-            const doc = nlp(text);
-            const result = {};
-
-            // Build POS weight map
-            const adjSet  = new Set(doc.adjectives().out('array').map(w => w.toLowerCase()));
-            const verbSet  = new Set(doc.verbs().out('array').map(w => w.toLowerCase()));
-            const nounSet  = new Set(doc.nouns().out('array').map(w => w.toLowerCase()));
-            const allTerms = doc.terms().out('array').map(w => w.toLowerCase());
-
-            for (const w of allTerms) {
-                if (!result[w]) result[w] = { weight: 0.8, negated: false, intensified: false, pos: null };
-                if (adjSet.has(w))       { result[w].weight = 1.5; result[w].pos = 'a'; }
-                else if (verbSet.has(w)) { result[w].weight = 1.2; result[w].pos = 'v'; }
-                else if (nounSet.has(w)) { result[w].weight = 1.0; result[w].pos = 'n'; }
-            }
-
-            // Negation: words immediately following a negation marker get negated flag
-            const negMarkers = new Set(['not', 'never', 'no', "n't", 'without', 'barely', 'hardly', 'nothing', 'nor']);
-            for (let i = 0; i < allTerms.length - 1; i++) {
-                if (negMarkers.has(allTerms[i])) {
-                    const next = allTerms[i + 1];
-                    if (result[next]) result[next].negated = true;
-                    // Also negate two positions out for "not very X"
-                    if (i + 2 < allTerms.length) {
-                        const skip = allTerms[i + 2];
-                        if (result[skip] && (adjSet.has(skip) || verbSet.has(skip))) {
-                            result[skip].negated = true;
-                        }
-                    }
-                }
-            }
-
-            // Intensification: words immediately following an intensifier get amplified
-            const intensifiers = new Set(['very', 'extremely', 'so', 'deeply', 'truly', 'absolutely',
-                                          'really', 'incredibly', 'profoundly', 'utterly', 'terribly',
-                                          'awfully', 'immensely', 'overwhelmingly', 'intensely']);
-            for (let i = 0; i < allTerms.length - 1; i++) {
-                if (intensifiers.has(allTerms[i])) {
-                    const next = allTerms[i + 1];
-                    if (result[next]) result[next].intensified = true;
-                }
-            }
-
-            return result;
-        } catch (e) {
-            return {};
+    _readWords(input) {
+        const wce = (typeof WordCharacterEngine !== 'undefined') ? WordCharacterEngine
+            : ((typeof window !== 'undefined' && window.WordCharacterEngine) || null);
+        const byWord = new Map();
+        if (!wce || typeof wce.analyzePhrase !== 'function') return byWord;
+        for (const ch of wce.analyzePhrase(input)) {
+            if (ch && ch.matched && ch.word && !byWord.has(ch.word)) byWord.set(ch.word, ch);
         }
+        return byWord;
     }
 
     _analyzeLexicalSemantics(input, normalized) {
@@ -1219,127 +1040,52 @@ class ContextEngine {
             };
         }
 
-        // Compromise pass: POS weights, negation, intensification
-        const compMeta = this._analyzeWithCompromise(input);
-
-        const db = this._getWordDatabase();
+        // A field a word belongs to suggests a scale the way an emotion did.
+        const FIELD_SCALES = {
+            bright: 'major', tender: 'major_pentatonic', rise: 'lydian',
+            motion: 'mixolydian', fall: 'aeolian', sorrow: 'aeolian',
+            dark: 'phrygian', tension: 'harmonic_minor', impact: 'phrygian_dominant'
+        };
+        const read = this._readWords(input);
         const values = [];
         const categories = {};
-        const senseChoices = [];
         let suggestedScale = null;
 
         for (const word of words) {
-            let emotion = { valence: 0, arousal: 0, dominance: 0 };
-            const meta = compMeta[word] || {};
-
-            // Priority 1: the sense-disambiguated lexicon — but only when
-            // compromise.js actually tagged this word as content-bearing
-            // (adjective/verb/noun). Without a POS hint there's nothing to
-            // narrow senses BY, and WordNet has no entry for what "a" or
-            // "the" MEAN as function words — it does have entries for "a"
-            // the Angstrom-unit abbreviation and "a" the vitamin, which is
-            // not what anyone typing the article meant.
-            const sense = (meta.pos && db && typeof db.getSense === 'function') ? db.getSense(word, meta.pos) : null;
-
-            // Priority 2: the direct NRC lexicon entry.
-            //
-            // This used to be checked via `db.emotions && db.emotions[word]`
-            // to decide whether a real match had been found — `db.emotions`
-            // has never existed on WordDatabase (the real property is
-            // `_data`), so that check was always false, and the fallback
-            // heuristic below unconditionally overwrote every real lexicon
-            // hit, including unambiguous ones like "joy". The lexicon lookup
-            // ran, computed a correct answer, and then had it thrown away —
-            // for every word, every time. `nrcEntry` being non-null IS having
-            // a real match; nothing else is needed to detect one.
-            const nrcEntry = (db && typeof db.getEmotionalValence === 'function') ? db.getEmotionalValence(word) : null;
-
-            if (sense && sense.divergesInValence) {
-                // The word's senses actually disagree about whether this is
-                // good or bad — the disambiguated sense is the only source
-                // that can tell them apart, so it leads even where NRC also
-                // has an entry (NRC can only ever give ONE number for a word,
-                // regardless of which sense was meant).
-                emotion = {
-                    valence: sense.valence,
-                    arousal: nrcEntry ? nrcEntry.arousal : 0,
-                    dominance: nrcEntry ? nrcEntry.dominance : 0
-                };
-            } else if (nrcEntry) {
-                // Not ambiguous, or ambiguous but NRC still has the word:
-                // NRC is hand-labelled and its magnitude is more trustworthy
-                // than SentiWordNet's automatically-derived scores for a word
-                // that doesn't actually need disambiguating.
-                emotion = nrcEntry;
-            } else if (sense) {
-                // No NRC entry, but the sense lexicon has one — better than
-                // the hash-based fallback below even when not ambiguous.
-                emotion = { valence: sense.valence, arousal: 0, dominance: 0 };
+            const ch = read.get(word);
+            if (!ch) {
+                // Unknown or a function word: present (so per-word indices
+                // still line up with the text) but weightless, so "the" and
+                // "on" no longer drag every phrase's average toward zero.
+                values.push({ valence: 0, arousal: 0, dominance: 0, _weight: 0 });
+                continue;
             }
-
-            // Worth telling the user which sense was picked whenever the
-            // word's senses genuinely differ — by concept (different part of
-            // speech, "light" the adjective vs. "light" the noun) or by
-            // polarity — even on the (more common) branches above where NRC's
-            // number, not the sense's, ended up driving the mood.
-            if (sense && sense.ambiguous) {
-                senseChoices.push({ word, gloss: sense.gloss, pos: sense.pos, senseNumber: sense.senseNumber });
-            }
-
-            // Priority 3: the deterministic/hash-based guess, reached only
-            // when NEITHER a real sense NOR a real lexicon entry exists for
-            // this word — a genuinely unknown word still needs to move the
-            // piece SOMEHOW, but a known word's real data is no longer
-            // discarded in favor of it.
-            const fallback = this._fallbackLexicalEmotion(word);
-            if (!sense && !nrcEntry && fallback) {
-                emotion = {
-                    valence:   fallback.valence   || 0,
-                    arousal:   fallback.arousal   || 0,
-                    dominance: fallback.dominance || 0
-                };
-            }
-
-            // Apply compromise modifiers
-            if (meta.negated) {
-                // "not happy" → reverse valence, dampen arousal
-                emotion = { ...emotion, valence: emotion.valence * -0.8, arousal: emotion.arousal * 0.75 };
-            }
-            if (meta.intensified) {
-                // "very sad" → amplify magnitude (clamped to ±1)
-                const clamp = x => Math.max(-1, Math.min(1, x));
-                emotion = { ...emotion, valence: clamp(emotion.valence * 1.45), arousal: clamp(emotion.arousal * 1.35) };
-            }
-            emotion._weight = meta.weight !== undefined ? meta.weight : 1.0;
-
-            values.push(emotion);
-
-            let category = null;
-            if (db && typeof db.getSemanticCategory === 'function') {
-                category = db.getSemanticCategory(word);
-                if (category && category.name) {
-                    categories[category.name] = (categories[category.name] || 0) + 1;
-                    if (!suggestedScale && category.name !== 'other' && Array.isArray(category.scales) && category.scales.length) {
-                        suggestedScale = category.scales[0];
-                    }
-                }
-            }
-
-            if (fallback && fallback.category) {
-                categories[fallback.category] = (categories[fallback.category] || 0) + 1;
-            }
-
-            if ((!suggestedScale || (category && category.name === 'other' && suggestedScale === 'major')) && fallback && fallback.scale) {
-                suggestedScale = fallback.scale;
+            values.push({
+                valence: ch.valence,
+                arousal: ch.arousal,
+                // How hard a word asserts itself: heavy, hard-edged words
+                // ("thunder", "crash") dominate; small soft ones yield.
+                dominance: this._clamp((ch.weight - 0.4) + (ch.attack - 0.4) * 0.8, -1, 1),
+                _weight: 1
+            });
+            const fields = (typeof WordCharacterEngine !== 'undefined' && WordCharacterEngine.FIELDS) || {};
+            for (const f of ch.fields) {
+                categories[f] = (categories[f] || 0) + 1;
+                // "not happy" is in the bright field but means the opposite:
+                // a field whose polarity the word now contradicts suggests nothing.
+                const fv = fields[f] && fields[f].valence;
+                const contradicted = fv && ch.valence && Math.sign(fv) !== Math.sign(ch.valence);
+                if (!suggestedScale && FIELD_SCALES[f] && !contradicted) suggestedScale = FIELD_SCALES[f];
             }
         }
 
         const count = values.length;
-        // POS-weighted averages: adjectives and verbs carry more emotional weight
-        const totalWeight  = values.reduce((s, v) => s + (v._weight || 1), 0) || count;
-        const avgValence   = values.reduce((s, v) => s + (v.valence   || 0) * (v._weight || 1), 0) / totalWeight;
-        const avgArousal   = values.reduce((s, v) => s + (v.arousal   || 0) * (v._weight || 1), 0) / totalWeight;
-        const avgDominance = values.reduce((s, v) => s + (v.dominance || 0) * (v._weight || 1), 0) / totalWeight;
+        // Averages over the words that MEAN something; none known → neutral.
+        const wOf = (v) => (Number.isFinite(v._weight) ? v._weight : 1);
+        const totalWeight  = values.reduce((s, v) => s + wOf(v), 0) || 1;
+        const avgValence   = values.reduce((s, v) => s + (v.valence   || 0) * wOf(v), 0) / totalWeight;
+        const avgArousal   = values.reduce((s, v) => s + (v.arousal   || 0) * wOf(v), 0) / totalWeight;
+        const avgDominance = values.reduce((s, v) => s + (v.dominance || 0) * wOf(v), 0) / totalWeight;
 
         const firstValence = values[0].valence || 0;
         const lastValence = values[count - 1].valence || 0;
@@ -1353,13 +1099,6 @@ class ContextEngine {
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3)
             .map(([name]) => name);
-
-        if (!suggestedScale && db && typeof db.getSemanticCategory === 'function') {
-            const firstCategory = db.getSemanticCategory(words[0]);
-            if (firstCategory && firstCategory.name !== 'other' && Array.isArray(firstCategory.scales) && firstCategory.scales.length) {
-                suggestedScale = firstCategory.scales[0];
-            }
-        }
 
         if (!suggestedScale) {
             const lexicalTone = this._mapLexicalTone({ avgValence, avgArousal });
@@ -1424,8 +1163,7 @@ class ContextEngine {
             verticalPressure,
             harmonicGravity,
             categoryHints,
-            suggestedScale,
-            senseChoices
+            suggestedScale
         };
     }
 
@@ -1545,7 +1283,7 @@ class ContextEngine {
         const root = (options && options.root) ? String(options.root) : this.defaultRoot;
 
         let recommendedScale = lexicalHint.suggestedScale || this._toneToScale(emotionalTone);
-        let scaleSource = lexicalHint.suggestedScale ? 'word-database' : 'tone-default';
+        let scaleSource = lexicalHint.suggestedScale ? 'word-fields' : 'tone-default';
         let alternatives = [];
         let physicsScore = 0;
         let intervalPhysics = null;

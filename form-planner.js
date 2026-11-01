@@ -699,11 +699,18 @@
         // needs enough room for an exposition, a development AND a
         // recapitulation, so it is only offered when there are bars to spare.
         let formKey, unit;
-        // A work NAMES its movements' forms, and that has to be binding — a
-        // "sonata cycle" whose first movement is whatever the picker felt like
-        // is not a sonata cycle. Takes precedence over the global override too,
-        // because it is the more specific instruction.
-        if (opts.__forceForm && FORMS[opts.__forceForm]) {
+        // A form someone has edited on the page — a section added at a
+        // boundary — arrives as its own list of sections. It is the most
+        // specific instruction there is, so it outranks everything below.
+        const custom = Array.isArray(opts.__specs) && opts.__specs.length ? opts.__specs : null;
+        if (custom) {
+            formKey = opts.__formKey || 'custom';
+            unit = Math.max(2, Math.min(8, Number(opts.__unit) || 4));
+        } else if (opts.__forceForm && FORMS[opts.__forceForm]) {
+            // A work NAMES its movements' forms, and that has to be binding — a
+            // "sonata cycle" whose first movement is whatever the picker felt
+            // like is not a sonata cycle. Takes precedence over the global
+            // override too, because it is the more specific instruction.
             formKey = opts.__forceForm;
             unit = FORMS[formKey].unitHint
                 || (FORMS[formKey].sections.length >= 7 ? 3 : 4);
@@ -803,14 +810,25 @@
             if (FORMS[formKey] && FORMS[formKey].unitHint) unit = FORMS[formKey].unitHint;
         }
 
-        const form = FORMS[formKey];
+        const form = custom
+            ? {
+                name: opts.__name || (FORMS[formKey] && FORMS[formKey].name) || 'Custom form',
+                description: opts.__description || (FORMS[formKey] && FORMS[formKey].description) || '',
+                climax: Number(opts.__climax) || (FORMS[formKey] && FORMS[formKey].climax) || CLIMAX_POINT,
+                sections: custom
+            }
+            : FORMS[formKey];
         const specs = form.sections;
 
         // Bar allocation from relative weights, so a transition is genuinely
-        // shorter than the theme it connects.
+        // shorter than the theme it connects. An edited form keeps the exact
+        // lengths its sections already had — adding a coda must not re-measure
+        // the bars that were already there.
         let bars = 0;
         const lengths = specs.map((sp) => {
-            const n = Math.max(2, Math.round(unit * (sp.weight || 1)));
+            const n = Number.isFinite(sp.bars) && sp.bars >= 1
+                ? Math.round(sp.bars)
+                : Math.max(2, Math.round(unit * (sp.weight || 1)));
             bars += n;
             return n;
         });
@@ -839,7 +857,9 @@
         // A work asking for length gets more room than a single take: the
         // ceiling exists to stop one piece sprawling, and a movement of a
         // four-movement work is not one piece.
-        const MAX_BARS = Math.round(40 * Math.max(1, lenScale));
+        // A form built up section by section on the page was asked to be that
+        // long, one section at a time, so it gets a far higher ceiling.
+        const MAX_BARS = custom ? 96 : Math.round(40 * Math.max(1, lenScale));
         if (bars > MAX_BARS) {
             const scale = MAX_BARS / bars;
             bars = 0;
@@ -848,7 +868,7 @@
                 bars += lengths[i];
             }
         }
-        if (override && Number.isFinite(override.bars)) {
+        if (!custom && override && Number.isFinite(override.bars)) {
             const want = Math.max(4, Math.min(MAX_BARS, Math.round(override.bars)));
             const scale = want / bars;
             bars = 0;
@@ -883,6 +903,11 @@
 
             sections.push({
                 index: i,
+                // The template this section was built from, kept so an edit
+                // to the form can rebuild it — the last section's cadence is
+                // promoted below, and a section that stops being last must
+                // get its own cadence back.
+                spec: sp,
                 letter: sp.letter,
                 label: primeLabel(sp.letter, occurrence),
                 theme: sp.theme,
@@ -1296,8 +1321,213 @@
         };
     }
 
+    // =========================================================================
+    // EDITING A FORM ON THE PAGE — what could go at a boundary, and why.
+    //
+    // A plus between two sections is only worth pressing if what it offers
+    // follows from where it is. The same "add a section" means different
+    // things at different seams: between a tonic theme and a bridge in the
+    // subdominant it wants a transition, before a return it wants the home
+    // dominant prolonged, at the very end it wants a coda, and after a theme
+    // heard only once it wants that theme again before anything departs from
+    // it. So the offers are read off the two neighbours and the form so far,
+    // and each one says which of those things it is answering.
+    // =========================================================================
+
+    /** The templates a planned form was built from, with their current lengths. */
+    function specsOf(form) {
+        const secs = (form && Array.isArray(form.sections)) ? form.sections : [];
+        return secs.map((s) => {
+            const base = s.spec ? { ...s.spec } : {
+                letter: s.letter || '?',
+                theme: s.theme || s.letter || '?',
+                role: s.role || 'section',
+                key: s.keyRelation || 'I',
+                stability: s.stability || 'stable',
+                cadence: s.cadence || 'half',
+                group: s.group || undefined,
+                modulatesTo: s.modulatesTo || undefined,
+                fragments: !!s.fragments,
+                resolvesTension: !!s.resolvesTension
+            };
+            base.bars = s.bars;
+            return base;
+        });
+    }
+
+    /** Rebuild a planned form from an edited list of templates. */
+    function replan(form, specs, opts = {}) {
+        const name = String((form && form.name) || 'Custom form');
+        return plan({
+            seed: opts.seed,
+            beatsPerBar: (form && form.beatsPerBar) || opts.beatsPerBar || 4,
+            homeIsMinor: !!opts.homeIsMinor,
+            __specs: specs,
+            __formKey: (form && form.formKey) || 'custom',
+            __unit: (form && form.unitBars) || 4,
+            __name: /\(extended\)$/.test(name) ? name : name + ' (extended)',
+            __description: form && form.description,
+            __climax: form && form.climaxPoint
+        });
+    }
+
+    /** Insert `spec` before section `at` (at === sections.length appends). */
+    function insertSection(form, at, spec, opts = {}) {
+        const specs = specsOf(form);
+        const i = Math.max(0, Math.min(specs.length, Number(at) || 0));
+        specs.splice(i, 0, { ...spec });
+        return replan(form, specs, opts);
+    }
+
+    /**
+     * Ranked offers for the boundary before section `at` (0 = before the
+     * first, sections.length = after the last).
+     *
+     * @returns {Array<{id:string, title:string, detail:string, spec:Object, score:number}>}
+     */
+    function suggestAt(form, at, opts = {}) {
+        const secs = (form && Array.isArray(form.sections)) ? form.sections : [];
+        if (!secs.length) return [];
+        const n = secs.length;
+        const idx = Math.max(0, Math.min(n, Number(at) || 0));
+        const prev = idx > 0 ? secs[idx - 1] : null;
+        const next = idx < n ? secs[idx] : null;
+        const before = secs.slice(0, idx);
+        const unit = Math.max(2, Number(form.unitBars) || 4);
+        const minor = !!opts.homeIsMinor;
+        const keyLabel = (k) => (KEY_RELATIONS[k] || KEY_RELATIONS.I).label;
+        const isHome = (s) => !!s && (s.keyRelation === 'I' || s.keyRelation === 'i' || s.keyRelation === 'Imaj'
+            || (s.keyRelation == null && s.keyOffset === 0));
+        const bars = (w) => Math.max(2, Math.round(unit * w));
+        const usedLetters = new Set(secs.map(s => s.letter));
+        const freshLetter = () => {
+            for (const c of 'BCDEFGHJLMNOQRUVWXYZ') if (!usedLetters.has(c)) return c;
+            return 'X';
+        };
+        const lastCadence = next ? 'half' : 'authentic';
+        // A section that already IS a link: called one, or unstable AND naming
+        // the key it leads to. Neither half alone says so — a ternary's B is
+        // "transitional" because it lives away from home, and a rounded
+        // binary's A names the dominant because its own end modulates, but
+        // both are themes, not connections.
+        const isLink = (s) => !!s && (/transition/i.test(s.role || '')
+            || (s.stability === 'transitional' && !!s.modulatesTo));
+        // The piece's main idea: the theme the first real section states.
+        const opening = secs.find(s => !isLink(s) && !/intro/i.test(s.role || '')) || secs[0];
+        const primary = opening ? (opening.spec || { letter: opening.letter, theme: opening.theme || opening.letter }) : null;
+        const out = [];
+        const add = (id, score, title, detail, spec) => out.push({ id, score, title, detail, spec });
+
+        // --- Introduction: only before the first section ---------------------
+        if (idx === 0 && !/intro/i.test(secs[0].role || '')) {
+            add('intro', 0.9, 'Introduction',
+                `A short opening that settles the home key and stops on its dominant, so ${secs[0].label} `
+                + 'arrives as the answer to something rather than out of nowhere.',
+                { letter: 'Intro', theme: 'Intro', role: 'introduction', bars: bars(0.5),
+                  key: 'I', stability: 'stable', cadence: 'half' });
+        }
+
+        // --- Retransition: off-tonic into a return at home ------------------
+        const nextIsReturn = !!next && before.some(s => s.theme === next.theme);
+        let retransition = false;
+        if (prev && next && !isHome(prev) && isHome(next) && nextIsReturn && !isLink(prev)) {
+            retransition = true;
+            add('retransition', 1.0, 'Retransition',
+                `${prev.label} ends away from home (${prev.keyLabel || keyLabel(prev.keyRelation)}). A retransition `
+                + `sits on the home dominant first, so the return of ${next.label} is heard as a homecoming `
+                + 'instead of a jump cut.',
+                { letter: 'Rt', theme: 'Rt', role: 'retransition', bars: bars(0.5),
+                  key: 'V', stability: 'transitional', cadence: 'half', modulatesTo: 'I' });
+        }
+
+        // --- Transition: between sections in different keys -----------------
+        if (!retransition && prev && next && prev.keyRelation !== next.keyRelation
+            && next.keyOffset !== null && !isLink(prev) && !isLink(next)) {
+            add('transition', 0.95, `Transition to the ${next.keyLabel || keyLabel(next.keyRelation)}`,
+                `${prev.label} is in the ${prev.keyLabel || keyLabel(prev.keyRelation)} and ${next.label} in the `
+                + `${next.keyLabel || keyLabel(next.keyRelation)}. A transition modulates between them and lets the `
+                + 'new key\'s accidentals arrive early, so the change is prepared rather than cut in.',
+                { letter: usedLetters.has('T') ? 'Tr' : 'T', theme: 'Tr', role: 'transition', bars: bars(0.75),
+                  key: prev.keyRelation === 'unstable' ? 'I' : prev.keyRelation,
+                  stability: 'transitional', cadence: 'half', modulatesTo: next.keyRelation });
+        }
+
+        // --- Restatement of the section just heard ---------------------------
+        if (prev && !isLink(prev) && prev.stability !== 'developmental'
+            && !/intro|coda|codetta/i.test(prev.role || '')) {
+            const heard = before.filter(s => s.theme === prev.theme).length;
+            const spec = { ...(prev.spec || { letter: prev.letter, theme: prev.theme, key: prev.keyRelation,
+                                              stability: prev.stability }),
+                           role: 'restatement', bars: prev.bars, cadence: next ? 'half' : 'authentic' };
+            add('restate', heard <= 1 ? 0.85 : 0.35, `Restate ${prev.letter}`,
+                heard <= 1
+                    ? `${prev.letter} has only been heard once. Saying it again (varied, as ${prev.letter}') is what `
+                      + 'makes it memorable — anything that departs from it later needs it fixed in the ear first.'
+                    : `${prev.letter} again, varied. It has already been heard ${heard} times, so this leans on `
+                      + 'repetition — good for a refrain, heavy for anything else.',
+                spec);
+        }
+
+        // --- Return of the opening idea --------------------------------------
+        if (primary && prev && prev.theme !== primary.theme && (!next || next.theme !== primary.theme)
+            && before.some(s => s.theme === primary.theme)) {
+            const endsAway = !next && !isHome(prev);
+            add('return', !next ? (endsAway ? 1.05 : 0.9) : 0.7, `Bring back ${primary.letter}`,
+                (endsAway
+                    ? `The piece currently ends in the ${prev.keyLabel || keyLabel(prev.keyRelation)}. `
+                    : '')
+                + `${primary.letter} returns in the home key after ${prev.label}; after somewhere else, the same `
+                + 'music is heard as arrival rather than repetition.',
+                { ...primary, key: 'I', stability: 'stable', role: 'return',
+                  bars: opening.bars, cadence: lastCadence, group: undefined, modulatesTo: undefined });
+        }
+
+        // --- Contrasting episode in a new key --------------------------------
+        if (prev) {
+            const pool = minor ? ['III', 'VI', 'V', 'IV'] : ['vi', 'IV', 'V', 'ii'];
+            const uses = (k) => secs.filter(s => s.keyRelation === k).length;
+            const avoid = new Set([prev.keyRelation, next && next.keyRelation].filter(Boolean));
+            const key = pool.filter(k => !avoid.has(k)).sort((a, b) => uses(a) - uses(b))[0] || pool[0];
+            const letter = freshLetter();
+            const needsReturn = !next;
+            add('episode', needsReturn ? 0.4 : 0.8, `New episode (${letter}) in the ${keyLabel(key)}`,
+                `Fresh material away from home. Contrast is what gives the next return its weight`
+                + (needsReturn ? ' — added at the end it leaves the piece open, so follow it with a return or coda.'
+                               : `; ${next.label} will sound like a return after it.`),
+                { letter, theme: letter, role: 'episode', bars: bars(1), key,
+                  stability: 'transitional', cadence: 'half' });
+        }
+
+        // --- Development: only if the form has none yet ----------------------
+        const hasDevelopment = secs.some(s => s.stability === 'developmental');
+        if (!hasDevelopment && primary && before.length >= 2 && next) {
+            add('development', 0.75, `Develop ${primary.letter}`,
+                `${primary.letter} broken into fragments and passed through unsettled keys. The piece has no `
+                + `development yet; one here builds tension that ${next.label} can release.`,
+                { letter: 'D', theme: primary.theme, role: 'development', bars: bars(1.5), key: 'unstable',
+                  stability: 'developmental', cadence: 'half', fragments: true });
+        }
+
+        // --- Coda: only after the last section --------------------------------
+        if (!next && !/coda/i.test(prev.role || '')) {
+            const codetta = secs.find(s => /codetta/i.test(s.role || ''));
+            add('coda', isHome(prev) ? 1.0 : 0.6, 'Coda',
+                (isHome(prev)
+                    ? 'A tail after the final cadence that confirms the home key — the ending sounds chosen rather '
+                      + 'than stopped.'
+                    : `A coda in the home key. The piece ends in the ${prev.keyLabel || keyLabel(prev.keyRelation)} `
+                      + 'now; this closes it at home.')
+                + (codetta ? ` It reuses the codetta's material (${codetta.label}).` : ''),
+                { letter: 'Coda', theme: codetta ? codetta.theme : 'Coda', role: 'coda', bars: bars(0.75),
+                  key: 'I', stability: 'stable', cadence: 'authentic' });
+        }
+
+        return out.sort((a, b) => b.score - a.score).slice(0, Math.max(1, opts.limit || 5));
+    }
+
     const api = { plan, planWork, FORMS, WORKS, SUBVERSIONS, KEY_RELATIONS, CLIMAX_POINT,
-                  listForms, listWorks, familyOf, FAMILY_LABELS };
+                  listForms, listWorks, familyOf, FAMILY_LABELS,
+                  specsOf, replan, insertSection, suggestAt };
     if (typeof window !== 'undefined') window.FormPlanner = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

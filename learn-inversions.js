@@ -456,6 +456,27 @@
 
             wrapper.appendChild(insight);
 
+            // The voice-leading comparisons were written and never shown. They
+            // are where this page meets the Intermediate course, so they go
+            // last, with the way on.
+            try { this.addVoiceLeadingSection(wrapper); } catch (e) { console.warn('[LearnInversions] voice leading section', e); }
+            const next = document.createElement('div');
+            next.className = 'inv-section';
+            next.style.cssText = 'text-align:center;padding:16px;border:1px solid var(--accent-primary);border-radius:8px;';
+            next.innerHTML = '<div style="font-weight:700;margin-bottom:6px;">Next in the course: Intermediate \u00b7 Voicings</div>' +
+                '<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">Inversions keep a chord close. Drop voicings open it up so a melody fits on top.</div>';
+            const go = document.createElement('button');
+            go.type = 'button';
+            go.className = 'btn';
+            go.textContent = 'Start: close voicing \u2192 drop 2';
+            go.addEventListener('click', () => {
+                const page = document.getElementById('learn-inversions-page');
+                if (page) page.style.display = 'none';
+                if (window.Course) window.Course.start('i-close-voicing');
+            });
+            next.appendChild(go);
+            wrapper.appendChild(next);
+
             // Attach existing shared piano + render once
             if (typeof this.renderInstrument === 'function') { this.renderInstrument(); } else { this.renderPiano(); }
             this.updateVisualization();

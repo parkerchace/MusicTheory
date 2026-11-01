@@ -242,7 +242,14 @@ window.mountLearnModuleIfReady = function(instrument) {
                             else seventh = ct || '7';
                         }
                         // Prefer the explicit chord.chordType when available to preserve modifiers
-                        const chordName = (chord.root || '') + ((chord.chordType && chord.chordType.length) ? chord.chordType : seventh);
+                        let chordName = (chord.root || '') + ((chord.chordType && chord.chordType.length) ? chord.chordType : seventh);
+                        // A chord over another bass (C6/E in bebop major) is that
+                        // chord, so its numeral carries no quality of its own.
+                        if (chord.inversionName) {
+                            chordName = chord.inversionName;
+                            label = this.degreeNumeral(degree);
+                            cls = 'maj';
+                        }
                         items.push(`<div class=\"mini-chord-item ${cls}\" data-degree=\"${degree}\" title=\"Degree ${degree}\"><div class=\"mini-rn\">${label}</div><div class=\"mini-name\">${chordName}</div></div>`);
                     }
                     host.innerHTML = items.join('');
@@ -2173,26 +2180,8 @@ window.mountLearnModuleIfReady = function(instrument) {
                 }
             });
             
-            // Setup Skill Level Buttons
-            const skillLevelBtns = document.querySelectorAll('.skill-level-btn');
-            skillLevelBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const level = btn.getAttribute('data-level');
-                    
-                    // Update active button styling
-                    skillLevelBtns.forEach(b => {
-                        b.style.background = b === btn ? 'var(--accent-primary)' : 'transparent';
-                        b.style.color = b === btn ? '#000' : 'var(--text-main)';
-                        b.style.borderColor = b === btn ? 'var(--accent-primary)' : 'var(--accent-primary)';
-                    });
-                    
-                    // Show/hide beginner section
-                    const beginnerSection = document.getElementById('beginner-section');
-                    if (beginnerSection) {
-                        beginnerSection.style.display = level === 'beginner' ? 'block' : 'none';
-                    }
-                });
-            });
+            // The level buttons belong to the course now (module-selector.js
+            // switches it); they are styled by course.css, not from here.
         }
         
         function setupModuleDrag() {

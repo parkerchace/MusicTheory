@@ -286,7 +286,7 @@
             id: 'curriculum',
             name: 'Curriculum',
             tagline: 'Pedagogical order, one column',
-            principle: 'The studio read top to bottom as a lesson: learn the map, build chords, find relations, generate from words in the top bar, read it, play it. Numbered steps in a single measured column.',
+            principle: 'The studio read top to bottom in teaching order: learn the map, build chords, find relations, generate from words in the top bar, read it, play it. Numbered steps in a single measured column; each module\'s Learn chip opens the course lessons that use it.',
             stage: 'sheet',
             grid: { areas: ['a'], cols: 'minmax(0, 1fr)', rows: 'minmax(0, 1fr)' },
             zones: {
@@ -580,6 +580,7 @@
         var header = el.querySelector(':scope > .module-header');
         var title = header && header.querySelector(':scope > span');
         if (title && def.purpose) title.setAttribute('data-purpose', def.purpose);
+        if (title && def.label) title.setAttribute('data-label', (def.glyph ? def.glyph + ' ' : '') + def.label);
         var step = spec && spec.steps && spec.steps[id];
         if (header && step) header.setAttribute('data-step-text', step);
         // A rail spine or a tile nameplate opens its module: make it a real control.

@@ -821,7 +821,16 @@
             // read the same drawn curve still put their high point in different
             // places.
             const phase = rng();
+            // UNLESS THE LINE WAS DRAWN AS THE MELODY. Then it is not a hint
+            // about direction, it is the tune's own height, chosen on purpose:
+            // the anchors follow it and only the chord under each one, and the
+            // cadence each phrase owes, bend it.
+            const pitchLine = (typeof arc.pitchSample === 'function') ? (t) => {
+                const v = Number(arc.pitchSample(Math.max(0, Math.min(1, t))));
+                return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5;
+            } : null;
             const contourHeight = (t) => {
+                if (pitchLine) return pitchLine(t) * 0.9 + shapeHeight(t) * 0.1;
                 const a = arcAt(t);
                 const shape = shapeHeight(t);
                 const wobble = 0.5 + 0.5 * Math.sin((t + phase) * Math.PI * 2);
@@ -860,6 +869,15 @@
             });
             if (!anchorBeats.length) {
                 for (let b = 0; b < totalBeats; b += beatsPerBar) anchorBeats.push(b);
+            }
+            // A DRAWN TUNE IS SAMPLED ON EVERY BEAT. One anchor per bar is
+            // right when the line only hints at direction, but when the drawing
+            // IS the melody the notes between anchors are the melody too —
+            // left to the connector, they went wherever the figures took them,
+            // and a peak drawn between two downbeats was simply never heard.
+            if (typeof arc.pitchSample === 'function') {
+                const have = new Set(anchorBeats);
+                for (let b = 0; b < totalBeats; b += 1) if (!have.has(b)) anchorBeats.push(b);
             }
             anchorBeats.sort((a, b) => a - b);
 
@@ -974,7 +992,8 @@
                 const goalEv = this.harmonyAt(harmony, lastBeat, beatsPerBar);
                 let goalChoices = this.chordMidis(goalEv, LOW, HIGH);
                 if (!goalChoices.length) goalChoices = this.scaleMidis(scaleNotes, LOW, HIGH);
-                const goalIdeal = centre + (contourHeight(totalBeats > 0 ? lastBeat / totalBeats : 0) - 0.5) * span * 1.2;
+                const reachOfLine = pitchLine ? 1.8 : 1.2;
+                const goalIdeal = centre + (contourHeight(totalBeats > 0 ? lastBeat / totalBeats : 0) - 0.5) * span * reachOfLine;
                 // Preference ORDER, not preference absolutism: the first choice
                 // gets a head start, but a later one wins if the phrase's shape
                 // genuinely wants it. Taking the first match unconditionally
@@ -997,7 +1016,11 @@
                 let startChoices = this.chordMidis(startEv, LOW, HIGH);
                 if (!startChoices.length) startChoices = this.scaleMidis(scaleNotes, LOW, HIGH);
                 let startMidi;
-                if (prevPhraseGoal === null) {
+                if (pitchLine) {
+                    // The drawing says where each phrase begins.
+                    startMidi = this.nearest(startChoices,
+                        centre + (contourHeight(totalBeats > 0 ? firstBeat / totalBeats : 0) - 0.5) * span * reachOfLine);
+                } else if (prevPhraseGoal === null) {
                     startMidi = this.nearest(startChoices,
                         centre + (contourHeight(0) - 0.5) * span * 1.2);
                 } else if (plan && prevPhraseLetter && plan.letter === prevPhraseLetter) {
@@ -1038,10 +1061,13 @@
                         const base = startMidi + (goalMidi - startMidi) * t01;
                         const arch = archAt(t01, plan ? plan.peakAt : 0.65);
                         const t = totalBeats > 0 ? b / totalBeats : 0;
-                        const drawn = centre + (contourHeight(t) - 0.5) * span * 1.7;
+                        const drawn = centre + (contourHeight(t) - 0.5) * span * (pitchLine ? reachOfLine : 1.7);
                         // The phrase's own trajectory leads; the drawn arc still
-                        // colours it, but no longer outvotes the destination.
-                        const ideal = (base + arch * lift) * 0.75 + drawn * 0.25;
+                        // colours it, but no longer outvotes the destination —
+                        // except when the drawing IS the melody.
+                        const ideal = pitchLine
+                            ? base * 0.15 + drawn * 0.85
+                            : (base + arch * lift) * 0.75 + drawn * 0.25;
 
                         if (prevAnchor === null) {
                             midi = this.nearest(choices, ideal);
@@ -1049,7 +1075,8 @@
                             const reach = 12;
                             const desired = prevAnchor + Math.max(-reach, Math.min(reach, ideal - prevAnchor));
                             let reachable = choices.filter(m => Math.abs(m - prevAnchor) <= reach);
-                            if (sameDirRun >= 2 && lastDir !== 0) {
+                            // (A drawn climb is meant to keep climbing.)
+                            if (!pitchLine && sameDirRun >= 2 && lastDir !== 0) {
                                 // Three anchors the same way is a gesture; a
                                 // fourth is a rut. Turn the line around.
                                 const against = reachable.filter(m => (m - prevAnchor) * lastDir < 0);

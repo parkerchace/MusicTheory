@@ -168,8 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch(_) {}
 
     // If context/arc not provided, build them from the timeline payload.
-    // Run the full ContextEngine over the raw input so word meaning (NRC/word-db
-    // valence/arousal, tone, arc shape, time signature) actually reaches the
+    // Run the full ContextEngine over the raw input so word meaning (valence/arousal
+    // from the word fields, tone, arc shape, time signature) actually reaches the
     // generators — previously only syllable heuristics survived to this point.
     if (!context || !arc) {
       // Parsing is seed-free: a word's MEANING — its tone, valence, arousal,
@@ -364,6 +364,18 @@ document.addEventListener('DOMContentLoaded', () => {
               return 1.0 - val;
           }
       };
+      // WHAT THE LINE IS A DRAWING OF — the whole piece's energy, one
+      // phrase's shape, the melody, or a motif — chosen beside the canvas.
+      try {
+        const CM = (typeof window !== 'undefined') && window.ContourMeaning;
+        if (CM && points && points.length > 1) {
+          const ctxRef = context;
+          CM.apply(arc, detail.contourMeaning || CM.current(), arc.sample, {
+            formOf: () => ctxRef.form,
+            values: points.map(p => 1 - (Number(p.yNorm) || 0))
+          });
+        }
+      } catch (err) { console.warn('[ArcInit] contour meaning failed', err); }
     } else {
       // Normalize ArcPreviewPanel context to the fields the generators expect.
       const src = context || {};
@@ -467,8 +479,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Whatever the reading hands the line engine is merged into the extras it
     // already accepts — `motif` above all, which is how a subject derived from
     // a word reaches the tune.
-    const melodyExtra = methodHook('melodyOptions', {}, context, arc, harmony, seed) || {};
+    const melodyExtra = contourMelodyExtra(arc, methodHook('melodyOptions', {}, context, arc, harmony, seed) || {});
     const melody = generateMelody(context, arc, harmony, seed, melodyExtra);
+    applyContourMotif(melody, arc, context);
     // The line engine writes above the voicing; the legacy fallback does not,
     // so that path still needs the chords bent under the tune instead.
     if (!voicingFirst() || !melody.voicingAware) {
@@ -504,6 +517,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Keep the ingredients so voicing/voice-leading changes can re-voice the
       // same music without the user having to retype and regenerate.
       window.__lastGenInputs = { context, arc, seed, input };
+      // A new take starts a new form; edits to the last one cannot be undone into it.
+      window.__formEditHistory = [];
     } catch (_) {}
 
     // Chord/melody/texture/word-sense explanations all live in the "Where
@@ -565,29 +580,14 @@ function recomposeLastGeneration(formKey, unitBars) {
   const inputs = (typeof window !== 'undefined') ? window.__lastGenInputs : null;
   if (!inputs || !inputs.context || !inputs.arc) return false;
   try {
+    window.__formEditHistory = [];
     window.__formOverride = formKey && formKey !== 'auto'
       ? { form: formKey, unitBars: unitBars || undefined }
       : null;
     const ctx = inputs.context;
     const beatsPerBar = inputs.arc.beatsPerBar || 4;
     const form = planFormFor(ctx, null, inputs.seed, beatsPerBar);
-    if (form) {
-      ctx.form = form;
-      inputs.arc.bars = form.bars;
-      inputs.arc.totalBeats = form.bars * beatsPerBar;
-      // The energy profile is indexed by beat, so it has to be re-sampled at
-      // the new length or the arc stops lining up with the music.
-      try {
-        const total = inputs.arc.totalBeats;
-        const prof = [];
-        for (let i = 0; i < total; i++) {
-          const t = total > 1 ? i / (total - 1) : 0;
-          const v = typeof inputs.arc.sample === 'function' ? Number(inputs.arc.sample(t)) : 0.5;
-          prof.push(Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5);
-        }
-        inputs.arc.energyProfile = prof;
-      } catch (_) {}
-    }
+    if (form) installFormOnInputs(inputs, form);
     return regenerateLastGeneration('form-change');
   } catch (err) {
     console.warn('[ArcInit] recompose failed', err);
@@ -595,6 +595,137 @@ function recomposeLastGeneration(formKey, unitBars) {
   }
 }
 if (typeof window !== 'undefined') window.recomposeLastGeneration = recomposeLastGeneration;
+
+/**
+ * A motif drawn on the contour canvas is WRITTEN into the tune at the opening
+ * of every section, not merely suggested — see ContourMeaning.stampMotif.
+ */
+function applyContourMotif(melody, arc, context) {
+  const CM = (typeof window !== 'undefined') && window.ContourMeaning;
+  if (!CM || !arc || arc.contourMeaning !== 'motif' || !Array.isArray(arc.motif) || arc.motif.length < 2) return 0;
+  if (!melody || !Array.isArray(melody.notes)) return 0;
+  const mt = window.modularApp && window.modularApp.musicTheory;
+  const hp = (context && context.harmonicProfile) || {};
+  const cache = {};
+  const pcsAt = (note) => {
+    const root = note.scaleRoot || hp.root;
+    const scale = note.scaleName || hp.recommendedScale;
+    const k = root + '|' + scale;
+    if (!(k in cache)) {
+      let names = [];
+      try { names = (mt && mt.getScaleNotes && mt.getScaleNotes(root, scale)) || []; } catch (_) {}
+      if (!names.length && root === hp.root) names = hp.scaleNotes || [];
+      cache[k] = names.map(n => CM.midiOf(String(n).replace(/\d+$/, '') + '4') % 12).filter(Number.isFinite);
+    }
+    return cache[k];
+  };
+  const sections = (context && context.form && context.form.sections) || null;
+  const n = CM.stampMotif(melody.notes, arc.motif, sections, pcsAt);
+  melody.drawnMotif = { steps: arc.motif.slice(), sections: n };
+  return n;
+}
+
+/** A motif drawn on the contour canvas reaches the melody like a method's would. */
+function contourMelodyExtra(arc, extra) {
+  const CM = (typeof window !== 'undefined') && window.ContourMeaning;
+  return (CM && typeof CM.melodyExtra === 'function') ? CM.melodyExtra(arc, extra) : extra;
+}
+
+/** Make `form` the last take's form and resize its arc to match. */
+function installFormOnInputs(inputs, form) {
+  const beatsPerBar = inputs.arc.beatsPerBar || 4;
+  inputs.context.form = form;
+  inputs.arc.bars = form.bars;
+  inputs.arc.totalBeats = form.bars * beatsPerBar;
+  // The energy profile is indexed by beat, so it has to be re-sampled at
+  // the new length or the arc stops lining up with the music.
+  try {
+    const total = inputs.arc.totalBeats;
+    const prof = [];
+    for (let i = 0; i < total; i++) {
+      const t = total > 1 ? i / (total - 1) : 0;
+      const v = typeof inputs.arc.sample === 'function' ? Number(inputs.arc.sample(t)) : 0.5;
+      prof.push(Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5);
+    }
+    inputs.arc.energyProfile = prof;
+  } catch (_) {}
+}
+
+/**
+ * Add a section to the last take's form at a boundary (the plus between
+ * sections on the sheet), keeping its words, key and seed.
+ *
+ * The form before the edit is kept on a stack so the same menu can undo it.
+ * Returns the new form, or null when there is no take to edit.
+ */
+function insertSectionInLastGeneration(at, spec) {
+  const inputs = (typeof window !== 'undefined') ? window.__lastGenInputs : null;
+  const FP = (typeof FormPlanner !== 'undefined') ? FormPlanner : null;
+  if (!inputs || !inputs.context || !inputs.context.form || !inputs.arc || !FP || !FP.insertSection) return null;
+  try {
+    const before = inputs.context.form;
+    const form = FP.insertSection(before, at, spec, {
+      seed: inputs.seed,
+      beatsPerBar: inputs.arc.beatsPerBar || 4,
+      homeIsMinor: formHomeIsMinor(inputs.context)
+    });
+    if (!form) return null;
+    (window.__formEditHistory = window.__formEditHistory || []).push({
+      form: before, sample: inputs.arc.sample, pitchSample: inputs.arc.pitchSample });
+
+    // THE BARS ALREADY THERE KEEP THEIR ENERGY. Resampling the arc over the
+    // longer piece would stretch it, moving every bar's energy and with it
+    // the melody — adding a coda would rewrite the opening. Instead the old
+    // arc is read through a time warp: bars before the seam read where they
+    // did, bars after it read where they did before being pushed along, and
+    // the new section holds the energy at the seam it was inserted into.
+    const oldBars = before.bars;
+    const added = form.bars - oldBars;
+    const seamBar = at < before.sections.length ? before.sections[at].startBar : oldBars;
+    // (A line drawn as ONE PHRASE already reads the live form, so every
+    // section — the new one included — plays it across its own bars.)
+    const warp = (fn) => {
+      if (typeof fn !== 'function' || !(oldBars > 0) || !(added > 0)) return fn;
+      const newBars = form.bars;
+      return (t) => {
+        const x = Math.max(0, Math.min(1, Number(t) || 0)) * newBars;
+        const old = x < seamBar ? x : (x < seamBar + added ? seamBar : x - added);
+        return fn(Math.max(0, Math.min(1, old / oldBars)));
+      };
+    };
+    if (inputs.arc.contourMeaning !== 'phrase') inputs.arc.sample = warp(inputs.arc.sample);
+    if (inputs.arc.contourMeaning !== 'phrase' && typeof inputs.arc.pitchSample === 'function') {
+      inputs.arc.pitchSample = warp(inputs.arc.pitchSample);
+    }
+    installFormOnInputs(inputs, form);
+    return regenerateLastGeneration('form-insert') ? form : null;
+  } catch (err) {
+    console.warn('[ArcInit] insert section failed', err);
+    return null;
+  }
+}
+if (typeof window !== 'undefined') window.insertSectionInLastGeneration = insertSectionInLastGeneration;
+
+/** Put back the form from before the last section was added. */
+function undoFormEditInLastGeneration() {
+  const inputs = (typeof window !== 'undefined') ? window.__lastGenInputs : null;
+  const stack = (typeof window !== 'undefined') && window.__formEditHistory;
+  if (!inputs || !inputs.context || !inputs.arc || !stack || !stack.length) return false;
+  const prior = stack.pop();
+  if (typeof prior.sample === 'function') inputs.arc.sample = prior.sample;
+  if (typeof prior.pitchSample === 'function') inputs.arc.pitchSample = prior.pitchSample;
+  installFormOnInputs(inputs, prior.form);
+  return regenerateLastGeneration('form-undo');
+}
+if (typeof window !== 'undefined') window.undoFormEditInLastGeneration = undoFormEditInLastGeneration;
+
+/** Whether the take's home key is minor — which keys an episode can visit. */
+function formHomeIsMinor(context) {
+  const hp = (context && context.harmonicProfile) || {};
+  return /minor|aeolian|dorian|phrygian|locrian|harmonic|melodic/i.test(String(hp.recommendedScale || ''))
+    && !/major/i.test(String(hp.recommendedScale || ''));
+}
+if (typeof window !== 'undefined') window.formHomeIsMinor = formHomeIsMinor;
 
 function regenerateLastGeneration(reason = 'settings-change') {
   const inputs = (typeof window !== 'undefined') ? window.__lastGenInputs : null;
@@ -605,8 +736,15 @@ function regenerateLastGeneration(reason = 'settings-change') {
       ? { ...window.__arcComplexity }
       : context.complexityControls;
 
-    const harmony = generateHarmony(context, arc, seed);
-    const melody = generateMelody(context, arc, harmony, seed);
+    // The reading's hooks run here exactly as on a first generation. Without
+    // them a re-key or an added section quietly dropped whatever the method
+    // contributes — a Cast of Themes take lost its subject, Two Lines its
+    // texture — and the "same piece" came back as a different kind of piece.
+    let harmony = generateHarmony(context, arc, seed);
+    harmony = methodHook('constrainHarmony', harmony, harmony, context, arc, seed);
+    const melodyExtra = contourMelodyExtra(arc, methodHook('melodyOptions', {}, context, arc, harmony, seed) || {});
+    const melody = generateMelody(context, arc, harmony, seed, melodyExtra);
+    applyContourMotif(melody, arc, context);
     // The line engine writes above the voicing; the legacy fallback does not,
     // so that path still needs the chords bent under the tune instead.
     if (!voicingFirst() || !melody.voicingAware) {
@@ -617,7 +755,8 @@ function regenerateLastGeneration(reason = 'settings-change') {
       const alignedCount = alignVoicingToMelody(harmony, melody, arc.beatsPerBar || 4, mtRef2, vs.style, vs.overrides, vs.ceiling);
       if (alignedCount) harmony.voicingSettings = { ...vs, melodyAlignedChords: alignedCount };
     }
-    const piano = buildPianoTexture(context, arc, harmony, melody, seed);
+    let piano = buildPianoTexture(context, arc, harmony, melody, seed);
+    piano = methodHook('textureOverrides', piano, piano, context, arc, harmony, melody, seed);
     const scaleTimeline = buildScaleTimeline(context, arc, harmony);
     const generatedMusic = {
       harmony, melody, piano, scaleTimeline, context, arc, seed,

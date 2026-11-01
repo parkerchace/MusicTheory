@@ -193,7 +193,6 @@
             // What the words themselves meant, first — everything else in
             // this panel was built FROM that reading, so it comes before the
             // key, the form and the chords rather than after them.
-            this.body.appendChild(this.renderWordSensesSection());
 
             const home = (this.lastMusic && this.lastMusic.context && this.lastMusic.context.harmonicProfile) || {};
             const homeLine = document.createElement('div');
@@ -232,42 +231,6 @@
             // panel only — this panel is about where the music came from.
             runs.forEach((run) => this.body.appendChild(this.renderRun(run)));
             this.body.appendChild(this.renderNumericSection());
-        }
-
-        /**
-         * Which sense a word was read as, when it had more than one on offer
-         * — "light" as weight, not brightness — the same kind of provenance
-         * this panel already gives a chord, applied one level upstream, to
-         * the input the whole piece was built from. Lives here rather than
-         * as a toast: a word choice isn't tied to a moment in the music the
-         * way a chord or a chromatic note is, so there's no bar for it to
-         * flash past — it's context worth having sit still and be read.
-         */
-        renderWordSensesSection() {
-            const wrap = document.createElement('div');
-            wrap.style.cssText = 'padding:9px 12px; border-bottom:1px solid #1e293b;';
-            const senses = (this.lastMusic && this.lastMusic.context && this.lastMusic.context.metadata
-                && this.lastMusic.context.metadata.lexical && this.lastMusic.context.metadata.lexical.senseChoices) || [];
-            if (!senses.length) { wrap.style.display = 'none'; return wrap; }
-
-            const head = document.createElement('div');
-            head.innerHTML = '<strong style="color:#22d3ee;">📖 What the words meant</strong>';
-            head.style.marginBottom = '5px';
-            wrap.appendChild(head);
-
-            const list = document.createElement('div');
-            list.style.cssText = 'color:#94a3b8; font-size:11px; line-height:1.6;';
-            list.innerHTML = senses.map((s) =>
-                `<strong style="color:#e2e8f0;">"${s.word}"</strong> read as ` +
-                `<em style="color:#fbbf24;">${s.gloss}</em>` +
-                `<span style="color:#64748b;"> (${this.posName(s.pos)})</span>`
-            ).join('<br>');
-            wrap.appendChild(list);
-            return wrap;
-        }
-
-        posName(pos) {
-            return { a: 'adjective', n: 'noun', v: 'verb', r: 'adverb' }[pos] || pos || '';
         }
 
         /** The planned shape: which sections exist and what each one is for. */

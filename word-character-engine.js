@@ -82,6 +82,12 @@
     const INTENSIFIERS = ['very','so','too','really','extremely','utterly','deeply','wildly','madly','fiercely'];
     const DIMINISHERS = ['slightly','barely','faintly','softly','gently','almost','somewhat','a','little'];
     const NEGATORS = ['not','no','never','without','none','nothing'];
+    // Function words: articles, pronouns, prepositions, conjunctions, auxiliaries.
+    const FILLER = new Set(('the an and or but nor of in on at to for from by with into onto over under ' +
+        'up down out off as than then that this these those it its i me my mine you your yours he him his ' +
+        'she her hers we us our they them their is am are was were be been being do does did have has had ' +
+        'will would can could shall should may might must just there here where when who what which ' +
+        'while if so all any some each every').split(' '));
 
     // --- 2. Phonetics -------------------------------------------------------
     const PLOSIVES = 'ptkbdg';
@@ -376,7 +382,10 @@
         let wSum = 0;
         const acc = { motion: 0, attack: 0, sustain: 0, weight: 0, brightness: 0, tension: 0, valence: 0, arousal: 0, contour: 0 };
         for (const c of chars) {
-            const w = c.matched ? 1.6 : 0.7;
+            // Filler carries no character. Weighting it like any other unknown
+            // word let "she", "and", "the", "up" outvote "laughed" four to one,
+            // and the phrase read as balanced.
+            const w = c.matched ? 1.6 : (FILLER.has(c.word) ? 0 : 0.7);
             wSum += w;
             if (c.matched) agg.matchedCount++;
             for (const k of Object.keys(acc)) acc[k] += (c[k] || 0) * w;
@@ -385,8 +394,10 @@
 
         // Extremes matter more than averages in music: let the single most
         // charged word pull the phrase toward its own tension/arousal.
-        const peak = chars.reduce((best, c) =>
-            (Math.abs(c.arousal) + c.tension > Math.abs(best.arousal) + best.tension) ? c : best, chars[0]);
+        const content = chars.filter(c => c.matched || !FILLER.has(c.word));
+        const pool = content.length ? content : chars;
+        const peak = pool.reduce((best, c) =>
+            (Math.abs(c.arousal) + c.tension > Math.abs(best.arousal) + best.tension) ? c : best, pool[0]);
         agg.tension = Math.min(1, agg.tension * 0.55 + peak.tension * 0.65);
         agg.arousal = Math.max(-1, Math.min(1, agg.arousal * 0.6 + peak.arousal * 0.6));
         agg.motion = Math.min(1, Math.max(agg.motion, peak.motion * 0.85));
