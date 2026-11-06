@@ -2,10 +2,10 @@
 # Matching the title to the README's own heading stops the theme from printing
 # a second header above it, and the image is the preview card shared links show.
 title: Music Theory Studio
-description: Type a few words and get a piece of music that can explain itself. A browser studio for composing, playing and learning music theory.
+description: A free music theory course and a set of interactive theory tools, on piano or guitar, in your browser.
 theme: jekyll-theme-primer
 defaults:
   - scope:
       path: ""
     values:
-      image: /media/studio-stage-wings.jpg
+      image: /media/lesson-in-studio.jpg

@@ -1,122 +1,145 @@
 # Music Theory Studio
 
-**Type a few words and get a piece of music that can explain itself.**
+**A music theory course and a set of interactive tools you can see, hear and play.**
 
 ### [Open the studio →](https://parkerchace.github.io/MusicTheory/modular-music-theory.html)
 
 Free · Runs in your browser · No install, no account · Nothing you type leaves your computer
 
-![The studio in its Stage & Wings look: a generated score across the whole stage with the words "the long walk home" under the staff, the input tools folded into a spine on the left and the reference tools on the right, a piano and a guitar neck along the bottom](media/studio-stage-wings.jpg)
+![A studio lesson in progress: the lesson card on the right explains the 5-of a chord with playable examples, a Show me callout points at a planet in the Solar System tool on the left, the score sits in the middle, and a piano and guitar neck run along the bottom](media/lesson-in-studio.jpg)
 
-Music Theory Studio is a workshop for how music is made. Give it a phrase, such as *the long walk home through winter woods*, and it reads what the words mean. It then chooses a key and scale, plans a form, writes harmony, melody and accompaniment, and engraves the result as a score you can hear, play along with and export as MIDI. Every press of **Generate** is a new take.
-
-Then it shows its work. A chord or a note from outside the key can say where it came from and why it is there. The aim is not a random-music machine. It is a composer that can be questioned, inside a set of theory tools you can rearrange to match how you think, with a course that teaches from those same tools.
+Music Theory Studio teaches theory by putting it under your fingers. A 20-lesson course runs from the names of the notes to chromatic mediants, on piano or guitar. Its lessons open the same tools you keep using afterwards: a circle of fifths, a solar-system map of the scale, chord and scale finders, a catalogue of every scale, a score, and a keyboard and neck that light up with whatever you are looking at.
 
 ---
 
-## Try it in one minute
+## Start here
 
-1. **[Open the studio](https://parkerchace.github.io/MusicTheory/modular-music-theory.html)**, scroll past the course, the tools and the looks, and press **Launch Full Studio**. To be taught first, pick a lesson from the course at the top of the page instead.
-2. Type a few words into the box in the top bar and press **Generate**.
-3. Press **▶ Play** in the score's toolbar. The studio opens in the OG look, where the toolbar sits above the score. Stage & Wings, Notation Desk and Luthier fold it behind **[CONTROLS]**, and Focus puts it below the score.
-4. Open **Where the music comes from** to see why each chord was chosen. It is above the score in OG and below the score in every other look.
-5. Click the piano. Your computer keyboard is now an instrument: `Z S X D C…` play notes, and holding **Shift** plays the scale's chords.
-6. Press **⊞** in the top bar and pick a different *look*. It is the same studio, arranged around a different idea.
+1. **[Open the studio](https://parkerchace.github.io/MusicTheory/modular-music-theory.html).** The course is at the top of the page.
+2. Choose piano or guitar under *Your instrument for the course*, then open **Notes on your instrument**, or pick a later level if you already know the basics.
+3. To go straight to the tools, scroll past the course and press **Launch Full Studio**.
+4. Click the piano. Your computer keyboard is now an instrument: `Z S X D C…` play notes, and holding **Shift** plays the scale's chords.
+5. Press **⊞** in the top bar and pick a different *look*. It is the same studio, arranged around a different idea.
 
 New here? The first launch offers a short tour, and the **?** menu has it again as Easy Mode, along with Demo Mode, which explains any tool you hover over.
 
 ---
 
-## What's inside
+## The course
 
-### Words into music
+**20 lessons at three levels, in order.** Intermediate and Advanced are built from the lecture *Finding Melodies in Scales*.
 
-- **Meaning, not only sound.** Words are read against 12 hand-built fields (motion, stillness, impact, rise, fall, bright, dark, tension, tenderness, sorrow, vastness, smallness), with "not", "very" and "barely" applied to the word that follows, and for how they sound and scan. A word the fields don't know counts as neutral rather than guessed at. The meaning leans the choice of key and shapes the piece; the rest comes from the take's seed.
-- **Seven ways to read a text.** *Contour* plays the shape of a line you draw. *Cipher* spells a melody from your letters. *Cast of Themes* turns each word into a recurring subject. *Spotting* treats sentences as film-cue sections, with punctuation as the edit. *Blocks* builds the whole piece from a handful of bars, reordered and stacked. *Pedal & Colour* holds one bass note under shifting harmony. *Two Lines* writes a melody on top and another on the bottom. The **ⓘ** beside the menu says what the current reading does.
-- **A line that says what it draws.** In Contour, draw with a mouse, finger or pen. *The line is* sets what the drawing stands for: the whole piece, each phrase, the melody itself, or a short motif. *Suggest a shape* offers 15 named shapes to start from or keep, such as False Summit, Lament and Eye of the Storm. Rhythm, melody and harmony dials sit underneath.
-
-![The Contour panel: a drawn curve labelled False Summit, what the line stands for, rhythm, melody and harmony dials, and the words as chips](media/contour.jpg)
-
-- **Real musical form.** 33 forms in 11 families: sentence and period, binary and rounded binary, bar form, the 12-bar blues, verse-chorus, rondo, sonata, fugal exposition, theme and variations, passacaglia, arch, minuet and trio, call and response, and more.
-- **Whole works.** **Expand**, on the score's toolbar, turns a piece into a multi-movement *work*, from 8 plans (sonata cycle, song cycle, baroque suite, concerto, diptych and others), with contrast between movements, a key plan that comes home, and later movements quoting earlier ones. Length is adjustable.
-- **Two devices that change the harmony.** *Approach scales* borrow a whole collection that points at the next chord and walk into it, with a choice of collections and how often. *Departures* step out to another key's colour, and you choose how they move and whether they come home.
-
-### A composer that explains itself
-
-- **Outside notes are placed on purpose.** A chromatic note comes from somewhere: a borrowed collection, a leading tone, an approach, a planned excursion. Tests measure how many slip through without a reason.
-- **Where the music comes from** gives the home key, the form, each borrowed chord with its source scale and purpose (you can audition each one), every trip out of the key and back, the progression bar by bar, why melody notes leave the scale, and how the texture changes. Type a progression there to browse the approach chords into it.
-- **Change one thing at a time.** *Adjust this take* keeps the seed and changes a single decision, so you hear only that decision: piano or four-part texture, the form, and 11 harmonic devices (sevenths, inversions, secondary dominants, borrowed chords, chromatic mediants and others) set to auto, on or off. **New take** rolls a new seed when you want one.
-
-![Where the music comes from, open: the home key, the verse-chorus form, the progression by section, and a reason for every chord bar by bar](media/where-the-music-comes-from.jpg)
-
-### Hear it and perform it
-
-- **Nine playback voices:** piano (plain, with reverb, pad or strings), strings, guitar, electric piano, and R&B synth and pad.
-- **Feel that a performance does:** four swing settings, three levels of expressive timing, and notes pushed or laid back against the grid.
-- **18 voicing styles** (close, drops, shells, quartal, gospel, rootless and more) plus 5 automatic strategies, with voice leading between chords. Set them for the whole piece or bar by bar.
-- **MIDI export** to any DAW, matching what is on the page.
-
-### A course that teaches inside the studio
-
-- **20 lessons at three levels.** *Beginner* covers notes, scales, chords, inversions, chord symbols, endings and common progressions. *Intermediate* covers voicings and drop 2, bebop major, and the 5-of and 4-of ways into any chord. *Advanced* covers approach chords, chromatic mediants and progressions into a target. Intermediate and Advanced are built from the lecture *Finding Melodies in Scales*.
-- **Lessons use the real tools.** A studio lesson lays out only the tools it needs and leaves the rest in a *More tools* drawer. **Show me** points at the control and a button beside it makes the setting for you. Steps that set something tick themselves when the studio reaches that state. Five lessons add a playable part: chord symbols on any root, a guess-the-ending game, progressions that load into the generator, and tables of the ways into a chord.
-- **Five guided Learn pages** cover notes on piano, notes on guitar, scales, chords and inversions. Each has its own practice or check and a way on to the next lesson. Progress is saved in your browser.
-- **Your instrument, all the way through.** Choose the guitar and the Learn pages show necks in place of keyboards, with its sound and its words, and studio lessons show a dock with only the guitar. The piano, guitar, scales and chords pages listen to the typing keyboard and to MIDI, so you can practise on a real instrument.
-- **Tools point back to lessons.** A *Learn* chip on a module header lists the lessons that use it, and the Studio tools cards on the landing page do the same. The OG look and folded rails don't show the chip.
+| Level | Unit | Lessons |
+| --- | --- | --- |
+| **Beginner** | Fundamentals | Notes on your instrument · Scales (nine short lessons) · Chords from intervals · Inversions · Reading chord symbols · Endings: how a phrase comes home · Common chord progressions |
+| **Intermediate** | Voicings: room for a melody | Start with the close-voiced chord · Drop 2 · Inverted drop 2s · Drop 2 & 4 and drop 3 |
+| | Interesting scales: bebop major | Bebop major: eight notes, two chords · Harmonize a melody: 6 or °7? |
+| | Two ways into any chord | The 5-of and the 4-of |
+| **Advanced** | Approach chords | A °7 a half step below · Tonicize the target, borrow from a scale on it · Scales carry moods |
+| | Approach by interval | A fifth away: Mixolydian, and ♭6 for minor · A third away: chromatic mediants |
+| | Progressions into a target | Tonicize with a whole progression |
 
 <p>
   <img src="media/course-landing.jpg" width="49%" alt="The course on the landing page: Beginner, Intermediate, Advanced and Whole course tabs, the instrument menu, and the numbered Fundamentals lessons">
   <img src="media/course-lesson.jpg" width="49%" alt="A studio lesson on drop 2 voicings: the lesson card on the right with playable examples, and a Show me callout pointing at the Voicing menu">
 </p>
-<p>
-  <img src="media/learn-guitar-notes.jpg" width="49%" alt="The Notes on your instrument page on guitar: a neck with a tuning menu and short numbered lessons beside it">
-  <img src="media/learn-chords-guitar.jpg" width="49%" alt="The Chords from intervals page on guitar: root and chord-type buttons, a chord built up one step at a time on small necks">
-</p>
 
-### A studio you can rearrange, and learn from
+### Lessons happen inside the real tools
 
-- **Five built-in looks** rearrange the same tools around a different principle. *OG* is the original layout, with everything on screen, and is where the studio opens. *Stage & Wings* (at the top of this page) gives the score the whole stage, with every tool a click away at the edges. *Notation Desk* keeps page proportions and puts the reference tools behind a drawer. *Luthier* is for players and puts the fretboard first. *Focus* shows one tool at a time.
-- **Build your own look.** Remix any look or start from a skeleton, give each zone a purpose, and name the idea behind it. Looks save in your browser and export as a small `.look.json` file another person can import.
-- **Four visual themes:** Clean DAW, Channel Strip, Matrix FX and Steam 2000. The 🎨 button steps through them.
+- **Only what the lesson needs.** A studio lesson lays out the tools it uses and leaves the rest in a *More tools* drawer.
+- **Show me.** A button points at the control the lesson means, and a second button beside it makes the setting for you.
+- **Steps that notice.** A step that sets something ticks itself when the studio reaches that state.
+- **Things to play.** Every lesson has examples to hear, and five add a playable part: chord symbols on any root, a guess-the-ending game, progressions that load into the Generator, and tables of the ways into a chord.
 
 <p>
-  <img src="media/look-og.jpg" width="49%" alt="The OG look: the number generator in a left column, the chord strip and sheet music with its full toolbar, and a piano and neck below">
-  <img src="media/look-notation-desk.jpg" width="49%" alt="The Notation Desk look: the score centred with page proportions and a folded reference drawer at the right edge">
-</p>
-<p>
-  <img src="media/look-luthier.jpg" width="49%" alt="The Luthier look: a full-width guitar fretboard across the top, theory tools in a compact column, the score and a large piano below">
-  <img src="media/look-focus.jpg" width="49%" alt="The Focus look: the chord strip above a row of tabs, and the score alone beneath them">
+  <img src="media/lesson-chord-symbols.jpg" width="49%" alt="The Reading chord symbols lesson: a row of roots, a small keyboard, and a table of chord symbols with their numbers, notes and half steps">
+  <img src="media/lesson-endings.jpg" width="49%" alt="The Endings lesson: four cadences named Full stop, Amen, Comma and Surprise, each a playable row of chords, with a callout pointing at the Chords button on the keyboard strip">
 </p>
 
-### Play it
+### Five guided Learn pages
+
+The Beginner lessons on notes, scales, chords and inversions open pages built for a first-time student. Each has its own practice or check and a way on to the next lesson, and progress is saved in your browser.
+
+<p>
+  <img src="media/learn-piano-notes.jpg" width="49%" alt="Notes on your instrument, on piano: a keyboard of the C major notes joined by lines to the same notes on a staff">
+  <img src="media/learn-guitar-notes.jpg" width="49%" alt="Notes on your instrument, on guitar: a neck with a tuning menu and short numbered lessons beside it">
+</p>
+<p>
+  <img src="media/learn-scales.jpg" width="49%" alt="The Scales page: nine numbered lessons, a short explanation of what a scale is, a check question, and a playable piano with the scale's notes numbered">
+  <img src="media/learn-inversions.jpg" width="49%" alt="The Inversions page: three small keyboards showing C major with C, E and then G on the bottom">
+</p>
+<p>
+  <img src="media/learn-chords.jpg" width="49%" alt="Chords from intervals, on piano: root and chord-type buttons, and a chord built up one step at a time on small keyboards">
+  <img src="media/learn-chords-guitar.jpg" width="49%" alt="Chords from intervals, on guitar: the same page with the chord built up one step at a time on small necks">
+</p>
+
+### Your instrument, all the way through
+
+Choose the guitar and the Learn pages show necks in place of keyboards, with its sound and its words, and studio lessons show a dock with only the guitar. The piano, guitar, scales and chords pages listen to the typing keyboard and to MIDI, so you can practise on a real instrument.
+
+**Tools point back to lessons.** A *Learn* chip on a module header lists the lessons that use it, and the Studio tools cards on the landing page do the same. The OG look and folded rails don't show the chip.
+
+---
+
+## The tools
+
+Every tool follows the same key and scale, so a change in one shows up in the others. The **Chord Strip** above the score keeps one chord for each degree of the scale in view.
+
+### Circle of 5ths and Solar System
+
+The **Circle of 5ths** shows keys as wedges, with a relative-minor ring, and clicking one changes the studio's key. It switches to 4ths or chromatic order and numbers the scale's notes (Notes / 1 2 3 / Both).
+
+The **Solar System** shows the scale as orbits around its tonic, with every note a numbered planet on its own ring. Click a planet to zoom in on its moons: the chords that lead to it or hold it, each numbered from the planet and named for its role, such as tritone sub, five-of and chromatic mediant. Click a moon to add it to the score.
+
+<p>
+  <img src="media/circle-of-fifths.jpg" width="49%" alt="The Circle of Fifths in G Mixolydian: the scale's notes as numbered green wedges, a relative-minor ring, and a panel with the scale and closest keys">
+  <img src="media/solar-system.jpg" width="49%" alt="The Solar System tool in G Mixolydian: a sun labelled G and seven numbered planets, each on its own ring">
+</p>
+
+![Zoomed in on the fifth planet, D: its moons on their own rings, labelled with chord names, and a list naming each one's role, such as tritone sub, five-of and chromatic mediant](media/solar-moons.jpg)
+
+### Container Chord
+
+*Which chords contain these notes?* Type or pick the notes, narrow the list to the scale if you like, group the answers by fit, root or family, and add a chord to the score.
+
+![Container Chord showing the chords that contain D, F and A in C major: Dm7, Dm6, F6, Bm7b5 and others, each with its notes, where it leads, and variations such as Dm9 and Dm11](media/tool-container-chord.jpg)
+
+### Scale Relations
+
+*Which scales contain this chord?* Filter by tonic, then preview a scale on a piano with its chords, or apply it to the studio.
+
+![Scale Relations with D Dorian open: a piano with the scale's notes lit and the scale's chords listed underneath, from Dm7 to Cmaj7](media/tool-scale-relations.jpg)
+
+### Sheet Music
+
+The score, with chord names and how each one is voiced. Its toolbar sets staff, bars, tempo, voicing, feel and sound, and **+** marks add a section to the form.
+
+- **18 voicing styles** (close, drops, shells, quartal, gospel, rootless and more) plus 5 automatic strategies, with voice leading between chords. Set them for the whole piece or bar by bar.
+- **Nine playback voices:** piano (plain, with reverb, pad or strings), strings, guitar, electric piano, and R&B synth and pad.
+- **Feel:** four swing settings, three levels of expressive timing, and notes pushed or laid back against the grid.
+- **MIDI export** to any DAW, matching what is on the page.
+
+![Sheet Music in the Focus look: chords written on a grand staff with their names and voicings above and below, and the Voicing Options panel beside the score](media/tool-sheet.jpg)
+
+### Generator
+
+Type a progression as numbers, numerals or chord names, or generate one with a logic of your choice, then rotate it, run it backwards or swap in a common progression. It writes degrees as numbers, and the **123** button switches them to roman numerals.
+
+![The Generator: a logic menu, undo and redo, the progression written as 1 2 3 4 5 6 7, each number with its note below, and buttons for a new or common progression and retrograde](media/tool-generator.jpg)
+
+### Piano and Fretboard
+
+The instrument dock runs along the bottom of the studio and shows the scale and the chord being played. The piano has scale degrees in colour and standard fingerings for either hand or both, which you can turn off.
+
+![The instrument dock: a piano with the C major scale numbered and coloured beside a guitar neck with every scale tone marked and the roots highlighted](media/tool-dock.jpg)
 
 - **Your computer keyboard is an instrument**, laid out like FL Studio's: two rows of piano keys, ← → for octave and ↑ ↓ for velocity. It never takes over while you are typing in a text box.
 - **Chords mode** puts the scale's chords under your fingers, with sevenths on the row above and secondary dominants on the black keys. Each chord goes through the same voicing engine as the score. **A** picks the inversion. **F** "walks" the inversions as you play.
 - **Harmonize mode** treats what you play as a melody and puts a chord from the scale underneath it. It works with a MIDI keyboard too.
 - **One guitar tuning everywhere.** Choose from 12 tunings (Drop D, DADGAD, open tunings and more) or type your own. Necks, chord shapes and lessons all follow it, and it is remembered for your next visit.
-- **A piano that shows its work:** scale degrees in colour, and standard fingerings for either hand or both, which you can turn off.
 
-### The tools
+---
 
-| Tool | What it does |
-| --- | --- |
-| **Sheet Music** | The score: the toolbar for staff, bars, tempo, voicing, feel, sound and Expand, plus **+** marks to add a section to the form |
-| **Chord Strip** | One chord for each degree of the scale |
-| **Circle of 5ths** | Keys as wedges, with a relative-minor ring. Clicking one changes the studio's key. Switches to 4ths or chromatic order, and numbers the scale's notes (Notes / 1 2 3 / Both) |
-| **Solar System** | The scale as orbits around its tonic, with every note a numbered planet on its own ring. Click a planet to zoom in on its moons: the chords that lead to it or hold it, each numbered from the planet and named for its role. Click a moon to add it to the score |
-| **Container Chord** | "Which chords contain these notes?" Type or pick the notes, narrow the list to the scale if you like, and add a chord to the score |
-| **Scale Relations** | "Which scales contain this chord?" Filters by tonic, then previews a scale on a piano with its chords, or applies it |
-| **Generator** | Type a progression as numbers, numerals or chord names, or generate one with a logic of your choice, then rotate it, run it backwards or swap in a common progression. It writes degrees as numbers, and the **123** button switches them to roman numerals |
-| **Piano and Fretboard** | The instrument dock along the bottom, showing the scale and the chord being played |
-
-<p>
-  <img src="media/solar-system.jpg" width="49%" alt="The Solar System tool in G Mixolydian: a sun labelled G and seven numbered planets, each on its own ring">
-  <img src="media/circle-of-fifths.jpg" width="49%" alt="The Circle of Fifths in G Mixolydian: the scale's notes as numbered green wedges, a relative-minor ring, and a panel with the scale and closest keys">
-</p>
-
-![Zoomed in on the fifth planet, D: its moons on their own rings, labelled with chord names, and a list naming each one's role, such as tritone sub, five-of and chromatic mediant](media/solar-moons.jpg)
-
-### The scale catalogue
+## The scale catalogue
 
 **All 2,048 sets of notes that contain a root**, with over 3,800 further names kept alongside the display names and shown in their own traditions. Dorian also appears as 22 Kharaharapriyā under Carnatic and Kafi thaat under Hindustani. Names that no source confirms are marked as such, and scales from other traditions are marked as approximations in twelve notes.
 
@@ -131,17 +154,43 @@ New here? The first launch offers a short tour, and the **?** menu has it again 
 
 ---
 
-## The idea
+## A studio you can rearrange
 
-Most generative music is individually correct and collectively about nothing. The studio already had the theory machinery. The hard part was **intention**: placement, commitment, repetition and restraint. The generator is tuned against pieces that show those qualities:
+- **Five built-in looks** rearrange the same tools around a different principle. *OG* is the original layout, with everything on screen, and is where the studio opens. *Stage & Wings* gives the score the whole stage, with every tool a click away at the edges. *Notation Desk* keeps page proportions and puts the reference tools behind a drawer. *Luthier* is for players and puts the fretboard first. *Focus* shows one tool at a time.
+- **Build your own look.** Remix any look or start from a skeleton, give each zone a purpose, and name the idea behind it. Looks save in your browser and export as a small `.look.json` file another person can import.
+- **Four visual themes:** Clean DAW, Channel Strip, Matrix FX and Steam 2000. The 🎨 button steps through them.
 
-- **Minuet in G**: simple chords, full of character, because it moves in gestures that commit to a direction.
-- **Für Elise**: chromatic notes exist for motion, and there are very few of them. The E–D♯–E rub works because it keeps coming back.
-- **Bach's Prelude in C**: one figure, never varied, while the harmony walks through it.
-- **Pachelbel**: a melody on top and a melody on the bottom at the same time.
-- **Ellington**: a highlighted moment is built on and escalated, not repeated.
+<p>
+  <img src="media/look-og.jpg" width="49%" alt="The OG look: the Generator in a left column, the chord strip and sheet music with its full toolbar, and a piano and neck below">
+  <img src="media/look-stage-wings.jpg" width="49%" alt="The Stage and Wings look: the score across the whole stage with the tools folded into rails at the left and right edges">
+</p>
+<p>
+  <img src="media/look-luthier.jpg" width="49%" alt="The Luthier look: a full-width guitar fretboard across the top, theory tools in a compact column, the score and a large piano below">
+  <img src="media/look-notation-desk.jpg" width="49%" alt="The Notation Desk look: the score centred with page proportions and a folded reference drawer at the right edge">
+</p>
+<p>
+  <img src="media/look-focus.jpg" width="49%" alt="The Focus look: the chord strip above a row of tabs, and the score alone beneath them">
+  <img src="media/look-builder.jpg" width="49%" alt="The look builder: a panel with a name, a purpose, eight skeletons to start from, and a list of modules assigned to zones, beside a live preview of the layout">
+</p>
 
-That philosophy runs through the whole app. Each look is a theory of what belongs next to what. The score can account for its chromatic notes. The musical rules are checked by tests in `tools/` that measure them across many seeded pieces.
+---
+
+## Writing music from words
+
+The studio can also write a piece for you to hear and take apart. It is a smaller part of the app. Type a few words in the top bar and press **Generate**, then **▶ Play** in the score's toolbar. Every press is a new take.
+
+- **Reading the words.** Words are read against 12 hand-built fields of meaning and for how they sound and scan. The meaning leans the choice of key and shapes the piece; the rest comes from the take's seed.
+- **Seven readings of a text.** *Contour* plays the shape of a line you draw, with 15 named shapes to start from. *Cipher* spells a melody from your letters. *Cast of Themes* turns each word into a recurring subject. *Spotting* treats sentences as film-cue sections. *Blocks* builds the piece from a handful of bars. *Pedal & Colour* holds one bass note under shifting harmony. *Two Lines* writes a melody on top and another on the bottom.
+- **Form.** 33 forms in 11 families, from sentence and period to sonata and passacaglia. **Expand**, on the score's toolbar, turns a piece into a multi-movement work from 8 plans.
+- **Devices.** *Approach scales* borrow a whole collection that points at the next chord and walk into it. *Departures* step out to another key's colour.
+- **It explains itself.** *Where the music comes from* gives the home key, the form, each borrowed chord with its source scale and purpose, and why melody notes leave the scale. *Adjust this take* keeps the seed and changes one decision, so you hear only that decision.
+
+<p>
+  <img src="media/contour.jpg" width="49%" alt="The Contour panel: a drawn curve labelled False Summit, what the line stands for, rhythm, melody and harmony dials, and the words as chips">
+  <img src="media/where-the-music-comes-from.jpg" width="49%" alt="Where the music comes from, open: the home key, the verse-chorus form, the progression by section, and a reason for every chord bar by bar">
+</p>
+
+The generator is tuned against pieces that commit to an idea: Minuet in G for gestures with a direction, Für Elise for few chromatic notes that keep coming back, Bach's Prelude in C for one figure while the harmony walks through it, Pachelbel for a melody on top and on the bottom at once, and Ellington for a moment that is built on and escalated. Tests in `tools/` measure these musical rules across many seeded pieces.
 
 ---
 
@@ -170,6 +219,7 @@ The scale picker was the part of the app that most misrepresented what it knew. 
 - **Stopping:** a score that is playing can keep going after you leave the studio.
 - **Engraving:** the score prints a raw scale id above the staff and a "Tips" line across it, and lyrics can collide.
 - **Guitar in the course:** the chord-symbols table in *Reading chord symbols* always draws a keyboard, even when you chose the guitar.
+- **Spelling in Container Chord:** flats can be listed as sharps. C7 shows as C, E, G, A♯ even in C major.
 - **Harmonization mode:** the Generator's three choices reach the score, but none of them changes a generated piece yet. The chord picking behind them was removed with the old progression builder.
 - **Leftovers:** a greyed-out *Send → Bitwig* button on the score's toolbar, a Generator hint pointing at a "Control Deck" that no longer exists, and some landing-page tool descriptions older than the tools they describe.
 - **Long sessions:** the app's interaction log grows without limit.
@@ -184,8 +234,8 @@ The scale picker was the part of the app that most misrepresented what it knew. 
 ### Where it could go
 
 - **Classrooms.** A look is a lesson plan in miniature. A teacher can build one that puts exactly the tools a unit needs in the order it teaches them, then share it as a file.
-- **Songwriting and scoring.** Spotting reads a scene description as cue timings. Two Lines and the approach devices produce material worth taking into a DAW through MIDI export.
 - **Practice.** Chords mode and Harmonize make any keyboard, MIDI or QWERTY, into a voice-leading and harmony trainer.
+- **Songwriting and scoring.** Spotting reads a scene description as cue timings. Two Lines and the approach devices produce material worth taking into a DAW through MIDI export.
 - **Research and teaching about text and music.** Seven explicit, inspectable readings of text into music, each one documented in the app with what it reads and what it controls.
 
 ---
@@ -235,16 +285,16 @@ On November 6, 2026, all 87 passed at 1440x900 with no page errors.
 | Area | Files |
 | --- | --- |
 | Page and app wiring | `modular-music-theory.html`, `modular-app.js`, `module-selector.js` (landing page and page switching), `tutorial-system.js`, `theme-switcher.js` |
+| Course | `course.js` (the lessons), `course-runner.js` (a lesson inside the studio), `course-theory.js` (spelling and chord naming), `course-widgets.js` (playable tables and games), `course.css` |
+| Learn pages | `learn-common.js` (what they share), `learn-piano-notes.js`, `learn-guitar-notes.js`, `learn-scales.js`, `learn-chords.js`, `learn-inversions.js` |
+| Theory tools | `number-generator.js`, `container-chord-tool.js`, `scale-relationship-explorer.js`, `scale-circle-explorer.js`, `solar-system-visualizer.v2.js`, `viz-controls.css` (the bar the circle and the solar system share) |
+| Instruments and input | `piano-visualizer.js`, `guitar-fretboard-visualizer.js`, `guitar-tuning.js` (the one tuning every neck reads), `instrument-dock.js`, `qwerty-keys.js`, `qwerty-chords.js`, `midi-input-manager.js` |
+| Theory data and scale picker | `music-theory-engine.js`, `chord-attribute-engine.js`, `scales-data-embedded.js`, `scales-loader-embedded.js`, `scale-taxonomy.js`, `scale-library.js`, `scale-helper.js`, [`tools/scales/`](tools/scales/README.md) (the catalogue build) |
+| Score, voicing, playback, MIDI | `sheet-music-generator.js`, `voice-leading-engine.js`, `music-provenance-panel.js`, `logic-path-3d.js`, `simple-audio-engine.js`, `enhanced-audio-engine.js`, `piano-sample-engine.js` |
+| Looks | `look-schema.js` (what a look is, and its validator), `studio-looks.js`, `look-builder.js`, `module-fit.js` |
 | Words → context | `context-engine.js`, `word-character-engine.js`, `semantic-contour-engine.js`, `scale-intelligence-engine.js`, `scoring-methods.js` (the seven readings and the devices) |
 | Composition | `arc-ui-init.js` (the pipeline), `form-planner.js`, `functional-harmony.js`, `harmony-complexity.js`, `progression-library.js`, `numeric-progression.js`, `approach-engine.js`, `scale-colour.js`, `melodic-line-engine.js`, `piano-texture-engine.js` |
 | Contour and adjusting a take | `composition-timeline-ui.js`, `contour-meaning.js`, `composition-controls.js` |
-| Score, voicing, playback, MIDI | `sheet-music-generator.js`, `voice-leading-engine.js`, `music-provenance-panel.js`, `logic-path-3d.js`, `simple-audio-engine.js`, `enhanced-audio-engine.js`, `piano-sample-engine.js` |
-| Theory data and scale picker | `music-theory-engine.js`, `chord-attribute-engine.js`, `scales-data-embedded.js`, `scales-loader-embedded.js`, `scale-taxonomy.js`, `scale-library.js`, `scale-helper.js`, [`tools/scales/`](tools/scales/README.md) (the catalogue build) |
-| Theory tools | `number-generator.js`, `container-chord-tool.js`, `scale-relationship-explorer.js`, `scale-circle-explorer.js`, `solar-system-visualizer.v2.js`, `viz-controls.css` (the bar the circle and the solar system share) |
-| Looks | `look-schema.js` (what a look is, and its validator), `studio-looks.js`, `look-builder.js`, `module-fit.js` |
-| Instruments and input | `piano-visualizer.js`, `guitar-fretboard-visualizer.js`, `guitar-tuning.js` (the one tuning every neck reads), `instrument-dock.js`, `qwerty-keys.js`, `qwerty-chords.js`, `midi-input-manager.js` |
-| Course | `course.js` (the lessons), `course-runner.js` (a lesson inside the studio), `course-theory.js` (spelling and chord naming), `course-widgets.js` (playable tables and games), `course.css` |
-| Learn pages | `learn-common.js` (what they share), `learn-piano-notes.js`, `learn-guitar-notes.js`, `learn-scales.js`, `learn-chords.js`, `learn-inversions.js` |
 
 ---
 
