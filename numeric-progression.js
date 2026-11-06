@@ -80,7 +80,7 @@
      * "Bmaj7#5" into nonsense.
      *
      * Accepts, per token:
-     *   scale degrees   1 4 5 6
+     *   scale degrees   1 4 5 6, b3, b2maj7
      *   roman numerals  ii V I, bVII, #ivm7b5
      *   chord symbols   Bmaj7#5, F#m7, Cmaj7, Abdim7
      *   the box's own    Imaj7(b5), IIIsus2(add6), modal(b5, #5)
@@ -91,7 +91,12 @@
         const tokens = splitTokens(raw);
         const out = [];
 
-        for (const tok of tokens) {
+        for (let tok of tokens) {
+            // The generator's number forms ("b3", "b2maj7") mean the numerals they stand for
+            const numbered = tok.match(/^([b#♭♯]*)([1-7])(?!\d)(.*)$/);
+            if (numbered && (numbered[1] || numbered[3])) {
+                tok = numbered[1] + ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][numbered[2] - 1] + numbered[3];
+            }
             // 1. Plain scale degree
             if (/^[1-7]$/.test(tok)) {
                 out.push({ kind: 'degree', degree: parseInt(tok, 10), accidental: '', roman: tok, raw: tok });

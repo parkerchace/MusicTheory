@@ -501,6 +501,14 @@ window.mountLearnModuleIfReady = function(instrument) {
                     } catch (e) { console.error(e); }
                 });
 
+                // The generator's harmonization mode drives the sheet
+                this.numberGenerator.on('harmonizationModeChanged', (evt) => {
+                    try {
+                        const sheet = this.sheetMusicGenerator;
+                        if (sheet && typeof sheet.setHarmonizationMode === 'function') sheet.setHarmonizationMode(evt.mode);
+                    } catch (e) { console.error(e); }
+                });
+
                 // Propagate manual Roman/chord display tokens into SheetMusicGenerator
                 this.numberGenerator.on('displayTokensChanged', (evt) => {
                     try {

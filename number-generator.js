@@ -41,6 +41,7 @@ class NumberGenerator {
             isManualEditing: false,
             pendingManualNumbers: null,
             manualCommitDebounce: null,
+            labelStyle: 'numbers', // How the box writes degrees: 'numbers' (default) or 'roman'
             manualRomanMode: false, // REVERT: pure numeric mode (scale degrees only)
             manualRawInput: null // Raw string the user typed (Roman or mixed)
         };
@@ -1440,7 +1441,12 @@ class NumberGenerator {
             current += ch;
         }
         if (current.length) out.push(current);
-        return out;
+        // The number forms this box writes ("b3", "b2maj7") mean the numerals they stand for
+        const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+        return out.map(tok => {
+            const m = tok.match(/^([#b♭♯]*)([1-8])(?!\d)(.*)$/);
+            return (m && (m[1] || m[3])) ? m[1] + NUMERALS[parseInt(m[2], 10) - 1] + m[3] : tok;
+        });
     }
 
     /**
@@ -1488,6 +1494,25 @@ class NumberGenerator {
                 if (label && label !== '?' && !degreeOfOwnLabel.has(label)) degreeOfOwnLabel.set(label, d);
             } catch (_) { break; }
         }
+
+        const showNumbers = this.state.labelStyle !== 'roman';
+        // Numbers mode: a degree written as a roman numeral reads as its number.
+        // The scale's own chords ("vi6", "Imaj7(b5)") are just their degree, since
+        // the scale already says what chord sits there; other plain or uppercase
+        // numerals keep their accidental and suffix. Lowercase chromatic chords
+        // stay roman, as the case is what says they are minor. splitManualTokens reads
+        // these forms back, so editing the field in numbers mode keeps them.
+        const ROMAN_DEG = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8 };
+        const toNumberLabel = (tok) => {
+            const t = String(tok);
+            if (degreeOfOwnLabel.has(t)) return String(degreeOfOwnLabel.get(t));
+            const m = t.match(/^([#b♭♯]?)(VIII|VII|VI|V|IV|III|II|I|viii|vii|vi|v|iv|iii|ii|i)(.*)$/);
+            if (!m) return t;
+            // A suffix that opens with a digit stays roman: V7 written as a number is "57"
+            if (m[3] && (m[2] !== m[2].toUpperCase() || /^\d/.test(m[3]))) return t;
+            return m[1] + ROMAN_DEG[m[2].toUpperCase()] + m[3];
+        };
+        const shownTokens = showNumbers ? effectiveTokens.map(toNumberLabel) : effectiveTokens;
 
         // Helper: check if token is diatonic for current scale
         const isDiatonicToken = (token) => {
@@ -1550,6 +1575,7 @@ class NumberGenerator {
 
                 <div class="manual-input-container" style="margin: 12px 0;">
                     <div style="display:flex; gap:6px; align-items:center; justify-content:center; margin-bottom:6px; flex-wrap:wrap;">
+                        <button class="btn btn-secondary" id="ng-label-style" title="Switch between degree numbers and roman numerals" style="padding:2px 8px; font-size:0.75rem;">${showNumbers ? '123' : 'IVX'}</button>
                         <button class="btn btn-secondary" id="ng-undo" title="Undo (Ctrl+Z)">↶ Undo</button>
                         <button class="btn btn-secondary" id="ng-redo" title="Redo (Ctrl+Y / Ctrl+Shift+Z)">↷ Redo</button>
                         <span style="width:1px; height:18px; background: var(--border-color);"></span>
@@ -1561,7 +1587,7 @@ class NumberGenerator {
                            placeholder="e.g., 2 5 1 6"
                            value="${(this.state.isManualEditing && this.state.manualRawInput != null
                         ? this.state.manualRawInput
-                        : effectiveTokens.join(' '))}"
+                        : shownTokens.join(' '))}"
                            style="width: 100%; padding: 8px; font-size: 0.95rem; text-align: center; font-weight: 600; background: #000; color: var(--accent-primary); border: 1px solid var(--border-light); font-family: var(--font-tech);">
                     <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; text-align: center;">Enter scale degree numbers, roman numerals, or chord names (e.g. 1 4 5 1, IV, iv, bII, F#m7)</div>
                     <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; line-height:1.25; text-align:center;">Non-diatonic entries will be highlighted below.</div>
@@ -1569,6 +1595,7 @@ class NumberGenerator {
                 </div>
                 <div class="numbers-display">
                     ${effectiveTokens.map((token, idx) => {
+                        const shown = shownTokens[idx];
                         // Determine if token is diatonic
                         const isDiatonic = isDiatonicToken(token);
                         let color = isDiatonic ? '#34d399' : '#fca5a5'; // Bright green for diatonic, light red for chromatic
@@ -1634,7 +1661,7 @@ class NumberGenerator {
                                 }
                             } catch (e) { /* ignore */ }
                         }
-                        const label = String(token);
+                        const label = String(shown);
                         return `
                             <div class="number-container" data-degree="${label}">
                                 <span class="number-bubble" data-degree="${label}" style="background: transparent; border: 1px solid ${color}; color: ${color}; cursor: pointer; font-family: var(--font-tech);" title="${tooltip}">${label}${!isDiatonic ? ' ⚡' : ''}</span>
@@ -1652,26 +1679,19 @@ class NumberGenerator {
                     <label style="display: block; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-family: var(--font-tech);">Harmonization Mode:</label>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                         <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 0.85rem;">
-                            <input type="radio" name="harm-mode" value="melody" id="harm-mode-melody">
+                            <input type="radio" name="harm-mode" value="melody" id="harm-mode-melody" ${this.state.harmonizationMode === 'melody' ? 'checked' : ''}>
                             <span>🎵 Numbers as Melody</span>
                         </label>
                         <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 0.85rem;">
-                            <input type="radio" name="harm-mode" value="harmony" id="harm-mode-harmony">
+                            <input type="radio" name="harm-mode" value="harmony" id="harm-mode-harmony" ${this.state.harmonizationMode === 'harmony' ? 'checked' : ''}>
                             <span>🎹 Numbers as Chord Tones</span>
                         </label>
                         <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 0.85rem;">
-                            <input type="radio" name="harm-mode" value="root" checked id="harm-mode-root">
+                            <input type="radio" name="harm-mode" value="root" id="harm-mode-root" ${this.state.harmonizationMode === 'root' ? 'checked' : ''}>
                             <span>🌱 Numbers as Root</span>
                         </label>
                     </div>
-                    <div id="harm-mode-description" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; line-height: 1.3;">
-                        Melody: Each number = melody note, generate one chord per note. Harmony: Each number = chord tone, pick chords that contain the number. Root: Each number maps to a scale degree used as the chord root; chord quality is chosen from current complexity/grade settings.
-                    </div>
-                </div>
-                
-                <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:8px;">
-                    <button class="btn btn-primary" id="ng-map-melody" title="Play these numbers on the piano as a melody">🎵 Play Sequence</button>
-                    <button class="btn btn-primary" id="ng-harmonize" title="Generate chords based on harmonization mode" style="background: var(--accent-primary); color: #000; border: none; font-family: var(--font-tech);">🎼 Harmonize</button>
+                    <div id="harm-mode-description" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; line-height: 1.3;">${this.getHarmModeDescription(this.state.harmonizationMode)}</div>
                 </div>
                 <style>
                     .length-controls {
@@ -1733,6 +1753,14 @@ class NumberGenerator {
             </div>
         `;
         
+        const labelStyleBtn = document.getElementById('ng-label-style');
+        if (labelStyleBtn) {
+            labelStyleBtn.addEventListener('click', () => {
+                this.state.labelStyle = (this.state.labelStyle === 'roman') ? 'numbers' : 'roman';
+                this.render();
+            });
+        }
+
         // Manual input handler
         const manualInput = document.getElementById('manual-numbers');
         if (manualInput) {
@@ -1902,54 +1930,13 @@ class NumberGenerator {
             this.render();
         });
 
-        // Melody workflow buttons
-        const mapBtn = document.getElementById('ng-map-melody');
-        if (mapBtn) {
-            mapBtn.addEventListener('click', () => {
-                try {
-                    const numbers = this.getCurrentNumbers();
-                    if (window.modularApp && typeof window.modularApp.playMelodyFromNumbers === 'function') {
-                        window.modularApp.playMelodyFromNumbers(numbers, { bpm: 96, rhythm: 'even' });
-                    }
-                } catch (e) { console.error(e); }
-            });
-        }
-
-        const harmBtn = document.getElementById('ng-harmonize');
-        if (harmBtn) {
-            harmBtn.addEventListener('click', () => {
-                try {
-                    if (window.modularApp && typeof window.modularApp.harmonizeCurrentSequence === 'function') {
-                        window.modularApp.harmonizeCurrentSequence(this.state.harmonizationMode);
-                    }
-                } catch (e) { console.error(e); }
-            });
-        }
-
-        // Harmonization mode toggle
-        const modeRadios = this.container.querySelectorAll('input[name="harm-mode"]');
-        modeRadios.forEach(radio => {
+        // Harmonization mode: tell the app, which hands it to the sheet
+        this.container.querySelectorAll('input[name="harm-mode"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 this.state.harmonizationMode = e.target.value;
                 const desc = this.container.querySelector('#harm-mode-description');
-                if (desc) {
-                    if (e.target.value === 'melody') {
-                        desc.textContent = 'Melody: Each number = melody note, generate one chord per note.';
-                    } else if (e.target.value === 'harmony') {
-                        desc.textContent = 'Harmony: Each number is a chord tone. Progression Builder will pick chords that contain each number, using current pad settings for complexity/quality.';
-                    } else if (e.target.value === 'root') {
-                        desc.textContent = 'Root: Each number maps to a scale degree and is treated as the chord root; complexity/gradeTier select chord quality.';
-                    }
-                    // Log harmonization mode changes for interaction tracing
-                    try {
-                        if (!window.__interactionLog) window.__interactionLog = [];
-                        window.__interactionLog.push({
-                            type: 'harmonizationModeChanged',
-                            details: { mode: this.state.harmonizationMode, source: 'number-generator' },
-                            timestamp: new Date().toISOString()
-                        });
-                    } catch (_) { /* non-fatal logging */ }
-                }
+                if (desc) desc.textContent = this.getHarmModeDescription(e.target.value);
+                this.emit('harmonizationModeChanged', { mode: e.target.value });
             });
         });
 
@@ -2156,6 +2143,12 @@ class NumberGenerator {
             }
         });
         return out;
+    }
+
+    getHarmModeDescription(mode) {
+        if (mode === 'melody') return 'Melody: each number is a melody note, with one chord per note.';
+        if (mode === 'harmony') return 'Chord tones: each number is a chord tone; chords are picked that contain it.';
+        return 'Root: each number is a scale degree used as the chord root; complexity picks the quality.';
     }
 
     numberToRoman(n) {

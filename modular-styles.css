@@ -208,6 +208,16 @@
             overflow: visible;
             min-height: min-content;
         }
+
+        /* launchWorkspace() makes .workspace an inline flex row, so the grid
+           columns above don't apply to OG: without a width of its own this
+           column is only as wide as the text in it. Empty when the module
+           selector has hidden everything in it, it should take no room. */
+        .workspace-column.left-sidebar:has(> .studio-module:not([data-selector-hidden])) {
+            width: 24.4%;
+            min-width: 220px;
+            flex-shrink: 0;
+        }
         
         .workspace-column.right-sidebar {
             position: sticky;
