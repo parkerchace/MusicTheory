@@ -79,10 +79,12 @@
     // guitar mounts in its module and the dock keeps only the piano. The user's
     // stored checkbox choice is untouched and returns when the claim ends.
     let guitarClaimed = false;
+    let courseGuitar = false;   // a lesson, with the guitar chosen: the dock shows just the guitar
     let reapply = null;
 
     function applyDockMode(mode) {
-        if (guitarClaimed) mode = 'piano';
+        if (courseGuitar) mode = 'guitar';
+        else if (guitarClaimed) mode = 'piano';
         const dockGrid = $('instrument-dock');
         const panePiano = $('instrument-pane-piano');
         const paneGuitar = $('instrument-pane-guitar');
@@ -171,6 +173,11 @@
 
         if (!cbPiano || !cbGuitar) return;
 
+        // The docked neck fills its pane and has no legend row, so its tuning
+        // dropdown sits in the toolbar that already overlays the deck.
+        const toolbar = btn && btn.closest('.instrument-dock-settings');
+        if (toolbar && window.GuitarTuning) toolbar.insertBefore(window.GuitarTuning.control(), toolbar.firstChild);
+
         // Restore persisted state
         cbPiano.checked = readBool(STORAGE_KEYS.showPiano, true);
         cbGuitar.checked = readBool(STORAGE_KEYS.showGuitar, true);
@@ -227,7 +234,13 @@
             guitarClaimed = on;
             if (reapply) reapply();
         },
-        isGuitarClaimed() { return guitarClaimed; }
+        isGuitarClaimed() { return guitarClaimed; },
+        showGuitarForCourse(on) {
+            on = !!on;
+            if (on === courseGuitar) return;
+            courseGuitar = on;
+            if (reapply) reapply();
+        }
     };
 
     if (document.readyState === 'loading') {

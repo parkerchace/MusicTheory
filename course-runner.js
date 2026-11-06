@@ -65,6 +65,13 @@
         if (s.qwerty && window.QwertyChords && window.QwertyChords.setMode) {
             try { window.QwertyChords.setMode(s.qwerty); } catch (e) {}
         }
+        // Harmonize's own "Chords: Triads / Sevenths" menu, on the keyboard chip's panel
+        if (s.chordSize) {
+            var size = Array.prototype.filter.call(document.querySelectorAll('.qk-chords-melody select'), function (x) {
+                return Array.prototype.some.call(x.options, function (o) { return o.textContent === 'Sevenths'; });
+            })[0];
+            if (size && size.value !== String(s.chordSize)) { size.value = String(s.chordSize); fire(size, 'change'); }
+        }
     }
 
     function voicingSelect() {
@@ -190,6 +197,8 @@
         'prov':                { mid: 'sheet', find: function () { var p = document.getElementById('music-provenance-panel'); return p && p.firstElementChild; } },
         // its title and the degrees box: the whole section, with its list of approaches, is taller than a small window
         'prov-approach':       { mid: 'sheet', open: openProv, find: function () { var w = findApproach(); return w && [w.children[0], w.children[2]]; } },
+        'ng-common':           { mid: 'numgen', find: q('#common-progression-btn') },
+        'ng-numbers':          { mid: 'numgen', find: q('#manual-numbers') },
         'solar':               { mid: 'solar', find: function (st) {
             var v = solarViz(), pt = st && st.set && st.set.planet && planetPoint(st.set.planet);
             if (pt) { var h = pt.size + 10; return { rect: { left: pt.x - h, top: pt.y - h, right: pt.x + h, bottom: pt.y + h, width: 2 * h, height: 2 * h } }; }
@@ -301,6 +310,8 @@
                             var p = prov(), w = findApproach();
                             return !!p && (p.numericDegrees || []).join(' ') === norm(v).replace(/\s+/g, ' ') && !!w && /ways into/.test(w.textContent);
                         } },
+        degrees:      { act: function (v) { widgetApi.loadDegrees(norm(v).split(' ').map(Number), 'C'); },
+                        done: function (v) { var a = app(), ng = a && a.numberGenerator; return !!ng && (ng.getCurrentNumbers() || []).join(' ') === norm(v); } },
         planet:       { act: function (note) {
                             var v = solarViz(), pt = planetPoint(note);
                             if (!v || !pt || v.state.expandedPlanets.indexOf(note) !== -1) return;
@@ -355,9 +366,9 @@
         var found = t.find(st);
         // pointing by itself never scrolls things about either: only at what is already in sight
         if (auto && !shown(found)) return false;
-        if (!rectOf(found) && !retried && window.StudioLooks && l.look && window.StudioLooks.current() !== l.look) {
-            // the control is not in the look you switched to: go back to the lesson's
-            window.StudioLooks.apply(l.look);
+        if (!rectOf(found) && !retried && window.StudioLooks && window.StudioLooks.current() !== '__lesson') {
+            // the control is not in the look you switched to: go back to the lesson's layout
+            stage(l);
             setTimeout(function () { point(k, true, scrollCard, auto); }, 350);
             return false;
         }
@@ -477,6 +488,7 @@
         filter: function () { return '3/6 Mediant'; },
         open: function () { return 'Open it'; },
         approach: function (v) { return 'Build ' + v; },
+        degrees: function (v) { return 'Load ' + v; },
         planet: function (v) { return 'Open ' + v; }
     };
     function setLabel(s) { var f = SET_LABELS[s.kind]; return f ? f(s.value) : 'Do it'; }
@@ -522,7 +534,16 @@
         return ({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 })[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + (parseInt(m[3], 10) + 1) * 12;
     }
 
+    /** The instrument a lesson lights and sounds: the guitar when it is the one chosen. */
+    function shownInstrument() {
+        var a = app();
+        if (!a) return null;
+        return window.LearnCommon && window.LearnCommon.instrument() === 'guitar' && a.guitarFretboard ? a.guitarFretboard : a.pianoVisualizer;
+    }
+
     function playNote(midi, dur, time) {
+        var guitar = window.LearnCommon && window.LearnCommon.guitarSound();
+        if (guitar) { guitar.playNote(midi, dur, time); return; }
         var a = app(), eng = a && a.audioEngine;
         if (!eng || typeof eng.playNote !== 'function') return;
         try { if (eng.resume) eng.resume(); } catch (e) {}
@@ -533,7 +554,7 @@
     function stopPlaying() {
         playTimers.forEach(clearTimeout);
         playTimers = [];
-        var pv = app() && app().pianoVisualizer;
+        var pv = shownInstrument();
         if (pv && pv.clearFocusNotes) pv.clearFocusNotes();
     }
 
@@ -541,7 +562,7 @@
         stopPlaying();
         var chords = h.seq || [h.notes];
         var step = chords.every(function (c) { return c.length === 1; }) ? 0.32 : 1.0;
-        var pv = app() && app().pianoVisualizer;
+        var pv = shownInstrument();
         chords.forEach(function (c, i) {
             c.forEach(function (n) { playNote(midiOf(n), step * 0.95, i * step); });
             if (pv && pv.setFocusNotes) {
@@ -550,6 +571,47 @@
         });
         playTimers.push(setTimeout(function () { if (pv && pv.clearFocusNotes) pv.clearFocusNotes(); }, (chords.length * step + 0.6) * 1000));
     }
+
+    var focusTimer = null;
+    var widgetApi = {
+        playNote: playNote,
+        /** Light these notes on the lesson's instrument for `ms`. */
+        focus: function (names, ms) {
+            var pv = shownInstrument();
+            if (!pv || !pv.setFocusNotes) return;
+            clearTimeout(focusTimer);
+            pv.setFocusNotes(names, { kind: 'chord' });
+            focusTimer = setTimeout(function () { pv.clearFocusNotes(); }, ms || 2000);
+        },
+        /** Put a progression (scale degrees) in the Generator, in `key` major, so the sheet and strip show it. */
+        loadDegrees: function (degrees, key) {
+            var a = app(), ng = a && a.numberGenerator;
+            if (!ng || !ng.applyProgressionDegrees) return false;
+            var lib = window.scaleLibrary || (a && a.scaleLibrary);
+            var k = studioKey(key);
+            try { if (lib && k && (lib.getCurrentKey() !== k || lib.getCurrentScale() !== 'major')) lib.setKeyAndScale(k, 'major'); } catch (e) {}
+            return ng.applyProgressionDegrees(degrees, 'course');
+        }
+    };
+    /** 'E♭' as the studio's key list spells it (Eb, or D# when that is all it knows). */
+    function studioKey(name) {
+        var a = app(), mt = a && a.musicTheory, keys = mt && mt.getKeys ? mt.getKeys() : [];
+        var plain = String(name || '').replace('♭', 'b').replace('♯', '#');
+        if (keys.indexOf(plain) !== -1) return plain;
+        var pc = window.CourseTheory ? window.CourseTheory.pcOf(name) : null;
+        var sharp = pc == null ? null : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][pc];
+        return keys.indexOf(sharp) !== -1 ? sharp : null;
+    }
+
+    /**
+     * The notes a ▶ button plays, as the lesson text writes them: "B3·E4·G4·C5 → A3·E4·G4·C5".
+     * A chord named without its voicing can't be checked against the text.
+     */
+    function hearNotes(h) {
+        var name = function (n) { return n.replace('#', '♯').replace(/^([A-G])b/, '$1♭'); };
+        return (h.seq || [h.notes]).map(function (c) { return c.map(name).join('·'); }).join(isMelody(h) ? ' ' : ' → ');
+    }
+    function isMelody(h) { return (h.seq || [h.notes]).every(function (c) { return c.length === 1; }); }   // single notes, not chords
 
     /* ---------- the card --------------------------------------------- */
     function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -585,14 +647,18 @@
             return '<button type="button" class="course-modchip" data-mid="' + m + '">' + esc(C().moduleLabel(m)) + '</button>';
         }).join('');
         var hears = (l.hear || []).map(function (h, k) {
-            return '<button type="button" class="course-hear" data-k="' + k + '">▶ ' + esc(h.label) + '</button>';
+            var notes = hearNotes(h);
+            var under = notes && (h.seq || [h.notes]).length <= 3 && (h.seq || [h.notes]).every(function (c) { return c.length > 1; });
+            return '<button type="button" class="course-hear" data-k="' + k + '" title="' + esc(notes) + '">▶ ' + esc(h.label) +
+                   (under ? '<span class="course-hear-notes">' + esc(notes) + '</span>' : '') + '</button>';
         }).join('');
         var check = '';
         if (l.check && l.check.steps) {
             check = '<div class="course-q">Do the steps above: each one ticks when the studio is set that way.</div>';
-        } else if (l.check && l.check.quiz) {
+        }
+        if (l.check && l.check.quiz) {
             var q = l.check.quiz;
-            check = '<div class="course-q">' + esc(q.q) + '</div><div class="course-opts">' +
+            check += '<div class="course-q">' + esc(q.q) + '</div><div class="course-opts">' +
                 q.options.map(function (o, k) { return '<button type="button" class="course-opt" data-k="' + k + '">' + esc(o) + '</button>'; }).join('') +
                 '</div>';
         }
@@ -605,7 +671,7 @@
                 '</div>' +
             '</div>' +
             '<h2 class="course-card-title">' + esc(l.title) + '</h2>' +
-            '<div class="course-card-src">' + esc(C().source) + ' · ' + esc(C().slideText(l)) + '</div>' +
+            (C().slideText(l) ? '<div class="course-card-src">' + esc(C().source) + ' · ' + esc(C().slideText(l)) + '</div>' : '') +
             '<div class="course-card-body">' + l.body + '</div>' +
             (hears ? '<div class="course-sec">Hear it</div><div class="course-hears">' + hears + '</div>' : '') +
             '<div class="course-sec">Try it in the studio</div>' +
@@ -619,6 +685,11 @@
                 '<button type="button" class="course-nav course-next" data-act="next">' + (i >= order.length - 1 ? 'Finish →' : 'Next →') + '</button>' +
             '</div>';
         if (C().isDone(l.id)) verdict(true, 'Done. On to the next one.');
+
+        // a lesson's hands-on part plays through the same speaker and studio piano as ▶
+        var host = card.querySelector('[data-course-widget]');
+        var mount = l.widget && window.CourseWidgets && window.CourseWidgets[l.widget.kind];
+        if (host && mount) mount(host, l.widget, widgetApi);
 
         card.querySelectorAll('.course-hear').forEach(function (b) {
             b.addEventListener('click', function () { hear(l.hear[+b.getAttribute('data-k')]); });
@@ -645,7 +716,8 @@
     }
 
     function renderIndex(filterMid) {
-        var html = '<div class="course-card-head"><div class="course-card-where">' + (filterMid ? 'Lessons that use ' + esc(C().moduleLabel(filterMid)) : 'Course') + '</div>' +
+        document.body.classList.remove('course-keys');
+        var html ='<div class="course-card-head"><div class="course-card-where">' + (filterMid ? 'Lessons that use ' + esc(C().moduleLabel(filterMid)) : 'Course') + '</div>' +
             '<div class="course-card-actions"><button type="button" class="course-icon" data-act="close" title="Close" aria-label="Close">×</button></div></div>';
         C().levels.forEach(function (lv) {
             var units = lv.units.map(function (u) {
@@ -698,6 +770,53 @@
         else if (act === 'collapse') setCollapsed(true);
     }
 
+    /**
+     * A lesson lays the studio out for itself. A look built for the whole
+     * screen, less the card's width and the dock's height, left the tools the
+     * lesson is about as small as the ones it never mentions. So the lesson's
+     * own tools stand side by side at full height — the score (chord strip
+     * over the sheet) beside them when the lesson uses it — and every other
+     * tool waits in a drawer at the right. The guitar stays in the dock, alone there when it is the instrument chosen.
+     */
+    var SCORE = ['chordstrip', 'sheet'];
+    function stageFor(l) {
+        var mods = (l.modules || []).slice();
+        (l.steps || []).forEach(function (st) {
+            var t = TARGETS[st.at];
+            if (t && t.mid && mods.indexOf(t.mid) === -1) mods.push(t.mid);
+        });
+        var tools = mods.filter(function (m) { return SCORE.indexOf(m) === -1 && m !== 'fretboard'; });
+        var score = mods.some(function (m) { return SCORE.indexOf(m) !== -1; });
+        var specs = window.StudioLooks ? window.StudioLooks.modules() : {};
+        var all = Object.keys(specs).filter(function (m) { return !specs[m].relocated; });   // not the header's
+        var zones = {}, cols = [], keys = [];
+        tools.slice(0, 2).forEach(function (m, i) {
+            var k = 'ab'.charAt(i);
+            zones[k] = { modules: [m] };
+            keys.push(k);
+            cols.push('minmax(300px, 1fr)');
+        });
+        if (score) { zones.s = { flow: 'page', modules: SCORE.slice() }; keys.push('s'); cols.push('minmax(336px, 1.5fr)'); }
+        var placed = tools.slice(0, 2).concat(score ? SCORE : []);
+        zones.r = { flow: 'drawer', side: 'right', label: 'MORE TOOLS', modules: all.filter(function (m) { return placed.indexOf(m) === -1; }) };
+        var grid = { areas: [keys.concat('r').join(' ')], cols: cols.concat('44px').join(' '), rows: 'minmax(0, 1fr)' };
+        // two columns beside the card need ~1180px of window: below that, stack them
+        if (keys.length > 1) grid.below = [{ width: 1180, areas: keys.map(function (k) { return k + ' r'; }), cols: 'minmax(0, 1fr) 44px',
+                                             rows: keys.map(function (k) {
+                                                 // the score and the orbit fill what they are given; the other tools are as tall as their contents
+                                                 return k === 's' ? 'minmax(320px, 1fr)' : zones[k].modules[0] === 'solar' ? 'minmax(280px, 1fr)' : 'auto';
+                                             }).join(' ') }];
+        var look = { id: 'lesson', name: 'Lesson', grid: grid, zones: zones };
+        if (score) look.stage = 'sheet';
+        return look;
+    }
+
+    function stage(l) {
+        if (!window.StudioLooks || !window.StudioLooks.preview) return;
+        var r = window.StudioLooks.preview(stageFor(l), '__lesson');
+        if (!r.ok) console.warn('[CourseRunner] lesson layout', r.errors);
+    }
+
     /** Narrow screens: the card covers the workspace instead of sitting beside it (course.css). */
     function overlaid() { return !!(window.matchMedia && window.matchMedia('(max-width: 900px)').matches); }
 
@@ -720,8 +839,14 @@
             card.addEventListener('click', onCardClick);
         }
         document.body.classList.add('course-on');
+        if (window.InstrumentDock && window.LearnCommon) window.InstrumentDock.showGuitarForCourse(window.LearnCommon.instrument() === 'guitar');
         if (collapsed) setCollapsed(false);
         relayout();
+    }
+
+    /** Does this lesson have you play on the typing keyboard? Its chip stays out of the others (course.css). */
+    function usesKeys(l) {
+        return (l.steps || []).some(function (st) { return /^qk-/.test(st.at || ''); });
     }
 
     /* ---------- public ----------------------------------------------- */
@@ -742,7 +867,11 @@
         stopPlaying();
         hidePointer();
         stepDone = {};
-        if (window.StudioLooks && l.look && window.StudioLooks.current() !== l.look) window.StudioLooks.apply(l.look);
+        stage(l);
+        document.body.classList.toggle('course-keys', usesKeys(l));
+        // a new layout starts at its top, not wherever the last lesson left it scrolled
+        for (var sc = document.querySelector('.workspace'); sc; sc = sc.parentElement) if (sc.scrollTop) sc.scrollTop = 0;
+        window.scrollTo(0, 0);
         open();
         renderLesson(l);
         card.scrollTop = 0;
@@ -793,7 +922,8 @@
         refoldSheetControls();
         if (stepTimer) { clearInterval(stepTimer); stepTimer = null; }
         spotlight([]);
-        document.body.classList.remove('course-on', 'course-folded');
+        document.body.classList.remove('course-on', 'course-folded', 'course-keys');
+        if (window.InstrumentDock) window.InstrumentDock.showGuitarForCourse(false);
         collapsed = false;
         if (card) card.innerHTML = '';
         var back = prevLook;

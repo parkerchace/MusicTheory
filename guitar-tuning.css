@@ -1,0 +1,63 @@
+/* ==========================================================================
+   GUITAR TUNING (guitar-tuning.js)
+   A little dropdown, wherever there is a neck: above the fretboard,
+   in the dock's toolbar (it costs the docked neck no height), on Learn Notes
+   and on the course page.
+   ========================================================================== */
+
+.gt-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.gt-caption { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+
+.gt-select,
+.gt-custom {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1.2;
+    height: 22px;
+    box-sizing: border-box;
+    padding: 1px 4px;
+    color: var(--text-main);
+    background: var(--bg-app);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm, 3px);
+}
+.gt-select:hover,
+.gt-select:focus-visible,
+.gt-custom:focus { border-color: var(--accent-primary); outline: none; }
+
+.gt-custom { width: 17ch; }
+.gt-custom[hidden] { display: none; }
+.gt-custom.gt-bad { border-color: #ef4444; color: #fca5a5; }
+
+/* In the dock's toolbar only while the guitar is there. A piano-only dock has
+   left the neck in a module, and the neck's own dropdown is the one to use. */
+#instrument-dock-root.dock-mode-piano .instrument-dock-settings .gt-control { display: none; }
+#instrument-dock-root .instrument-dock-settings .gt-control {
+    padding: 1px 3px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm, 3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+#instrument-dock-root .instrument-dock-settings .gt-select,
+#instrument-dock-root .instrument-dock-settings .gt-custom { font-size: 0.66rem; height: 18px; border-color: transparent; }
+
+/* Learn Notes: the same size as the menus beside it */
+.lgn-controls .gt-control { font-size: 0.85rem; }
+.lgn-controls .gt-select,
+.lgn-controls .gt-custom { height: auto; padding: 4px 6px; font-size: 0.85rem; }
+
+/* the course page: follows the instrument choice beside it */
+.course-tuning { display: none; margin-bottom: 12px; font-size: 0.85rem; color: var(--text-muted); }
+.course-section:has(#instrument-select option[value="guitar"]:checked) .course-tuning { display: inline-block; }
+.course-tuning .gt-control { font-size: 0.85rem; }
+.course-tuning .gt-select { height: auto; padding: 4px 10px; border-radius: 4px; font-size: 0.9rem; }
+.course-tuning .gt-custom { height: auto; padding: 4px 6px; border-radius: 4px; font-size: 0.9rem; }

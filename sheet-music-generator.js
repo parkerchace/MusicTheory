@@ -4629,7 +4629,7 @@ class SheetMusicGenerator {
 	// letters come out sharp or flat ARE the signature — not a lookup into
 	// the 15 major/minor signatures, which only cover the diatonic rotations
 	// and were wrong for every scale outside that set. A scale that isn't
-	// seven notes (most of the 1300+ library: pentatonic, hexatonic,
+	// seven notes (most of the 2,048-scale library: pentatonic, hexatonic,
 	// octatonic and the rest) has no letter-per-note mapping to hang a
 	// signature on, so it gets none — every accidental is spelled inline,
 	// which is standard notation practice for non-diatonic-shaped scales.

@@ -3,7 +3,7 @@
  *
  * HOW FAR IS THIS COLLECTION FROM THE ONE WE ARE IN?
  *
- * Two features need to choose a scale out of the 1300+ library and both were
+ * Two features need to choose a scale out of the 2,048-scale library and both were
  * choosing it with an ad-hoc number: the approach search priced its results by
  * `overlapOf` and then ranked by familiarity anyway, and the excursion planner
  * scored `shared * 2 - foreign`. Both of those quietly answer "which candidate

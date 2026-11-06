@@ -62,8 +62,6 @@
                      purpose: 'The music, written out' },
         solar:     { container: 'solar-dock-viewport',         label: 'Solar System',   glyph: '☀️', minW: '280px', minH: '280px', idealW: '420px',
                      purpose: 'Your scale as orbits around its tonic' },
-        grading:   { container: 'grading-key-sidebar',         label: 'Grading Key',    glyph: '🗝️', minW: '208px', minH: '120px', idealW: '280px',
-                     purpose: 'What the chord colours mean' },
         fretboard: { container: 'guitar-fretboard-container',  label: 'Fretboard',      glyph: '🎸', minW: '336px', minH: '168px', idealW: '620px',
                      purpose: 'The scale on a guitar neck' },
         chordstrip:{ container: 'mini-chord-strip',            label: 'Chord Strip',    glyph: '▤', bare: true, minW: '200px', minH: '40px', idealW: '100%' }
@@ -98,31 +96,6 @@
         },
 
         {
-            id: 'signal-chain',
-            name: 'Signal Chain',
-            tagline: 'Data flow, left to right',
-            principle: 'Four numbered stages mirroring how a phrase is actually made: source → transform → render → monitor. You read the studio like a patch cable.',
-            // Four stages need ~1230px of content; below that, render on top, then 2x2.
-            grid: {
-                areas: ['a b c d'],
-                cols: 'minmax(272px, 0.85fr) minmax(288px, 0.9fr) minmax(336px, 1.6fr) minmax(336px, 0.8fr)',
-                rows: 'minmax(0, 1fr)',
-                below: [{ width: 1340, areas: ['c c', 'a b', 'd d'], cols: 'minmax(0, 1fr) minmax(0, 1fr)',
-                          rows: 'minmax(300px, 1.4fr) minmax(260px, 1fr) auto' }]
-            },
-            zones: {
-                a: { label: '01 · SOURCE',    why: 'A phrase starts in the top bar: type words, press Generate. The circle shows the key it lands in.',
-                     modules: ['circle', 'numgen'] },
-                b: { label: '02 · TRANSFORM', why: 'Turn material into harmony: chords that hold your notes, scales that hold a chord, the scale as orbits.',
-                     modules: ['chords', 'relations', 'solar'] },
-                c: { label: '03 · RENDER',    why: 'What comes out: the chords of your key, and the generated score.',
-                     modules: ['chordstrip', 'sheet'] },
-                d: { label: '04 · MONITOR',   why: 'Check the result: what the chord colours mean, and the notes on a guitar neck.',
-                     modules: ['grading', 'fretboard'] }
-            }
-        },
-
-        {
             id: 'stage-wings',
             name: 'Stage & Wings',
             tagline: 'The score is the work',
@@ -132,67 +105,7 @@
             zones: {
                 a: { label: 'IN',  flow: 'rail', side: 'left',  modules: ['circle', 'numgen'] },
                 b: { flow: 'column', modules: ['chordstrip', 'sheet'] },
-                c: { label: 'REF', flow: 'rail', side: 'right', modules: ['chords', 'relations', 'solar', 'grading', 'fretboard'] }
-            }
-        },
-
-        {
-            id: 'two-up',
-            name: 'Two-Up',
-            tagline: 'Question left, answer right',
-            principle: 'A hard split between everything that poses a question and everything that shows a result. Drag the divider to weight one side over the other.',
-            divider: { zone: 's', axis: 'x' },
-            // Both halves must clear their widest member (sheet 336 / relations 288);
-            // stacked, the split means nothing and the divider is not placed.
-            grid: {
-                areas: ['a s b'],
-                cols: 'minmax(300px, var(--look-split, 1fr)) 8px minmax(340px, 1fr)',
-                rows: 'minmax(0, 1fr)',
-                below: [{ width: 1100, areas: ['a', 'b'], cols: 'minmax(0, 1fr)', rows: 'auto auto' }]
-            },
-            zones: {
-                a: { label: 'ASK',    why: 'Tools that pose a question: which chords, which scales, which key.',
-                     modules: ['chords', 'relations', 'circle', 'numgen'] },
-                b: { label: 'ANSWER', why: 'Where the result shows up: the score, the orbits, the colours, the neck.',
-                     modules: ['chordstrip', 'sheet', 'solar', 'grading', 'fretboard'] }
-            }
-        },
-
-        {
-            id: 'console',
-            name: 'Console',
-            tagline: 'Mixer channel strips',
-            principle: 'Every module gets an identical vertical strip with a rotated nameplate, scrolling horizontally. No module outranks another; the piano dock is the master bus.',
-            grid: { areas: ['b', 'a'], cols: 'minmax(0, 1fr)', rows: 'auto minmax(0, 1fr)' },
-            zones: {
-                b: { flow: 'column', maxHeight: '60px', modules: ['chordstrip'] },
-                a: { flow: 'strips',  modules: ['sheet', 'circle', 'chords', 'relations', 'solar', 'grading', 'fretboard', 'numgen'] }
-            }
-        },
-
-        {
-            id: 'orrery',
-            name: 'Orrery',
-            tagline: 'Exploration before output',
-            principle: 'The solar visualizer becomes the centre of gravity. Scale, chord and circle tools orbit it at the corners; notation drops to a thin ribbon you glance at rather than stare at.',
-            // Satellites clear the circle tool's 272px floor; the top corners get the
-            // larger share of the height the orbit spans. Too narrow for satellites
-            // either side: orbit on top, tools beneath.
-            grid: {
-                areas: ['a b c', 'd b e', 'f f f'],
-                cols: 'clamp(288px, 21vw, 344px) minmax(0, 1fr) clamp(288px, 21vw, 344px)',
-                rows: 'minmax(0, 1.3fr) minmax(0, 0.7fr) auto',
-                below: [{ width: 1180, areas: ['b b', 'a c', 'd e', 'f f'], cols: 'minmax(0, 1fr) minmax(0, 1fr)',
-                          rows: 'minmax(300px, 46vh) auto auto auto' }]
-            },
-            zones: {
-                a: { modules: ['circle'] },                // alone, so it sizes to its corner
-                b: { flow: 'orbit', modules: ['solar'] },
-                c: { modules: ['relations', 'grading'] },
-                d: { modules: ['numgen'] },
-                e: { modules: ['chords'] },
-                f: { flow: 'row', label: 'RIBBON', why: 'The score to glance at, not stare at: chords, staff and the neck in one strip.', height: 'clamp(150px, 22vh, 240px)', maxHeight: 'clamp(150px, 22vh, 240px)',
-                     modules: ['chordstrip', 'sheet', 'fretboard'] }
+                c: { label: 'REF', flow: 'rail', side: 'right', modules: ['chords', 'relations', 'solar', 'fretboard'] }
             }
         },
 
@@ -206,7 +119,7 @@
             zones: {
                 b: { flow: 'page', label: 'SCORE', why: 'Change it from the top bar (words, then Generate) and from the sheet\'s Controls.',
                      modules: ['chordstrip', 'sheet'] },
-                c: { label: 'REFERENCE', flow: 'drawer', side: 'right', modules: ['circle', 'chords', 'relations', 'solar', 'grading', 'fretboard', 'numgen'] }
+                c: { label: 'REFERENCE', flow: 'drawer', side: 'right', modules: ['circle', 'chords', 'relations', 'solar', 'fretboard', 'numgen'] }
             }
         },
 
@@ -229,32 +142,7 @@
                 a: { flow: 'bench', modules: ['fretboard'] },
                 b: { label: 'THEORY', flow: 'compact', why: 'Theory kept small, beside the instrument: open a tool when you need it.',
                      modules: ['circle', 'chords', 'relations', 'solar', 'numgen'] },
-                c: { modules: ['chordstrip', 'sheet', 'grading'] }
-            }
-        },
-
-        {
-            id: 'lab-bench',
-            name: 'Lab Bench',
-            tagline: 'Analysis on top',
-            principle: 'Inverts the default hierarchy. The two analysis tools run side by side across the top with the grading key as a full-width legend beneath them; the score and the solar map become evidence below.',
-            stage: 'sheet',
-            grid: {
-                areas: ['a b', 'c c', 'd e', 'f f'],
-                cols: 'minmax(336px, 1fr) minmax(288px, 1fr)',
-                rows: 'minmax(200px, 1fr) auto minmax(220px, 1.1fr) auto',
-                below: [{ width: 1040, areas: ['a', 'b', 'c', 'd', 'e', 'f'], cols: 'minmax(0, 1fr)',
-                          rows: 'auto auto auto auto auto auto' }]
-            },
-            zones: {
-                a: { label: 'ANALYSE', why: 'Which chords hold a set of notes.', modules: ['chords'] },
-                b: { label: 'RELATE',  why: 'Which scales a chord belongs to.', modules: ['relations'] },
-                // a strip, so it states its height (as an auto row it got 62px at 1920)
-                c: { flow: 'legend', height: 'clamp(120px, 20vh, 200px)', maxHeight: 'none', modules: ['grading'] },
-                d: { modules: ['chordstrip', 'sheet'] },
-                e: { modules: ['solar'] },
-                f: { flow: 'row', label: 'REFERENCE', why: 'Reference while you analyse: the circle of keys, the neck, a typed progression.', height: 'clamp(170px, 26vh, 260px)', maxHeight: 'clamp(170px, 26vh, 260px)',
-                     modules: ['circle', 'fretboard', 'numgen'] }
+                c: { modules: ['chordstrip', 'sheet'] }
             }
         },
 
@@ -267,59 +155,7 @@
             grid: { areas: ['t', 'a'], cols: 'minmax(0, 1fr)', rows: 'auto minmax(0, 1fr)' },
             zones: {
                 t: { flow: 'tabs', modules: ['chordstrip'] },
-                a: { flow: 'solo', modules: ['sheet', 'circle', 'chords', 'relations', 'solar', 'grading', 'fretboard', 'numgen'] }
-            }
-        },
-
-        {
-            id: 'command-deck',
-            name: 'Command Deck',
-            tagline: 'Glanceable telemetry',
-            principle: 'Every module becomes an equal tile in one mosaic sized to the viewport. Nothing scrolls, everything is visible at once, and clicking a nameplate zooms that tile to 2×2.',
-            grid: { areas: ['a'], cols: 'minmax(0, 1fr)', rows: 'minmax(0, 1fr)' },
-            zones: {
-                a: { flow: 'mosaic', modules: ['sheet', 'circle', 'chords', 'relations', 'solar', 'grading', 'fretboard', 'numgen', 'chordstrip'] }
-            }
-        },
-
-        {
-            id: 'curriculum',
-            name: 'Curriculum',
-            tagline: 'Pedagogical order, one column',
-            principle: 'The studio read top to bottom in teaching order: learn the map, build chords, find relations, generate from words in the top bar, read it, play it. Numbered steps in a single measured column; each module\'s Learn chip opens the course lessons that use it.',
-            stage: 'sheet',
-            grid: { areas: ['a'], cols: 'minmax(0, 1fr)', rows: 'minmax(0, 1fr)' },
-            zones: {
-                a: { flow: 'reading', modules: ['circle', 'chords', 'relations', 'chordstrip', 'sheet', 'solar', 'grading', 'fretboard', 'numgen'],
-                     steps: {
-                         circle: 'Learn the map: every key, and its neighbours a fifth away.',
-                         chords: 'Build chords: which chords hold the notes you have.',
-                         relations: 'Find relations: which scales a chord belongs to.',
-                         sheet: 'Type words in the top bar, press Generate, and read what came out.',
-                         solar: 'See your scale as orbits around its tonic.',
-                         grading: 'What the chord colours on the score mean.',
-                         fretboard: 'Play it: the scale on a guitar neck.',
-                         numgen: 'Or type a progression by hand, as numbers.'
-                     } }
-            }
-        },
-
-        {
-            id: 'split-brain',
-            name: 'Split Brain',
-            tagline: 'Generative over evaluative',
-            principle: 'Two stacked decks divided by what they are for. Above the line, everything that invents; below it, everything that judges. Drag the divider as the work shifts.',
-            divider: { zone: 's', axis: 'y' },
-            grid: {
-                areas: ['a', 's', 'b'],
-                cols: 'minmax(0, 1fr)',
-                rows: 'minmax(190px, var(--look-split, 1fr)) 8px minmax(230px, 1fr)'
-            },
-            zones: {
-                a: { label: 'GENERATE', flow: 'row', why: 'Invent from the top bar — words, then Generate — and explore the key here.',
-                     modules: ['solar', 'circle', 'numgen'] },
-                b: { label: 'EVALUATE', flow: 'row', why: 'Judge what came out: read the score, check the colours, analyse the chords.',
-                     modules: ['chordstrip', 'sheet', 'grading', 'chords', 'relations', 'fretboard'] }
+                a: { flow: 'solo', modules: ['sheet', 'circle', 'chords', 'relations', 'solar', 'fretboard', 'numgen'] }
             }
         }
     ];
@@ -656,7 +492,7 @@
             window.InstrumentDock.claimGuitar((look.claims || []).indexOf('fretboard') !== -1);
         }
 
-        if (currentId !== look.id && currentId !== 'og' && currentId !== '__preview') saveLookState(currentId, { introSeen: true });
+        if (currentId !== look.id && currentId !== 'og' && currentId.charAt(0) !== '_') saveLookState(currentId, { introSeen: true });
         currentId = look.id;
         if (ws) ws.style.removeProperty('--look-split');   // each look keeps its own split
 
@@ -1153,29 +989,29 @@
     /* ==================================================================
        SUGGESTIONS — three looks for what the person says they want
        The landing page already asks for a skill level, an intent and an
-       instrument; twelve equal cards is a lot to choose from cold.
+       instrument; equal cards are a lot to choose from cold.
        ================================================================== */
     var SUGGEST_BY_LEVEL = {
-        beginner: [['curriculum', 'The tools in lesson order, one numbered step at a time'],
-                   ['focus', 'One tool on screen and nothing else'],
-                   ['luthier', 'Your instrument first, the theory beside it']],
-        intermediate: [['signal-chain', 'See how a phrase is made, stage by stage'],
-                       ['two-up', 'Questions on one side, answers on the other'],
-                       ['stage-wings', 'The score, with every tool a click away']],
-        advanced: [['lab-bench', 'Analysis first, the score as evidence'],
-                   ['command-deck', 'Everything visible at once'],
-                   ['split-brain', 'Invent above the line, judge below it']]
+        beginner: [['focus', 'One tool on screen and nothing else'],
+                   ['luthier', 'Your instrument first, the theory beside it'],
+                   ['og', 'The whole studio, as it was built']],
+        intermediate: [['stage-wings', 'The score, with every tool a click away'],
+                       ['luthier', 'Your instrument first, the theory beside it'],
+                       ['focus', 'One tool at a time']],
+        advanced: [['notation-desk', 'The page, and what changes it'],
+                   ['og', 'Everything on screen at once'],
+                   ['stage-wings', 'The score is the work']]
     };
     var SUGGEST_BY_INTENT = [
         [/learn|begin|basic|lesson|start|study/i, 'beginner'],
         [/guitar|fret|improv|play|practi|piano|keys/i, [['luthier', 'Your instrument first, the theory beside it'],
             ['focus', 'One tool at a time while you play'], ['stage-wings', 'The score in the middle, tools tucked away']]],
         [/write|compos|score|notat|sheet|song|arrang/i, [['notation-desk', 'The page, and what changes it'],
-            ['stage-wings', 'The score is the work'], ['two-up', 'Questions left, answers right']]],
-        [/analy|reharmon|theor|chord|scale|function|harmon/i, [['lab-bench', 'The analysis tools first'],
-            ['signal-chain', 'Follow a phrase from source to result'], ['orrery', 'Explore the scale before the score']]],
-        [/explor|discover|visual|orbit|wander|idea/i, [['orrery', 'Exploration before output'],
-            ['command-deck', 'Everything at a glance'], ['split-brain', 'Invent above, judge below']]]
+            ['stage-wings', 'The score is the work'], ['focus', 'One tool at a time']]],
+        [/analy|reharmon|theor|chord|scale|function|harmon/i, [['og', 'Every tool on screen, as it was built'],
+            ['focus', 'One analysis tool at a time'], ['stage-wings', 'The score, with the tools at its edges']]],
+        [/explor|discover|visual|orbit|wander|idea/i, [['focus', 'One view at a time: orbits, circle, neck'],
+            ['og', 'Everything at a glance'], ['stage-wings', 'The score in the middle, tools tucked away']]]
     ];
     var suggestCtx = { level: 'beginner', intent: '', instrument: 'piano' };
 
@@ -1602,15 +1438,18 @@
         return true;
     }
 
-    /** Lay out an unsaved look, without making it the saved current look. */
-    function preview(input) {
+    /**
+     * Lay out an unsaved look, without making it the saved current look.
+     * `as` names it ('__preview' for the builder, '__lesson' for a lesson).
+     */
+    function preview(input, as) {
         if (!window.LookSchema) return { ok: false, errors: ['look-schema.js missing'], look: null };
         var r = window.LookSchema.validate(input, SCHEMA_CTX);
         if (!r.ok) return r;
         var look = JSON.parse(JSON.stringify(r.look));
-        look.id = '__preview';
-        LOOK_BY_ID.__preview = look;
-        apply('__preview', { preview: true });
+        look.id = as || '__preview';
+        LOOK_BY_ID[look.id] = look;
+        apply(look.id, { preview: true });
         return r;
     }
 

@@ -862,7 +862,7 @@
                 chordType: targetChord.chordType,
                 fullName: targetChord.fullName,
                 roman: targetChord.roman || String(this.numericDegrees[index])
-            }, { maxBeats: 2 });
+            }, { maxBeats: 2, borrow: true });
 
             const head = document.createElement('div');
             head.style.cssText = 'padding:7px 10px; border-bottom:1px solid #1e293b; display:flex; gap:8px; align-items:center; flex-wrap:wrap;';
@@ -895,13 +895,22 @@
             const fill = () => {
                 list.innerHTML = '';
                 const fam = famSel.value;
+                // A chord a player cannot read ("Esus2(add11, #5)") is a true
+                // description of some pitches and no use as an approach: those
+                // rows go after the ones that name real chords, never first.
+                const readable = (e) => !/\(/.test(String(e.inversionName || e.fullName || ''));
                 catalog
                     .filter(p => fam === 'all' || p.family === fam)
                     .sort((a, b) => a.spice - b.spice)
-                    .forEach((plan) => {
+                    .map((plan) => {
                         let events = null;
                         try { events = plan.build(); } catch (_) { events = null; }
-                        if (!events || !events.length) return;
+                        return { plan, events };
+                    })
+                    .filter(r => r.events && r.events.length)
+                    .map((r, i) => ({ ...r, i, ok: r.events.every(readable) }))
+                    .sort((a, b) => (b.ok - a.ok) || (a.i - b.i))
+                    .forEach(({ plan, events }) => {
 
                         const item = document.createElement('div');
                         item.style.cssText = 'padding:5px 10px; border-bottom:1px solid #16233b; display:flex; gap:8px; align-items:center;';
@@ -911,8 +920,10 @@
                         const parts = events.map((e) => {
                             const a = (window.NumericProgression && e.root)
                                 ? window.NumericProgression.analyzeInKey(e.root, e.chordType, key) : null;
+                            // an eight-note scale's chord reads as the slash chord it is: C6/E
+                            const shown = (e.inversionName && /\(/.test(e.fullName || '')) ? e.inversionName : e.fullName;
                             return a ? `<strong style="color:#fbbf24;">${a.roman}</strong>` +
-                                       `<span style="opacity:.55;">(${e.fullName})</span>` : e.fullName;
+                                       `<span style="opacity:.55;">(${shown})</span>` : shown;
                         });
                         names.innerHTML = parts.join(' <span style="opacity:.4;">→</span> ');
                         names.style.cssText = 'color:#e2e8f0; min-width:190px; font-size:11px;';

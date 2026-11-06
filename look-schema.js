@@ -37,6 +37,9 @@
     var FLOWS = ['column', 'row', 'rail', 'drawer', 'reading', 'strips', 'orbit', 'page',
                  'bench', 'compact', 'legend', 'mosaic', 'tabs', 'solo'];
     var TONES = ['plain', 'quiet', 'accent', 'input', 'tool'];
+    // Modules the studio no longer has: a look saved or shared before they went
+    // simply loses them, rather than being refused.
+    var RETIRED = ['grading'];
     var MAX = { name: 40, tagline: 60, principle: 300, label: 24, why: 160, zones: 8, rows: 8, cols: 8, below: 4, css: 200 };
 
     function str(v, max) {
@@ -184,6 +187,7 @@
             });
             (Array.isArray(z.modules) ? z.modules : []).forEach(function (m) {
                 m = String(m);
+                if (RETIRED.indexOf(m) !== -1) return;
                 if (modules.indexOf(m) === -1) errors.push('zone ' + k + ': no module called "' + str(m, 30) + '"');
                 else if (relocated.indexOf(m) !== -1) errors.push('zone ' + k + ': "' + m + '" lives in the header, not in a look');
                 else if (seen[m]) errors.push('module "' + m + '" is in two zones (' + seen[m] + ' and ' + k + ')');
@@ -212,13 +216,13 @@
             else {
                 look.tabs = { bar: t.bar, panes: t.panes };
                 if (look.zones[t.panes].flow !== 'solo') errors.push('the tabs\' panes zone must be of type solo');
-                if (t.default) {
+                if (t.default && RETIRED.indexOf(t.default) === -1) {
                     if (look.zones[t.panes].modules.indexOf(t.default) === -1) errors.push('the default tab must be one of the panes');
                     else look.tabs.default = t.default;
                 }
             }
         }
-        if (input.stage != null) {
+        if (input.stage != null && RETIRED.indexOf(input.stage) === -1) {
             if (!seen[input.stage]) errors.push('stage must be a module the look places');
             else look.stage = input.stage;
         }

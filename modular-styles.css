@@ -1071,11 +1071,6 @@
             padding-left: 16px;
         }
         
-        .grading-section {
-            border-left: 1px solid var(--border-light);
-            padding-left: 12px;
-        }
-        
         .secondary-controls {
             border-left: 1px solid var(--border-light);
             padding-left: 12px;

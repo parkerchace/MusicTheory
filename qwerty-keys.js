@@ -297,7 +297,7 @@
         var ws = document.querySelector('.workspace');
         var dock = document.getElementById('instrument-dock-root');
         if (ws && ws.style.display !== 'none' && shown(dock)) return 'studio';
-        var learn = ['learn-piano-page', 'learn-chords-page', 'learn-scales-page'];
+        var learn = ['learn-piano-page', 'learn-guitar-page', 'learn-chords-page', 'learn-scales-page'];
         for (var i = 0; i < learn.length; i++) {
             if (shown(document.getElementById(learn[i]))) return 'learn';
         }
@@ -321,9 +321,11 @@
 
     /** The instrument the sound follows: the one last touched, or the one on screen. */
     function currentInstrument() {
-        if (instrument) return instrument;
+        // a Learn page has one instrument, the one chosen for the course
+        if (surface() === 'learn' && root.LearnCommon) return root.LearnCommon.instrument();
         var dock = document.getElementById('instrument-dock-root');
         if (dock && dock.classList.contains('dock-mode-guitar')) return 'guitar';
+        if (instrument) return instrument;
         return 'piano';
     }
 
@@ -695,7 +697,7 @@
     function onPointerDown(e) {
         var t = e.target;
         if (!t || !t.closest) return;
-        if (t.closest('.qk-chip')) return;
+        if (t.closest('.qk-chip') || t.closest('.gt-control')) return;   // the tuning dropdown sits on the neck: not the instrument
         var guitar = t.closest('#guitar-fretboard-container, #guitar-dock-container, #instrument-pane-guitar');
         var piano = t.closest('#instrument-dock-root, #piano-container');
         if (!guitar && !piano) return;
@@ -774,7 +776,11 @@
         return chip;
     }
 
-    /** In the studio the chip sits in the dock beside its cog; on a Learn page it floats. */
+    /**
+     * In the studio the chip sits in the dock beside its cog. A Learn page shows
+     * no chip: its keys play notes all the same, but chord mode is off there, so
+     * the chip would have nothing to switch.
+     */
     function placeChip(where) {
         buildChip();
         var dockSettings = document.querySelector('#instrument-dock-root .instrument-dock-settings');
@@ -785,7 +791,7 @@
             chip.classList.add('qk-floating');
             if (chip.parentNode !== document.body) document.body.appendChild(chip);
         }
-        chip.hidden = !where;
+        chip.hidden = where !== 'studio';
     }
 
     function displayState(where) {

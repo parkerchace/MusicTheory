@@ -8,6 +8,9 @@
      * - Real-time theory explanations
      * - Interactive progressions with highlighting
      */
+    // The course's names for the twelve notes (course.js)
+    const NOTE_NAMES = ['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+
     class LearnChords {
         constructor(musicTheoryEngine) {
             this.musicTheory = musicTheoryEngine || null;
@@ -47,54 +50,56 @@
             this.containerEl = host;
             host.innerHTML = '';
 
-            // Add wrapper with max-width for consistent alignment
+            // Same width and rhythm as Learn Scales
             const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'max-width: 800px; margin: 0 auto; padding: 0 16px;';
+            wrapper.style.cssText = 'display:flex; flex-direction:column; gap:12px; max-width:1000px; margin:0 auto; padding:0 clamp(0px, 2vw, 16px);';
             host.appendChild(wrapper);
 
             // 1. Header
-            const header = document.createElement('div');
-            header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid var(--border-light);';
-            header.innerHTML = `
-                <div>
-                    <div style="font-size:1.5rem; font-weight:700; color:var(--text-highlight);">🎹 Learn Chords</div>
-                    <div style="font-size:0.9rem; color:var(--text-muted); margin-top:4px;">Build a chord from intervals: a root, a third on top, a fifth on top of that</div>
-                </div>
-                <button id="back-to-landing-from-chords" class="btn" style="padding:8px 14px;">← Back</button>
-            `;
-            wrapper.appendChild(header);
+            wrapper.appendChild(window.LearnCommon.header({
+                title: 'Chords from intervals',
+                icon: window.LearnCommon.instrument() === 'guitar' ? '🎸' : '🎹',
+                subtitle: 'Stack thirds on any note and hear what it makes',
+                homeId: 'back-to-landing-from-chords'
+            }));
 
-            // Back button wiring
-            const backBtn = header.querySelector('#back-to-landing-from-chords');
-            if (backBtn) backBtn.addEventListener('click', ()=>{
-                const landing = document.getElementById('landing-page');
-                const learn = document.getElementById('learn-chords-page');
-                const workspace = document.querySelector('.workspace');
-                const controlDeck = document.querySelector('.control-deck');
-                const bottomDeck = document.querySelector('.bottom-deck');
-                if (landing) landing.style.display = 'block';
-                if (learn) learn.style.display = 'none';
-                if (workspace) workspace.style.display = 'none';
-                if (controlDeck) controlDeck.style.display = 'none';
-                if (bottomDeck) bottomDeck.style.display = 'none';
+            // Why, before the buttons
+            const intro = document.createElement('div');
+            intro.style.cssText = 'background:var(--bg-panel); border:1px solid var(--border-light); border-radius:8px; padding:12px 16px; color:var(--text-muted); line-height:1.7;';
+            intro.innerHTML = `
+                <div>A <strong>chord</strong> is notes stacked in <strong>thirds</strong>: start on a note (the <strong>root</strong>), count up a 3rd, then another 3rd on top of that.</div>
+                <div>A 3rd comes in two sizes, as you counted in Learn Scales: <strong>4 half steps</strong> is a major 3rd, <strong>3 half steps</strong> is a minor 3rd. The order of the two sizes is what you hear.</div>
+                <div style="margin-top:6px;">
+                    <strong style="color:var(--text-main);">Major is 4 + 3, minor is 3 + 4.</strong>
+                    <button type="button" class="lc-btn" data-hear-quality="major" style="margin-left:8px;">▶ Major</button>
+                    <button type="button" class="lc-btn" data-hear-quality="minor">▶ Minor</button>
+                </div>
+            `;
+            wrapper.appendChild(intro);
+            intro.querySelectorAll('[data-hear-quality]').forEach(b => {
+                b.onclick = () => {
+                    const q = this.containerEl.querySelector(`.quality-btn[data-type="${b.dataset.hearQuality}"]`);
+                    if (q) q.click();
+                };
             });
 
             // 2. Main Controls (Root & Quality)
             const controls = document.createElement('div');
-            controls.style.cssText = 'display:flex; flex-wrap:wrap; gap:20px; margin-bottom:24px; justify-content:center;';
+            controls.style.cssText = 'display:flex; flex-wrap:wrap; gap:12px 20px; justify-content:center;';
             
             // Root Selector
             const rootGroup = document.createElement('div');
-            rootGroup.innerHTML = `<div style="text-align:center; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase;">Root Note</div>`;
+            rootGroup.style.maxWidth = '100%';
+            rootGroup.innerHTML = `<div style="text-align:center; font-size:0.85rem; font-weight:700; color:var(--text-muted); margin-bottom:8px;">Root note</div>`;
             const rootKeys = document.createElement('div');
-            rootKeys.style.cssText = 'display:flex; gap:4px;';
-            ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'].forEach((note, i) => {
+            rootKeys.style.cssText = 'display:flex; flex-wrap:wrap; justify-content:center; gap:4px;';
+            NOTE_NAMES.forEach((note, i) => {
                 const btn = document.createElement('button');
                 btn.textContent = note;
                 btn.className = 'root-btn';
                 btn.dataset.midi = 60 + i; // Start at C4
                 btn.style.cssText = `
-                    width:32px; height:32px; border-radius:4px; border:1px solid var(--border-light); 
+                    min-width:32px; height:32px; padding:0 2px; border-radius:4px; border:1px solid var(--border-light); 
                     background:var(--bg-panel); color:var(--text-main); font-size:0.85rem; font-weight:600; cursor:pointer;
                     transition:all 0.1s;
                 `;
@@ -121,9 +126,10 @@
 
             // Quality Selector
             const typeGroup = document.createElement('div');
-            typeGroup.innerHTML = `<div style="text-align:center; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase;">Chord Quality</div>`;
+            typeGroup.style.maxWidth = '100%';
+            typeGroup.innerHTML = `<div style="text-align:center; font-size:0.85rem; font-weight:700; color:var(--text-muted); margin-bottom:8px;">Chord type</div>`;
             const typeBtns = document.createElement('div');
-            typeBtns.style.cssText = 'display:flex; gap:4px;';
+            typeBtns.style.cssText = 'display:flex; flex-wrap:wrap; justify-content:center; gap:4px;';
             
             const qualities = [
                 {id:'major', label:'Major', ints:'4,3'},
@@ -141,7 +147,7 @@
                 btn.dataset.type = q.id;
                 btn.dataset.ints = q.ints;
                 btn.style.cssText = `
-                    padding:0 16px; height:32px; border-radius:4px; border:1px solid var(--border-light); 
+                    padding:0 12px; height:32px; border-radius:4px; border:1px solid var(--border-light); 
                     background:var(--bg-panel); color:var(--text-main); font-size:0.85rem; font-weight:600; cursor:pointer;
                     transition:all 0.1s;
                 `;
@@ -172,32 +178,54 @@
             const stage = document.createElement('div');
             stage.id = 'interval-vis-stage';
             stage.style.cssText = `
-                background: linear-gradient(180deg, rgba(20,20,20,0.5), rgba(10,10,10,0.8));
-                border-radius: 12px;
-                padding: 30px; 
-                margin-bottom: 24px;
+                background: var(--bg-app);
+                border-radius: 8px;
+                padding: clamp(8px, 2vw, 20px);
                 border: 1px solid var(--border-light);
-                box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
                 display: flex;
                 justify-content: center;
                 min-height: 140px;
             `;
-            stage.innerHTML = `<div id="interval-vis-container" style="display:flex; justify-content:center; gap:20px; flex-wrap:wrap; width:100%;"></div>`;
+            stage.innerHTML = `<div id="interval-vis-container" style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap; width:100%; min-width:0;"></div>`;
             wrapper.appendChild(stage);
 
-            // 4. Playback Controls
+            // 4. What it is, and playing it
             const playback = document.createElement('div');
-            playback.style.textAlign = 'center';
+            playback.style.cssText = 'display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px 16px; text-align:center;';
             playback.innerHTML = `
-                <button id="play-chord-btn" class="btn" style="padding:12px 32px; font-size:1.1rem; background:var(--accent-primary); color:#000; border:none; font-weight:700; box-shadow:0 4px 12px rgba(59,130,246,0.4); cursor:pointer;">
-                    ▶ Play Chord
-                </button>
+                <button id="play-chord-btn" class="lc-btn" style="padding:10px 28px; font-size:1rem; background:var(--accent-primary); border-color:var(--accent-primary); color:#000; font-weight:700;">▶ Play chord</button>
+                <button id="play-arp-btn" class="lc-btn" style="padding:10px 16px;">▶ One note at a time</button>
+                <div id="chord-info" style="flex:1 1 280px; text-align:left; color:var(--text-muted); line-height:1.6;" role="status"></div>
             `;
             wrapper.appendChild(playback);
-            
+
+            (this._neck = this._neck || window.LearnCommon.chordNeck({ title: 'The chord as one hand shape' })).put(wrapper);
+
             playback.querySelector('#play-chord-btn').onclick = () => {
                 this.playHighQualityChord(this.getChordMidis(), 1.5);
             };
+            playback.querySelector('#play-arp-btn').onclick = () => this.playArpeggio(this.getChordMidis());
+
+            // 5. A check, and on to the next lesson
+            const end = document.createElement('div');
+            end.id = 'chords-end';
+            window.LearnCommon.quiz(end, {
+                q: 'A minor chord stacks which two 3rds, from the bottom up?',
+                options: ['4 + 3', '3 + 4', '3 + 3', '4 + 4'],
+                answer: 1,
+                why: 'The small 3rd comes first: C·E♭·G is 3 half steps, then 4. Flip them to 4 + 3 and you have C major.',
+                wrong: [
+                    'That one is major: the big 3rd comes first.',
+                    '',
+                    'That one is diminished: two small 3rds, so the top note comes out a half step lower.',
+                    'That one is augmented: two big 3rds, so the top note comes out a half step higher.'
+                ]
+            });
+            window.LearnCommon.completeBar(end, {
+                id: 'b-chords',
+                learned: 'A chord is thirds stacked on a root: major is 4 + 3, minor is 3 + 4.'
+            });
+            wrapper.appendChild(end);
 
             // Audio Init - Legacy Removed
             // try { this.audio = new window.SimpleAudioEngine(); this.audio.init(); } catch(_){ }
@@ -214,6 +242,8 @@
             this.rootNote = 'C';
             
             // --- Interactive Visualizer Logic (Moved here) ---
+            // mount runs on every visit, so the last visit's counters stop here
+            (this.activeAnimations || []).forEach(id => clearInterval(id));
             this.activeAnimations = [];
             
             // Initial Render
@@ -251,11 +281,17 @@
             // Audio Feedback on change
             const midisVal = this.getChordMidis();
             this._initAudioEngine();
-            if (this._audioEngine && typeof this._audioEngine.playNote === 'function') {
-                this._audioEngine.playNote(midisVal[0], 0.4, 0);
-                if(midisVal[1]) this._audioEngine.playNote(midisVal[1], 0.4, 0.15);
-                if(midisVal[2]) this._audioEngine.playNote(midisVal[2], 0.4, 0.3);
+            const eng = this._sound();
+            if (eng && typeof eng.playNote === 'function') {
+                eng.playNote(midisVal[0], 0.4, 0);
+                if(midisVal[1]) eng.playNote(midisVal[1], 0.4, 0.15);
+                if(midisVal[2]) eng.playNote(midisVal[2], 0.4, 0.3);
             }
+        }
+
+        /** What the chord sounds on: the guitar when it is the chosen instrument. */
+        _sound() {
+            return window.LearnCommon.guitarSound() || this._audioEngine;
         }
 
         _initAudioEngine() {
@@ -269,15 +305,17 @@
 
         playHighQualityChord(midis, duration=1.0) {
             this._initAudioEngine();
-            if (this._audioEngine && typeof this._audioEngine.playChord === 'function') {
-                this._audioEngine.playChord(midis, duration);
+            const eng = this._sound();
+            if (eng && typeof eng.playChord === 'function') {
+                eng.playChord(midis, duration);
             }
         }
 
         playHighQualityNote(midi, startTime=0, duration=0.5) {
             this._initAudioEngine();
-            if (this._audioEngine && typeof this._audioEngine.playNote === 'function') {
-                this._audioEngine.playNote(midi, duration, startTime);
+            const eng = this._sound();
+            if (eng && typeof eng.playNote === 'function') {
+                eng.playNote(midi, duration, startTime);
             }
         }
 
@@ -287,6 +325,12 @@
             this._midiConnected = true;
             midiManager.on('noteOn', ({ midi }) => this._onMidiNoteOn(midi));
             midiManager.on('noteOff', ({ midi }) => this._onMidiNoteOff(midi));
+        }
+
+        // The MIDI listeners stay connected after you leave: the ding is this page's
+        _onPage() {
+            const page = document.getElementById('learn-chords-page');
+            return !!page && page.getClientRects().length > 0;
         }
 
         _onMidiNoteOn(midi) {
@@ -315,8 +359,10 @@
             const activePcs = new Set([...this._midiActiveKeys].map(m => m % 12));
             const isMatch = [...targetPcs].every(pc => activePcs.has(pc));
 
-            if (isMatch && !this._chordMatchFired) {
+            if (isMatch && !this._chordMatchFired && this._onPage()) {
                 this._chordMatchFired = true;
+                const got = this.containerEl.querySelector('#chord-played');
+                if (got) got.textContent = `✓ You played ${this.getChordName()}`;
                 this._initAudioEngine();
                 if (this._audioEngine && typeof this._audioEngine.playNote === 'function') {
                     // Gentle confirmation ding
@@ -324,10 +370,83 @@
                 }
             } else if (!isMatch) {
                 this._chordMatchFired = false;
+                const got = this.containerEl && this.containerEl.querySelector('#chord-played');
+                if (got) got.textContent = '';
             }
         }
 
+        /** Play a chord up from the root, one note at a time. */
+        playArpeggio(midis) {
+            midis.forEach((m, i) => this.playHighQualityNote(m, i * 0.28, 0.5));
+        }
+
+        /** The chord's numbers, one per note: '1 ♭3 5 ♭7'. */
+        chordNumbers() {
+            const out = ['1'];
+            const pick = (n, table) => { if (table[n]) out.push(table[n]); };
+            let height = 0;
+            [...this.chordIntervals, ...this.extensions].forEach((int, i) => {
+                height += int;
+                if (i === 0) pick(height, { 2: '2', 3: '♭3', 4: '3', 5: '4' });
+                else if (i === 1) pick(height, { 6: '♭5', 7: '5', 8: '♯5' });
+                else if (i === 2) pick(height, { 9: this.extensionIds[0] === 'dim7' ? '𝄫7' : '6', 10: '♭7', 11: '7' });
+                else pick(height, { 13: '♭9', 14: '9', 15: '♯9', 17: '11', 18: '♯11', 20: '♭13', 21: '13' });
+            });
+            return out;
+        }
+
+        /** Name, notes, numbers and half steps of what is on the stage, under it. */
+        renderInfo() {
+            const box = this.containerEl.querySelector('#chord-info');
+            if (!box) return;
+            const nums = this.chordNumbers();
+            const theory = window.CourseTheory;
+            const notes = theory ? nums.map(n => theory.spell(this.rootNote, n)) : [];
+            const steps = [...this.chordIntervals, ...this.extensions].join(' + ');
+            box.innerHTML = `
+                <div><strong style="color:var(--text-highlight); font-size:1.1rem;">${this.getChordName()}</strong>
+                    <span style="margin-left:8px; color:var(--text-main);">${notes.join(' · ')}</span>
+                    <span style="margin-left:8px;">numbers ${nums.join(' · ')}</span>
+                    <span style="margin-left:8px;">half steps ${steps}</span></div>
+                <div style="font-size:0.9rem;">${this.getTheoryExplanation()}</div>
+                <div style="font-size:0.85rem;">On a MIDI or typing keyboard? Hold its notes and you’ll hear a soft ding. <span id="chord-played" style="color:var(--lc-good); font-weight:700;"></span></div>
+            `;
+        }
+
+        /**
+         * A step of the recipe on one string of a guitar: a fret is a half step,
+         * so counting a 3rd is counting frets. The frets being counted pulse in turn.
+         */
+        _miniString(label, hearNotes, active, pathStart, pathEnd, color) {
+            const top = Math.max(...active);
+            const theory = window.CourseTheory, nums = this.chordNumbers();
+            const nameAt = (i) => {
+                const k = active.indexOf(i);
+                return theory && k >= 0 && nums[k] ? theory.spell(this.rootNote, nums[k]) : '';
+            };
+            const frets = [];
+            for (let i = 0; i <= top; i++) {
+                const isOn = active.includes(i);
+                const counted = pathStart !== null && i > pathStart && i <= pathEnd;
+                const delay = counted ? ((i - pathStart - 1) / (pathEnd - pathStart)) * 1.2 : 0;
+                frets.push(`<div class="lc-fret" data-fret-step="${i}">${
+                    isOn ? `<span class="lc-fret-dot" style="--lc-dot:${i === pathEnd ? color : 'var(--accent-secondary)'}">${nameAt(i)}</span>` : ''}${
+                    counted ? `<span class="lc-fret-count" style="animation-delay:${delay}s; position:absolute;"></span>` : ''}</div>`);
+            }
+            return `
+                <div style="display:flex; flex-direction:column; align-items:center; max-width:100%; min-width:0;">
+                    <button type="button" class="step-hear" data-notes="${hearNotes}" title="Hear the notes so far"
+                        style="background:transparent; border:none; padding:0; cursor:pointer; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:6px; line-height:1.3;">▶ ${label}</button>
+                    <div style="max-width:100%; overflow:auto hidden;"><div class="lc-string" style="width:${(top + 1) * 22}px;">${frets.join('')}</div></div>
+                    ${active.length === 1 ? '<div class="lc-string-note">One string: each fret is one half step.</div>' : ''}
+                </div>
+            `;
+        }
+
         renderRecipe() {
+            this.renderInfo();
+            const theory = window.CourseTheory;
+            this._neck.show(this.getChordMidis(), theory ? this.chordNumbers().map(n => theory.spell(this.rootNote, n)) : []);
             // Clear active animations
             this.activeAnimations.forEach(id => clearInterval(id));
             this.activeAnimations = [];
@@ -339,6 +458,8 @@
             // Dynamic intervals
             const allIntervals = [...this.chordIntervals, ...this.extensions];
             const intervals = allIntervals; // Alias for legacy support until body update
+            // A high root with a tall stack runs past two octaves: the keyboard grows to fit it
+            const topKey = Math.max(28, (curRoot % 12) + allIntervals.reduce((a, b) => a + b, 0));
 
 
                 // Helper: X Coordinate Map for 24-key span (Two Octaves C3-C5)
@@ -358,6 +479,8 @@
                 };
 
                 const getMiniPiano = (label, activeIndices, pathStart=null, pathEnd=null, color='var(--accent-primary)', isFinal=false) => {
+                    const hearNotes = activeIndices.map(i => curRoot + i).join(',');
+                    if (window.LearnCommon.instrument() === 'guitar') return this._miniString(label, hearNotes, activeIndices, pathStart, pathEnd, color);
                     // Logic: Our display is fixed 0..27 (C to D+).
                     // We map the requested chord (root + intervals) into this space.
                     // We use (curRoot % 12) to find the local root offset.
@@ -373,10 +496,10 @@
                     // Generate DOM
                     let dom = '';
                     
-                    // White Keys loop (0 to 28) - slightly wider range for 13ths
+                    // White Keys loop (0 to 28, or the stack's top) - slightly wider range for 13ths
                     let wTotal = 0;
                     const whiteKeyIndices = [0,2,4,5,7,9,11];
-                    for(let i=0; i<=28; i++) {
+                    for(let i=0; i<=topKey; i++) {
                         if(whiteKeyIndices.includes(i%12)) {
                             const isActive = normalizedActive.includes(i);
                             const isRoot = normalizedActive.length && i === normalizedActive[0];
@@ -412,8 +535,9 @@
                     // Black Keys Overlay
                     let blackKeys = '';
                     // 0, 1(bk), 2, 3(bk), 4, 5, 6(bk), 7, 8(bk), 9, 10(bk), 11...
-                    const blacks = [1,3,6,8,10, 13,15,18,20,22, 25,27];
+                    const blacks = [1,3,6,8,10, 13,15,18,20,22, 25,27, 30,32,34];
                     blacks.forEach(k => {
+                        if (k > topKey) return;
                         const x = getX(k); 
                         if (x > (wTotal * wKeyWidth)) return; // Don't overflow
                         
@@ -471,6 +595,7 @@
                                 // Clear non-active keys in range
                                 const piano = document.getElementById(pianoId);
                                 if(!piano) return;
+                                if(!piano.getClientRects().length) return; // off the page: nothing to count
                                 const allKeys = piano.querySelectorAll(`.key-${pianoId}`);
                                 
                                 allKeys.forEach(k => {
@@ -520,19 +645,23 @@
                                     }
                                 });
                             };
-                            this.activeAnimations.push(setInterval(tick, 50));
+                            // a redraw inside this 100ms already replaced this piano: don't start
+                            if(document.getElementById(pianoId)) this.activeAnimations.push(setInterval(tick, 50));
                         }, 100);
                     }
 
                     return `
-                        <div style="display:flex; flex-direction:column; align-items:center;">
-                            <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">${label}</div>
-                            <div id="${pianoId}" style="position:relative; width:${wTotal*16}px; height:80px; 
+                        <div style="display:flex; flex-direction:column; align-items:center; max-width:100%; min-width:0;">
+                            <button type="button" class="step-hear" data-notes="${hearNotes}" title="Hear the notes so far"
+                                style="background:transparent; border:none; padding:0; cursor:pointer; font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:6px; max-width:${wTotal*16}px; line-height:1.3;">▶ ${label}</button>
+                            <div style="max-width:100%;${topKey > 28 ? ' overflow:auto hidden;' : ''}">
+                            <div id="${pianoId}" style="position:relative; width:${wTotal*16}px; height:80px; box-sizing:content-box;
                                 background:#111; border-radius:4px; margin:0 4px; padding:4px 4px 6px 4px; 
-                                box-shadow:0 10px 20px rgba(0,0,0,0.3); border-top:2px solid #333;">
+                                border-top:2px solid #333;">
                                 <div style="display:flex; height:100%; gap:2px;">${dom}</div>
                                 ${blackKeys}
                                 ${svg}
+                            </div>
                             </div>
                         </div>
                     `;
@@ -542,7 +671,7 @@
                 
                 // Separator Generator
                 const getSeparator = () => `
-                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100px; width:40px; margin-top:14px; opacity:0.8;">
+                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100px; width:24px; margin-top:14px; opacity:0.8;">
                         <div style="width:2px; height:20px; background:linear-gradient(to bottom, transparent, var(--border-light));"></div>
                         <div style="width:24px; height:24px; border-radius:50%; background:var(--bg-header); border:1px solid var(--border-light); 
                             display:flex; align-items:center; justify-content:center; color:var(--text-muted); box-shadow:0 2px 4px rgba(0,0,0,0.2); z-index:2;">
@@ -558,7 +687,7 @@
 
                 let currentTotal = 0;
                 const currentActive = [0];
-                const colors = ['var(--accent-primary)', 'var(--accent-secondary)', '#ec4899', '#8b5cf6', '#f59e0b']; 
+                const colors = ['var(--accent-primary)', 'var(--accent-secondary)']; 
 
                 allIntervals.forEach((int, i) => {
                     const prevTotal = currentTotal;
@@ -575,11 +704,11 @@
                         if(n===3) return 'Minor 3rd';
                         if(n===4) return 'Major 3rd';
                         if(n===2) return 'Major 2nd';
-                        if(n===1) return 'minor 2nd';
+                        if(n===1) return 'Minor 2nd';
                         if(n===7) return 'Perfect 5th';
                         if(n===5) return 'Perfect 4th';
                         if(n===2 && i===0) return 'Major 2nd'; // Root -> 2 (Sus2)
-                        return `${n} semitones`;
+                        return `${n} half steps`;
                     };
 
                     const intName = getIntName(int);
@@ -590,7 +719,7 @@
                         let targetName = intName;
                         if(this.chordType === 'sus2') targetName = 'Major 2nd (Sus2)';
                         if(this.chordType === 'sus4') targetName = 'Perfect 4th (Sus4)';
-                        label = `2. Go up a "${targetName}" (+${int} semitones)`; 
+                        label = `2. Go up a "${targetName}" (${int} half steps)`; 
                     } else if (i === 1) {
                         // Second interval: From 3rd to 5th
                         let target = 'Fifth';
@@ -598,20 +727,20 @@
                         if(this.chordType === 'aug') target = 'Aug 5th';
                         if(this.chordType.includes('sus')) target = 'Perfect 5th';
                         
-                        label = `3. Count up (+${int} semitones) to reach the "${target}"`;
+                        label = `3. Up ${int} more half steps to the "${target}"`;
                     } else {
                         // Extensions (i=2 is 7th, i=3 is 9th, etc)
                         const stepNum = i + 2;
                         
                         // Map 9th/11th/13th target names
                         let target = 'Extension';
-                        if(i===2) target = '7th';
+                        if(i===2) target = /6/.test(this.extensionIds[0] || '') ? '6th' : '7th';
                         if(i===3) target = '9th';
                         if(i===4) target = '11th';
                         if(i===5) target = '13th';
                         
                         // "4. Add Minor 3rd to reach the 7th"
-                        label = `${stepNum}. Add ${intName} to reach "${target}"`;
+                        label = `${stepNum}. Add a ${intName} (${int}) to reach the "${target}"`;
                     }
 
                     html += getSeparator();
@@ -624,6 +753,9 @@
                 html += getMiniPiano(`Result: ${chordName}`, [...currentActive], null, null, 'var(--accent-primary)', true);
 
                 container.innerHTML = html;
+                container.querySelectorAll('.step-hear').forEach(b => {
+                    b.onclick = () => this.playArpeggio(b.dataset.notes.split(',').map(Number));
+                });
             }
 
             renderExtensionsUI() {
@@ -632,33 +764,28 @@
                 if(!extContainer) {
                     extContainer = document.createElement('div');
                     extContainer.id = 'extensions-container';
-                    extContainer.style.cssText = 'margin-bottom:24px; background:var(--bg-panel); border:1px solid var(--border-light); border-radius:8px; overflow:hidden;';
+                    extContainer.style.cssText = 'background:var(--bg-panel); border:1px solid var(--border-light); border-radius:8px; overflow:hidden;';
                     
-                    // Insert after stage, before playback
-                    const stage = this.containerEl.querySelector('#interval-vis-stage');
-                    if(stage && stage.nextSibling) {
-                        this.containerEl.insertBefore(extContainer, stage.nextSibling);
-                    } else {
-                        // Just append if stage is last
-                        this.containerEl.appendChild(extContainer);
-                    }
+                    // After the play row, before the check: the stage's own parent, not the host
+                    const end = this.containerEl.querySelector('#chords-end');
+                    end.parentNode.insertBefore(extContainer, end);
                 }
                 
                 let html = '';
 
                 // --- 1. Active Stack Display (Evolution) ---
                 if (this.extensions.length > 0) {
-                    html += `<div style="padding:16px; border-bottom:1px solid var(--border-light); background:rgba(0,0,0,0.2);">`;
-                    html += `<div style="font-size:0.8rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; margin-bottom:12px;">Your Chord Stack</div>`;
+                    html += `<div style="padding:12px 16px; border-bottom:1px solid var(--border-light);">`;
+                    html += `<div style="font-size:0.85rem; color:var(--text-muted); font-weight:700; margin-bottom:8px;">What you’ve added (click one to remove it)</div>`;
                     html += `<div style="display:flex; flex-wrap:wrap; gap:8px;">`;
                     
                     const tierLabels = ['7th/6th', '9th', '11th', '13th'];
 
                     // Friendly mapping from id -> label for stack display
                     const idToLabel = {
-                        'maj7': 'Maj7', 'dom7': '7', 'min7': 'm7', 'minmaj7': 'm(maj7)', 'maj6': '6', 'min6': 'm6',
-                        'dim7': 'dim7', 'm7b5': 'm7b5', 'aug7': 'aug7', 'maj7aug': 'maj7(#5)',
-                        'b9': 'b9', 'nat9': '9', 'shp9': '#9', 'nat11': '11', 'shp11': '#11', 'nat13': '13', 'b13': 'b13'
+                        'maj7': 'maj7', 'dom7': '7', 'min7': 'm7', 'minmaj7': 'm(maj7)', 'maj6': '6', 'min6': 'm6',
+                        'dim7': '°7', 'm7b5': 'ø7', 'aug7': '+7', 'maj7aug': 'maj7♯5',
+                        'b9': '♭9', 'nat9': '9', 'shp9': '♯9', 'nat11': '11', 'shp11': '♯11', 'nat13': '13', 'b13': '♭13'
                     };
                     
                     this.extensions.forEach((extInt, idx) => {
@@ -697,8 +824,8 @@
 
                 if (currentExtCount === 0) {
                     // TIER 1: The 7th (and 6th)
-                    tierName = 'Level 1: Add 7th or 6th';
-                    theoryTip = 'The 7th often defines the function (Stable vs Active/Bluesy).';
+                    tierName = 'Go further: add a 7th or a 6th';
+                    theoryTip = 'One more 3rd on top makes a 7th. A major 7th sounds settled; the lower one, a dominant 7th, wants to move somewhere.';
                     
                     if (this.chordType === 'major') {
                         availableOptions = [
@@ -717,7 +844,7 @@
                     else if (this.chordType === 'dim') {
                         availableOptions = [
                             { id: 'dim7', label: 'Diminished 7th', int: 3 }, // 6+3=9
-                            { id: 'm7b5', label: 'Minor 7th (Half-Dim)', int: 4 } // 6+4=10
+                            { id: 'm7b5', label: 'Minor 7th (half-diminished, ø7)', int: 4 } // 6+4=10
                         ];
                     }
                     else if (this.chordType === 'aug') {
@@ -735,8 +862,8 @@
                     }
                 } else if (currentExtCount === 1) {
                     // TIER 2: The 9th (context-aware based on 7th choice)
-                    tierName = 'Level 2: Add the 9th';
-                    theoryTip = 'Adds color without changing function. A 9th is an octave + 2nd.';
+                    tierName = 'Add the 9th';
+                    theoryTip = 'Past 7 the count carries on into the next octave: a 9th is the 2, an octave up. It adds colour.';
                     
                     // Targets relative to root: 13 (b9), 14 (9), 15 (#9)
                     const distToFlat9 = 13 - currentHeight;
@@ -748,9 +875,9 @@
                     
                     // Filter options based on chord type and 7th choice
                     let ninthOptions = [
-                        { id: 'b9', label: 'Flat 9 (b9)', int: distToFlat9 },
+                        { id: 'b9', label: 'Flat 9 (♭9)', int: distToFlat9 },
                         { id: 'nat9', label: 'Natural 9th', int: distToNat9 },
-                        { id: 'shp9', label: 'Sharp 9 (#9)', int: distToSharp9 }
+                        { id: 'shp9', label: 'Sharp 9 (♯9)', int: distToSharp9 }
                     ];
                     
                     // Context-aware filtering
@@ -774,8 +901,8 @@
                     availableOptions = ninthOptions.filter(o => o.int > 0);
                 } else if (currentExtCount === 2) {
                     // TIER 3: The 11th (context-aware)
-                    tierName = 'Level 3: Add the 11th';
-                    theoryTip = 'Often clashes with the 3rd. #11 is safer on Major chords.';
+                    tierName = 'Add the 11th';
+                    theoryTip = 'An 11th is the 4, an octave up. It sits a half step above a major 3rd and rubs against it, so major chords usually take ♯11.';
                     
                     const distToNat11 = 17 - currentHeight;
                     const distToSharp11 = 18 - currentHeight;
@@ -786,7 +913,7 @@
                     // Filter based on context
                     let eleventhOptions = [
                         { id: 'nat11', label: 'Natural 11th', int: distToNat11 },
-                        { id: 'shp11', label: 'Sharp 11 (#11)', int: distToSharp11 }
+                        { id: 'shp11', label: 'Sharp 11 (♯11)', int: distToSharp11 }
                     ];
                     
                     // Natural 11 clashes with the major 3rd, so less common in major/dominant chords
@@ -803,10 +930,13 @@
                     }
                     
                     availableOptions = eleventhOptions.filter(o => o.int > 0);
-                } else if (currentExtCount >= 3) {
+                } else if (currentExtCount >= 4) {
+                    tierName = 'The stack is full';
+                    theoryTip = 'One more 3rd would land on the root again: seven different notes, every letter used.';
+                } else {
                      // TIER 4: The 13th (context-aware)
-                    tierName = 'Level 4: Add the 13th';
-                    theoryTip = 'The logical conclusion of 3rds. Same as the 6th relative to root.';
+                    tierName = 'Add the 13th';
+                    theoryTip = 'A 13th is the 6, an octave up: the last 3rd before the letters start to repeat.';
                     
                     const distToNat13 = 21 - currentHeight;
                     const distToFlat13 = 20 - currentHeight;
@@ -816,7 +946,7 @@
                     
                     let thirteenthOptions = [
                         { id: 'nat13', label: 'Natural 13th', int: distToNat13 },
-                        { id: 'b13', label: 'Flat 13 (b13)', int: distToFlat13 }
+                        { id: 'b13', label: 'Flat 13 (♭13)', int: distToFlat13 }
                     ];
                     
                     // Natural 13 works better on major/dominant contexts
@@ -838,16 +968,16 @@
 
                 
                 html += `
-                    <div style="padding:16px; background:rgba(255,255,255,0.03); border-bottom:1px solid var(--border-light);">
+                    <div style="padding:12px 16px; border-bottom:1px solid var(--border-light);">
                          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                             <div style="font-weight:700; font-size:1rem; color:var(--text-highlight);">${tierName}</div>
-                            ${this.extensions.length > 0 ? `<button id="reset-ext-btn" style="font-size:0.8rem; padding:4px 8px; background:transparent; border:1px solid var(--border-light); border-radius:4px; color:var(--text-muted); cursor:pointer;">Reset All</button>` : ''}
+                            ${this.extensions.length > 0 ? `<button id="reset-ext-btn" style="font-size:0.8rem; padding:4px 8px; background:transparent; border:1px solid var(--border-light); border-radius:4px; color:var(--text-muted); cursor:pointer;">Reset all</button>` : ''}
                          </div>
-                         <div style="font-size:0.9rem; color:var(--accent-secondary); font-style:italic;">
-                            💡 ${theoryTip}
+                         <div style="font-size:0.9rem; color:var(--text-muted);">
+                            ${theoryTip}
                          </div>
                     </div>
-                    <div style="padding:16px; display:grid; gap:12px;">
+                    <div style="padding:12px 16px; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:8px;">
                 `;
                 
                 // Dominant 7 should only appear in appropriate contexts (Major, Sus, Aug)
@@ -861,25 +991,16 @@
                 if(availableOptions.length === 0 && currentExtCount < 4) {
                      html += `<div style="text-align:center; padding:10px; color:var(--text-muted);">
                         No standard extensions fit above this stack.<br>
-                        <span style="font-size:0.8rem;">(Height: ${currentHeight} semitones)</span>
+                        <span style="font-size:0.8rem;">(Height: ${currentHeight} half steps)</span>
                      </div>`;
-                } else if (currentExtCount >= 4) {
-                     html += `<div style="text-align:center; padding:10px; color:var(--text-muted);">Max extensions reached!</div>`;
                 }
 
                 availableOptions.forEach((opt, idx) => {
                     html += `
-                        <div class="ext-option" data-int="${opt.int}" data-id="${opt.id}" style="
-                            display:flex; align-items:center; padding:12px; border:1px solid var(--border-light); border-radius:6px; background:transparent; cursor:pointer; transition:all 0.1s;
-                        ">
-                            <div style="width:24px; height:24px; border-radius:50%; border:2px solid var(--text-muted); margin-right:12px; display:flex; align-items:center; justify-content:center;">
-                                <div style="width:12px; height:12px; border-radius:50%; background:var(--accent-primary); opacity:0;"></div>
-                            </div>
-                            <div style="flex:1;">
-                                <div style="font-weight:700; color:var(--text-main);">${opt.label}</div>
-                            </div>
-                            <div style="font-size:0.9rem; font-weight:600; color:var(--text-muted); background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:4px;">+${opt.int} semi</div>
-                        </div>
+                        <button type="button" class="ext-option lc-btn" data-int="${opt.int}" data-id="${opt.id}" style="display:flex; align-items:center; gap:8px; padding:8px 12px; text-align:left;">
+                            <span style="flex:1; font-weight:700;">▶ ${opt.label}</span>
+                            <span style="font-size:0.85rem; color:var(--text-muted); white-space:nowrap;">+${opt.int} half step${opt.int === 1 ? '' : 's'}</span>
+                        </button>
                     `;
                 });
                 
@@ -893,7 +1014,7 @@
                     this.extensionIds = [];
                     this.renderRecipe();
                     this.renderExtensionsUI();
-                    this.updateChordDisplay(true);
+                    this.playHighQualityChord(this.getChordMidis(), 1.2);
                 }
                 
                 // Wire Stack Removal
@@ -931,58 +1052,14 @@
 
 
 
-        setChordIntervals(type) {
-            const intervals = {
-                'major': [4, 3],
-                'minor': [3, 4],
-                'dim': [3, 3],
-                'aug': [4, 4],
-                'sus2': [2, 5],
-                'sus4': [5, 2]
-            };
-            this.chordIntervals = intervals[type] || [4, 3];
-            this.extensions = [];
-            this.extensionIds = [];
-            try { this.renderExtensionsUI(); } catch(e) {}
-        }
-
-        updateUI() {
-            // Update stepper
-            this.updateStepper();
-            
-            // Update chord display
-            if (this.rootMidi) {
-                const chordName = this.getChordName();
-                const display = this.containerEl.querySelector('#current-chord-display');
-                if (display) {
-                    display.innerHTML = `
-                        <div style="font-size:2rem; font-weight:700; color:var(--accent-primary); margin-bottom:6px;">${chordName}</div>
-                        <div style="font-size:0.9rem; color:var(--text-muted);">Formula: ${this.chordIntervals.join('+')} ${this.extensions.length ? '+ extensions' : ''}</div>
-                    `;
-                }
-            }
-            
-            // Show/hide panels
-            if (this.step2Panel) this.step2Panel.style.display = this.step >= 2 && this.rootMidi ? '' : 'none';
-            if (this.step3Panel) this.step3Panel.style.display = this.step >= 3 ? '' : 'none';
-            if (this.step4Panel) this.step4Panel.style.display = this.step >= 4 ? '' : 'none';
-            if (this.step5Panel) this.step5Panel.style.display = this.step >= 5 ? '' : 'none';
-            
-            // Update theory explanation
-            if (this.step >= 2 && this.step2Panel) {
-                const explanation = this.step2Panel.querySelector('#theory-explanation');
-                if (explanation) {
-                    explanation.innerHTML = this.getTheoryExplanation();
-                }
-            }
-        }
-
         getTheoryExplanation() {
             const explanations = {
-                'major': '<strong>Major triads</strong> use a major third (4 half-steps) then a minor third (3 half-steps).',
-                'minor': '<strong>Minor triads</strong> flip it: minor third (3 half-steps) then major third (4 half-steps).',
-                'dim': '<strong>Diminished triads</strong> stack two minor thirds (3+3). Often used as a transition chord.',
-                'aug': '<strong>Augmented triads</strong> stack two major thirds (4+4).'
+                'major': '<strong>Major</strong> is a big 3rd (4 half steps), then a small one (3). It sounds bright and settled.',
+                'minor': '<strong>Minor</strong> flips them: small (3), then big (4). Same root and top note, one note lower in the middle.',
+                'dim': '<strong>Diminished (°)</strong> is two small 3rds (3 + 3): tense, and looking for somewhere to go.',
+                'aug': '<strong>Augmented (+)</strong> is two big 3rds (4 + 4): it floats, with no clear home.',
+                'sus2': '<strong>Sus2</strong> has no 3rd: the 2 stands in for it (2 + 5). Neither major nor minor, it hangs open.',
+                'sus4': '<strong>Sus4</strong> has no 3rd: the 4 stands in for it (5 + 2). It wants to fall back to the 3.'
             };
             return explanations[this.chordType] || '';
         }
@@ -991,64 +1068,28 @@
             if (!this.rootNote) return '';
             const type = this.chordType;
             const ids = Array.isArray(this.extensionIds) ? this.extensionIds : [];
+            const first = ids[0];
 
-            // Basic check if it's Sus
-            if (type && type.includes('sus')) {
-                let base = this.rootNote + (type === 'sus2' ? 'sus2' : 'sus4');
-                if (ids.length > 0) base += ' (ext)';
-                return base;
-            }
+            // What the triad and its 7th or 6th are called
+            let name;
+            if (type === 'minor') name = { min7: 'm7', minmaj7: 'm(maj7)', min6: 'm6' }[first] || 'm';
+            else if (type === 'dim') name = { dim7: '°7', m7b5: 'ø7' }[first] || '°';
+            else if (type === 'aug') name = { aug7: '+7', maj7aug: 'maj7♯5' }[first] || '+';
+            else if (type === 'sus2' || type === 'sus4') name = ({ dom7: '7', maj7: 'maj7', '6': '6' }[first] || '') + type;
+            else name = { maj7: 'maj7', dom7: '7', maj6: '6' }[first] || '';
 
-            // Helpers
-            const hasId = (id) => ids.indexOf(id) !== -1;
-            const hasAny = (list) => list.some(i => hasId(i));
-
-            // Minor chords
-            if (type === 'minor') {
-                // m6/9
-                if (hasAny(['min6', 'maj6', '6']) && hasAny(['nat9', 'shp9', '9'])) {
-                    return this.rootNote + 'm6/9';
-                }
-                // m6
-                if (hasAny(['min6', 'maj6', '6'])) return this.rootNote + 'm6';
-                // m(maj7)
-                if (hasId('minmaj7')) return this.rootNote + 'm(maj7)';
-                // m9
-                if (hasAny(['min7', 'minmaj7']) && hasAny(['nat9', 'shp9', 'b9'])) return this.rootNote + 'm9';
-                // m7
-                if (hasAny(['min7'])) return this.rootNote + 'm7';
-                // add9
-                if (hasAny(['nat9', 'shp9', 'b9'])) return this.rootNote + 'm(add9)';
-                return this.rootNote + 'm';
-            }
-
-            // Major chords
-            if (type === 'major') {
-                // 6/9
-                if (hasAny(['maj6', '6']) && hasAny(['nat9', '9'])) return this.rootNote + '6/9';
-                if (hasAny(['maj6', '6'])) return this.rootNote + '6';
-                if (hasId('maj7')) return this.rootNote + 'maj7';
-                if (hasId('dom7')) {
-                    if (hasAny(['nat9', 'shp9', 'b9'])) return this.rootNote + '7(9)';
-                    return this.rootNote + '7';
-                }
-                if (hasAny(['nat9', 'shp9', 'b9'])) return this.rootNote + 'add9';
-                return this.rootNote;
-            }
-
-            // Diminished
-            if (type === 'dim') {
-                if (hasAny(['dim7', 'm7b5'])) return this.rootNote + 'dim7';
-                return this.rootNote + 'dim';
-            }
-
-            // Augmented
-            if (type === 'aug') {
-                if (hasAny(['maj7aug', 'aug7'])) return this.rootNote + 'aug7';
-                return this.rootNote + 'aug';
-            }
-
-            return this.rootNote;
+            // What sits above it: plain 9, 11, 13 take over the 7 (C7 + 9 is C9); altered ones go in brackets
+            const marks = { b9: '♭9', nat9: '9', shp9: '♯9', nat11: '11', shp11: '♯11', nat13: '13', b13: '♭13' };
+            const altered = [];
+            let plain = true;
+            ids.slice(1).forEach(id => {
+                const mark = marks[id];
+                if (!mark) return;
+                if (plain && /^\d+$/.test(mark) && /7/.test(name) && !/°|ø|♯5/.test(name)) name = name.replace(/7|9|11/, mark);
+                else if (plain && mark === '9' && /6/.test(name)) name += '/9';
+                else { plain = false; altered.push(mark); }
+            });
+            return this.rootNote + name + (altered.length ? '(' + altered.join(', ') + ')' : '');
         }
 
         getChordMidis() {
@@ -1074,264 +1115,9 @@
             return midis;
         }
 
-        updateChordDisplay(play = false) {
-            const midis = this.getChordMidis();
-            const notes = midis.map(m => this.midiToNote(m));
-            const formattedNotes = notes.map(n => n.replace(/\d+$/, ''));
-            
-            // Visualizer (needs octaves)
-            if (this.visualizer && this.visualizer.setHighlightedNotes) {
-                this.visualizer.setHighlightedNotes(notes);
-            }
-            
-            // Audio
-            if (play) {
-                if (this.playMode === 'arpeggio') {
-                    // Stagger playback
-                    midis.forEach((m, i) => {
-                        this.playHighQualityNote(m, i * 0.15, 0.4);
-                    });
-                } else {
-                    this.playHighQualityChord(midis, 1.2);
-                }
-            }
-            
-            // Update Text Panel
-            const info = this.step4Panel ? this.step4Panel.querySelector('#extended-chord-info') : null;
-            if (info) {
-                let typeText = 'Basic Triad';
-                
-                if (this.extensionMeta) {
-                    typeText = this.extensionMeta.name;
-                }
-                
-                if (this.inversion > 0) {
-                    const names = ['Root', '1st', '2nd', '3rd'];
-                    const invName = names[this.inversion] || (this.inversion + 'th');
-                    typeText += ` <span style="color:var(--text-muted); font-size:0.8em;">(${invName} Inv)</span>`;
-                }
-
-                const intervals = [...this.chordIntervals, ...this.extensions];
-
-                info.innerHTML = `
-                    <div style="font-size:1.2rem; font-weight:700; margin-bottom:8px; color:var(--accent-primary);">${this.getChordName()}</div>
-                    <div style="margin-bottom:8px;"><strong>Type:</strong> ${typeText}</div>
-                    <div style="margin-bottom:8px;"><strong>Notes:</strong> ${formattedNotes.join(' – ')}</div>
-                    <div style="margin-bottom:8px;"><strong>Formula:</strong> ${intervals.join('+')}</div>
-                `;
-            }
-            
-            this.updateUI(); 
-        }
-
-        animateCounting() {
-            if (this.animating) return;
-            this.animating = true;
-            
-            const intervals = [...this.chordIntervals, ...this.extensions];
-            const chordToneNames = ['Root', '3rd', '5th', '7th', '9th', '11th', '13th'];
-            const chordToneMidis = [this.rootMidi];
-            let cur = this.rootMidi;
-            for (let interval of intervals) {
-                cur += interval;
-                chordToneMidis.push(cur);
-            }
-            
-            const visual = this.step3Panel.querySelector('#counting-visual');
-            const explanation = this.step3Panel.querySelector('#counting-explanation');
-            let intervalIndex = 0;
-            let currentMidi = this.rootMidi;
-            
-            // Show the root first
-            const rootNote = this.midiToNote(this.rootMidi);
-            const rootDisplay = rootNote.replace(/\d+$/, '');
-            this.visualizer.setHighlightedNotes([rootNote]);
-            this.playHighQualityNote(this.rootMidi, 0, 0.3);
-            visual.innerHTML = '<div style="font-size:1.3rem; color:#10b981;">✓ Root: ' + rootDisplay + '</div>';
-            explanation.innerHTML = '<strong>Starting note (Root):</strong> ' + rootDisplay + '. Now we will count up to find the other chord tones.';
-            
-            const countToNextChordTone = () => {
-                if (intervalIndex >= intervals.length) {
-                    // Done - show all chord tones
-                    const allNotes = chordToneMidis.map(m => this.midiToNote(m));
-                    const allDisplay = allNotes.map(n => n.replace(/\d+$/, ''));
-                    this.visualizer.setHighlightedNotes(allNotes);
-                    visual.innerHTML = '<div style="font-size:1.3rem; color:#10b981;">✓ Complete!</div>';
-                    explanation.innerHTML = '<strong>Your ' + this.getChordName() + ' chord:</strong> ' + allDisplay.join(' – ') + '<br><strong>Formula:</strong> ' + intervals.join('+') + ' half-steps';
-                    this.animating = false;
-                    this.step = Math.max(this.step, 4);
-                    this.updateUI();
-                    return;
-                }
-                
-                const targetMidi = chordToneMidis[intervalIndex + 1];
-                const interval = intervals[intervalIndex];
-                const intervalName = chordToneNames[intervalIndex + 1];
-                const startMidi = chordToneMidis[intervalIndex];
-                let stepsTaken = 0;
-                
-                // Count each half-step to the next chord tone
-                const countStep = () => {
-                    stepsTaken++;
-                    currentMidi = startMidi + stepsTaken;
-                    
-                    // Highlight all previous chord tones plus current counting position
-                    const highlightNotes = [];
-                    for (let i = 0; i <= intervalIndex; i++) {
-                        highlightNotes.push(this.midiToNote(chordToneMidis[i]));
-                    }
-                    for (let m = startMidi + 1; m <= currentMidi; m++) {
-                        highlightNotes.push(this.midiToNote(m));
-                    }
-                    
-                    if (this.visualizer && this.visualizer.setHighlightedNotes) {
-                        this.visualizer.setHighlightedNotes(highlightNotes);
-                    }
-                    
-                    // Play note
-                    this.playHighQualityNote(currentMidi, 0, 0.15);
-                    
-                    const currentNote = this.midiToNote(currentMidi);
-                    const currentDisplay = currentNote.replace(/\d+$/, '');
-                    
-                    if (stepsTaken < interval) {
-                        // Still counting
-                        visual.innerHTML = '<div style="font-size:1.2rem;">Counting to ' + intervalName + '... <span style="color:#f59e0b;">' + stepsTaken + '/' + interval + '</span> half-steps</div>';
-                        explanation.innerHTML = '<strong>Current note:</strong> ' + currentDisplay + ' (' + stepsTaken + ' half-step' + (stepsTaken > 1 ? 's' : '') + ' from previous chord tone)';
-                        setTimeout(countStep, 350);
-                    } else {
-                        // Reached the chord tone!
-                        visual.innerHTML = '<div style="font-size:1.3rem; color:#10b981;">✓ Found ' + intervalName + ': ' + currentDisplay + '</div>';
-                        explanation.innerHTML = '<strong>Chord tone found!</strong> ' + currentDisplay + ' is the <strong>' + intervalName + '</strong> (' + interval + ' half-steps from the ' + chordToneNames[intervalIndex] + ')';
-                        
-                        // Pause longer at chord tones to emphasize
-                        setTimeout(() => {
-                            intervalIndex++;
-                            countToNextChordTone();
-                        }, 800);
-                    }
-                };
-                
-                // Start counting after a brief pause
-                setTimeout(countStep, 600);
-            };
-            
-            // Start counting after showing root
-            setTimeout(countToNextChordTone, 1000);
-        }
-
-        extendChord(extensionType) {
-            const extensionInfo = {
-                'dom7': { 
-                    intervals: [3], 
-                    name: 'Dominant 7th'
-                },
-                'maj7': { 
-                    intervals: [4], 
-                    name: 'Major 7th'
-                },
-                '9th': { 
-                    intervals: [3, 4],
-                    name: '9th chord'
-                }
-            };
-            
-            this.extensionMeta = extensionInfo[extensionType];
-            this.extensions = this.extensionMeta.intervals;
-            this.updateChordDisplay(true);
-            this.step = Math.max(this.step, 5);
-        }
-
-        resetToTriad() {
-            this.extensions = [];
-            this.extensionMeta = null;
-            this.inversion = 0;
-            
-            // Reset UI states
-            if (this.step4Panel) {
-                this.step4Panel.querySelectorAll('.inv-btn').forEach(b => {
-                    b.style.borderColor = 'transparent';
-                    b.style.background = 'transparent';
-                });
-                const rootBtn = this.step4Panel.querySelector('.inv-btn[data-inv="0"]');
-                if (rootBtn) {
-                     rootBtn.style.borderColor = 'var(--accent-primary)';
-                     rootBtn.style.background = 'rgba(59,130,246,0.1)';
-                }
-            }
-            
-            this.updateChordDisplay(true);
-        }
-
-        playCurrentChord() {
-            this.updateChordDisplay(true);
-        }
-
-        playProgression(type) {
-            const progressions = {
-                'Cmaj': {
-                    chords: [[60,64,67],[65,69,72],[67,71,74],[60,64,67]],
-                    names: ['C', 'F', 'G', 'C']
-                },
-                'Cmin': {
-                    chords: [[60,63,67],[65,68,72],[67,71,74],[60,63,67]],
-                    names: ['Cm', 'Fm', 'G', 'Cm']
-                },
-                'Cm7': {
-                    chords: [[60,64,67,71],[69,72,76,79],[65,69,72,76],[67,71,74,77]],
-                    names: ['Cmaj7', 'Am7', 'Fmaj7', 'G7']
-                },
-                'Pop': {
-                    chords: [[60,64,67],[67,71,74],[69,72,76],[65,69,72]],
-                    names: ['C', 'G', 'Am', 'F']
-                }
-            };
-            
-            const prog = progressions[type];
-            if (!prog) return;
-            
-            const display = this.step5Panel.querySelector('#progression-display');
-            let idx = 0;
-            
-            const playNext = () => {
-                if (idx >= prog.chords.length) {
-                    display.innerHTML = '<div style="color:var(--text-muted);">Progression complete</div>';
-                    return;
-                }
-                
-                // Highlight chord
-                display.innerHTML = '<div style="color:var(--accent-primary);">' + prog.names[idx] + '</div>';
-                
-                // Highlight on piano
-                const notes = prog.chords[idx].map(m => this.midiToNote(m));
-                this.visualizer.setHighlightedNotes(notes);
-                
-                // Play chord
-                this.playHighQualityChord(prog.chords[idx], 0.7);
-                
-                idx++;
-                setTimeout(playNext, 1000);
-            };
-            
-            playNext();
-        }
-
-        updateStepper() {
-            const stepper = this.containerEl?.querySelector('#learn-chords-stepper');
-            if (!stepper) return;
-            const steps = stepper.children;
-            for (let i=0; i<steps.length; i++) {
-                const isActive = (i+1 === this.step);
-                steps[i].style.background = isActive ? '#bae6fd' : '#f1f5f9';
-                steps[i].style.color = isActive ? '#0369a1' : '#64748b';
-                steps[i].style.borderColor = isActive ? '#38bdf8' : '#e5e7eb';
-            }
-        }
-
         midiToNote(midi) {
-            const notes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
             const octave = Math.floor(midi/12)-1;
-            return notes[midi%12] + octave;
+            return NOTE_NAMES[midi%12] + octave;
         }
     }
 

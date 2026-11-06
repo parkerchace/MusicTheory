@@ -35,15 +35,6 @@ class ContainerChordTool {
 
         this.listeners = new Map();
         this.containerElement = null;
-
-        // Subscribe to shared grading mode changes
-        if (this.musicTheory.subscribe) {
-            this.musicTheory.subscribe((event, data) => {
-                if (event === 'gradingModeChanged') {
-                    this.render();
-                }
-            });
-        }
     }
 
     /**

@@ -156,22 +156,6 @@ body[data-look]:not([data-look="og"]) [data-module="sheet"][data-stage] .sheet-m
 body[data-look]:not([data-look="og"]) [data-module="sheet"][data-stage]:not([data-controls-open]) .sheet-music-controls,
 body[data-look]:not([data-look="og"]) [data-module="sheet"][data-stage]:not([data-controls-open]) .sheet-music-voicing-panel { display: none !important; }
 
-/* ---------- grading key ---------------------------------------------------- */
-/* A tall list of tiers in OG's sidebar. Given a wide, short strip (Lab
-   Bench's legend, a ribbon) it reads like a legend: the heading and note
-   across the top, the tiers side by side. */
-@container module (min-width: 760px) {
-    body[data-look]:not([data-look="og"]) .look-item #grading-key-sidebar > div {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 2px 18px;
-        align-items: start;
-    }
-    body[data-look]:not([data-look="og"]) .look-item #grading-key-sidebar > div > :not(:has(> *)) {
-        grid-column: 1 / -1;
-    }
-}
-
 /* ==========================================================================
    LOOK-LEVEL FIXES
    ========================================================================== */
@@ -218,7 +202,7 @@ body[data-look]:not([data-look="og"]) .look-zone[data-flow="row"] > .look-zone-l
     margin: 0;
 }
 
-/* Zone heights (ribbons, Lab Bench's legend) and Orrery's row shares are part
+/* Zone heights (ribbons, legend strips) and Orrery's row shares are part
    of each look's definition now (studio-looks.js), applied inline; under
    860px every look stacks, so they give way. */
 @media (max-width: 860px) {

@@ -1,7 +1,7 @@
 /**
  * @module GuitarFretboardVisualizer
  * @description Interactive guitar fretboard that highlights notes for the selected key/scale.
- * - Standard tuning (E2 A2 D3 G3 B3 E4)
+ * - Tuned by GuitarTuning (guitar-tuning.js), the one setting every neck shares
  * - Highlights all scale tones across the fretboard
  * - Emphasizes root note positions
  * - Syncs with ScaleLibrary and PianoVisualizer selections
@@ -12,9 +12,10 @@ class GuitarFretboardVisualizer {
         this.options = {
             container: options.container || null,
             frets: options.frets || 22,
-            tuningMidi: options.tuningMidi || [40, 45, 50, 55, 59, 64], // E2 A2 D3 G3 B3 E4
             showNoteLabels: options.showNoteLabels !== false,
             fitToContainer: options.fitToContainer !== false,
+            tuningControl: options.tuningControl !== false,   // the dropdown above the board
+            legend: options.legend !== false,                 // scale tone / root / focused, under it
             ...options
         };
 
@@ -25,7 +26,8 @@ class GuitarFretboardVisualizer {
             highlightedNote: null, // specific note name to emphasize
             focusMidi: null, // specific midi to focus/scroll
             focusNotes: [],  // when set, ONLY these light up — see setFocusNotes
-            focusKind: null  // 'chord' | 'melody', so the two are told apart by colour
+            focusKind: null, // 'chord' | 'melody', so the two are told apart by colour
+            spelling: []     // names to wear without being lit: a chord, as the page showing it spells it
         };
 
         this.listeners = new Map();
@@ -64,11 +66,52 @@ class GuitarFretboardVisualizer {
         };
 
         this.initialize();
+
+        if (typeof window !== 'undefined' && window.GuitarTuning && window.addEventListener) {
+            window.addEventListener('guitar-tuning:change', () => this.retune());
+        }
     }
 
     initialize() {
         this.createElement();
         this.render();
+    }
+
+    _showsTuning() {
+        return !!(this.options.tuningControl && typeof window !== 'undefined' && window.GuitarTuning);
+    }
+
+    /** The open strings as [{midi, name}], lowest first. */
+    _openStrings() {
+        const gt = typeof window !== 'undefined' && window.GuitarTuning;
+        if (gt) {
+            const t = gt.current();
+            return t.midi.map((midi, i) => ({ midi, name: t.names[i] }));
+        }
+        return [40, 45, 50, 55, 59, 64].map(midi => ({ midi, name: this.SEMITONE_TO_NOTE[midi % 12] }));
+    }
+
+    /**
+     * New tuning: every cell takes the pitch its string and fret now make, in
+     * place. Nothing is rebuilt, so a page's own paint and a dropdown with the
+     * focus survive. Held notes are let go: where a hand was holding them no
+     * longer sounds them.
+     */
+    retune() {
+        if (this._held) this._held.clear();
+        if (!this.gridEl) return;
+        const open = this._openStrings();
+        this.gridEl.querySelectorAll('.fret-cell').forEach(cell => {
+            const string = open[parseInt(cell.dataset.stringIndex, 10)];
+            const fret = parseInt(cell.dataset.fret, 10);
+            const midi = string.midi + fret;
+            const note = fret === 0 ? string.name : this.SEMITONE_TO_NOTE[midi % 12];
+            cell.dataset.midi = String(midi);
+            cell.dataset.note = note;
+            const label = cell.querySelector('.fret-label');
+            if (label) label.textContent = note;
+        });
+        this.applyState();
     }
 
     on(event, callback) {
@@ -101,11 +144,6 @@ class GuitarFretboardVisualizer {
                 this.render();
             }
         } catch (_) {}
-
-        // Cache current dock size (used to build a fill-to-container dock layout)
-        if (this._layoutMode === 'dock') {
-            this._dockHostSize = { w: host.clientWidth || 0, h: host.clientHeight || 0 };
-        }
 
         host.innerHTML = '';
         host.appendChild(this.element);
@@ -173,7 +211,8 @@ class GuitarFretboardVisualizer {
      */
     _applyFitToModule(host) {
         if (!window.ModuleFit || !host || !this.element) return;
-        if (!window.ModuleFit.active()) {
+        // A Learn page's neck is not the studio's: it fits whichever look the studio is in.
+        if (!window.ModuleFit.active() && host.closest('.workspace')) {
             // OG: the board as it was built (fixed frets, scrolls sideways)
             if (!this._fullHostRoom) return;
             this._fullHostRoom = null;
@@ -271,7 +310,8 @@ class GuitarFretboardVisualizer {
             // Fit the module: width always, height only when a look fixes it.
             // Fewer frets (never below 12, a full octave) beats unreadable ones.
             wrap.style.padding = '8px 8px';
-            const extrasY = 16 + 4 + 18 + 30;   // padding + border + fret numbers + legend
+            const extrasY = 16 + 4 + 18   // padding + border + fret numbers
+                + (this.options.legend ? 30 : 0) + (this._showsTuning() ? 28 : 0);
             const targetW = Math.max(200, room.w - 20);
             openZoneWidth = 36;
             nutWidth = 8;
@@ -313,7 +353,7 @@ class GuitarFretboardVisualizer {
         fretboard.style.position = 'relative';
 
         // String lines (visual layer under cells)
-        const stringThicknesses = [1.5, 1.8, 2.2, 2.6, 3.0, 3.5]; // high E to low E
+        const stringThicknesses = [1.5, 1.8, 2.2, 2.6, 3.0, 3.5]; // highest string to lowest
         for (let s = 0; s < 6; s++) {
             const stringLine = document.createElement('div');
             stringLine.style.position = 'absolute';
@@ -408,15 +448,14 @@ class GuitarFretboardVisualizer {
         cellLayer.style.zIndex = '3';
 
         // Build cells: open markers live to the left of the nut; fretted notes sit between fret wires.
-        // Visual order: top row = high E, bottom row = low E
-        const tuning = this.options.tuningMidi.slice().reverse(); // [64,59,55,50,45,40]
+        // Visual order: top row = highest string, bottom row = lowest
+        const tuning = this._openStrings().reverse();
         for (let s = 0; s < 6; s++) {
-            const openMidi = tuning[s];
-            // Open string marker (fret 0)
+            const openMidi = tuning[s].midi;
+            // Open string marker (fret 0), named as the tuning names it (E♭, not D♯)
             {
                 const midi = openMidi;
-                const semitone = midi % 12;
-                const noteName = this.SEMITONE_TO_NOTE[semitone];
+                const noteName = tuning[s].name;
 
                 const cell = document.createElement('div');
                 cell.className = 'fret-cell';
@@ -438,7 +477,7 @@ class GuitarFretboardVisualizer {
                 cell.dataset.midi = String(midi);
                 cell.dataset.note = noteName;
                 cell.dataset.fret = '0';
-                cell.dataset.stringIndex = String(5 - s); // 0=low E ... 5=high E
+                cell.dataset.stringIndex = String(5 - s); // 0=lowest string ... 5=highest
 
                 // Label (always visible for clarity)
                 const label = document.createElement('div');
@@ -516,7 +555,7 @@ class GuitarFretboardVisualizer {
                 cell.dataset.midi = String(midi);
                 cell.dataset.note = noteName;
                 cell.dataset.fret = String(f);
-                cell.dataset.stringIndex = String(5 - s); // 0=low E ... 5=high E
+                cell.dataset.stringIndex = String(5 - s); // 0=lowest string ... 5=highest
 
                 const label = document.createElement('div');
                 label.className = 'fret-label';
@@ -566,6 +605,16 @@ class GuitarFretboardVisualizer {
         fitWrap.style.width = `${totalWidth}px`;
         fitWrap.style.height = `${totalHeight}px`;
         fitWrap.appendChild(fretboard);
+        if (!compact && this._showsTuning()) {
+            // One per board, carried across rebuilds: a resize must not take the box from under typing.
+            // Above the board and held at the left, so it is in view whenever the board
+            // is, however short the module or far along a neck wider than its module.
+            this._tuningEl = this._tuningEl || window.GuitarTuning.control({ label: 'Tuning' });
+            const tuningRow = document.createElement('div');
+            tuningRow.style.cssText = 'position:sticky; left:0; display:flex; height:22px; margin-bottom:6px;';
+            tuningRow.appendChild(this._tuningEl);
+            wrap.appendChild(tuningRow);
+        }
         wrap.appendChild(fitWrap);
 
         if (!compact) {
@@ -595,18 +644,21 @@ class GuitarFretboardVisualizer {
             wrap.appendChild(fretNumbers);
 
             // Legend
-            const legend = document.createElement('div');
-            legend.style.display = 'flex';
-            legend.style.gap = '12px';
-            legend.style.marginTop = '12px';
-            legend.style.fontSize = '0.75rem';
-            legend.style.color = 'var(--text-main)';
-            legend.innerHTML = `
-                <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#10b981; display:inline-block; border-radius:50%;"></span><span>Scale Tone</span></div>
-                <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#f59e0b; display:inline-block; border-radius:50%;"></span><span>Root</span></div>
-                <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#60a5fa; display:inline-block; border-radius:50%;"></span><span>Focused</span></div>
-            `;
-            wrap.appendChild(legend);
+            if (this.options.legend) {
+                const legend = document.createElement('div');
+                legend.style.display = 'flex';
+                legend.style.gap = '12px';
+                legend.style.alignItems = 'center';
+                legend.style.marginTop = room ? '6px' : '12px';
+                legend.style.fontSize = '0.75rem';
+                legend.style.color = 'var(--text-main)';
+                legend.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#10b981; display:inline-block; border-radius:50%;"></span><span>Scale Tone</span></div>
+                    <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#f59e0b; display:inline-block; border-radius:50%;"></span><span>Root</span></div>
+                    <div style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:12px; background:#60a5fa; display:inline-block; border-radius:50%;"></span><span>Focused</span></div>
+                `;
+                wrap.appendChild(legend);
+            }
         }
 
         this.element = wrap;
@@ -838,6 +890,9 @@ class GuitarFretboardVisualizer {
             if (pc !== null && !spellingByPc.has(pc)) spellingByPc.set(pc, String(n));
         });
 
+        const worn = new Map();
+        (this.state.spelling || []).forEach(n => { worn.set(this._pcOf(n), String(n)); });
+
         const focusMidi = this.state.focusMidi;
         const highlightedNote = this.state.highlightedNote;
 
@@ -866,7 +921,7 @@ class GuitarFretboardVisualizer {
             // Wear the scale's spelling while the scale is showing, and the
             // neck's own name again once it is not.
             if (label) {
-                label.textContent = isScaleTone ? spellingByPc.get(pc) : note;
+                label.textContent = isScaleTone ? spellingByPc.get(pc) : (worn.get(pc) || note);
             }
 
             // Base styling: show scale tones as glowing dots

@@ -310,7 +310,7 @@
             if (Math.abs(h1 - h0) < 1 && h0 > 40) { z.setAttribute('data-fixed', ''); return; }
 
             // A zone in an auto grid row should be as tall as what is in it,
-            // up to any cap the look sets (Lab Bench's legend strip). Without
+            // up to any cap the look sets (a legend strip). Without
             // this the look's fixed rows took all the height and the auto row
             // collapsed to nothing.
             z.setAttribute('data-auto', '');

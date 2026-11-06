@@ -33,17 +33,17 @@
             // Simple explanation + finger text
             this.explanations = {
                 0: {
-                    title: 'Root Position',
+                    title: 'Root position',
                     short: 'Root is in the bass',
                     detailed: 'Root position stacks the chord from the bottom up: root–3rd–5th. For C major that is C–E–G with C as the lowest note. This is the "default" shape and is great when you want a solid, grounded sound.'
                 },
                 1: {
-                    title: '1st Inversion',
+                    title: '1st inversion',
                     short: '3rd is in the bass',
                     detailed: '1st inversion moves the root up so the 3rd becomes the lowest note. For C major that means E–G–C with E on the bottom. This lets your hand stay in almost the same place when you move to nearby chords (for example going from C major to A minor or F major).'
                 },
                 2: {
-                    title: '2nd Inversion',
+                    title: '2nd inversion',
                     short: '5th is in the bass',
                     detailed: '2nd inversion puts the 5th in the bass. For C major that is G–C–E with G on the bottom. This shape is a bit more tense and is often used right before another chord, like playing C in 2nd inversion before a G chord to make the resolution feel strong.'
                 }
@@ -57,6 +57,19 @@
         }
 
         // Small helper for consistent button "active" styling
+        /** The name on screen; the page's own values stay C#, D#... */
+        _shown(name) {
+            return ({ 'C#': 'D♭', 'D#': 'E♭', 'F#': 'F♯', 'G#': 'A♭', 'A#': 'B♭' })[name] || name;
+        }
+
+        /** This chord's notes in the order played, spelled by letter (E♭ in C minor). */
+        _spelledNotes(chordNotes) {
+            const T = window.CourseTheory;
+            const root = this._shown(this.rootNote);
+            const names = (this.quality === 'maj' ? ['1', '3', '5'] : ['1', 'b3', '5']).map(t => T.spell(root, t));
+            return chordNotes.map(m => names.find(n => T.pcOf(n) === m % 12) || this._shown(this.midiToNoteName(m).replace(/\d+$/, '')));
+        }
+
         _setButtonActive(btn, isActive, styleKind) {
             if (!btn) return;
             if (!isActive) {
@@ -72,13 +85,13 @@
             btn.style.transform = 'scale(1.03)';
 
             if (styleKind === 'primary') {
-                btn.style.backgroundImage = 'linear-gradient(135deg,var(--accent-primary),#22c55e)';
+                btn.style.backgroundImage = 'linear-gradient(135deg,var(--accent-primary),var(--accent-secondary))';
                 btn.style.color = '#000';
             } else if (styleKind === 'secondary') {
-                btn.style.backgroundImage = 'linear-gradient(135deg,var(--accent-secondary),#f97316)';
+                btn.style.backgroundImage = 'linear-gradient(135deg,var(--accent-secondary),var(--accent-primary))';
                 btn.style.color = '#000';
             } else if (styleKind === 'chip') {
-                btn.style.backgroundImage = 'linear-gradient(135deg,rgba(59,130,246,0.9),rgba(16,185,129,0.9))';
+                btn.style.backgroundImage = 'linear-gradient(135deg,color-mix(in srgb, var(--accent-primary) 90%, transparent),color-mix(in srgb, var(--accent-secondary) 90%, transparent))';
                 btn.style.color = '#000';
             }
         }
@@ -167,10 +180,16 @@
             }
         }
 
+        /** What the chord sounds on: the guitar when it is the chosen instrument. */
+        _sound() {
+            return window.LearnCommon.guitarSound() || this._audioEngine;
+        }
+
         playChord(midiNotes, duration = 0.6) {
             try {
-                if (this._audioEngine && typeof this._audioEngine.playChord === 'function') {
-                    this._audioEngine.playChord(midiNotes, duration);
+                const eng = this._sound();
+                if (eng && typeof eng.playChord === 'function') {
+                    eng.playChord(midiNotes, duration);
                 } else {
                     (midiNotes || []).forEach(midi => this.playNote(midi, duration));
                 }
@@ -186,6 +205,7 @@
             if (!host) return;
 
             this.containerEl = host;
+            const onGuitar = window.LearnCommon.instrument() === 'guitar';
             this.initAudio();
             this.initSharedPiano();
             host.innerHTML = '';
@@ -201,15 +221,15 @@
                     #inv-piano-wrap { overflow: hidden; }
                     #inv-piano-wrap > div { max-width: 100% !important; }
                     .inv-section { margin: 0 0 20px 0; }
-                    .inv-intro-section { background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1)); border: 1px solid rgba(59,130,246,0.25); border-radius: 14px; padding: 24px; margin-bottom: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+                    .inv-intro-section { background: linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 10%, transparent), color-mix(in srgb, var(--accent-primary) 10%, transparent)); border: 1px solid color-mix(in srgb, var(--accent-primary) 25%, transparent); border-radius: 14px; padding: 24px; margin-bottom: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
                     .inv-intro-grid { display:grid; grid-template-columns: 1fr; gap:24px; }
                     .inv-text-block h3 { font-family:var(--font-tech); font-weight:900; font-size:1.3rem; color:var(--accent-primary); margin:0 0 14px 0; letter-spacing:0.5px; text-align:center; }
                     .inv-text-block p { font-size:0.95rem; color:var(--text-main); line-height:1.9; margin:0 0 16px 0; text-align:center; max-width: 700px; margin-left: auto; margin-right: auto; }
                     .inv-text-block ul { font-size:0.9rem; color:var(--text-main); line-height:1.9; padding:0; margin:0; list-style:none; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; max-width:700px; margin-left:auto; margin-right:auto; }
-                    .inv-text-block ul li { position:relative; padding:12px 16px; margin:0; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid rgba(59,130,246,0.15); }
+                    .inv-text-block ul li { position:relative; padding:12px 16px; margin:0; background:rgba(0,0,0,0.2); border-radius:8px; border:1px solid color-mix(in srgb, var(--accent-primary) 15%, transparent); }
                     .inv-text-block ul li strong { color:var(--accent-primary); display:block; margin-bottom:4px; font-size:0.92rem; }
                     .inv-mini-examples { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.08); }
-                    .inv-mini-examples-title { font-size:0.85rem; color:var(--accent-primary); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:16px; text-align:center; font-weight:800; }
+                    .inv-mini-examples-title { font-size:0.85rem; color:var(--accent-primary); margin-bottom:16px; text-align:center; font-weight:800; }
                     .inv-mini-row { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
                     .inv-mini-card { flex:0 1 180px; }
                     .inv-mini-label { font-size:0.85rem; font-weight:800; font-family:var(--font-tech); color:var(--text-highlight); margin-bottom:8px; text-align:center; }
@@ -218,11 +238,11 @@
                     .inv-mini-white-keys { display:flex; height:100%; }
                     .inv-mini-key.white { flex:1; background:linear-gradient(180deg, #fff 0%, #e8e8e8 50%, #d0d0d0 100%); border:1px solid #ccc; border-right:1px solid #aaa; border-radius:0 0 4px 4px; box-shadow:inset 0 -2px 3px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.2); margin:0; }
                     .inv-mini-key.black { position:absolute; width:10px; height:66%; background:linear-gradient(180deg, #2a2a2a 0%, #000 100%); border:1px solid #000; border-radius:0 0 3px 3px; box-shadow:inset 0 1px 3px rgba(255,255,255,0.2), 0 3px 6px rgba(0,0,0,0.6); z-index:10; }
-                    .inv-mini-key.active.white { background:linear-gradient(180deg, #4ade80 0%, #22c55e 50%, #16a34a 100%) !important; box-shadow:0 0 12px rgba(34,197,94,0.8), inset 0 1px 2px rgba(255,255,255,0.3) !important; border-color:#16a34a !important; }
-                    .inv-mini-key.active.black { background:linear-gradient(180deg, #4ade80 0%, #22c55e 100%) !important; box-shadow:0 0 12px rgba(34,197,94,0.8), inset 0 1px 2px rgba(255,255,255,0.2) !important; }
-                    .inv-mini-key.root.white { background:linear-gradient(180deg, #fca5a5 0%, #ef4444 50%, #dc2626 100%) !important; box-shadow:0 0 14px rgba(239,68,68,0.9), inset 0 1px 2px rgba(255,255,255,0.3) !important; border-color:#dc2626 !important; }
-                    .inv-mini-key.root.black { background:linear-gradient(180deg, #fca5a5 0%, #ef4444 100%) !important; box-shadow:0 0 14px rgba(239,68,68,0.9), inset 0 1px 2px rgba(255,255,255,0.2) !important; }
-                    .inv-mini-root-arrow { position:absolute; top:-18px; transform:translateX(-50%); color:#ef4444; font-size:1.2rem; font-weight:900; text-shadow:0 2px 4px rgba(0,0,0,0.9); font-family:var(--font-tech); text-align:center; white-space:nowrap; line-height:1; }
+                    .inv-mini-key.active.white { background:var(--accent-secondary) !important; box-shadow:0 0 12px color-mix(in srgb, var(--accent-secondary) 80%, transparent), inset 0 1px 2px rgba(255,255,255,0.3) !important; border-color:var(--accent-secondary) !important; }
+                    .inv-mini-key.active.black { background:var(--accent-secondary) !important; box-shadow:0 0 12px color-mix(in srgb, var(--accent-secondary) 80%, transparent), inset 0 1px 2px rgba(255,255,255,0.2) !important; }
+                    .inv-mini-key.root.white { background:var(--lc-bad) !important; box-shadow:0 0 14px color-mix(in srgb, var(--lc-bad) 90%, transparent), inset 0 1px 2px rgba(255,255,255,0.3) !important; border-color:var(--lc-bad) !important; }
+                    .inv-mini-key.root.black { background:var(--lc-bad) !important; box-shadow:0 0 14px color-mix(in srgb, var(--lc-bad) 90%, transparent), inset 0 1px 2px rgba(255,255,255,0.2) !important; }
+                    .inv-mini-root-arrow { position:absolute; top:-18px; transform:translateX(-50%); color:var(--lc-bad); font-size:1.2rem; font-weight:900; text-shadow:0 2px 4px rgba(0,0,0,0.9); font-family:var(--font-tech); text-align:center; white-space:nowrap; line-height:1; }
                     .inv-mini-caption { margin-top:10px; font-size:0.8rem; color:var(--text-muted); line-height:1.6; text-align:center; font-weight:600; }
                     .inv-sheet-section { background: linear-gradient(135deg, rgba(0,0,0,0.3), rgba(0,0,0,0.2)); border-radius: 12px; padding: 20px; margin-bottom: 32px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
                     .inv-sheet-title { font-family:var(--font-tech); font-weight:900; font-size:1.1rem; color:var(--text-highlight); margin-bottom:10px; text-align:center; letter-spacing:0.5px; }
@@ -231,8 +251,8 @@
                     .inv-sheet-card { flex:0 1 160px; }
                     .inv-sheet-card-label { font-size:0.85rem; font-weight:800; font-family:var(--font-tech); color:var(--text-highlight); margin-bottom:8px; text-align:center; }
                     .inv-sheet-staff { border-radius:8px; background:linear-gradient(135deg, rgba(30,30,30,0.9), rgba(25,25,25,0.85)); padding:12px; box-shadow:0 3px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05); border: 1px solid rgba(100,100,100,0.3); }
-                    .inv-divider { height:2px; background:linear-gradient(90deg, transparent, rgba(139,92,246,0.3) 20%, rgba(139,92,246,0.5) 50%, rgba(139,92,246,0.3) 80%, transparent); margin:32px 0; border-radius:2px; }
-                    .inv-interactive-title { font-family:var(--font-tech); font-weight:900; font-size:1.2rem; color:var(--accent-secondary); text-align:center; margin-bottom:20px; letter-spacing:0.8px; text-shadow:0 2px 8px rgba(139,92,246,0.3); }
+                    .inv-divider { height:2px; background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-primary) 30%, transparent) 20%, color-mix(in srgb, var(--accent-primary) 50%, transparent) 50%, color-mix(in srgb, var(--accent-primary) 30%, transparent) 80%, transparent); margin:32px 0; border-radius:2px; }
+                    .inv-interactive-title { font-family:var(--font-tech); font-weight:900; font-size:1.2rem; color:var(--accent-secondary); text-align:center; margin-bottom:20px; letter-spacing:0.8px; text-shadow:0 2px 8px color-mix(in srgb, var(--accent-primary) 30%, transparent); }
                     @media (max-width: 600px) {
                         .inv-intro-grid { grid-template-columns:minmax(0,1fr); }
                         .inv-root-grid button { min-width: 34px; padding: 6px 8px; font-size: 0.78rem; }
@@ -246,17 +266,15 @@
             wrapper.id = 'learn-inversions-wrapper';
             host.appendChild(wrapper);
 
-            // Header
-            const header = document.createElement('div');
-            header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;';
-            header.innerHTML = `
-                <button id="back-to-landing-from-inversions" style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-light);padding:6px 10px;border-radius:6px;cursor:pointer;color:var(--text-main);font-size:0.8rem;font-family:var(--font-tech);">← Back</button>
-                <div style="flex:1;text-align:center;font-family:var(--font-tech);font-weight:900;font-size:1.1rem;color:var(--text-highlight);">Chord Inversions</div>
-                <div style="width:64px;"></div>
-            `;
+            const header = window.LearnCommon.header({
+                title: 'Inversions',
+                icon: onGuitar ? '🎸' : '🎹',
+                subtitle: 'The same notes of a chord, with a different note on the bottom.',
+                homeId: 'back-to-landing-from-inversions',
+                themeId: 'learn-inversions-theme'
+            });
+            header.style.marginBottom = '12px';
             wrapper.appendChild(header);
-            const backBtn = header.querySelector('#back-to-landing-from-inversions');
-            if (backBtn) backBtn.addEventListener('click', () => this.goBack && this.goBack());
 
             // ---------------- Top pedagogy block ----------------
 
@@ -269,11 +287,11 @@
                         <p>
                             An <strong>inversion</strong> keeps the same notes of a chord but puts a
                             <strong>different note on the bottom</strong>. This simple change lets you keep chords
-                            <strong>physically close together</strong> on the piano and creates smoother motion between chords.
+                            <strong>physically close together</strong> ${onGuitar ? 'on the neck' : 'on the piano'} and creates smoother motion between chords.
                         </p>
                         <ul>
                             <li><strong>Harmony:</strong> Same notes, different "flavor" (more stable, more open, or more tense)</li>
-                            <li><strong>Ergonomics:</strong> Move a few keys instead of jumping across the keyboard</li>
+                            <li><strong>Ergonomics:</strong> ${onGuitar ? 'Move a finger or two instead of jumping along the neck' : 'Move a few keys instead of jumping across the keyboard'}</li>
                             <li><strong>Voice leading:</strong> Each note slides to a nearby note in the next chord</li>
                         </ul>
                     </div>
@@ -315,7 +333,7 @@
                 <div class="inv-sheet-title">See the same chord on sheet music</div>
                 <div class="inv-sheet-desc">
                     Below is a <strong>C major triad</strong> written three ways. The notes C, E, and G never change – only
-                    <strong>which note is lowest</strong>. This is exactly what you're doing on the piano.
+                    <strong>which note is lowest</strong>. This is exactly what you're doing on the ${onGuitar ? 'guitar' : 'piano'}.
                 </div>
                 <div class="inv-sheet-row">
                     ${['Root position','1st inversion','2nd inversion'].map((label, idx) => `
@@ -339,13 +357,13 @@
             // ---------------- Interactive title ----------------
             const interactiveTitle = document.createElement('div');
             interactiveTitle.className = 'inv-interactive-title';
-            interactiveTitle.textContent = '🎹 Try any chord & inversion';
+            interactiveTitle.textContent = (onGuitar ? '🎸' : '🎹') + ' Try any chord & inversion';
             wrapper.appendChild(interactiveTitle);
 
             // Root selector
             const rootSection = document.createElement('div');
             rootSection.className = 'inv-section';
-            rootSection.innerHTML = '<div style="text-align:center;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Root note</div>';
+            rootSection.innerHTML = '<div style="text-align:center;font-size:0.7rem;color:var(--text-muted);margin-bottom:4px;">Root note</div>';
 
             const rootGrid = document.createElement('div');
             rootGrid.className = 'inv-root-grid';
@@ -353,7 +371,7 @@
             const notes = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
             notes.forEach((note, i) => {
                 const btn = document.createElement('button');
-                btn.textContent = note;
+                btn.textContent = this._shown(note);
                 btn.dataset.note = note;
                 btn.style.cssText = 'padding:7px 9px;min-width:36px;border-radius:6px;border:1px solid rgba(255,255,255,0.16);background:rgba(0,0,0,0.5);color:var(--text-main);font-family:var(--font-tech);font-size:0.8rem;cursor:pointer;font-weight:700;';
                 if (note === this.rootNote) {
@@ -379,7 +397,7 @@
             ['maj','min'].forEach(q => {
                 const btn = document.createElement('button');
                 btn.dataset.quality = q;
-                btn.textContent = q === 'maj' ? 'MAJOR' : 'MINOR';
+                btn.textContent = q === 'maj' ? 'Major' : 'Minor';
                 btn.style.cssText = 'padding:8px 20px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.5);color:var(--text-main);font-family:var(--font-tech);font-weight:800;font-size:0.86rem;cursor:pointer;';
                 if (this.quality === q) this._setButtonActive(btn, true, 'secondary');
                 btn.addEventListener('click', () => {
@@ -443,7 +461,7 @@
             // Explanation / finger guide
             const insight = document.createElement('div');
             insight.className = 'inv-section';
-            insight.style.cssText = 'background:rgba(16,185,129,0.1);border-radius:8px;border-left:3px solid var(--accent-primary);padding:12px;';
+            insight.style.cssText = 'background:color-mix(in srgb, var(--accent-secondary) 10%, transparent);border-radius:8px;border-left:3px solid var(--accent-primary);padding:12px;';
 
             const infoDiv = document.createElement('div');
             infoDiv.id = 'inversion-info';
@@ -460,22 +478,21 @@
             // are where this page meets the Intermediate course, so they go
             // last, with the way on.
             try { this.addVoiceLeadingSection(wrapper); } catch (e) { console.warn('[LearnInversions] voice leading section', e); }
-            const next = document.createElement('div');
-            next.className = 'inv-section';
-            next.style.cssText = 'text-align:center;padding:16px;border:1px solid var(--accent-primary);border-radius:8px;';
-            next.innerHTML = '<div style="font-weight:700;margin-bottom:6px;">Next in the course: Intermediate \u00b7 Voicings</div>' +
-                '<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">Inversions keep a chord close. Drop voicings open it up so a melody fits on top.</div>';
-            const go = document.createElement('button');
-            go.type = 'button';
-            go.className = 'btn';
-            go.textContent = 'Start: close voicing \u2192 drop 2';
-            go.addEventListener('click', () => {
-                const page = document.getElementById('learn-inversions-page');
-                if (page) page.style.display = 'none';
-                if (window.Course) window.Course.start('i-close-voicing');
+            window.LearnCommon.quiz(wrapper, {
+                q: 'A C major chord with G on the bottom (G·C·E): which inversion is it?',
+                options: ['Root position', '1st inversion', '2nd inversion'],
+                answer: 2,
+                why: 'G is the chord’s 5th, and the 5th on the bottom is 2nd inversion. The notes are still C, E and G.',
+                wrong: ['Root position has the root, C, on the bottom. Here G is.', '1st inversion has the 3rd, E, on the bottom. Here G is.']
             });
-            next.appendChild(go);
-            wrapper.appendChild(next);
+            const bridge = document.createElement('div');
+            bridge.style.cssText = 'font-size:0.85rem;color:var(--text-muted);margin-top:8px;';
+            bridge.textContent = 'Inversions keep a chord close. Later, in Intermediate, drop voicings open it up so a melody fits on top.';
+            wrapper.appendChild(bridge);
+            window.LearnCommon.completeBar(wrapper, {
+                id: 'b-inversions',
+                learned: 'You can put any note of a chord on the bottom, and name the inversion it makes.'
+            });
 
             // Attach existing shared piano + render once
             if (typeof this.renderInstrument === 'function') { this.renderInstrument(); } else { this.renderPiano(); }
@@ -485,6 +502,10 @@
         // ---------- Static overview visuals (top of page) ----------
 
         renderMiniKeyboards() {
+            if (!this._miniRetune) {
+                this._miniRetune = () => { if (window.LearnCommon.instrument() === 'guitar') this.renderMiniKeyboards(); };
+                window.addEventListener('guitar-tuning:change', this._miniRetune);
+            }
             const containers = this._miniKeyboards || {};
             const mapping = [containers.root, containers.first, containers.second];
             const whiteIndices = [0, 2, 4, 5, 7, 9, 11]; // C, D, E, F, G, A, B
@@ -512,6 +533,13 @@
 
                 const inversion = inversions[idx];
                 const { midiNotes, rootMidi } = inversion;
+
+                if (window.LearnCommon.instrument() === 'guitar') {
+                    keysContainer.style.height = 'auto';
+                    window.LearnCommon.chordBox(keysContainer, midiNotes, ['C', 'E', 'G', 'C', 'E'].slice(idx, idx + 3));
+                    return;
+                }
+                keysContainer.style.height = '';
 
                 // Create white keys container showing two octaves (C4-B4-C5)
                 const whiteKeysRow = document.createElement('div');
@@ -671,7 +699,7 @@
                 const x = xCenter + (i * 10);
                 // Root is always C (the root note of C major), not the lowest note
                 const isRoot = note.startsWith('C');
-                const fill = isRoot ? '#ff6b6b' : '#90ee90';  // Red for root (C), green for 3rd/5th (E, G)
+                const fill = isRoot ? 'var(--lc-bad)' : 'var(--accent-secondary)';  // Red for root (C), green for 3rd/5th (E, G)
                 
                 return `
                     <ellipse cx="${x}" cy="${y}" rx="5" ry="4" fill="${fill}" stroke="${fill}" stroke-width="1" />
@@ -680,7 +708,7 @@
 
             // Ledger line for C4
             const ledgerLine = notes.includes('C4') 
-                ? `<line x1="${xCenter - 8}" y1="90" x2="${xCenter + 18}" y2="90" stroke="#aaa" stroke-width="1.5" />`
+                ? `<line x1="${xCenter - 8}" y1="90" x2="${xCenter + 18}" y2="90" stroke="var(--text-muted)" stroke-width="1.5" />`
                 : '';
 
             // Arrow points to the root note (C), not the lowest note
@@ -691,10 +719,10 @@
             return `
                 <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}">
                     <!-- Staff lines -->
-                    ${staffLines.map(y => `<line x1="20" y1="${y}" x2="${width - 20}" y2="${y}" stroke="#999" stroke-width="1.5" />`).join('')}
+                    ${staffLines.map(y => `<line x1="20" y1="${y}" x2="${width - 20}" y2="${y}" stroke="var(--text-muted)" stroke-width="1.5" />`).join('')}
                     
                     <!-- Treble clef -->
-                    <text x="25" y="75" font-family="serif" font-size="40" fill="#bbb">𝄞</text>
+                    <text x="25" y="75" font-family="serif" font-size="40" fill="var(--text-muted)">𝄞</text>
                     
                     <!-- Ledger line -->
                     ${ledgerLine}
@@ -703,8 +731,8 @@
                     ${notesHtml}
                     
                     <!-- Root arrow -->
-                    <line x1="${rootX}" y1="${arrowY}" x2="${rootX}" y2="${arrowY + 8}" stroke="#ff6b6b" stroke-width="2" />
-                    <polygon points="${rootX - 3},${arrowY + 8} ${rootX + 3},${arrowY + 8} ${rootX},${arrowY + 12}" fill="#ff6b6b" />
+                    <line x1="${rootX}" y1="${arrowY}" x2="${rootX}" y2="${arrowY + 8}" stroke="var(--lc-bad)" stroke-width="2" />
+                    <polygon points="${rootX - 3},${arrowY + 8} ${rootX + 3},${arrowY + 8} ${rootX},${arrowY + 12}" fill="var(--lc-bad)" />
                 </svg>
             `;
         }
@@ -713,6 +741,10 @@
             const pianoContainer = document.getElementById('inv-piano-wrap');
             if (!pianoContainer) return;
 
+            if (window.LearnCommon.instrument() === 'guitar') {
+                (this._neck = this._neck || window.LearnCommon.chordNeck()).put(pianoContainer);
+                return;
+            }
             pianoContainer.innerHTML = '';
             
             // Build a dedicated, self-contained piano for inversions
@@ -944,8 +976,8 @@
                 
                 key.style.background = color;
                 key.style.boxShadow = isWhite
-                    ? '0 0 20px rgba(16,185,129,0.5), inset 0 -3px 6px rgba(0,0,0,0.2)'
-                    : '0 0 16px rgba(16,185,129,0.5), inset 0 -2px 4px rgba(255,255,255,0.2)';
+                    ? '0 0 20px color-mix(in srgb, var(--accent-secondary) 50%, transparent), inset 0 -3px 6px rgba(0,0,0,0.2)'
+                    : '0 0 16px color-mix(in srgb, var(--accent-secondary) 50%, transparent), inset 0 -2px 4px rgba(255,255,255,0.2)';
                 key.style.borderColor = 'transparent';
                 
                 // Add degree label
@@ -992,7 +1024,7 @@
             vlSection.style.cssText = `
                 display: none;
                 padding: 32px 24px;
-                background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.12));
+                background: linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 12%, transparent), color-mix(in srgb, var(--accent-primary) 12%, transparent));
             `;
             vlWrapper.appendChild(vlSection);
 
@@ -1013,7 +1045,6 @@
                 margin-bottom: 16px;
                 text-align: center;
                 font-family: var(--font-tech);
-                text-transform: uppercase;
             `;
             vlTitle.innerHTML = '🎼 Voice Leading: See & Hear the Difference';
             vlSection.appendChild(vlTitle);
@@ -1055,7 +1086,7 @@
 
             // Key selector
             const keyLabel = document.createElement('label');
-            keyLabel.style.cssText = 'font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600;';
+            keyLabel.style.cssText = 'font-size: 0.85rem; color: var(--text-muted); font-weight: 600;';
             keyLabel.textContent = 'Key:';
             scalePanel.appendChild(keyLabel);
 
@@ -1074,7 +1105,7 @@
             keys.forEach(key => {
                 const option = document.createElement('option');
                 option.value = key;
-                option.textContent = key;
+                option.textContent = this._shown(key);
                 if (key === 'C') option.selected = true;
                 keySelect.appendChild(option);
             });
@@ -1082,7 +1113,7 @@
 
             // Scale selector
             const scaleLabel = document.createElement('label');
-            scaleLabel.style.cssText = 'font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-left: 16px;';
+            scaleLabel.style.cssText = 'font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-left: 16px;';
             scaleLabel.textContent = 'Scale:';
             scalePanel.appendChild(scaleLabel);
 
@@ -1129,7 +1160,7 @@
             const scaleInfo = document.createElement('div');
             scaleInfo.id = 'vl-scale-info';
             scaleInfo.style.cssText = 'padding: 8px 12px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 0.8rem; color: var(--text-muted); margin-left: auto;';
-            scaleInfo.textContent = 'Examples in C Major';
+            scaleInfo.textContent = 'Examples in C major';
             scalePanel.appendChild(scaleInfo);
             
             // Comparison Grid
@@ -1143,7 +1174,7 @@
             
             const comparisons = [
                 {
-                    title: '❌ BAD: Jumping Bass',
+                    title: '❌ Bad: jumping bass',
                     desc: 'All root position - bass leaps around',
                     progression: [
                         { root: 60, type: 'major', inv: 0, label: 'C' },
@@ -1151,10 +1182,10 @@
                         { root: 67, type: 'major', inv: 0, label: 'G' },
                         { root: 60, type: 'major', inv: 0, label: 'C' }
                     ],
-                    color: '#ef4444'
+                    color: 'var(--lc-bad)'
                 },
                 {
-                    title: '✅ GOOD: Smooth Bass',
+                    title: '✅ Good: smooth bass',
                     desc: 'Mixed inversions - bass moves stepwise',
                     progression: [
                         { root: 60, type: 'major', inv: 0, label: 'C' },
@@ -1162,10 +1193,10 @@
                         { root: 67, type: 'major', inv: 1, label: 'G/B' },
                         { root: 60, type: 'major', inv: 0, label: 'C' }
                     ],
-                    color: '#10b981'
+                    color: 'var(--lc-good)'
                 },
                 {
-                    title: '❌ BAD: Hand Jumps',
+                    title: '❌ Bad: hand jumps',
                     desc: 'Forces hand to relocate constantly',
                     progression: [
                         { root: 60, type: 'major', inv: 0, label: 'C' },
@@ -1173,10 +1204,10 @@
                         { root: 65, type: 'major', inv: 0, label: 'F' },
                         { root: 67, type: 'major', inv: 0, label: 'G' }
                     ],
-                    color: '#ef4444'
+                    color: 'var(--lc-bad)'
                 },
                 {
-                    title: '✅ GOOD: Hand Stays Put',
+                    title: '✅ Good: hand stays put',
                     desc: 'Fingers barely move between chords',
                     progression: [
                         { root: 60, type: 'major', inv: 0, label: 'C' },
@@ -1184,10 +1215,10 @@
                         { root: 65, type: 'major', inv: 1, label: 'F/A' },
                         { root: 67, type: 'major', inv: 1, label: 'G/B' }
                     ],
-                    color: '#10b981'
+                    color: 'var(--lc-good)'
                 },
                 {
-                    title: '❌ BAD: Choppy Motion',
+                    title: '❌ Bad: choppy motion',
                     desc: 'Disconnected, no melodic flow',
                     progression: [
                         { root: 60, type: 'major', inv: 0, label: 'C' },
@@ -1195,10 +1226,10 @@
                         { root: 67, type: 'major', inv: 0, label: 'G' },
                         { root: 60, type: 'major', inv: 0, label: 'C' }
                     ],
-                    color: '#ef4444'
+                    color: 'var(--lc-bad)'
                 },
                 {
-                    title: '✅ GOOD: Melodic Flow',
+                    title: '✅ Good: melodic flow',
                     desc: 'Creates a singing top line',
                     progression: [
                         { root: 60, type: 'major', inv: 0, label: 'C' },
@@ -1206,7 +1237,7 @@
                         { root: 67, type: 'major', inv: 2, label: 'G/D' },
                         { root: 60, type: 'major', inv: 0, label: 'C' }
                     ],
-                    color: '#10b981'
+                    color: 'var(--lc-good)'
                 }
             ];
             
@@ -1215,7 +1246,7 @@
                 compCard.style.cssText = `
                     padding: 20px;
                     background: rgba(0, 0, 0, 0.3);
-                    border: 2px solid ${comp.color}60;
+                    border: 2px solid color-mix(in srgb, ${comp.color} 38%, transparent);
                     border-radius: 12px;
                     transition: all 0.3s ease;
                 `;
@@ -1282,7 +1313,7 @@
                 playBtn.style.cssText = `
                     width: 100%;
                     padding: 12px;
-                    background: ${comp.color}30;
+                    background: color-mix(in srgb, ${comp.color} 19%, transparent);
                     border: 2px solid ${comp.color};
                     border-radius: 8px;
                     color: ${comp.color};
@@ -1300,7 +1331,7 @@
                 });
                 
                 playBtn.addEventListener('mouseleave', () => {
-                    playBtn.style.background = `${comp.color}30`;
+                    playBtn.style.background = `color-mix(in srgb, ${comp.color} 19%, transparent)`;
                     playBtn.style.color = comp.color;
                     playBtn.style.transform = 'scale(1)';
                 });
@@ -1324,11 +1355,11 @@
                 compCard.addEventListener('mouseenter', () => {
                     compCard.style.borderColor = comp.color;
                     compCard.style.transform = 'translateY(-4px)';
-                    compCard.style.boxShadow = `0 8px 24px ${comp.color}40`;
+                    compCard.style.boxShadow = `0 8px 24px color-mix(in srgb, ${comp.color} 25%, transparent)`;
                 });
                 
                 compCard.addEventListener('mouseleave', () => {
-                    compCard.style.borderColor = `${comp.color}60`;
+                    compCard.style.borderColor = `color-mix(in srgb, ${comp.color} 38%, transparent)`;
                     compCard.style.transform = 'translateY(0)';
                     compCard.style.boxShadow = 'none';
                 });
@@ -1360,7 +1391,7 @@
             examplesSection.style.cssText = `
                 display: none;
                 padding: 32px;
-                background: linear-gradient(180deg, rgba(16, 185, 129, 0.08), rgba(139, 92, 246, 0.08));
+                background: linear-gradient(180deg, color-mix(in srgb, var(--accent-secondary) 8%, transparent), color-mix(in srgb, var(--accent-primary) 8%, transparent));
             `;
             examplesWrapper.appendChild(examplesSection);
 
@@ -1381,7 +1412,6 @@
                 margin-bottom: 12px;
                 text-align: center;
                 font-family: var(--font-tech);
-                text-transform: uppercase;
             `;
             examplesTitle.textContent = '🎵 Hear Why Inversions Matter';
             examplesSection.appendChild(examplesTitle);
@@ -1407,37 +1437,37 @@
             
             const examples = [
                 {
-                    title: 'Smooth Bass Line',
+                    title: 'Smooth bass line',
                     desc: 'Compare jumping bass vs. stepwise bass using inversions',
                     category: 'basics',
                     action: () => this.playExample_SmoothBass()
                 },
                 {
-                    title: 'I-IV-V Progression',
+                    title: 'I-IV-V progression',
                     desc: 'Classic progression with voice leading (C-F-G)',
                     category: 'progressions',
                     action: () => this.playExample_IIVVProgression()
                 },
                 {
-                    title: 'Voice Leading',
+                    title: 'Voice leading',
                     desc: 'Minimize hand movement between chords',
                     category: 'basics',
                     action: () => this.playExample_VoiceLeading()
                 },
                 {
-                    title: 'I-vi-IV-V (Pop)',
+                    title: 'I-vi-IV-V (pop)',
                     desc: 'Ultra-common pop progression optimized',
                     category: 'progressions',
                     action: () => this.playExample_PopProgression()
                 },
                 {
-                    title: 'Smooth Descending Bass',
+                    title: 'Smooth descending bass',
                     desc: 'C-Am-F-G with descending bassline',
                     category: 'bass',
                     action: () => this.playExample_DescendingBass()
                 },
                 {
-                    title: 'Jazz Voicings',
+                    title: 'Jazz voicings',
                     desc: 'ii-V-I with standard voice leading',
                     category: 'jazz',
                     action: () => this.playExample_JazzVoicings()
@@ -1449,131 +1479,118 @@
                     action: () => this.playExample_Cadential64()
                 },
                 {
-                    title: 'Pedal Point',
+                    title: 'Pedal point',
                     desc: 'Sustained bass with changing chords',
                     category: 'advanced',
                     action: () => this.playExample_PedalPoint()
                 },
                 {
-                    title: 'Passing Chords',
+                    title: 'Passing chords',
                     desc: 'Use inversions to connect harmonies smoothly',
                     category: 'advanced',
                     action: () => this.playExample_PassingChords()
                 },
                 {
-                    title: 'Circle of Fifths',
+                    title: 'Circle of fifths',
                     desc: 'Navigate key changes smoothly',
                     category: 'progressions',
                     action: () => this.playExample_CircleOfFifths()
                 },
                 {
-                    title: 'Hand Position Efficiency',
+                    title: 'Hand position efficiency',
                     desc: 'Stay in one position vs. constant jumping',
                     category: 'practical',
                     action: () => this.playExample_HandEfficiency()
                 },
                 {
-                    title: 'Before vs After',
+                    title: 'Before vs after',
                     desc: 'Same progression: All root vs. Mixed inversions',
                     category: 'comparison',
                     action: () => this.playExample_BeforeAfter()
                 },
                 {
-                    title: 'Chord Stability',
+                    title: 'Chord stability',
                     desc: 'Hear how inversions change chord weight',
                     category: 'theory',
                     action: () => this.playExample_ChordStability()
                 },
                 {
-                    title: 'Canon in D Pattern',
+                    title: 'Canon in D pattern',
                     desc: 'Famous progression with optimal voicings',
                     category: 'classical',
                     action: () => this.playExample_CanonInD()
                 },
                 {
-                    title: 'Blues Progression',
+                    title: 'Blues progression',
                     desc: '12-bar blues with walking bass',
                     category: 'jazz',
                     action: () => this.playExample_BluesProgression()
                 },
                 {
-                    title: 'Parallel Motion',
+                    title: 'Parallel motion',
                     desc: 'Avoid parallel fifths with inversions',
                     category: 'theory',
                     action: () => this.playExample_ParallelMotion()
                 },
                 {
-                    title: 'Arpeggiated Inversions',
+                    title: 'Arpeggiated inversions',
                     desc: 'Broken chords across the keyboard',
                     category: 'practical',
                     action: () => this.playExample_Arpeggios()
                 },
                 {
-                    title: 'Ballad Voicings',
+                    title: 'Ballad voicings',
                     desc: 'Emotional chord changes (like "Let It Be")',
                     category: 'pop',
                     action: () => this.playExample_BalladVoicings()
                 },
                 {
-                    title: 'Close vs Open Voicings',
+                    title: 'Close vs open voicings',
                     desc: 'Compare tight vs spread-out chords',
                     category: 'theory',
                     action: () => this.playExample_CloseVsOpen()
                 },
                 {
-                    title: 'Bass Line Composer',
+                    title: 'Bass line composer',
                     desc: 'Create your own walking bass with inversions',
                     category: 'interactive',
                     action: () => this.playExample_BassComposer()
                 },
                 {
-                    title: 'Hymn Style',
+                    title: 'Hymn style',
                     desc: 'Traditional 4-part harmony movement',
                     category: 'classical',
                     action: () => this.playExample_HymnStyle()
                 },
                 {
-                    title: 'Stride Piano',
+                    title: 'Stride piano',
                     desc: 'Left hand jumps vs. inversions',
                     category: 'jazz',
                     action: () => this.playExample_StridePiano()
                 },
                 {
-                    title: 'Suspended Resolution',
+                    title: 'Suspended resolution',
                     desc: 'sus4 chords resolving through inversions',
                     category: 'advanced',
                     action: () => this.playExample_SuspendedResolution()
                 },
                 {
-                    title: 'Modal Interchange',
+                    title: 'Modal interchange',
                     desc: 'Borrow chords from parallel keys smoothly',
                     category: 'advanced',
                     action: () => this.playExample_ModalInterchange()
                 }
             ];
             
-            const categoryColors = {
-                'basics': '#10b981',
-                'progressions': '#3b82f6',
-                'bass': '#8b5cf6',
-                'jazz': '#f59e0b',
-                'classical': '#ec4899',
-                'advanced': '#ef4444',
-                'practical': '#14b8a6',
-                'comparison': '#06b6d4',
-                'theory': '#6366f1',
-                'pop': '#f97316',
-                'interactive': '#84cc16'
-            };
+            const categoryColor = 'var(--accent-primary)';
             
             examples.forEach(ex => {
                 const exampleBtn = document.createElement('button');
-                const categoryColor = categoryColors[ex.category] || '#10b981';
                 
                 exampleBtn.style.cssText = `
                     padding: 16px;
                     background: rgba(0, 0, 0, 0.4);
-                    border: 2px solid ${categoryColor}60;
+                    border: 2px solid color-mix(in srgb, ${categoryColor} 38%, transparent);
                     border-radius: 12px;
                     color: var(--text-main);
                     cursor: pointer;
@@ -1588,24 +1605,24 @@
                         <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-highlight);">${ex.title}</div>
                     </div>
                     <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">${ex.desc}</div>
-                    <div style="margin-top: 8px; font-size: 0.7rem; color: ${categoryColor}; text-transform: uppercase; letter-spacing: 1px;">${ex.category}</div>
+                    <div style="margin-top: 8px; font-size: 0.7rem; color: ${categoryColor};">${ex.category}</div>
                 `;
                 
                 exampleBtn.addEventListener('mouseenter', () => {
                     exampleBtn.style.borderColor = categoryColor;
                     exampleBtn.style.transform = 'translateY(-4px)';
-                    exampleBtn.style.boxShadow = `0 8px 20px ${categoryColor}40`;
+                    exampleBtn.style.boxShadow = `0 8px 20px color-mix(in srgb, ${categoryColor} 25%, transparent)`;
                 });
                 
                 exampleBtn.addEventListener('mouseleave', () => {
-                    exampleBtn.style.borderColor = `${categoryColor}60`;
+                    exampleBtn.style.borderColor = `color-mix(in srgb, ${categoryColor} 38%, transparent)`;
                     exampleBtn.style.transform = 'translateY(0)';
                     exampleBtn.style.boxShadow = 'none';
                 });
                 
                 exampleBtn.addEventListener('click', () => {
                     // Visual feedback
-                    exampleBtn.style.background = `${categoryColor}20`;
+                    exampleBtn.style.background = `color-mix(in srgb, ${categoryColor} 13%, transparent)`;
                     setTimeout(() => {
                         exampleBtn.style.background = 'rgba(0, 0, 0, 0.4)';
                     }, 200);
@@ -1951,8 +1968,8 @@
                     const notes = this.getChordNotesForInversion(chord.root, chord.type, chord.inv);
                     
                     // Use enhanced audio features if available
-                    if (useEnhancedAudio && this._audioEngine && typeof this._audioEngine.playChord === 'function') {
-                        this._audioEngine.playChord(notes, {
+                    if (useEnhancedAudio && this._sound() && typeof this._sound().playChord === 'function') {
+                        this._sound().playChord(notes, {
                             sustainTime: sustainTime,
                             attackTime: noteAttackTime,
                             releaseTime: noteReleaseTime
@@ -1985,7 +2002,7 @@
             // Update the scale info display
             const scaleInfo = document.getElementById('vl-scale-info');
             if (scaleInfo) {
-                scaleInfo.textContent = `Examples in ${this._vlCurrentKey} ${this._vlCurrentScale.charAt(0).toUpperCase() + this._vlCurrentScale.slice(1)}`;
+                scaleInfo.textContent = `Examples in ${this._shown(this._vlCurrentKey)} ${this._vlCurrentScale.replace(/_/g, " ")}`;
             }
         }
 
@@ -2118,7 +2135,7 @@
             if (centerDisplay) {
                 centerDisplay.innerHTML = `
                     <div style="font-size: 1.3rem; font-weight: 900; color: var(--accent-primary); font-family: var(--font-tech);">${this.rootNote}</div>
-                    <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">${this.quality.toUpperCase()}</div>
+                    <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;">${this.quality.toUpperCase()}</div>
                 `;
             }
         }
@@ -2134,10 +2151,10 @@
                 // Update ARIA state
                 btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
                 
-                btn.style.background = isActive ? 'linear-gradient(135deg, var(--accent-primary), rgba(16, 185, 129, 0.8))' : 'rgba(0, 0, 0, 0.3)';
+                btn.style.background = isActive ? 'linear-gradient(135deg, var(--accent-primary), color-mix(in srgb, var(--accent-secondary) 80%, transparent))' : 'rgba(0, 0, 0, 0.3)';
                 btn.style.borderColor = isActive ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.1)';
                 btn.style.transform = '';
-                btn.style.boxShadow = isActive ? '0 0 0 3px rgba(16, 185, 129, 0.3)' : '';
+                btn.style.boxShadow = isActive ? '0 0 0 3px color-mix(in srgb, var(--accent-secondary) 30%, transparent)' : '';
                 
                 // Update text colors
                 const emoji = btn.querySelector('div:first-child');
@@ -2182,17 +2199,7 @@
         }
 
         goBack() {
-            const landing = document.getElementById('landing-page');
-            const page = document.getElementById('learn-inversions-page');
-            const workspace = document.querySelector('.workspace');
-            const controlDeck = document.querySelector('.control-deck');
-            const bottomDeck = document.querySelector('.bottom-deck');
-            
-            if (landing) landing.style.display = 'block';
-            if (page) page.style.display = 'none';
-            if (workspace) workspace.style.display = 'none';
-            if (controlDeck) controlDeck.style.display = 'none';
-            if (bottomDeck) bottomDeck.style.display = 'none';
+            window.showAppPage('landing-page');
         }
 
         updateVisualization() {
@@ -2202,9 +2209,10 @@
             const chordNotes = this.getChordNotes();
             
             // Update chord title + subheading
-            const name = `${this.rootNote} ${this.quality === 'maj' ? 'major' : 'minor'}`;
+            const name = `${this._shown(this.rootNote)} ${this.quality === 'maj' ? 'major' : 'minor'}`;
             const invLabel = this.inversion === 0 ? 'Root position' : (this.inversion === 1 ? '1st inversion' : '2nd inversion');
-            const noteStr = chordNotes.map(m => this.midiToNoteName(m).replace(/\d+$/, '')).join(' – ');
+            const noteStr = this._spelledNotes(chordNotes).join(' – ');
+            if (this._neck) this._neck.show(chordNotes, this._spelledNotes(chordNotes));
 
             const titleEl = document.getElementById('inv-chord-title');
             const subEl = document.getElementById('inv-chord-sub');
@@ -2222,7 +2230,9 @@
 
             const fingerDiv = document.getElementById('inversion-finger-guide');
             if (fingerDiv) {
-                fingerDiv.textContent = this.fingerGuides[this.inversion];
+                fingerDiv.textContent = window.LearnCommon.instrument() === 'guitar'
+                    ? `On the guitar, the lowest string you play is the bass: here, ${this._spelledNotes(chordNotes)[0]}.`
+                    : this.fingerGuides[this.inversion];
             }
         }
 
@@ -2271,7 +2281,7 @@
             msWrapper.appendChild(msToggle);
 
             const msSection = document.createElement('div');
-            msSection.style.cssText = 'display: none; padding: 32px 24px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(59, 130, 246, 0.12));';
+            msSection.style.cssText = 'display: none; padding: 32px 24px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 12%, transparent), color-mix(in srgb, var(--accent-primary) 12%, transparent));';
             msWrapper.appendChild(msSection);
 
             let msOpen = false;
@@ -2373,7 +2383,7 @@
                 scaleCard.style.cssText = `
                     padding: 16px;
                     background: rgba(0,0,0,0.3);
-                    border: 2px solid rgba(139, 92, 246, 0.3);
+                    border: 2px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
                     border-radius: 10px;
                     transition: all 0.2s;
                 `;
@@ -2388,7 +2398,7 @@
                 playBtn.style.cssText = `
                     width: 100%;
                     padding: 12px;
-                    background: rgba(139, 92, 246, 0.3);
+                    background: color-mix(in srgb, var(--accent-primary) 30%, transparent);
                     border: 2px solid var(--accent-secondary);
                     border-radius: 8px;
                     color: var(--accent-secondary);
@@ -2406,7 +2416,7 @@
                 });
 
                 playBtn.addEventListener('mouseleave', () => {
-                    playBtn.style.background = 'rgba(139, 92, 246, 0.3)';
+                    playBtn.style.background = 'color-mix(in srgb, var(--accent-primary) 30%, transparent)';
                     playBtn.style.color = 'var(--accent-secondary)';
                     playBtn.style.transform = 'scale(1)';
                 });
@@ -2428,7 +2438,7 @@
                 if (typeof ScaleHelper !== 'undefined') {
                     const helper = new ScaleHelper();
                     const scaleNotes = helper.getScaleNotes(60, scaleName);
-                    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                    const noteNames = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
                     const scaleDegrees = scaleNotes.map(m => noteNames[m % 12]).join(' - ');
                     notes.innerHTML = `<strong>Notes:</strong> ${scaleDegrees}`;
                 }
@@ -2438,11 +2448,11 @@
                 scaleCard.addEventListener('mouseenter', () => {
                     scaleCard.style.borderColor = 'var(--accent-secondary)';
                     scaleCard.style.transform = 'translateY(-4px)';
-                    scaleCard.style.boxShadow = '0 8px 16px rgba(139, 92, 246, 0.4)';
+                    scaleCard.style.boxShadow = '0 8px 16px color-mix(in srgb, var(--accent-primary) 40%, transparent)';
                 });
 
                 scaleCard.addEventListener('mouseleave', () => {
-                    scaleCard.style.borderColor = 'rgba(139, 92, 246, 0.3)';
+                    scaleCard.style.borderColor = 'color-mix(in srgb, var(--accent-primary) 30%, transparent)';
                     scaleCard.style.transform = 'translateY(0)';
                     scaleCard.style.boxShadow = 'none';
                 });
@@ -2486,8 +2496,8 @@
 
                 translatedProgression.forEach((chord, idx) => {
                     setTimeout(() => {
-                        if (this._audioEngine && typeof this._audioEngine.playChord === 'function') {
-                            this._audioEngine.playChord(chord._notes, {
+                        if (this._sound() && typeof this._sound().playChord === 'function') {
+                            this._sound().playChord(chord._notes, {
                                 sustainTime: 1.5,
                                 attackTime: 0.05,
                                 releaseTime: 0.5

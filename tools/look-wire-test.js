@@ -53,7 +53,7 @@ want('Split Brain: the decks are drawn as rows of modules', sb.length > 4);
 say('');
 say('A LOOK SOMEONE BUILDS GETS A PREVIEW TOO');
 var mine = { id: 'mine', name: 'Mine', grid: { areas: ['a b b', 'a c c'], cols: '200px 1fr 1fr', rows: '1fr auto' },
-             zones: { a: { flow: 'rail', modules: ['circle'] }, b: { modules: ['sheet'] }, c: { flow: 'row', modules: ['solar', 'grading'] } } };
+             zones: { a: { flow: 'rail', modules: ['circle'] }, b: { modules: ['sheet'] }, c: { flow: 'row', modules: ['solar', 'chords'] } } };
 var mw = S.wireFromGrid(mine);
 want('it is drawn: a rail, the highlighted score, a row of two', mw.length === 4 && mw[0][4] === 2 && mw.some(function(r){ return r[4] === 1; }), JSON.stringify(mw));
 want('a look with no grid draws nothing rather than throwing', S.wireFromGrid({}).length === 0);

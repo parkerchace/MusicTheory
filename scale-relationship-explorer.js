@@ -23,7 +23,7 @@ class ScaleRelationshipExplorer {
             },
             selectedRelationshipFilter: 'all',
             builderRoot: null,
-            // Results are paged, not truncated. The catalog is ~1,500 scale
+            // Results are paged, not truncated. The catalog is 2,048 scale
             // types across 12 roots, so an ordinary chord is inside thousands
             // of them; a hard cap of 50 with an "...and N more" line put the
             // other several thousand permanently out of reach.
@@ -282,7 +282,7 @@ class ScaleRelationshipExplorer {
         if (!ctx) return '';
 
         const selectedRoot = this.state.builderRoot;
-        const displayScale = String(ctx.scaleName).replace(/_/g, ' ');
+        const displayScale = this.displayNameOf(ctx.scaleName);
 
         // One button per degree the scale actually has — eight for octatonic,
         // five for a pentatonic — each labelled with its numeral so a specific
@@ -969,6 +969,13 @@ class ScaleRelationshipExplorer {
         return scales;
     }
 
+    // The catalogue's display name for an id; the id with its underscores opened up when there is none
+    displayNameOf(scaleId) {
+        const lib = typeof window !== 'undefined' && window.modularApp ? window.modularApp.scaleLibrary : null;
+        if (lib && lib.getScaleDisplayName) return lib.getScaleDisplayName(scaleId);
+        return String(scaleId || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
     getRomanNumeral(chordRoot, scaleRoot, scaleName) {
         try {
             const scaleNotes = this.musicTheory.getScaleNotes(scaleRoot, scaleName);
@@ -1057,9 +1064,13 @@ class ScaleRelationshipExplorer {
             filtered = filtered.filter(sc => sc.root === this.state.rootFilter);
         }
 
-        const query = this.state.nameQuery.trim().toLowerCase();
+        const query = this.state.nameQuery.trim();
         if (query) {
-            filtered = filtered.filter(sc => sc.name.toLowerCase().replace(/_/g, ' ').includes(query));
+            // the same matching as the scale picker: marks and ♭/b ignored, every name a scale answers to
+            const lib = window.modularApp && window.modularApp.scaleLibrary;
+            const q = (window.ScaleTaxonomy && window.ScaleTaxonomy.searchKey) ? window.ScaleTaxonomy.searchKey(query) : query.toLowerCase();
+            const hitIds = lib && lib.searchScalesByName ? new Set(lib.searchScalesByName(query).map(h => h.id)) : null;
+            filtered = filtered.filter(sc => hitIds ? hitIds.has(sc.name) : String(sc.name).toLowerCase().replace(/_/g, ' ').includes(q));
         }
 
         html += `<div class="sre-result-controls" style="margin-bottom: 8px;">
@@ -1124,7 +1135,7 @@ class ScaleRelationshipExplorer {
                 <div class="scale-item" style="background: rgba(255,255,255,0.05); padding: 10px; border-left: 3px solid var(--accent-primary); border-radius: 4px; transition: background 0.2s;">
                     ${headerOpen}
                         <div style="display:flex; align-items:center;">
-                            <div style="font-weight: bold; color: var(--text-highlight); font-size: 1rem;">${scale.root} ${scale.name}</div>
+                            <div style="font-weight: bold; color: var(--text-highlight); font-size: 1rem;">${scale.root} ${this.displayNameOf(scale.name)}</div>
                             ${currentBadge}
                             ${relationshipBadge}
                         </div>

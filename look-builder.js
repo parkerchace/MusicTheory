@@ -27,7 +27,7 @@
     var ROLE = {
         chordstrip: 'strip', sheet: 'score',
         numgen: 'tool', circle: 'tool', chords: 'tool', relations: 'tool',
-        solar: 'ref', grading: 'ref', fretboard: 'instrument'
+        solar: 'ref', fretboard: 'instrument'
     };
 
     var SKELETONS = [
@@ -140,7 +140,7 @@
         var d = fromSkeleton(sk, placeable(), keep);
         d.zones.a.modules = ['numgen', 'circle', 'chords', 'relations'];
         d.zones.b.modules = ['chordstrip', 'sheet', 'solar'];
-        d.zones.c.modules = ['grading', 'fretboard'];
+        d.zones.c.modules = ['fretboard'];
         return d;
     }
 

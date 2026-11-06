@@ -95,9 +95,57 @@
         if (!notes || !notes.length) return '';
         var q = quality(notes);
         var key = (q.triad || '') + (q.seventh || '');
+        // a sixth instead of a seventh: C·E·G·A is C6, C·E♭·G·A Cm6
+        if ((q.triad === 'maj' || q.triad === 'min') && !q.seventh && notes.length >= 4 && intervalsOf(notes).indexOf(9) !== -1) {
+            return notes[0] + (q.triad === 'min' ? 'm6' : '6');
+        }
         if (q.triad && SYMBOL.hasOwnProperty(key)) return notes[0] + SYMBOL[key];
         if (q.triad && !q.seventh) return notes[0] + SYMBOL[q.triad];
         return notes[0] + '(' + notes.slice(1).join(' ') + ')';
+    }
+
+    function samePcs(a, b) {
+        var p = function (ns) { return ns.map(pcOf).sort(function (x, y) { return x - y; }).join(','); };
+        return p(a) === p(b);
+    }
+
+    /**
+     * A scale chord's name, as the chord strip gives it. Named from its
+     * bottom note when that makes a chord; in an eight-note scale whose
+     * tonic is a sixth chord (bebop major, bebop minor) every other degree
+     * is that chord again, over another bass: E·G·A·C is C6/E, A·C·E·G
+     * C6/A, and a three-note stack of it says what it leaves out,
+     * E·G·A "C6/E (no C)". Otherwise another of its notes as the root,
+     * over the bass: "C6/E", never "E(G A C)".
+     * @param {string[]} notes the stack, bottom first
+     * @param {{scaleNotes?:string[], build?:function}} [ctx]
+     * @param {number} [degree] its scale degree, when it is one
+     */
+    function nameStack(notes, ctx, degree) {
+        var s = chordSymbol(notes);
+        var named = s.indexOf('(') === -1;
+        var scale = (ctx && ctx.scaleNotes) || [];
+        if (scale.length === 8 && degree && degree % 8 !== 1) {
+            var tonic = null;
+            try { tonic = ctx.build ? ctx.build(1, 4) : null; } catch (e) { tonic = null; }
+            if (!tonic || tonic.length < 4) tonic = stackFromScale(scale, 1, 4);
+            var tsym = chordSymbol(tonic);
+            var tonicPcs = tonic.map(pcOf);
+            if (/6$/.test(tsym) && notes.every(function (n) { return tonicPcs.indexOf(pcOf(n)) !== -1; })) {
+                if (samePcs(notes, tonic)) return tsym + '/' + notes[0];
+                if (!named) {
+                    var missing = tonic.filter(function (t) { return !notes.some(function (n) { return pcOf(n) === pcOf(t); }); });
+                    return tsym + '/' + notes[0] + ' (no ' + missing.join(' ') + ')';
+                }
+            }
+        }
+        if (named) return s;
+        for (var i = 1; i < notes.length; i++) {
+            var r = notes[i];
+            var sym = chordSymbol([r].concat(notes.filter(function (n) { return n !== r; })));
+            if (sym.indexOf('(') === -1) return sym + '/' + notes[0];
+        }
+        return s;
     }
 
     function numeral(degree, notes) {
@@ -151,7 +199,7 @@
         if (!pos.black) {
             var degree = (pos.whiteIndex % n) + 1;
             var notes = build(degree, size);
-            return { kind: 'degree', degree: degree, notes: notes, symbol: chordSymbol(notes), numeral: numeral(degree, notes) };
+            return { kind: 'degree', degree: degree, notes: notes, symbol: nameStack(notes, ctx, degree), numeral: numeral(degree, notes) };
         }
 
         var tDegree = (pos.rightWhiteIndex % n) + 1;
@@ -228,7 +276,14 @@
 
     /** C/E: the chord named over its bass note, spelled as the chord spells it. */
     function slashSymbol(symbol, notes, role) {
-        return role > 0 && notes[role] ? symbol + '/' + notes[role] : symbol;
+        if (!(role > 0 && notes[role])) return symbol;
+        // a chord already named over its own bass (C6/E) takes the new bass instead
+        var m = /^([^/ ]+)\/[^ ]+(.*)$/.exec(symbol);
+        if (m) {
+            var head = m[1], rootName = (head.match(/^[A-G](#{1,2}|b{1,2})?/) || [''])[0];
+            return (pcOf(rootName) === pcOf(notes[role]) ? head : head + '/' + notes[role]) + m[2];
+        }
+        return symbol + '/' + notes[role];
     }
 
     /**
@@ -557,7 +612,7 @@
         });
 
         var chord = { kind: best.kind, degree: best.degree, notes: best.notes, fn: best.fn,
-                      symbol: chordSymbol(best.notes) };
+                      symbol: nameStack(best.notes, ctx, best.kind === 'degree' ? best.degree : null) };
         if (best.kind === 'degree') chord.numeral = numeral(best.degree, best.notes);
         else if (best.kind === 'secondary') chord.numeral = (size === 4 ? 'V7/' : 'V/') + best.target;
         else {
@@ -642,10 +697,10 @@
 
     var core = {
         parse: parse, pcOf: pcOf, spellAbove: spellAbove, quality: quality,
-        chordSymbol: chordSymbol, numeral: numeral, dominantOf: dominantOf,
+        chordSymbol: chordSymbol, nameStack: nameStack, numeral: numeral, dominantOf: dominantOf,
         chordForKey: chordForKey, movement: movement, stackFromScale: stackFromScale,
         harmonizeNote: harmonizeNote, placeUnder: placeUnder, roleOf: roleOf,
-        bassRole: bassRole, vlDistance: vlDistance, figuredNumeral: figuredNumeral, slashSymbol: slashSymbol,
+        bassRole: bassRole, vlDistance: vlDistance, shapeOf: shapeOf, soundingStyle: soundingStyle, figuredNumeral: figuredNumeral, slashSymbol: slashSymbol,
         inversionLadder: inversionLadder, pickInversion: pickInversion, walkInversion: walkInversion,
         WHITE_LOWER: WHITE_LOWER
     };
@@ -799,6 +854,41 @@
         return STYLE_NAMES[id] || id;
     }
 
+    /**
+     * What a voicing's spacing actually is: close, drop 2, drop 3, drop 2+4,
+     * stacked fourths or fifths, or null when it is none of these. Voice
+     * leading can move the notes of a styled chord somewhere else (a "Drop 2"
+     * C6 that the walk settled into C4·E4·G4·A4), and the readout should
+     * name what sounds.
+     */
+    var SPACING_STYLES = ['close', 'open', 'drop2', 'drop3', 'drop2+4', 'drop3+5', 'spread', 'quartal', 'quintal', 'cluster'];
+    function shapeOf(midis) {
+        var m = asc(midis || []);
+        if (m.length < 3) return null;
+        for (var i = 1; i < m.length; i++) if (m[i] === m[i - 1]) return null;   // a doubled note: leave it to the style
+        var span = function (a) { return a[a.length - 1] - a[0]; };
+        var gaps = m.slice(1).map(function (x, i) { return x - m[i]; });
+        if (span(m) < 12) return 'close';
+        if (gaps.every(function (g) { return g === 7; })) return 'quintal';
+        if (gaps.every(function (g) { return g === 5 || g === 6; })) return 'quartal';
+        if (m.length !== 4) return null;
+        var up1 = asc([m[1], m[2], m[3], m[0] + 12]);
+        if (span(up1) < 12) {
+            var at = up1.indexOf(m[0] + 12);
+            if (at === 2) return 'drop2';
+            if (at === 1) return 'drop3';
+        }
+        var up2 = asc([m[2], m[3], m[0] + 12, m[1] + 12]);
+        if (span(up2) < 12 && up2.indexOf(m[1] + 12) === 2 && up2.indexOf(m[0] + 12) === 0) return 'drop2+4';
+        return null;
+    }
+    /** The style to name in the readout: the engine's, unless the notes say otherwise. */
+    function soundingStyle(midis, style) {
+        if (!style || SPACING_STYLES.indexOf(style) === -1) return style;
+        var shape = shapeOf(midis);
+        return shape || style;
+    }
+
     function voicingOpts(octaveOffset) {
         var opts = {};
         Object.keys(settings).forEach(function (k) { opts[k] = settings[k]; });
@@ -836,7 +926,8 @@
         var named = inv
             ? figuredNumeral(c.numeral, inv.role, c.notes.length) + ' · ' + slashSymbol(c.symbol, c.notes, inv.role)
             : c.numeral + ' · ' + c.symbol;
-        var readout = named + (v.style ? ' · ' + styleName(v.style) : '') +
+        var shown = soundingStyle(v.midi, v.style);
+        var readout = named + (shown ? ' · ' + styleName(shown) : '') +
             (moved === null ? '' : ' · moved ' + moved + ' st');
         syncInversion();
         return { midis: v.midi, readout: readout, chord: c, style: v.style, inversion: inv ? inv.role : null };
@@ -952,7 +1043,7 @@
         return {
             harmony: placed.notes, chord: chord, role: h.role, where: placed.where, recheckIn: recheckIn,
             readout: '♪ ' + name + ' · ' + chord.numeral + ' · ' + chord.symbol +
-                     (tag || (style ? ' · ' + styleName(style) : '')) +
+                     (tag || (style ? ' · ' + styleName(soundingStyle(placed.notes, style)) : '')) +
                      (placed.where === 'above' ? ' · chord above: too low for one below' : '')
         };
     }

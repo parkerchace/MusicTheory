@@ -2360,7 +2360,7 @@ function planModalExcursions(opts) {
   // EVERY COLLECTION THE LIBRARY CAN ROOT HERE, ORDERED BY HOW FAR IT IS.
   //
   // What stood here before was five hand-written arrays of three to five mode
-  // names, keyed by chord quality. In a project built on 1300+ scales that is
+  // names, keyed by chord quality. In a project built on 2,048 scales that is
   // not a shortlist, it is a different feature — and it made whole families of
   // ordinary move unreachable. Verified against each id's own intervals for the
   // usual reason: the theory engine falls back to MAJOR for any id it does not

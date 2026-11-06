@@ -65,7 +65,7 @@ class LearnPianoNotes {
             }
             if (this._midiActiveKeys.has(midi)) {
                 const base = key.dataset.origBoxShadow;
-                key.style.boxShadow = `${base ? base + ', ' : ''}0 0 10px rgba(34, 197, 94, 0.9)`;
+                key.style.boxShadow = `${base ? base + ', ' : ''}0 0 10px color-mix(in srgb, var(--lc-good) 90%, transparent)`;
                 key.style.transform = 'translateY(-1px)';
             } else {
                 key.style.boxShadow = key.dataset.origBoxShadow;
@@ -78,41 +78,20 @@ class LearnPianoNotes {
         if (!this.container) return;
 
         this.container.innerHTML = `
-            <div id="learn-module-wrapper" style="position: relative; display: flex; flex-direction: column; gap: 16px; padding: 16px; width: 100%; max-width: none; margin: 0;">
+            <div id="learn-module-wrapper" style="position: relative; display: flex; flex-direction: column; gap: 16px; padding: 12px 16px; width: 100%; max-width: 1000px; margin: 0 auto; box-sizing: border-box;">
                 
-                <!-- Top Navigation Bar -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <button id="learn-return-to-landing" style="display: flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--border-light); padding: 8px 14px; cursor: pointer; color: var(--text-main); font-family: var(--font-tech); transition: all 0.2s ease; border-radius: 4px; font-size: 0.9rem;">
-                        <span style="font-size: 1.2rem;">←</span>
-                        <span>Home</span>
-                    </button>
-                    <button id="learn-theme-toggle" style="background: transparent; border: 1px solid var(--border-light); padding: 8px 14px; cursor: pointer; color: var(--text-main); font-family: var(--font-tech); transition: all 0.2s ease; border-radius: 4px; font-size: 1.1rem;">
-                        🌓
-                    </button>
-                </div>
-
-                <!-- Header -->
-                <div style="text-align: center; margin-bottom: 12px;">
-                    <h2 style="color: var(--text-main); margin: 0 0 12px 0; font-size: clamp(1.2rem, 3vw, 1.8rem);">
-                        Learn Notes
-                    </h2>
-                    <p style="color: var(--text-muted); margin: 0; font-size: clamp(0.85rem, 2vw, 1rem); line-height: 1.6;">
-                        Start here to understand individual note names, octave repetition, and accidentals (sharps/flats). If you want a fuller lesson on scale construction, <button id="learn-more-scales-btn" style="display:inline-block;margin-left:8px;padding:6px 10px;border:2px solid var(--accent-secondary);background:transparent;color:var(--text-main);border-radius:4px;cursor:pointer;font-weight:700;">Want to learn more about scales?</button>
-                    </p>
-                </div>
-
                 <!-- Whole Steps vs Half Steps Explanation (Foundation) -->
                 <div id="steps-block" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-light); border-radius: 8px; padding: 16px;">
                     <div style="color: var(--text-main); font-weight:700; font-size: 0.95rem; margin-bottom: 16px; text-align: center;">
-                        What Are Whole Steps (W) and Half Steps (H)?
+                        What are whole steps (W) and half steps (H)?
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
                         <!-- Half Step Example -->
                         <div style="text-align: center;">
-                            <div style="color: var(--accent-primary); font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;">
-                                ⬇ Half Step (H) ⬇
+                            <div style="color: var(--accent-primary); font-size: 0.85rem; margin-bottom: 12px; font-weight: 700;">
+                                ⬇ Half step (H) ⬇
                             </div>
-                            <div style="background: rgba(96, 165, 250, 0.15); padding: 12px; border-radius: 6px;">
+                            <div style="background: color-mix(in srgb, var(--accent-primary) 15%, transparent); padding: 12px; border-radius: 6px;">
                                 <svg width="100%" height="150" viewBox="0 0 140 150" style="display: block; margin: 0 auto;">
                                     <!-- White keys background -->
                                     <g id="white-keys">
@@ -129,29 +108,29 @@ class LearnPianoNotes {
                                     
                                     <!-- Labels inside keys -->
                                     <text x="30" y="90" text-anchor="middle" font-family="var(--font-tech)" font-size="16" font-weight="bold" fill="#000">C</text>
-                                    <text x="54" y="55" text-anchor="middle" font-family="var(--font-tech)" font-size="12" font-weight="bold" fill="#fff">C#</text>
+                                    <text x="54" y="55" text-anchor="middle" font-family="var(--font-tech)" font-size="12" font-weight="bold" fill="#fff">C♯</text>
                                     
                                     <!-- Highlight arrow from C to C# -->
-                                    <path d="M 30 100 Q 42 85, 54 70" stroke="#60a5fa" stroke-width="2.5" fill="none" marker-end="url(#arrow-h)"/>
+                                    <path d="M 30 100 Q 42 85, 54 70" stroke="var(--accent-primary)" stroke-width="2.5" fill="none" marker-end="url(#arrow-h)"/>
                                     <defs>
                                         <marker id="arrow-h" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-                                            <polygon points="0,0 8,4 0,8" fill="#60a5fa"/>
+                                            <polygon points="0,0 8,4 0,8" fill="var(--accent-primary)"/>
                                         </marker>
                                     </defs>
-                                    <text x="70" y="140" text-anchor="middle" font-family="var(--font-tech)" font-size="13" fill="#60a5fa" font-weight="bold">1 semitone</text>
+                                    <text x="70" y="140" text-anchor="middle" font-family="var(--font-tech)" font-size="13" fill="var(--accent-primary)" font-weight="bold">1 semitone</text>
                                 </svg>
                             </div>
-                            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 10px; line-height: 1.6; background: rgba(96, 165, 250, 0.1); padding: 10px; border-radius: 4px;">
-                                <strong>Move to the next adjacent key.</strong> There are <strong>no keys between</strong> C and C#.
+                            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 10px; line-height: 1.6; background: color-mix(in srgb, var(--accent-primary) 10%, transparent); padding: 10px; border-radius: 4px;">
+                                <strong>Move to the next adjacent key.</strong> There are <strong>no keys between</strong> C and C♯.
                             </div>
                         </div>
 
                         <!-- Whole Step Example -->
                         <div style="text-align: center;">
-                            <div style="color: var(--accent-secondary); font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;">
-                                ⬇ Whole Step (W) ⬇
+                            <div style="color: var(--accent-secondary); font-size: 0.85rem; margin-bottom: 12px; font-weight: 700;">
+                                ⬇ Whole step (W) ⬇
                             </div>
-                            <div style="background: rgba(52, 211, 153, 0.15); padding: 12px; border-radius: 6px;">
+                            <div style="background: color-mix(in srgb, var(--accent-secondary) 15%, transparent); padding: 12px; border-radius: 6px;">
                                 <svg width="100%" height="150" viewBox="0 0 140 150" style="display: block; margin: 0 auto;">
                                     <!-- White keys: C, D, E -->
                                     <g id="white-keys">
@@ -172,17 +151,17 @@ class LearnPianoNotes {
                                     <text x="30" y="90" text-anchor="middle" font-family="var(--font-tech)" font-size="16" font-weight="bold" fill="#000">C</text>
                                     <text x="70" y="90" text-anchor="middle" font-family="var(--font-tech)" font-size="16" font-weight="bold" fill="#000">D</text>
                                     <text x="110" y="90" text-anchor="middle" font-family="var(--font-tech)" font-size="14" font-weight="bold" fill="#666">E</text>
-                                    <text x="54" y="50" text-anchor="middle" font-family="var(--font-tech)" font-size="11" font-weight="bold" fill="#ccc">C#</text>
+                                    <text x="54" y="50" text-anchor="middle" font-family="var(--font-tech)" font-size="11" font-weight="bold" fill="#ccc">C♯</text>
                                     
                                     <!-- Distance line from C to D -->
-                                    <line x1="30" y1="120" x2="70" y2="120" stroke="#34d399" stroke-width="3" stroke-dasharray="2,2"/>
-                                    <circle cx="30" cy="120" r="3" fill="#34d399"/>
-                                    <circle cx="70" cy="120" r="3" fill="#34d399"/>
-                                    <text x="70" y="140" text-anchor="middle" font-family="var(--font-tech)" font-size="13" fill="#34d399" font-weight="bold">2 semitones</text>
+                                    <line x1="30" y1="120" x2="70" y2="120" stroke="var(--accent-secondary)" stroke-width="3" stroke-dasharray="2,2"/>
+                                    <circle cx="30" cy="120" r="3" fill="var(--accent-secondary)"/>
+                                    <circle cx="70" cy="120" r="3" fill="var(--accent-secondary)"/>
+                                    <text x="70" y="140" text-anchor="middle" font-family="var(--font-tech)" font-size="13" fill="var(--accent-secondary)" font-weight="bold">2 semitones</text>
                                 </svg>
                             </div>
-                            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 10px; line-height: 1.6; background: rgba(52, 211, 153, 0.1); padding: 10px; border-radius: 4px;">
-                                <strong>Skip one key and land on the next.</strong> C# is between them but we skip it.
+                            <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 10px; line-height: 1.6; background: color-mix(in srgb, var(--accent-secondary) 10%, transparent); padding: 10px; border-radius: 4px;">
+                                <strong>Skip one key and land on the next.</strong> C♯ is between them but we skip it.
                             </div>
                         </div>
                     </div>
@@ -193,12 +172,12 @@ class LearnPianoNotes {
                 <!-- Visual Guide Legend -->
                 <div style="display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin: 16px 0 12px 0; padding: 10px; background: rgba(0,0,0,0.1); border-radius: 6px;">
                     <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem;">
-                        <div style="width: 20px; height: 20px; background: linear-gradient(180deg, rgba(96, 165, 250, 0.8), rgba(96, 165, 250, 0.4)); border-radius: 2px; box-shadow: 0 0 10px rgba(96, 165, 250, 0.6);"></div>
-                        <span style="color: var(--text-muted);">C Major Notes</span>
+                        <div style="width: 20px; height: 20px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent-primary) 80%, transparent), color-mix(in srgb, var(--accent-primary) 40%, transparent)); border-radius: 2px; box-shadow: 0 0 10px color-mix(in srgb, var(--accent-primary) 60%, transparent);"></div>
+                        <span style="color: var(--text-muted);">C major notes</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem;">
                         <div style="width: 16px; height: 16px; background: var(--accent-primary); border-radius: 50%; font-weight: bold; display: flex; align-items: center; justify-content: center; color: #000; font-size: 10px;">1</div>
-                        <span style="color: var(--text-muted);">Scale Degree</span>
+                        <span style="color: var(--text-muted);">Scale degree</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: help;">
                         <span style="color: var(--accent-primary); font-weight: bold;">Hover</span>
@@ -208,8 +187,8 @@ class LearnPianoNotes {
 
                 <!-- Piano Keyboard -->
                 <div style="background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: 8px; padding: 20px; position: relative;">
-                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        🎹 Piano Keyboard (C Major Scale)
+                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">
+                        🎹 Piano keyboard (C major scale)
                     </div>
                     <div id="piano-learn-container" style="
                         overflow: hidden;
@@ -223,8 +202,8 @@ class LearnPianoNotes {
 
                 <!-- Sheet Music -->
                 <div style="background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: 8px; padding: 20px; position: relative;">
-                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        🎼 Sheet Music Notation
+                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">
+                        🎼 Sheet music notation
                     </div>
                     <div id="sheet-music-learn-container" style="
                         background: white; 
@@ -235,6 +214,22 @@ class LearnPianoNotes {
                 </div>
             </div>
         `;
+
+        // The bar every Learn page shares
+        const wrapper = this.container.querySelector('#learn-module-wrapper');
+        const moreScales = document.createElement('button');
+        moreScales.type = 'button';
+        moreScales.id = 'learn-more-scales-btn';
+        moreScales.className = 'lc-btn';
+        moreScales.textContent = 'Want to learn more about scales?';
+        wrapper.insertBefore(window.LearnCommon.header({
+            title: 'Notes on your instrument',
+            icon: '🎹',
+            subtitle: 'On the piano: note names, half and whole steps, sharps and flats.',
+            homeId: 'learn-return-to-landing',
+            themeId: 'learn-theme-toggle',
+            extra: [moreScales]
+        }), wrapper.firstChild);
 
         // Render components
         if (typeof this.renderInstrument === 'function') { this.renderInstrument(); } else { this.renderPiano(); }
@@ -252,6 +247,11 @@ class LearnPianoNotes {
         // Render Accidentals explanation into the moved steps block
         try { this.renderAccidentals(); } catch (e) { console.warn('renderAccidentals failed', e); }
 
+        window.LearnCommon.completeBar(wrapper, {
+            id: 'b-notes',
+            learned: 'You can name the keys and tell a half step, a whole step, a sharp and a flat apart.'
+        });
+
         // Setup connector overlay
         this.setupConnectorOverlay();
         this.setupConnectorRedrawEvents();
@@ -266,56 +266,6 @@ class LearnPianoNotes {
     }
 
     setupNavigationButtons() {
-        // Home button - return to landing page
-        const homeBtn = document.getElementById('learn-return-to-landing');
-        if (homeBtn) {
-            homeBtn.addEventListener('click', () => {
-                const landingPage = document.getElementById('landing-page');
-                const learnPage = document.getElementById('learn-piano-page');
-                if (landingPage && learnPage) {
-                    landingPage.style.display = 'block';
-                    learnPage.style.display = 'none';
-                }
-            });
-            
-            // Hover effects
-            homeBtn.addEventListener('mouseenter', () => {
-                homeBtn.style.background = 'var(--accent-primary)';
-                homeBtn.style.color = '#000';
-            });
-            homeBtn.addEventListener('mouseleave', () => {
-                homeBtn.style.background = 'transparent';
-                homeBtn.style.color = 'var(--text-main)';
-            });
-        }
-
-        // Theme toggle button
-        const themeBtn = document.getElementById('learn-theme-toggle');
-        if (themeBtn) {
-            const themeNames = ['clean-daw', 'channel-strip', 'matrix-fx', 'steam-2000'];
-            
-            themeBtn.addEventListener('click', () => {
-                const currentTheme = document.body.getAttribute('data-theme') || 'clean-daw';
-                const currentIndex = themeNames.indexOf(currentTheme);
-                const nextIndex = (currentIndex + 1) % themeNames.length;
-                const newTheme = themeNames[nextIndex];
-                
-                document.body.setAttribute('data-theme', newTheme);
-                localStorage.setItem('music-theory-theme', newTheme);
-                console.log('Theme switched to:', newTheme);
-            });
-            
-            // Hover effects
-            themeBtn.addEventListener('mouseenter', () => {
-                themeBtn.style.background = 'var(--accent-secondary)';
-                themeBtn.style.color = '#000';
-            });
-            themeBtn.addEventListener('mouseleave', () => {
-                themeBtn.style.background = 'transparent';
-                themeBtn.style.color = 'var(--text-main)';
-            });
-        }
-
         // Link to Learn Scales with instrument continuity
         const learnMoreScalesBtn = document.getElementById('learn-more-scales-btn');
         if (learnMoreScalesBtn) {
@@ -366,8 +316,18 @@ class LearnPianoNotes {
                 // Disable built-in pointer glissando; use tutorial module's own audio drag logic
                 enablePointerGlissando: false
             });
+            // The visualizer redraws itself when its container resizes (as soon as
+            // the page shows), which wipes what this page put on the keys.
+            const piano = this._localPiano;
+            const ownRender = piano.render.bind(piano);
+            piano.render = (...args) => {
+                const out = ownRender(...args);
+                if (!this._inRenderPiano) { try { this._decorateKeys(); } catch (_) {} }
+                return out;
+            };
         }
 
+        this._inRenderPiano = true;
         pianoContainer.innerHTML = '';
         
         this._localPiano.render({
@@ -391,8 +351,17 @@ class LearnPianoNotes {
             pianoContainer.appendChild(this._localPiano.pianoElement);
         }
 
+        this._inRenderPiano = false;
+        this._decorateKeys();
+        this._wirePianoDrag();
+    }
+
+    /** What this page puts on each key; a redraw starts from fresh keys. */
+    _decorateKeys() {
         // Highlight C Major scale notes with distinct visual treatment
         if (this._localPiano.pianoElement) {
+            // the names this page teaches: C♯ in the half-step card, B♭ with the flats
+            window.LearnCommon.spellPianoKeys(this._localPiano.pianoElement, ['C♯', 'E♭', 'F♯', 'A♭', 'B♭']);
             const cMajorNotes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
             const keys = this._localPiano.pianoElement.querySelectorAll('[data-note]');
             keys.forEach((key, idx) => {
@@ -402,10 +371,10 @@ class LearnPianoNotes {
                 if (cMajorNotes.includes(noteName)) {
                     // C Major scale notes get a strong accent
                     if (isWhiteKey) {
-                        key.style.boxShadow = '0 0 15px rgba(96, 165, 250, 0.8) inset, 0 4px 8px rgba(96, 165, 250, 0.3)';
+                        key.style.boxShadow = '0 0 15px color-mix(in srgb, var(--accent-primary) 80%, transparent) inset, 0 4px 8px color-mix(in srgb, var(--accent-primary) 30%, transparent)';
                         key.style.filter = 'brightness(1.05)';
                     } else {
-                        key.style.boxShadow = '0 0 12px rgba(96, 165, 250, 0.9) inset';
+                        key.style.boxShadow = '0 0 12px color-mix(in srgb, var(--accent-primary) 90%, transparent) inset';
                     }
                     
                     // Add label showing the degree (1-7)
@@ -476,7 +445,9 @@ class LearnPianoNotes {
                         z-index: 100;
                         box-shadow: 0 2px 6px rgba(0,0,0,0.3);
                     `;
-                    tooltip.textContent = `${note}${octave} (MIDI ${midi})`;
+                    const pc = midi % 12;
+                    const twoNames = { 1: 'C♯ / D♭', 3: 'D♯ / E♭', 6: 'F♯ / G♭', 8: 'G♯ / A♭', 10: 'A♯ / B♭' };
+                    tooltip.textContent = `${twoNames[pc] || note} (octave ${octave})`;
                     key.appendChild(tooltip);
                     
                     // Brighten the key on hover
@@ -491,7 +462,13 @@ class LearnPianoNotes {
                     key.addEventListener('mouseleave', cleanup);
                 });
             });
+        }
+    }
 
+    /** The drag listeners live on the piano element, which a redraw keeps. */
+    _wirePianoDrag() {
+        if (this._localPiano.pianoElement && !this._dragWired) {
+            this._dragWired = true;
             // Setup mouse drag support for glissando effect
             this._localPiano.pianoElement.addEventListener('mousedown', (e) => {
                 this._isDragging = true;
@@ -638,17 +615,17 @@ class LearnPianoNotes {
 
                     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
                         <div style="flex:1;min-width:220px">
-                            <div style="font-weight:700;margin-bottom:6px;color:var(--text-main);">Hear & See</div>
+                            <div style="font-weight:700;margin-bottom:6px;color:var(--text-main);">Hear and see</div>
                             <div style="display:flex;gap:8px;">
                                 <button id="acc_play_B" class="btn" style="padding:8px 12px;border:2px solid var(--accent-primary);background:transparent;color:var(--text-main);font-weight:700;border-radius:6px;">Play B</button>
-                                <button id="acc_play_Bb" class="btn" style="padding:8px 12px;border:2px solid #f59e0b;background:transparent;color:var(--text-main);font-weight:700;border-radius:6px;">Play B♭</button>
-                                <button id="acc_play_Bsharp" class="btn" style="padding:8px 12px;border:2px solid #60a5fa;background:transparent;color:var(--text-main);font-weight:700;border-radius:6px;">Play B♯ = C</button>
+                                <button id="acc_play_Bb" class="btn" style="padding:8px 12px;border:2px solid var(--accent-secondary);background:transparent;color:var(--text-main);font-weight:700;border-radius:6px;">Play B♭</button>
+                                <button id="acc_play_Bsharp" class="btn" style="padding:8px 12px;border:2px solid var(--accent-primary);background:transparent;color:var(--text-main);font-weight:700;border-radius:6px;">Play B♯ = C</button>
                             </div>
                             <div style="color:var(--text-muted);font-size:0.9rem;margin-top:8px;">Click a button to hear the pitch; the corresponding piano key will flash and the half-step path on the diagram above will highlight.</div>
                         </div>
 
                         <div style="min-width:220px;">
-                            <div style="font-weight:700;margin-bottom:6px;color:var(--text-main);">Quick Practice</div>
+                            <div style="font-weight:700;margin-bottom:6px;color:var(--text-main);">Quick practice</div>
                             <div id="acc_quiz" style="display:flex;gap:8px;flex-direction:column">
                                 <div style="color:var(--text-muted);font-size:0.95rem;">Which key is one half-step below B?</div>
                                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
@@ -670,9 +647,9 @@ class LearnPianoNotes {
         // Highlight the existing half-step path briefly when interacting
         const halfSvg = steps.querySelector('svg');
         const halfPath = halfSvg ? (halfSvg.querySelector('path') || halfSvg.querySelector('line')) : null;
-        const flashPath = (color = '#ffd700') => {
+        const flashPath = (color = 'var(--accent-primary)') => {
             if (!halfPath) return;
-            const orig = halfPath.getAttribute('stroke') || '#60a5fa';
+            const orig = halfPath.getAttribute('stroke') || 'var(--accent-primary)';
             try { halfPath.setAttribute('stroke', color); } catch(e){}
             setTimeout(() => { try { halfPath.setAttribute('stroke', orig); } catch(e){} }, 700);
         };
@@ -685,9 +662,9 @@ class LearnPianoNotes {
         // MIDI mappings: use octave around middle C (B4=71, Bb4=70, C5=72)
         const midiB = 71, midiBb = 70, midiBsh = 72;
 
-        playBBtn && playBBtn.addEventListener('click', () => { this.playNote(midiB); this._highlightLocalPianoKey(midiB); flashPath('#60a5fa'); });
-        playBbBtn && playBbBtn.addEventListener('click', () => { this.playNote(midiBb); this._highlightLocalPianoKey(midiBb); flashPath('#f59e0b'); });
-        playBshBtn && playBshBtn.addEventListener('click', () => { this.playNote(midiBsh); this._highlightLocalPianoKey(midiBsh); flashPath('#34d399'); });
+        playBBtn && playBBtn.addEventListener('click', () => { this.playNote(midiB); this._highlightLocalPianoKey(midiB); flashPath('var(--accent-primary)'); });
+        playBbBtn && playBbBtn.addEventListener('click', () => { this.playNote(midiBb); this._highlightLocalPianoKey(midiBb); flashPath('var(--accent-secondary)'); });
+        playBshBtn && playBshBtn.addEventListener('click', () => { this.playNote(midiBsh); this._highlightLocalPianoKey(midiBsh); flashPath('var(--accent-secondary)'); });
 
         // Quiz wiring
         const options = explain.querySelectorAll('.acc-option');
@@ -697,14 +674,14 @@ class LearnPianoNotes {
                 const ans = btn.getAttribute('data-answer');
                 // correct is Bb
                 if (ans === 'Bb') {
-                    feedback.style.color = '#34d399';
+                    feedback.style.color = 'var(--lc-good)';
                     feedback.textContent = 'Correct — B♭ is one half-step below B.';
                     // highlight Bb and play it
                     this.playNote(midiBb);
                     this._highlightLocalPianoKey(midiBb);
-                    flashPath('#f59e0b');
+                    flashPath('var(--accent-secondary)');
                 } else {
-                    feedback.style.color = '#f87171';
+                    feedback.style.color = 'var(--lc-bad)';
                     feedback.textContent = 'Not quite — try listening: the half-step below B is the black key (B♭).';
                     // play the chosen key if we can map it
                     if (ans === 'A') { this.playNote(69); this._highlightLocalPianoKey(69); }
@@ -712,53 +689,6 @@ class LearnPianoNotes {
                 }
             });
         });
-
-        // Create compact visual demos by reusing the existing half-step/whole-step SVGs
-        try {
-            const svgs = steps.querySelectorAll('svg');
-            if (svgs && svgs.length > 0) {
-                const src = svgs[0];
-                const demoRow = document.createElement('div');
-                demoRow.style.display = 'flex';
-                demoRow.style.gap = '12px';
-                demoRow.style.marginTop = '12px';
-
-                const makeDemo = (labelText, color) => {
-                    const clone = src.cloneNode(true);
-                    clone.style.width = '160px';
-                    clone.style.height = '70px';
-                    clone.style.display = 'block';
-                    // try to tint the primary path/line to the provided color for emphasis
-                    try {
-                        const p = clone.querySelector('path') || clone.querySelector('line');
-                        if (p) p.setAttribute('stroke', color);
-                    } catch (e) {}
-
-                    const box = document.createElement('div');
-                    box.style.display = 'flex';
-                    box.style.flexDirection = 'column';
-                    box.style.alignItems = 'center';
-                    box.appendChild(clone);
-                    const lbl = document.createElement('div');
-                    lbl.textContent = labelText;
-                    lbl.style.fontSize = '12px';
-                    lbl.style.color = 'var(--text-muted)';
-                    lbl.style.marginTop = '6px';
-                    box.appendChild(lbl);
-                    return box;
-                };
-
-                // B -> Bb (half-step down) — orange highlight
-                demoRow.appendChild(makeDemo('B → B♭ (half-step down)', '#f59e0b'));
-                // B -> B# (enharmonic to C) — blue highlight
-                demoRow.appendChild(makeDemo('B → B♯ (same as C)', '#60a5fa'));
-
-                // Insert demos before the practice quiz area if present
-                const quiz = explain.querySelector('#acc_quiz');
-                if (quiz) explain.insertBefore(demoRow, quiz);
-                else explain.appendChild(demoRow);
-            }
-        } catch (e) { /* non-fatal demo clone failure */ }
     }
 
     setupAccidentalsBindings() {
@@ -878,7 +808,7 @@ class LearnPianoNotes {
             line.setAttribute('y1', y1);
             line.setAttribute('x2', x2);
             line.setAttribute('y2', y2);
-            line.setAttribute('stroke', '#A8B8CC'); // Steel blue-gray
+            line.setAttribute('stroke', 'var(--text-muted)'); // Steel blue-gray
             line.setAttribute('stroke-width', '2');
             line.setAttribute('opacity', '0.6');
             line.setAttribute('filter', 'url(#metal-glow)');
@@ -889,7 +819,7 @@ class LearnPianoNotes {
             anchorKey.setAttribute('y', y1);
             anchorKey.setAttribute('width', '6');
             anchorKey.setAttribute('height', '10');
-            anchorKey.setAttribute('fill', '#708090');
+            anchorKey.setAttribute('fill', 'var(--text-muted)');
             anchorKey.setAttribute('rx', '1');
 
             // Note anchor (tine tip)
@@ -897,7 +827,7 @@ class LearnPianoNotes {
             anchorNote.setAttribute('cx', x2);
             anchorNote.setAttribute('cy', y2);
             anchorNote.setAttribute('r', '3.5');
-            anchorNote.setAttribute('fill', '#A8B8CC');
+            anchorNote.setAttribute('fill', 'var(--text-muted)');
             anchorNote.setAttribute('opacity', '0.8');
 
             this.connectorOverlay.appendChild(line);

@@ -46,6 +46,7 @@ class CompositionTimelineUI {
             color: #f1f5f9;
             font-size: 11px;
             width: 600px;
+            max-width: calc(100vw - 16px);
             box-sizing: border-box;
         `;
         document.body.appendChild(panel);

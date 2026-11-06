@@ -204,6 +204,25 @@ def fresh(b, url, storage):
 
 
 # ---------------------------------------------------------------- checks
+# Looks a person might build but the studio no longer ships: a draggable divider,
+# captioned row zones, and a mosaic. Stored as custom looks so the flows stay covered.
+TEST_LOOKS = {'version': 1, 'looks': [
+    {'id': 'test-two-up', 'name': 'Test Two-Up', 'tagline': 'Question left, answer right', 'principle': 'A hard split with a draggable divider.',
+     'divider': {'zone': 's', 'axis': 'x'},
+     'grid': {'areas': ['a s b'], 'cols': 'minmax(300px, var(--look-split, 1fr)) 8px minmax(340px, 1fr)', 'rows': 'minmax(0, 1fr)',
+              'below': [{'width': 1100, 'areas': ['a', 'b'], 'cols': 'minmax(0, 1fr)', 'rows': 'auto auto'}]},
+     'zones': {'a': {'label': 'ASK', 'why': 'Tools that pose a question.', 'modules': ['chords', 'relations', 'circle', 'numgen']},
+               'b': {'label': 'ANSWER', 'why': 'Where the result shows up.', 'modules': ['chordstrip', 'sheet', 'solar', 'fretboard']}}},
+    {'id': 'test-split', 'name': 'Test Split', 'tagline': 'Generative over evaluative', 'principle': 'Two stacked row decks with captions.',
+     'divider': {'zone': 's', 'axis': 'y'},
+     'grid': {'areas': ['a', 's', 'b'], 'cols': 'minmax(0, 1fr)', 'rows': 'minmax(190px, var(--look-split, 1fr)) 8px minmax(230px, 1fr)'},
+     'zones': {'a': {'label': 'GENERATE', 'flow': 'row', 'why': 'Invent here.', 'modules': ['solar', 'circle', 'numgen']},
+               'b': {'label': 'EVALUATE', 'flow': 'row', 'why': 'Judge what came out.', 'modules': ['chordstrip', 'sheet', 'chords', 'relations', 'fretboard']}}},
+    {'id': 'test-deck', 'name': 'Test Deck', 'tagline': 'Glanceable telemetry', 'principle': 'Every module an equal tile in one mosaic.',
+     'grid': {'areas': ['a'], 'cols': 'minmax(0, 1fr)', 'rows': 'minmax(0, 1fr)'},
+     'zones': {'a': {'flow': 'mosaic', 'modules': ['sheet', 'circle', 'chords', 'relations', 'solar', 'fretboard', 'numgen', 'chordstrip']}}}]}
+CUSTOM = {'music-theory-custom-looks': json.dumps(TEST_LOOKS)}
+
 # name -> (localStorage, launch first?, page JavaScript returning {ok, detail})
 CHECKS = {
     'saved look lays out what is actually there': ({'music-theory-look': 'focus'}, True, """
@@ -227,7 +246,7 @@ CHECKS = {
                  detail: { active: act && act.dataset.module, tabs, stripAbove: above } };
       })()"""),
 
-    'undocking the guitar brings it back into the look': ({'music-theory-look': 'command-deck'}, True, """
+    'undocking the guitar brings it back into the look': ({'music-theory-look': 'og'}, True, """
       (async () => {
         const cb = document.getElementById('instrument-dock-show-guitar');
         if (!cb.checked) { cb.checked = true; cb.dispatchEvent(new Event('change')); await new Promise(r => setTimeout(r, 1200)); }
@@ -266,7 +285,7 @@ CHECKS = {
         return { ok: hidden.length === 0, detail: { hidden, docked } };
       })()"""),
 
-    'zone order does not depend on the looks visited before': ({'music-theory-look': 'signal-chain'}, True, """
+    'zone order does not depend on the looks visited before': ({'music-theory-look': 'luthier'}, True, """
       (async () => {
         StudioLooks.apply('focus');
         await new Promise(r => setTimeout(r, 600));
@@ -286,13 +305,14 @@ CHECKS = {
       (async () => {
         let n = 0; const h = () => n++;
         window.addEventListener('resize', h);
-        StudioLooks.apply('orrery');
+        // a look that claims no instrument: a claim remounts the dock, which resizes once more on its own
+        StudioLooks.apply('notation-desk');
         await new Promise(r => setTimeout(r, 1500));
         window.removeEventListener('resize', h);
         return { ok: n === 1, detail: { resizeEvents: n } };
       })()"""),
 
-    'divider moves with the keyboard and is remembered': ({'music-theory-look': 'two-up'}, True, """
+    'divider moves with the keyboard and is remembered': ({'music-theory-look': 'test-two-up', **CUSTOM}, True, """
       (async () => {
         if (innerWidth <= 1100) return { ok: true, detail: 'divider hidden at this width' };
         const d = document.querySelector('.look-divider');
@@ -300,7 +320,7 @@ CHECKS = {
         for (let i = 0; i < 3; i++) d.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
         const set = document.querySelector('.workspace').style.getPropertyValue('--look-split');
         StudioLooks.apply('og'); await new Promise(r => setTimeout(r, 300));
-        StudioLooks.apply('two-up'); await new Promise(r => setTimeout(r, 300));
+        StudioLooks.apply('test-two-up'); await new Promise(r => setTimeout(r, 300));
         const back = document.querySelector('.workspace').style.getPropertyValue('--look-split');
         return { ok: !!set && set === back && d.getAttribute('aria-valuenow') !== null, detail: { set, back } };
       })()"""),
@@ -333,7 +353,7 @@ CHECKS = {
         const order = () => [...document.querySelectorAll('.workspace-column')].map(c =>
           [...c.children].map(x => x.dataset.module || x.id || x.className).join(','));
         const before = order();
-        StudioLooks.apply('two-up'); await new Promise(r => setTimeout(r, 400));
+        StudioLooks.apply('luthier'); await new Promise(r => setTimeout(r, 400));
         StudioLooks.apply('og'); await new Promise(r => setTimeout(r, 400));
         const after = order();
         return { ok: JSON.stringify(before) === JSON.stringify(after), detail: { before, after } };
@@ -458,6 +478,55 @@ def chk_learn_page_hears_keys(b):
     heard = b.cdp.js("window.__heard")
     mode = b.cdp.js("QwertyKeys.state().mode")
     return {'ok': heard == [52], 'detail': {'heard': heard, 'mode': mode}}
+
+
+def chk_scales_quiz(b):
+    """The quiz's piano is redrawn after the lesson sets up, so it must hear clicks
+    on the keys that are on screen, show no answer, and grade in pitch order."""
+    first = b.cdp.js("""(async () => { document.getElementById('launch-learn-scales-btn').click();
+      await new Promise(r => setTimeout(r, 1500));
+      document.querySelector('.lesson-dot[data-lesson="3"]').click();
+      await new Promise(r => setTimeout(r, 300));
+      document.getElementById('piano-learn-scales-container').scrollIntoView({ block: 'center' });   // clear of the toasts at the bottom
+      await new Promise(r => setTimeout(r, 1000));   // the piano scales itself to fit, then holds still
+      const toast = document.getElementById('audio-loading-notification');   // passing; it covers the top keys at 760
+      if (toast) toast.remove();
+      return { marks: document.querySelectorAll('#piano-learn-scales-container .scale-degree-label').length,
+               hint: getComputedStyle(document.getElementById('quiz-hints')).display }; })()""")
+
+    missed = []
+
+    def press(midi):
+        p = b.cdp.js(f"""(() => {{ const k = document.querySelector('#piano-learn-scales-container [data-midi="{midi}"]');
+          if (!k) return null; const r = k.getBoundingClientRect(); const black = k.classList.contains('piano-black-key');
+          // the lowest point of the key that is not under something else
+          for (const f of (black ? [0.5, 0.3] : [0.85, 0.7, 0.95])) {{
+            const x = r.x + r.width / 2, y = r.y + r.height * f, t = document.elementFromPoint(x, y);
+            if (t && k.contains(t)) return [x, y];
+          }}
+          const t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height * 0.85);
+          return 'covered by ' + (t ? (t.id || t.className || t.tagName) : 'nothing'); }})()""")
+        if isinstance(p, list):
+            _mouse(b, 'mousePressed', p[0], p[1])
+            _mouse(b, 'mouseReleased', p[0], p[1])
+            time.sleep(0.35)   # the notes row may wrap and move the piano down a little
+        else:
+            missed.append(f'{midi}: {p}')
+
+    def check():
+        return b.cdp.js("""(() => { document.getElementById('quiz-check').click();
+          return document.getElementById('quiz-feedback').textContent.replace(/\\s+/g, ' ').trim(); })()""")
+
+    for m in (78, 67, 69, 71, 72, 74, 76, 79):          # F#5 first: graded in pitch order
+        press(m)
+    right = check()
+    b.cdp.js("document.getElementById('quiz-reset').click()")
+    for m in (67, 69, 71, 72, 74, 76, 77, 79):          # F instead of F#
+        press(m)
+    wrong = check()
+    ok = (first['marks'] == 0 and first['hint'] == 'none' and 'Perfect' in right
+          and 'From E' in wrong and 'whole step' in wrong)
+    return {'ok': ok, 'detail': {'first': first, 'right': right[:60], 'wrong': wrong[:120], 'missed': missed}}
 
 
 CHORD_STATE = """(() => {
@@ -645,13 +714,13 @@ def builder_set(b, key, value):
 
 
 def chk_builder_remix_moves_live(b):
-    b.cdp.js("(async () => { StudioLooks.apply('signal-chain'); await new Promise(r => setTimeout(r, 400)); return 1; })()")
-    opened = b.cdp.js(f"({OPEN_BUILDER})({{ mode: 'remix', id: 'signal-chain' }})")
+    b.cdp.js("(async () => { StudioLooks.apply('luthier'); await new Promise(r => setTimeout(r, 400)); return 1; })()")
+    opened = b.cdp.js(f"({OPEN_BUILDER})({{ mode: 'remix', id: 'luthier' }})")
     cur = b.cdp.js("StudioLooks.current()")
     before = b.cdp.js(f"({ZONE_OF})('circle')")
     builder_set(b, 'move-circle', 'c')
     after = b.cdp.js(f"({ZONE_OF})('circle')")
-    ok = opened and cur == '__preview' and before == 'a' and after == 'c'
+    ok = opened and cur == '__preview' and before == 'b' and after == 'c'
     return {'ok': ok, 'detail': {'opened': opened, 'current': cur, 'circleBefore': before, 'circleAfter': after}}
 
 
@@ -666,7 +735,7 @@ def chk_builder_skeleton(b):
 
 
 def chk_builder_save_and_reload(b):
-    b.cdp.js(f"({OPEN_BUILDER})({{ mode: 'remix', id: 'orrery' }})")
+    b.cdp.js(f"({OPEN_BUILDER})({{ mode: 'remix', id: 'luthier' }})")
     b.cdp.js("""(async () => { const i = document.querySelector('.lb-panel input[type="text"]');
       i.value = 'Practice Room'; i.dispatchEvent(new Event('input', { bubbles: true }));
       await new Promise(r => setTimeout(r, 700));
@@ -687,14 +756,14 @@ def chk_builder_save_and_reload(b):
 
 
 def chk_builder_cancel_restores(b):
-    b.cdp.js("(async () => { StudioLooks.apply('orrery'); await new Promise(r => setTimeout(r, 400)); return 1; })()")
-    b.cdp.js(f"({OPEN_BUILDER})({{ mode: 'remix', id: 'orrery' }})")
+    b.cdp.js("(async () => { StudioLooks.apply('luthier'); await new Promise(r => setTimeout(r, 400)); return 1; })()")
+    b.cdp.js(f"({OPEN_BUILDER})({{ mode: 'remix', id: 'luthier' }})")
     builder_set(b, 'move-solar', '')
     hidden_in_preview = b.cdp.js(f"({ZONE_OF})('solar')")
     b.cdp.js("(async () => { document.querySelector('.lb-close').click(); await new Promise(r => setTimeout(r, 600)); return 1; })()")
     st = b.cdp.js(f"""(() => ({{ current: StudioLooks.current(), solarZone: ({ZONE_OF})('solar'),
       stored: localStorage.getItem('music-theory-custom-looks') }}))()""")
-    ok = hidden_in_preview is None and st['current'] == 'orrery' and st['solarZone'] == 'b' and not st['stored']
+    ok = hidden_in_preview is None and st['current'] == 'luthier' and st['solarZone'] == 'b' and not st['stored']
     return {'ok': ok, 'detail': {'solarDuringPreview': hidden_in_preview, **st}}
 
 
@@ -707,7 +776,7 @@ def chk_builder_import_gate(b):
     good = json.dumps({'format': 'music-theory-look', 'version': 1, 'look': {
         'id': 'from-a-friend', 'name': 'From a friend', 'principle': 'Score left, everything else right.',
         'grid': {'areas': ['a b'], 'cols': '2fr 1fr', 'rows': 'minmax(0, 1fr)'},
-        'zones': {'a': {'modules': ['chordstrip', 'sheet']}, 'b': {'flow': 'column', 'modules': ['circle', 'grading']}}}})
+        'zones': {'a': {'modules': ['chordstrip', 'sheet']}, 'b': {'flow': 'column', 'modules': ['circle', 'solar']}}}})
     res_good = b.cdp.js(f"""(async () => {{ const ok = LookBuilder.importText({json.dumps(good)});
       await new Promise(r => setTimeout(r, 900));
       return {{ ok, panelOpen: !document.querySelector('.lb-panel').hidden, current: StudioLooks.current(),
@@ -718,7 +787,7 @@ def chk_builder_import_gate(b):
 
 
 def chk_builder_export_roundtrip(b):
-    b.cdp.js(f"({OPEN_BUILDER})({{ mode: 'remix', id: 'lab-bench' }})")
+    b.cdp.js(f"({OPEN_BUILDER})({{ mode: 'remix', id: 'luthier' }})")
     res = b.cdp.js("""(async () => {
       const d = LookBuilder.draft();
       const text = JSON.stringify({ format: 'music-theory-look', version: 1, look: d });
@@ -1057,21 +1126,21 @@ def chk_suggestions(b):
       await new Promise(r => setTimeout(r, 300));
       return { first, adv, intent, current: StudioLooks.current() };
     })()""")
-    ok = (res['first'][0] == 'curriculum' and 'lab-bench' in res['adv'] and len(res['intent']) == 3
+    ok = (res['first'][0] == 'focus' and 'notation-desk' in res['adv'] and len(res['intent']) == 3
           and res['current'] == res['intent'][0])
     return {'ok': ok, 'detail': res}
 
 
 def chk_captions_first_visit(b):
     res = b.cdp.js("""(async () => {
-      const open = () => document.querySelector('.look-zone[data-zone="a"]').classList.contains('look-why-open');
-      const shown = () => getComputedStyle(document.getElementById('look-why-a')).display !== 'none';
-      StudioLooks.apply('signal-chain'); await new Promise(r => setTimeout(r, 300));
+      const open = () => document.querySelector('.look-zone[data-zone="b"]').classList.contains('look-why-open');
+      const shown = () => getComputedStyle(document.getElementById('look-why-b')).display !== 'none';
+      StudioLooks.apply('luthier'); await new Promise(r => setTimeout(r, 300));
       const first = [open(), shown()];
       StudioLooks.apply('og'); await new Promise(r => setTimeout(r, 200));
-      StudioLooks.apply('signal-chain'); await new Promise(r => setTimeout(r, 300));
+      StudioLooks.apply('luthier'); await new Promise(r => setTimeout(r, 300));
       const second = [open(), shown()];
-      document.querySelector('.look-zone[data-zone="a"] .look-why-toggle').click();
+      document.querySelector('.look-zone[data-zone="b"] .look-why-toggle').click();
       const toggled = [open(), shown()];
       return { first, second, toggled };
     })()""")
@@ -1085,7 +1154,7 @@ def chk_keyboard_rails_and_tiles(b):
     b.cdp.call('Input.dispatchKeyEvent', type='keyUp', key='Enter', code='Enter', windowsVirtualKeyCode=13)
     time.sleep(0.3)
     rail = b.cdp.js("(() => { const o = document.querySelector('.look-rail-open'); return { open: !!o, expanded: o && o.querySelector('.module-header').getAttribute('aria-expanded') }; })()")
-    b.cdp.js("(async () => { StudioLooks.apply('command-deck'); await new Promise(r => setTimeout(r, 500)); document.querySelector('.look-zone[data-flow=\"mosaic\"] > .look-item:not(.look-absent) > .module-header').focus(); return 1; })()")
+    b.cdp.js("(async () => { StudioLooks.apply('test-deck'); await new Promise(r => setTimeout(r, 500)); document.querySelector('.look-zone[data-flow=\"mosaic\"] > .look-item:not(.look-absent) > .module-header').focus(); return 1; })()")
     b.cdp.call('Input.dispatchKeyEvent', type='keyDown', key=' ', code='Space', windowsVirtualKeyCode=32, text=' ')
     b.cdp.call('Input.dispatchKeyEvent', type='keyUp', key=' ', code='Space', windowsVirtualKeyCode=32)
     time.sleep(0.3)
@@ -1123,10 +1192,10 @@ CHECKS.update({
         }
         return { ok: hs.every(h => h === hs[0]), detail: { heights: hs } };
       })()"""),
-    "a row zone's caption sits above its modules, not beside them": ({'music-theory-look': 'og'}, True, """
+    "a row zone's caption sits above its modules, not beside them": ({'music-theory-look': 'og', **CUSTOM}, True, """
       (async () => {
         const out = {};
-        for (const [id, z] of [['lab-bench', 'f'], ['split-brain', 'a'], ['split-brain', 'b']]) {
+        for (const [id, z] of [['test-split', 'a'], ['test-split', 'b']]) {
           StudioLooks.apply(id); await new Promise(r => setTimeout(r, 500));
           const zone = document.querySelector('.look-zone[data-zone="' + z + '"]');
           const zr = zone.getBoundingClientRect();
@@ -1137,7 +1206,7 @@ CHECKS.update({
       })()"""),
     'landing: suggests looks for the chosen level and intent': ({'music-theory-look': 'og'}, False, chk_suggestions),
     "a look's captions open on the first visit, then fold behind ?": ({'music-theory-look': 'og'}, True, chk_captions_first_visit),
-    'rail spines and tiles work from the keyboard': ({'music-theory-look': 'og'}, True, chk_keyboard_rails_and_tiles),
+    'rail spines and tiles work from the keyboard': ({'music-theory-look': 'og', **CUSTOM}, True, chk_keyboard_rails_and_tiles),
     'the guided tour is one tour, and every step points at something real': ({'music-theory-look': 'og', 'music-theory-visited': 'true'}, True, chk_tour),
 })
 
@@ -1201,10 +1270,10 @@ CHECKS.update({
         const open = sheet.hasAttribute('data-controls-open');
         return { ok: hiddenAtFirst && open && !ogToggle, detail: { hiddenAtFirst, rememberedOpen: open, toggleLeftInOG: ogToggle } };
       })()"""),
-    'module zoom never shrinks text below 80%': ({'music-theory-look': 'og'}, True, """
+    'module zoom never shrinks text below 80%': ({'music-theory-look': 'og', **CUSTOM}, True, """
       (async () => {
         let min = 1, where = null;
-        for (const id of ['command-deck', 'orrery', 'lab-bench', 'split-brain', 'console']) {
+        for (const id of ['test-deck', 'test-split', 'luthier', 'notation-desk']) {
           StudioLooks.apply(id); await new Promise(r => setTimeout(r, 1300));
           document.querySelectorAll('[data-module] > .module-content').forEach(b => {
             const z = parseFloat(b.style.zoom) || 1; if (z < min) { min = z; where = id + ':' + b.parentElement.dataset.module; } });
@@ -1219,6 +1288,7 @@ CHECKS.update({
     'chord mode: A pins the inversion (IV6 is F/A); a held chord is struck again': ({'music-theory-look': 'og', 'music-theory-chord-mode': CHORDS_PREFS}, True, chk_inversion_pins_bass),
     'chord mode: F walks the inversions; repeats move, changes lead smoothly': ({'music-theory-look': 'og', 'music-theory-chord-mode': CHORDS_PREFS}, True, chk_inversion_walk),
     'typing keyboard: a Learn page hears it without arming': ({'music-theory-look': 'og'}, False, chk_learn_page_hears_keys),
+    'learn scales: the G major quiz hears the piano, hides the answer, grades in pitch order': ({'music-theory-look': 'og'}, False, chk_scales_quiz),
     'typing keyboard: typing in the word box never plays a note': ({'music-theory-look': 'og'}, True, chk_typing_never_plays),
     'typing keyboard: touching the piano arms it; Z plays C3 on piano and fretboard': ({'music-theory-look': 'og'}, True, chk_touch_arms_and_plays),
     'typing keyboard: a burst of note keys while idle asks instead of playing': ({'music-theory-look': 'og'}, True, chk_cold_burst_asks),
@@ -1351,7 +1421,7 @@ def chk_course_landing(b):
 
 def chk_course_lesson_roundtrip(b):
     res = b.cdp.js("""(async () => {
-      StudioLooks.apply('signal-chain'); await new Promise(r => setTimeout(r, 300));
+      StudioLooks.apply('luthier'); await new Promise(r => setTimeout(r, 300));
       Course.start('i-bebop-major'); await new Promise(r => setTimeout(r, 900));
       const during = { look: StudioLooks.current(), scale: modularApp.scaleLibrary.getCurrentScale(),
         spots: [...document.querySelectorAll('.course-spot')].length, card: !!document.querySelector('#course-card h2'),
@@ -1362,10 +1432,40 @@ def chk_course_lesson_roundtrip(b):
       return { during, next, after: StudioLooks.current(), on: document.body.classList.contains('course-on') };
     })()""")
     d = res['during']
-    ok = (d['look'] == 'luthier' and d['scale'] == 'bebop_major' and d['spots'] >= 1 and d['card']
-          and d['strip'][:3] == ['C6', 'Ddim7', 'C6/E'] and res['next']['lesson'] == 'i-harmonize-6-dim'
-          and res['next']['mode'] == 'harmonize' and res['after'] == 'signal-chain' and not res['on'])
+    ok = (d['look'] == '__lesson' and d['scale'] == 'bebop_major' and d['spots'] >= 1 and d['card']
+          and d['strip'][:3] == ['C6', 'D°7', 'C6/E'] and res['next']['lesson'] == 'i-harmonize-6-dim'
+          and res['next']['mode'] == 'harmonize' and res['after'] == 'luthier' and not res['on'])
     return {'ok': ok, 'detail': res}
+
+
+def chk_course_lessons_roomy(b):
+    """Each lesson lays the studio out for itself: its own tools get the room,
+    and no tool it never mentions sits on screen beside them (looks built for the
+    whole window, less the card and the dock, left them tiny)."""
+    res = b.cdp.js("""(async () => {
+      const out = [];
+      for (const id of Course.order) {
+        const l = Course.get(id);
+        if (!l || l.page) continue;
+        Course.start(id); await new Promise(r => setTimeout(r, 900));
+        const mods = StudioLooks.modules(), size = {}, extra = [];
+        l.modules.filter(m => m !== 'fretboard').forEach(m => {
+          const el = document.getElementById(mods[m].container), item = el && (el.closest('.look-item') || el);
+          const r = item ? item.getBoundingClientRect() : { width: 0, height: 0 };
+          size[m] = [Math.round(r.width), Math.round(r.height)];
+        });
+        document.querySelectorAll('.workspace > .look-zone:not([data-flow="drawer"]) > .look-item').forEach(it => {
+          if (it.getClientRects().length && !l.modules.includes(it.dataset.module) && !['sheet', 'chordstrip'].includes(it.dataset.module)) extra.push(it.dataset.module);
+        });
+        out.push({ id, look: StudioLooks.current(), size, extra });
+      }
+      CourseRunner.leave();
+      return out;
+    })()""")
+    floor = {'sheet': (336, 280), 'solar': (280, 240), 'chordstrip': (280, 0)}
+    bad = [r for r in res if r['look'] != '__lesson' or r['extra']
+           or any(w < floor.get(m, (280, 150))[0] or h < floor.get(m, (280, 150))[1] for m, (w, h) in r['size'].items())]
+    return {'ok': bool(res) and not bad, 'detail': bad or res}
 
 
 def chk_course_checks_and_progress(b):
@@ -1443,7 +1543,7 @@ def chk_course_chips(b):
     res = b.cdp.js("""(async () => {
       StudioLooks.apply('og'); await new Promise(r => setTimeout(r, 300));
       const og = [...document.querySelectorAll('.course-chip')].filter(c => getComputedStyle(c).display !== 'none').length;
-      StudioLooks.apply('lab-bench'); await new Promise(r => setTimeout(r, 600));
+      StudioLooks.apply('luthier'); await new Promise(r => setTimeout(r, 600));
       const chip = document.querySelector('[data-module="relations"] > .module-header > .course-chip')
         || [...document.querySelectorAll('.course-chip')].find(c => c.closest('.look-item') && c.closest('.look-item').querySelector('#scale-relationship-container'));
       const visible = chip ? getComputedStyle(chip).display !== 'none' : false;
@@ -1452,16 +1552,644 @@ def chk_course_chips(b):
       const listed = [...document.querySelectorAll('#course-card .course-idx-btn')].map(x => x.dataset.lesson);
       return { og, visible, text: chip && chip.textContent, listed };
     })()""")
-    ok = res['og'] == 0 and res['visible'] and 'a-scales-as-moods' in res['listed'] and 'a-fourth-away' in res['listed']
+    ok = res['og'] == 0 and res['visible'] and 'a-scales-as-moods' in res['listed'] and 'a-chromatic-mediants' in res['listed']
+    return {'ok': ok, 'detail': res}
+
+
+CHIP_SEEN = "(() => { const c = document.querySelector('.qk-chip'); return !!c && c.getClientRects().length > 0; })()"
+
+
+def chk_course_keys_chip(b):
+    wrong = b.cdp.js("""(async () => {
+      const seen = () => { const c = document.querySelector('.qk-chip'); return !!c && c.getClientRects().length > 0; };
+      const out = [];
+      for (const id of Course.order) {
+        Course.start(id); await new Promise(r => setTimeout(r, 150));
+        const uses = (Course.get(id).steps || []).some(s => /^qk-/.test(s.at || ''));
+        if (seen() !== uses) out.push(id);
+      }
+      return out;
+    })()""")
+    # a lesson with no use for it, card folded: the studio is back, chip and all
+    b.cdp.js("(async () => { Course.start('a-five-of'); await new Promise(r => setTimeout(r, 200)); })()")
+    b.cdp.js("document.querySelector('#course-card [data-act=\"collapse\"]').click(); 1")
+    folded = b.cdp.js(CHIP_SEEN)
+    b.cdp.js("document.getElementById('course-pill').click(); 1")
+    unfolded = b.cdp.js(CHIP_SEEN)
+    # it may still have to ask
+    blur(b)
+    for c in ('KeyZ', 'KeyX', 'KeyC'):
+        key(b, c)
+    time.sleep(0.2)
+    asks = b.cdp.js(CHIP_SEEN) and b.cdp.js("QwertyKeys.state().prompting")
+    b.cdp.js("QwertyKeys.disarm(); 1")
+    # leaving the course puts it back in the dock
+    b.cdp.js("(async () => { CourseRunner.leave(); await new Promise(r => setTimeout(r, 200)); })()")
+    left = b.cdp.js(CHIP_SEEN)
+    # a Learn page: no chip, and the keys still play
+    b.cdp.js("(async () => { Course.start('b-chords'); await new Promise(r => setTimeout(r, 1200)); })()")
+    page = b.cdp.js("(() => { const p = document.getElementById('learn-chords-page'); return !!p && p.getClientRects().length > 0; })()")
+    learn_chip = b.cdp.js(CHIP_SEEN)
+    blur(b)
+    key(b, 'KeyZ', up=False)
+    time.sleep(0.15)
+    plays = b.cdp.js("QwertyKeys.state().sounding")
+    key(b, 'KeyZ', down=False)
+    ok = (not wrong and folded and not unfolded and asks and left and page and not learn_chip and len(plays) == 1)
+    return {'ok': ok, 'detail': {'wrong': wrong, 'folded': folded, 'unfolded': unfolded, 'asks': asks, 'left': left,
+                                 'page': page, 'learn_chip': learn_chip, 'plays': plays}}
+
+
+CHECKS.update({
+    'course: the keyboard chip is only in the lessons played on it, and never on a Learn page': ({'music-theory-look': 'og'}, True, chk_course_keys_chip),
+    'course: levels switch the lessons; tools stand apart and all show': ({'music-theory-look': 'og'}, False, chk_course_landing),
+    'course: a lesson lays out its modules, and leaving puts the look back': ({'music-theory-look': 'og'}, True, chk_course_lesson_roundtrip),
+    "course: a lesson gives its own tools the room, and shows no others": ({'music-theory-look': 'og'}, True, chk_course_lessons_roomy),
+    'course: steps tick from either voicing menu, quizzes pass on the right answer, progress is kept by id': ({'music-theory-look': 'og'}, True, chk_course_checks_and_progress),
+    "course: a module's Learn chip lists its lessons (and OG has none)": ({'music-theory-look': 'og'}, True, chk_course_chips),
+    'course: every step points at its control on screen, and "Do it" ticks it': ({'music-theory-look': 'og'}, True, chk_course_steps_point),
+})
+
+
+# ---------------------------------------------------------------- scale picker
+PICKER_OPEN = """(async () => { document.getElementById('scale-picker-btn').click(); await new Promise(r => setTimeout(r, 400)); return true; })()"""
+
+
+def chk_picker_families(b):
+    """The family tree keeps the user's families, each broken down by its own system, with the names a family uses."""
+    b.cdp.js(PICKER_OPEN)
+    res = b.cdp.js(r"""(() => {
+      const t = modularApp.scaleLibrary.getTaxonomyMeta();
+      const fams = [...document.querySelectorAll('#scale-pyramid-tree .pyramid-node')].map(n => n.firstChild.textContent.trim());
+      const open = (name) => { const n = [...document.querySelectorAll('#scale-pyramid-tree .pyramid-node')].find(x => x.firstChild.textContent.trim() === name);
+        const m = n && n.querySelector('.pyramid-submenu'); if (m) m.style.display = 'block'; return m; };
+      const carn = open('Indian Classical: Carnatic (Melakarta)');
+      const heads = carn ? [...carn.querySelectorAll(':scope > .nested-category-box > .nested-category-header')].map(h => h.textContent.trim().replace(/\s+/g, ' ')) : [];
+      const firstRows = carn ? [...carn.querySelectorAll('.scale-item')].slice(0, 3).map(e => e.textContent.trim()) : [];
+      const blues = t.byFamily['Blues Roots & Blue-Notes'];
+      const bluesCount = blues ? Object.values(blues.categories).reduce((n, c) => n + Object.values(c.subcategories).reduce((m, s) => m + Object.values(s.subSubcategories).reduce((k, l) => k + l.length, 0), 0), 0) : 0;
+      return { fams, heads: heads.slice(0, 3), firstRows, bluesCount, americas: fams.includes('South & Central American Traditions'),
+               tabs: [...document.querySelectorAll('.scale-view-tab')].map(x => x.dataset.view),
+               note: (document.querySelector('.scale-picker-note') || {}).textContent || '' };
+    })()""")
+    ok = (res['fams'][:1] == ['MAJOR'] and 'Indian Classical: Carnatic (Melakarta)' in res['fams']
+          and bool(res['heads']) and res['heads'][0].startswith('The 72 Melakarta :: Indu chakra (1–6)')
+          and bool(res['firstRows']) and res['firstRows'][0].startswith('1 Kanak')
+          and 0 < res['bluesCount'] < 80 and not res['americas']
+          and res['tabs'] == ['tree', 'special', 'major', 'minor'] and 'approximation' in res['note'])
+    return {'ok': ok, 'detail': res}
+
+
+def chk_picker_distance_views(b):
+    """From Major and From Minor list every scale by what changed, Lydian under "adds ♯4"."""
+    b.cdp.js(PICKER_OPEN)
+    res = b.cdp.js(r"""(async () => {
+      document.querySelector('.scale-view-tab[data-view=major]').click(); await new Promise(r => setTimeout(r, 300));
+      const v = document.getElementById('scale-distance-view');
+      const heads = [...v.querySelectorAll(':scope > .nested-category-box > .nested-category-header')].map(h => h.textContent.trim().replace(/\s+/g, ' '));
+      const one = [...v.querySelectorAll('.nested-category-header')].find(h => /^1 note changed/.test(h.textContent.trim()));
+      one.click(); await new Promise(r => setTimeout(r, 100));
+      const sharp4 = [...v.querySelectorAll('.nested-category-header')].find(h => /adds ♯4/.test(h.textContent));
+      sharp4.click(); await new Promise(r => setTimeout(r, 100));
+      const rows = [...sharp4.nextElementSibling.querySelectorAll('.scale-item')].map(e => e.textContent.trim());
+      const width = v.querySelector(':scope > .nested-category-box').getBoundingClientRect().width;
+      document.querySelector('.scale-view-tab[data-view=minor]').click(); await new Promise(r => setTimeout(r, 300));
+      const minorHeads = [...v.querySelectorAll(':scope > .nested-category-box > .nested-category-header')].map(h => h.textContent.trim().replace(/\s+/g, ' '));
+      return { heads: heads.slice(0, 3), rows: rows.slice(0, 3), width, minorHeads: minorHeads.slice(0, 2), shown: getComputedStyle(v).display };
+    })()""")
+    ok = (len(res['heads']) > 1 and res['heads'][1].startswith('1 note changed (30)')
+          and res['rows'][:1] == ['Lydian'] and res['width'] > 400 and res['shown'] == 'block'
+          and len(res['minorHeads']) > 1 and res['minorHeads'][1].startswith('1 note changed (30)'))
+    return {'ok': ok, 'detail': res}
+
+
+def chk_picker_search(b):
+    """Search finds every name a scale answers to, whatever the spelling, says what matched, and clears cleanly."""
+    b.cdp.js(PICKER_OPEN)
+    res = b.cdp.js("""(async () => {
+      const i = document.getElementById('scale-search-input');
+      const type = async (q) => { i.value = q; i.dispatchEvent(new Event('input')); await new Promise(r => setTimeout(r, 250));
+        const r = document.getElementById('scale-search-results');
+        return { summary: (r.querySelector('.scale-search-summary') || {}).textContent || '', rows: [...r.querySelectorAll('.scale-item')].slice(0, 4).map(e => e.textContent.trim()),
+                 titles: [...r.querySelectorAll('.scale-item')].slice(0, 2).map(e => e.title), tree: document.getElementById('scale-pyramid-tree').style.display }; };
+      const out = {};
+      out.kafi = await type('kafi');
+      out.raga = await type('raga bhim');
+      out.ragaOnly = await type('raga');
+      out.b6 = await type('mixolydian b6');
+      out.flat = await type('Mixolydian ♭6');
+      out.altered = await type('altered');
+      out.none = await type('xyzzy');
+      await type('');
+      out.cleared = { results: document.getElementById('scale-search-results').style.display, tree: document.getElementById('scale-pyramid-tree').style.display };
+      await type('kafi');
+      document.querySelector('#scale-search-results .scale-item').click(); await new Promise(r => setTimeout(r, 200));
+      out.picked = { scale: modularApp.scaleLibrary.state.currentScale, modal: document.getElementById('scale-picker-modal').style.display, input: i.value };
+      return out;
+    })()""")
+    k = res['kafi']; r = res['raga']; b6 = res['b6']; fl = res['flat']; al = res['altered']; no = res['none']; cl = res['cleared']; pk = res['picked']
+    ragaText = ' '.join(r['rows'])
+    ok = (bool(k['rows']) and 'Dorian' in k['rows'][0] and 'matched: ' in (k['titles'][0] or '') and k['tree'] == 'none'
+          and ('Bhimpalasi' in ragaText or 'Bheempalasi' in ragaText)
+          and res['ragaOnly']['summary'].split(' ')[0].isdigit() and int(res['ragaOnly']['summary'].split(' ')[0]) > 200
+          and b6['rows'][:1] == ['Mixolydian ♭6'] and fl['rows'][:1] == ['Mixolydian ♭6']
+          and al['summary'].startswith('2') and no['summary'].startswith('No scale has a name containing')
+          and cl == {'results': 'none', 'tree': 'block'}
+          and pk['scale'] == 'dorian' and pk['modal'] == 'none' and pk['input'] == '')
     return {'ok': ok, 'detail': res}
 
 
 CHECKS.update({
-    'course: levels switch the lessons; tools stand apart and all show': ({'music-theory-look': 'og'}, False, chk_course_landing),
-    'course: a lesson opens its look and modules, and leaving puts the look back': ({'music-theory-look': 'og'}, True, chk_course_lesson_roundtrip),
-    'course: steps tick from either voicing menu, quizzes pass on the right answer, progress is kept by id': ({'music-theory-look': 'og'}, True, chk_course_checks_and_progress),
-    "course: a module's Learn chip lists its lessons (and OG has none)": ({'music-theory-look': 'og'}, True, chk_course_chips),
-    'course: every step points at its control on screen, and "Do it" ticks it': ({'music-theory-look': 'og'}, True, chk_course_steps_point),
+    'picker: the families are the user\'s, broken down by their own systems, with the family\'s own names': ({'music-theory-look': 'og'}, True, chk_picker_families),
+    'picker: From Major and From Minor step outward from the scale you know': ({'music-theory-look': 'og'}, True, chk_picker_distance_views),
+    'picker: search finds any name in any spelling, says what matched, and clears': ({'music-theory-look': 'og'}, True, chk_picker_search),
+})
+
+
+# ---------------------------------------------------------------- guitar tuning
+TUNING_READ = """(() => {
+  const neck = [0, 1, 2, 3, 4, 5].map(s =>
+    +modularApp.guitarFretboard.gridEl.querySelector('.fret-cell[data-string-index="' + s + '"][data-fret="0"]').dataset.midi);
+  return { neck, neck5: +modularApp.guitarFretboard.gridEl.querySelector('.fret-cell[data-string-index="0"][data-fret="5"]').dataset.midi,
+           selects: [...document.querySelectorAll('.gt-select')].map(s => s.value),
+           stored: localStorage.getItem('music-theory-guitar-tuning') };
+})()"""
+
+
+def chk_tuning_dock_syncs(b):
+    """The docked dropdown retunes the neck, a chord shape, every other dropdown, and survives a reload."""
+    res = b.cdp.js("""(async () => {
+      const app = modularApp, gf = app.guitarFretboard;
+      const dock = document.querySelector('#instrument-dock-root .instrument-dock-settings .gt-select');
+      const out = { dockShown: !!dock && dock.getClientRects().length > 0 };
+      gf.midiChordOn([48, 52, 55]);
+      dock.value = 'drop-d';
+      dock.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 100));
+      out.heldLetGo = gf._held.size === 0;
+      out.open = [...gf.gridEl.querySelectorAll('.fret-cell[data-fret="0"]')].map(c => +c.dataset.midi).sort((a, b) => a - b);
+      gf.midiNoteOn(38);                       // only reachable with the 6th string dropped
+      out.lowD = gf._held.get(38) || null;
+      gf.clearMidiNotes();
+      return out;
+    })()""")
+    r1 = b.cdp.js(TUNING_READ)
+    b.cdp.call('Page.reload')
+    b.cdp.js(WAIT_READY)
+    r2 = b.cdp.js(TUNING_READ)
+    ok = (res['dockShown'] and res['heldLetGo'] and res['open'][0] == 38 and res['lowD'] and res['lowD']['string'] == 0
+          and res['lowD']['fret'] == 0 and r1['neck'][0] == 38 and r1['neck5'] == 43 and len(set(r1['selects'])) == 1
+          and len(r1['selects']) >= 3 and r1['selects'][0] == 'drop-d' and r2['neck'][0] == 38 and r2['selects'][0] == 'drop-d')
+    return {'ok': ok, 'detail': {'res': res, 'after': r1, 'reloaded': r2}}
+
+
+def chk_tuning_typed(b):
+    """A typed tuning: real keys, no notes played, a half-typed one changes nothing."""
+    b.cdp.js("""(async () => {
+      const sel = document.querySelector('#instrument-dock-root .instrument-dock-settings .gt-select');
+      sel.value = 'custom';
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 60));
+      const box = sel.parentElement.querySelector('.gt-custom');
+      box.focus(); box.value = ''; box.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()""")
+    for ch in 'dadf':
+        b.cdp.call('Input.insertText', text=ch)
+    mid = b.cdp.js("""(() => { const box = document.activeElement; return { cls: box.className,
+       midi: GuitarTuning.midi(), played: modularApp.pianoVisualizer._activeMidiSet ? modularApp.pianoVisualizer._activeMidiSet.size : 0 }; })()""")
+    for ch in '#ad':
+        b.cdp.call('Input.insertText', text=ch)
+    done = b.cdp.js("""(async () => {
+      const box = document.activeElement;
+      const out = { focused: box.classList.contains('gt-custom'), midi: GuitarTuning.midi(), id: GuitarTuning.current().id,
+                    bad: box.classList.contains('gt-bad'), others: [...document.querySelectorAll('.gt-select')].map(s => s.value) };
+      box.value = 'nonsense'; box.dispatchEvent(new Event('input', { bubbles: true }));
+      out.badNow = box.classList.contains('gt-bad');
+      box.blur();
+      await new Promise(r => setTimeout(r, 30));
+      out.restored = box.value;
+      out.midiAfter = GuitarTuning.midi();
+      return out;
+    })()""")
+    ok = ('gt-bad' in mid['cls'] and mid['midi'][0] == 40 and mid['played'] == 0 and done['focused']
+          and done['midi'] == [38, 45, 50, 54, 57, 62] and done['id'] == 'custom' and not done['bad']
+          and set(done['others']) == {'custom'} and done['badNow'] and done['restored'] == 'dadf#ad'
+          and done['midiAfter'] == [38, 45, 50, 54, 57, 62])
+    return {'ok': ok, 'detail': {'mid': mid, 'done': done}}
+
+
+def chk_tuning_learn_notes(b):
+    """Learn Notes: the words, the demos and a clicked fret all follow the tuning, from the course's own lesson."""
+    res = b.cdp.js("""(async () => {
+      const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+      moduleSelector.selectInstrument('guitar');
+      const landing = document.querySelector('#course-tuning .gt-select');
+      const out = { landingShown: !!landing && landing.getClientRects().length > 0 };
+      Course.start('b-notes');
+      await sleep(1500);
+      const page = document.getElementById('learn-guitar-page');
+      out.pageShown = page.getClientRects().length > 0;
+      const lgn = window._learnGuitarInstance;
+      const cards = () => page.querySelector('.lgn-right').textContent.replace(/\\s+/g, ' ');
+      const readout = () => document.getElementById('lgn-readout').textContent;
+      const clickDemo = async (d) => { page.querySelector('[data-demo="' + d + '"]').click(); await sleep(60); return readout(); };
+      const lit = () => [...lgn._posMarks.keys()];
+      out.std = { cards: cards(), welcome: readout() };
+
+      // landing and page show one setting
+      landing.value = 'dadgad'; landing.dispatchEvent(new Event('change', { bubbles: true }));
+      await sleep(100);
+      out.dadgad = { pageSelect: page.querySelector('#lgn-tuning .gt-select').value, cards: cards(), welcome: readout(), open: await clickDemo('open'),
+                     bc: await clickDemo('bc'), up: await clickDemo('up'), fifth: await clickDemo('fifth') };
+      lgn._stopAll();
+
+      // Open G, every note demo must land on the note it says
+      const hear = async (d) => {
+        const played = []; const real = lgn._play; lgn._play = (m) => { played.push(m); };
+        page.querySelector('[data-demo="' + d + '"]').click();
+        await sleep(1400);
+        lgn._play = real;
+        return played;
+      };
+      GuitarTuning.select('open-g');
+      await sleep(60);
+      out.openG = { sharp: await hear('sharp'), flat: await hear('flat'), bc: await hear('bc'), fifth: await hear('fifth'), cards: cards() };
+
+      // E flat: the open string reads as the tuning names it, on neck and in words
+      GuitarTuning.select('e-flat');
+      await sleep(60);
+      out.eFlat = { label: lgn._cell(0, 0).querySelector('.fret-label').textContent, up: await clickDemo('up'), cards: cards() };
+      lgn._stopAll();
+
+      // a clicked fret is named and sounded for this tuning
+      GuitarTuning.type('C G D G B D');
+      await sleep(60);
+      lgn._cell(0, 3).click();
+      await sleep(60);
+      out.typed = readout();
+      GuitarTuning.select('standard');
+      await sleep(60);
+      out.back = cards();
+      return out;
+    })()""")
+    d, g, e = res['dadgad'], res['openG'], res['eFlat']
+    pcs = lambda ms: [m % 12 for m in ms]
+    ok = (res['landingShown'] and res['pageShown']
+          and 'E A D G B E' in res['std']['cards'] and 'Eddie' in res['std']['cards']
+          and 'Both outside strings are E, two octaves apart' in res['std']['cards']
+          and 'except on the G string, where it is the 4th fret' in res['std']['cards']
+          and 'thin high E string' in res['std']['welcome'] and '5th fret of low E = open A' in res['std']['cards']
+          and d['pageSelect'] == 'dadgad' and 'D A D G A D' in d['cards'] and 'Eddie' not in d['cards']
+          and 'thin high D string' in d['welcome'] and 'D A D G A D' in d['open']
+          and 'on the low A string' in d['bc'] and 'open low D' in d['up'] and '7th fret of low D = open A' in d['cards']
+          and pcs(g['sharp']) == [5, 6] and pcs(g['flat']) == [7, 6] and pcs(g['bc']) == [11, 0]
+          and g['fifth'][0] == g['fifth'][1]
+          and 'E♭' in e['label'] and 'E♭ → E' in e['up'] and 'Every string is 1 half step lower' in e['cards']
+          and 'fret 3' in res['typed'] and res['typed'].startswith('D♯')
+          and res['back'] == res['std']['cards'])
+    return {'ok': ok, 'detail': res}
+
+
+def chk_tuning_learn_scales(b):
+    """Learn Scales' neck has the dropdown and the shared tuning."""
+    res = b.cdp.js("""(async () => {
+      const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+      moduleSelector.selectInstrument('guitar');
+      GuitarTuning.select('open-d');
+      Course.start('b-scales');
+      await sleep(1800);
+      const host = document.querySelector('#piano-learn-scales-container');
+      const inst = window.learnScales || window.learnScalesInstance || null;
+      const open = host ? [...host.querySelectorAll('.fret-cell[data-fret="0"]')].map(c => +c.dataset.midi).sort((a, b) => a - b) : null;
+      const sel = host && host.querySelector('.gt-select');
+      const out = { open, select: sel && sel.value, shown: !!sel && sel.getClientRects().length > 0 };
+      GuitarTuning.select('standard');
+      await sleep(80);
+      out.after = host ? [...host.querySelectorAll('.fret-cell[data-fret="0"]')].map(c => +c.dataset.midi).sort((a, b) => a - b) : null;
+      return out;
+    })()""")
+    ok = (res['open'] == [38, 45, 50, 54, 57, 62] and res['select'] == 'open-d' and res['shown']
+          and res['after'] == [40, 45, 50, 55, 59, 64])
+    return {'ok': ok, 'detail': res}
+
+
+def chk_tuning_every_neck(b):
+    """Whichever instruments the dock shows: a neck on screen has a whole, clickable dropdown on screen."""
+    res = b.cdp.js("""(async () => {
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      const seen = (el) => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) return null;
+        let L = r.left, R = r.right, T = r.top, B = r.bottom;
+        for (let p = el.parentElement; p; p = p.parentElement) {
+          const st = getComputedStyle(p);
+          if (st.display === 'none' || st.visibility === 'hidden') return null;
+          if (/(hidden|auto|scroll|clip)/.test(st.overflowX + st.overflowY)) {
+            const q = p.getBoundingClientRect();
+            L = Math.max(L, q.left); R = Math.min(R, q.right); T = Math.max(T, q.top); B = Math.min(B, q.bottom);
+          }
+        }
+        R = Math.min(R, innerWidth); B = Math.min(B, innerHeight);
+        const w = R - L, h = B - T;
+        if (w <= 0 || h <= 0) return null;
+        const top = document.elementFromPoint((L + R) / 2, (T + B) / 2);
+        return { w: Math.round(w), h: Math.round(h), whole: w >= r.width - 1 && h >= r.height - 1, hit: top === el || el.contains(top) };
+      };
+      const gf = modularApp.guitarFretboard, bad = [], looked = [];
+      const p = document.getElementById('instrument-dock-show-piano'), g = document.getElementById('instrument-dock-show-guitar');
+      for (const [pi, gu] of [[true, true], [false, true], [true, false]]) {
+        if (p.checked !== pi) p.click();
+        if (g.checked !== gu) g.click();
+        await wait(250);
+        for (const l of StudioLooks.looks) {
+          StudioLooks.apply(l.id);
+          await wait(600);
+          // an ordinary visitor scrolls to a neck in a module: put it in view as they would
+          if (gf.element && gf.element.getBoundingClientRect().width) gf.element.scrollIntoView({ block: 'start', inline: 'start' });
+          await wait(80);
+          const neck = seen(gf.gridEl);
+          if (!neck || neck.h < 40) { looked.push(l.id + ':no neck in view'); continue; }
+          const docked = !!(gf.element && gf.element.closest('#guitar-dock-container'));
+          const sel = docked ? document.querySelector('.instrument-dock-settings .gt-select') : gf._tuningEl && gf._tuningEl.querySelector('select');
+          const c = seen(sel);
+          looked.push(l.id + ':' + (docked ? 'dock' : 'module'));
+          if (!c || !c.whole || !c.hit) bad.push({ look: l.id, pi, gu, docked, neck, select: c });
+        }
+      }
+      if (!p.checked) p.click();
+      if (!g.checked) g.click();
+      return { bad, looked: looked.length, modules: looked.filter(x => x.endsWith('module')).length };
+    })()""")
+    return {'ok': not res['bad'] and res['modules'] > 0, 'detail': res}
+
+
+OPEN_COURSE_PAGE = """(async (title) => {
+  const card = [...document.querySelectorAll('#course-path button, #course-path a, #course-path [role=button]')]
+    .find(e => (e.innerText || '').trim().startsWith(title));
+  if (!card) return false;
+  card.click();
+  await new Promise(r => setTimeout(r, 1500));
+  return true;
+})"""
+
+
+def chk_tuning_chord_necks(b):
+    res = {}
+    for title, page in (('Chords from intervals', 'learn-chords-page'), ('Inversions', 'learn-inversions-page')):
+        ok = b.cdp.js(OPEN_COURSE_PAGE + f"({json.dumps(title)})")
+        res[page] = b.cdp.js("""(async (page) => {
+          const wait = ms => new Promise(r => setTimeout(r, ms));
+          const el = document.getElementById(page), panel = el.querySelector('.lc-neck');
+          if (!panel) return { panel: false };
+          const heldCells = () => [...panel.querySelectorAll('.fret-cell')]
+            .filter(c => c.style.boxShadow.includes('34, 211, 238')).map(c => c.dataset.stringIndex + ':' + c.dataset.fret + '=' + c.dataset.midi).sort();
+          const before = heldCells(), sel = panel.querySelector('.gt-select');
+          sel.value = 'open-g'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+          await wait(150);
+          const after = heldCells();
+          const midis = c => c.map(x => +x.split('=')[1]).sort((a, b) => a - b).join();
+          GuitarTuning.select('standard');
+          await wait(100);
+          return { panel: true, width: Math.round(panel.getBoundingClientRect().width), before, after, sameNotes: midis(before) === midis(after),
+                   moved: before.join() !== after.join(), selShown: sel.getClientRects().length > 0 };
+        })""" + f"({json.dumps(page)})")
+        res[page]['opened'] = ok
+        b.cdp.js("window.showAppPage('landing-page')")
+    inv = b.cdp.js("""(async () => {
+      const panel = document.querySelector('#learn-inversions-page .lc-neck');
+      window.showAppPage('learn-inversions-page');
+      const app = window.learnInversionsApp;
+      app.rootNote = 'C'; app.rootMidi = 60; app.quality = 'min'; app.inversion = 0; app.updateVisualization();
+      await new Promise(r => setTimeout(r, 200));
+      const names = [...panel.querySelectorAll('.fret-cell')].filter(c => c.style.boxShadow.includes('34, 211, 238')).map(c => c.querySelector('.fret-label').textContent);
+      window.showAppPage('landing-page');
+      return names;
+    })()""")
+    res['c minor names'] = inv
+    ok = all(res[p].get('panel') and res[p].get('opened') and len(res[p]['before']) == 3 and res[p]['sameNotes'] and res[p]['moved'] and res[p]['selShown']
+             for p in ('learn-chords-page', 'learn-inversions-page')) and 'E♭' in inv and 'D#' not in inv
+    errs = (b.cdp.errors or [])[:6]
+    return {'ok': ok and not errs, 'detail': {**res, 'errors': errs}}
+
+
+def chk_tuning_piano_no_neck(b):
+    res = {}
+    for title, page in (('Chords from intervals', 'learn-chords-page'), ('Inversions', 'learn-inversions-page')):
+        b.cdp.js(OPEN_COURSE_PAGE + f"({json.dumps(title)})")
+        res[page] = b.cdp.js(f"""({{ neck: !!document.querySelector('#{page} .lc-neck'), shown: document.getElementById('{page}').style.display, text: document.getElementById('{page}').innerText.length }})""")
+        b.cdp.js("window.showAppPage('landing-page')")
+    errs = (b.cdp.errors or [])[:6]
+    ok = all(not res[p]['neck'] and res[p]['shown'] == 'block' and res[p]['text'] > 100 for p in res) and not errs
+    return {'ok': ok, 'detail': {**res, 'errors': errs}}
+
+
+def chk_tuning_practice(b):
+    b.cdp.js(OPEN_COURSE_PAGE + "('Notes on your instrument')")
+    res = b.cdp.js("""(async () => {
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      const L = window._learnGuitarInstance, page = document.getElementById('learn-guitar-page');
+      page.querySelector('#lgn-practice').click();
+      const cell = () => L._cellsFor(L._p.target.pc)[0];
+      const c = cell(), first = L._p.target.pc;
+      L._onPick(+c.dataset.stringIndex, +c.dataset.fret);
+      const busy = L._p.busy;
+      GuitarTuning.select('dadgad');
+      await wait(100);
+      const out = { busy, stillBusy: L._p.busy, prompt: page.querySelector('#lgn-prompt').innerText.slice(0, 60) };
+      const again = cell();
+      L._onPick(+again.dataset.stringIndex, +again.dataset.fret);
+      out.answered = L._p.total;
+      page.querySelector('#lgn-practice').click();
+      GuitarTuning.select('standard');
+      return out;
+    })()""")
+    ok = res['busy'] and not res['stillBusy'] and res['answered'] == 2 and res['prompt'].startswith('Find')
+    return {'ok': ok, 'detail': res}
+
+
+def chk_tuning_scales_neck(b):
+    b.cdp.js(OPEN_COURSE_PAGE + "('Scales')")
+    res = b.cdp.js("""(async () => {
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      const g = window.learnScalesInstance._localGuitar, calls = [];
+      const e = g.options.audioEngine;
+      if (!e) return { engine: false };
+      const orig = e.playNote; e.playNote = m => { calls.push(m); return 0; };
+      const sel = g.element.querySelector('.gt-select');
+      const above = sel.getBoundingClientRect().bottom <= g.gridEl.getBoundingClientRect().top + 1;
+      GuitarTuning.select('drop-d');
+      await wait(100);
+      g.gridEl.querySelector('.fret-cell[data-string-index="0"][data-fret="2"]').click();
+      await wait(100);
+      e.playNote = orig;
+      GuitarTuning.select('standard');
+      return { engine: true, above, calls };
+    })()""")
+    return {'ok': res.get('engine') and res['above'] and 40 in res['calls'], 'detail': res}
+
+
+GUITAR_CHOSEN = {'music-theory-look': 'og', 'music-theory-visited': 'true', 'music-theory-instrument': 'guitar'}
+
+
+def chk_guitar_all_scale_lessons(b):
+    b.cdp.js(OPEN_COURSE_PAGE + "('Scales')")
+    res = b.cdp.js("""(async () => {
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      const L = window.learnScalesInstance, page = document.getElementById('learn-scales-page'), out = [], bad = [];
+      for (let i = 0; i < L.lessons.length; i++) {
+        L.currentLesson = i; L.render();
+        await wait(250);
+        const box = page.querySelector('#piano-learn-scales-container');
+        const row = { lesson: i + 1, cells: box.querySelectorAll('.fret-cell').length, keys: box.querySelectorAll('.piano-key, .piano-white-key, .piano-black-key').length,
+                      label: page.querySelector('#instrument-label').innerText.trim(),
+                      words: (document.getElementById('lesson-content').innerText.match(/piano|white key|black key|keyboard/ig) || []) };
+        out.push(row);
+        if (!row.cells || row.keys || !/guitar/i.test(row.label) || row.words.length) bad.push(row);
+      }
+      return { bad, lessons: out.length };
+    })()""")
+    errs = (b.cdp.errors or [])[:6]
+    return {'ok': not res['bad'] and res['lessons'] >= 9 and not errs, 'detail': {**res, 'errors': errs}}
+
+
+def chk_guitar_quiz(b):
+    b.cdp.js(OPEN_COURSE_PAGE + "('Scales')")
+    res = b.cdp.js("""(async () => {
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      const L = window.learnScalesInstance, out = {};
+      L.currentLesson = L.lessons.findIndex(l => /quiz/i.test(l.title)); L.render();
+      await wait(300);
+      const box = document.querySelector('#piano-learn-scales-container');
+      const scaleLit = [...box.querySelectorAll('.fret-cell')].filter(c => /16, 185, 129/.test(c.style.background)).length;
+      out.onNeck = box.querySelectorAll('.fret-cell').length > 0;
+      out.scaleLit = scaleLit;
+      out.how = document.getElementById('quiz-how').innerText;
+      const click = m => L.neckCell(m).click();
+      const G = [55, 57, 59, 60, 62, 64, 66, 67];
+      for (const m of G) { click(m); await wait(200); }
+      out.marked = box.querySelectorAll('.fret-cell.quiz-picked').length;
+      out.chips = document.querySelectorAll('.quiz-chip').length;
+      // the same pitch in another place on the neck moves the pick; it does not take it back
+      const other = [...box.querySelectorAll('.fret-cell[data-midi="60"]')].find(c => !c.classList.contains('quiz-picked'));
+      if (other) { other.click(); await wait(200); }
+      out.afterMove = { chips: document.querySelectorAll('.quiz-chip').length, there: !!other && other.classList.contains('quiz-picked'), marked: box.querySelectorAll('.fret-cell.quiz-picked').length };
+      GuitarTuning.select('dadgad');
+      await wait(150);
+      out.afterRetune = { chips: document.querySelectorAll('.quiz-chip').length, marked: box.querySelectorAll('.fret-cell.quiz-picked').length,
+                          right: [...box.querySelectorAll('.fret-cell.quiz-picked')].map(c => +c.dataset.midi).sort((a, b) => a - b).join() };
+      GuitarTuning.select('standard');
+      await wait(150);
+      // a switch of instrument keeps the work, and the words and the landing page follow
+      document.getElementById('change-instrument-btn').click();
+      await wait(500);
+      out.toPiano = { chips: document.querySelectorAll('.quiz-chip').length, keys: box.querySelectorAll('.piano-white-key, .piano-key').length > 0, how: document.getElementById('quiz-how').innerText.slice(0, 24),
+                      landing: document.getElementById('instrument-select').value };
+      document.getElementById('change-instrument-btn').click();
+      await wait(500);
+      out.back = { chips: document.querySelectorAll('.quiz-chip').length, cells: box.querySelectorAll('.fret-cell').length > 0, landing: document.getElementById('instrument-select').value };
+      document.getElementById('quiz-check').click();
+      await wait(100);
+      out.feedback = document.getElementById('quiz-feedback').innerText.slice(0, 60);
+      return out;
+    })()""")
+    want = '55,57,59,60,62,64,66,67'
+    ok = (res['onNeck'] and res['scaleLit'] == 0 and 'neck' in res['how'] and res['marked'] == 8 and res['chips'] == 8
+          and res['afterMove']['chips'] == 8 and res['afterMove']['there'] and res['afterMove']['marked'] == 8
+          and res['afterRetune']['chips'] == 8 and res['afterRetune']['marked'] == 8 and res['afterRetune']['right'] == want
+          and res['toPiano']['chips'] == 8 and res['toPiano']['keys'] and 'piano' in res['toPiano']['how'] and res['toPiano']['landing'] == 'piano'
+          and res['back']['chips'] == 8 and res['back']['cells'] and res['back']['landing'] == 'guitar' and 'Perfect' in res['feedback'])
+    errs = (b.cdp.errors or [])[:6]
+    return {'ok': ok and not errs, 'detail': {**res, 'errors': errs}}
+
+
+def chk_guitar_no_piano_pages(b):
+    res = {}
+    for title, page in (('Chords from intervals', 'learn-chords-page'), ('Inversions', 'learn-inversions-page')):
+        b.cdp.js(OPEN_COURSE_PAGE + f"({json.dumps(title)})")
+        res[page] = b.cdp.js(f"""(() => {{
+          const el = document.getElementById('{page}');
+          return {{ keys: el.querySelectorAll('.inv-piano-key, .inv-mini-key, [class^="key-piano-"]').length,
+                    necks: el.querySelectorAll('.lc-neck .fret-cell').length, boxes: el.querySelectorAll('.lc-chord-box').length, strings: el.querySelectorAll('.lc-string').length,
+                    icon: el.querySelector('.lc-title').innerText.includes('🎸'),
+                    words: (el.innerText.match(/on the piano|keyboard\b(?! on)|right hand example/ig) || []) }}; }})()""")
+        b.cdp.js("window.showAppPage('landing-page')")
+    c, i = res['learn-chords-page'], res['learn-inversions-page']
+    errs = (b.cdp.errors or [])[:6]
+    ok = c['keys'] == 0 and c['necks'] > 0 and c['strings'] >= 3 and c['icon'] and i['keys'] == 0 and i['necks'] > 0 and i['boxes'] == 3 and i['icon'] and not errs
+    return {'ok': ok, 'detail': {**res, 'errors': errs}}
+
+
+def chk_guitar_studio_lesson(b):
+    res = b.cdp.js("""(async () => {
+      const wait = ms => new Promise(r => setTimeout(r, ms));
+      const dock = document.getElementById('instrument-dock-root');
+      const out = { before: dock.className };
+      CourseRunner.start('i-bebop-major');
+      await wait(1800);
+      out.on = document.body.classList.contains('course-on');
+      out.during = dock.className;
+      const gf = modularApp.guitarFretboard, e = modularApp.guitarEngine, played = [];
+      const orig = e.playNote; e.playNote = (m, o) => { played.push(m); return 0; };
+      const hear = document.querySelector('.course-hear');
+      out.hasHear = !!hear;
+      if (hear) { hear.click(); await wait(700); }
+      out.played = played.length;
+      out.lit = (gf.state.focusNotes || []).length;
+      e.playNote = orig;
+      out.tuning = (s => !!s && s.getClientRects().length > 0)(document.querySelector('.instrument-dock-settings .gt-select'));
+      out.fills = gf.gridEl.getBoundingClientRect().width / document.getElementById('guitar-dock-container').getBoundingClientRect().width;
+      window.showAppPage('landing-page');
+      await wait(400);
+      out.after = dock.className;
+      return out;
+    })()""")
+    on = res.get('on')
+    ok = (on and 'dock-mode-guitar' in res['during'] and res['tuning'] and res['fills'] > 0.9 and 'dock-mode-guitar' not in res['after']
+          and (not res['hasHear'] or (res['played'] > 0 and res['lit'] > 0)))
+    return {'ok': ok, 'detail': res}
+
+
+def chk_piano_quiz(b):
+    b.cdp.js(OPEN_COURSE_PAGE + "('Scales')")
+    res = b.cdp.js("""(async () => {
+      const L = window.learnScalesInstance;
+      L.currentLesson = L.lessons.findIndex(l => /quiz/i.test(l.title)); L.render();
+      await new Promise(r => setTimeout(r, 400));
+      const box = document.querySelector('#piano-learn-scales-container');
+      const key = box.querySelector('[data-midi="67"]');
+      key.click();
+      await new Promise(r => setTimeout(r, 150));
+      return { cells: box.querySelectorAll('.fret-cell').length, picked: box.querySelectorAll('.quiz-picked').length, chips: document.querySelectorAll('.quiz-chip').length, how: document.getElementById('quiz-how').innerText.slice(0, 20) };
+    })()""")
+    return {'ok': res['cells'] == 0 and res['picked'] == 1 and res['chips'] == 1 and 'piano' in res['how'], 'detail': res}
+
+
+CHECKS.update({
+    'guitar tuning: the dock dropdown retunes the neck and every dropdown, and survives a reload': ({'music-theory-look': 'og'}, True, chk_tuning_dock_syncs),
+    'guitar tuning: a typed tuning takes effect when whole; half-typed changes nothing and plays nothing': ({'music-theory-look': 'og'}, True, chk_tuning_typed),
+    'guitar tuning: the course lesson on notes recalculates its words and demos': ({'music-theory-look': 'og', 'music-theory-visited': 'true'}, False, chk_tuning_learn_notes),
+    'guitar tuning: the Learn Scales neck follows it': ({'music-theory-look': 'og', 'music-theory-visited': 'true'}, False, chk_tuning_learn_scales),
+    'guitar tuning: every neck in every look has a dropdown you can reach': ({'music-theory-look': 'og', 'music-theory-visited': 'true'}, True, chk_tuning_every_neck),
+    'guitar tuning: with the guitar chosen, Learn Chords and Inversions show the chord on a neck that follows it': ({'music-theory-look': 'og', 'music-theory-visited': 'true', 'music-theory-instrument': 'guitar'}, False, chk_tuning_chord_necks),
+    'the chosen guitar: every Learn Scales lesson stays on the neck, in its words too': (GUITAR_CHOSEN, False, chk_guitar_all_scale_lessons),
+    'the chosen guitar: the build-a-scale quiz is played on the neck and survives a retune and a switch': (GUITAR_CHOSEN, False, chk_guitar_quiz),
+    'the chosen guitar: Learn Chords and Inversions have no piano at all': (GUITAR_CHOSEN, False, chk_guitar_no_piano_pages),
+    'the chosen guitar: a studio lesson docks it alone, lights it and sounds it, then gives the dock back': (GUITAR_CHOSEN, False, chk_guitar_studio_lesson),
+    'the chosen piano: the build-a-scale quiz stays on the piano': ({'music-theory-look': 'og', 'music-theory-visited': 'true', 'music-theory-instrument': 'piano'}, False, chk_piano_quiz),
+    'guitar tuning: with the piano chosen, Learn Chords and Inversions have no neck': ({'music-theory-look': 'og', 'music-theory-visited': 'true', 'music-theory-instrument': 'piano'}, False, chk_tuning_piano_no_neck),
+    'guitar tuning: retuning just after an answer does not strand the notes practice': ({'music-theory-look': 'og', 'music-theory-visited': 'true', 'music-theory-instrument': 'guitar'}, False, chk_tuning_practice),
+    'guitar tuning: the Learn Scales neck shows the dropdown above it and sounds the retuned pitch': ({'music-theory-look': 'og', 'music-theory-visited': 'true', 'music-theory-instrument': 'guitar'}, False, chk_tuning_scales_neck),
+    'guitar tuning: Luthier has the dropdown on the neck, and no second one in the dock': ({'music-theory-look': 'luthier', 'music-theory-visited': 'true'}, True, """
+      (() => {
+        const shown = (el) => !!el && el.getClientRects().length > 0;
+        const inBoard = document.querySelector('#guitar-fretboard-container .gt-select');
+        const inDock = document.querySelector('#instrument-dock-root .instrument-dock-settings .gt-select');
+        const board = document.querySelector('#guitar-fretboard-container .guitar-fretboard');
+        const clipped = board && inBoard && inBoard.getBoundingClientRect().bottom > board.getBoundingClientRect().bottom + 1;
+        return { ok: shown(inBoard) && !shown(inDock) && !clipped, detail: { inBoard: shown(inBoard), inDock: shown(inDock), clipped } };
+      })()"""),
 })
 
 

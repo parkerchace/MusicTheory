@@ -32,17 +32,66 @@ class ApproachEngine {
 
     // ---------- primitives ----------
 
+    /**
+     * A note `semitones` above `root`, SPELLED BY THE INTERVAL. The engine's
+     * transposeNote walks a sharp table, so a minor third above F came back
+     * "D♯" and the panel printed D♯7 and "D♯ Mixolydian" where a player reads
+     * A♭7. An interval names its letters (a third is two letters up), so:
+     * F + 3 is A♭, E + 4 is G♯, F + 1 is G♭ (the tritone sub's root). The
+     * tritone is spelled as an augmented 4th. Anything that comes out with a
+     * double accidental, or as E♯/B♯/C♭/F♭, takes its plain name instead.
+     */
     transpose(root, semitones) {
-        const clean = String(root || 'C').replace(/\d+$/, '');
-        if (this.mt && typeof this.mt.transposeNote === 'function') {
-            const t = this.mt.transposeNote(clean, semitones);
-            if (t) return t;
+        const clean = String(root || 'C').replace(/\d+$/, '').replace('♯', '#').replace('♭', 'b');
+        const m = /^([A-G])(#{1,2}|b{1,2})?$/.exec(clean);
+        const NAT = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+        const LETTERS = 'CDEFGAB';
+        const plain = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+        const s = (((semitones % 12) + 12) % 12);
+        if (!m) {
+            if (this.mt && typeof this.mt.transposeNote === 'function') {
+                const t = this.mt.transposeNote(clean, semitones);
+                if (t) return t;
+            }
+            return clean;
         }
-        const flatMap = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
-        const norm = flatMap[clean] || clean;
-        const idx = this.chromatic.indexOf(norm);
-        if (idx === -1) return clean;
-        return this.chromatic[(((idx + semitones) % 12) + 12) % 12];
+        const acc = !m[2] ? 0 : (m[2][0] === '#' ? m[2].length : -m[2].length);
+        const pc = ((NAT[m[1]] + acc) % 12 + 12) % 12;
+        const want = (pc + s) % 12;
+        const LETTER_STEPS = [0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6];
+        const letter = LETTERS.charAt((LETTERS.indexOf(m[1]) + LETTER_STEPS[s]) % 7);
+        const diff = ((want - NAT[letter]) % 12 + 18) % 12 - 6;
+        const name = letter + (diff > 0 ? '#'.repeat(diff) : 'b'.repeat(-diff));
+        if (Math.abs(diff) > 1 || /^(E#|B#|Cb|Fb)$/.test(name)) return plain[want];
+        return name;
+    }
+
+    /**
+     * The name a player gives the root of a borrowed scale: of its sharp and
+     * flat names, the one whose scale is spelled with fewer accidentals.
+     * B♭ major, not A♯ major (whose ii is "B♯m7"); E♭ Mixolydian, not D♯.
+     */
+    rootNameFor(pc, scaleId) {
+        const sharps = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const flats = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+        const p = ((pc % 12) + 12) % 12;
+        if (sharps[p] === flats[p]) return sharps[p];
+        this._rootNameCache = this._rootNameCache || {};
+        const key = p + '|' + scaleId;
+        if (this._rootNameCache[key]) return this._rootNameCache[key];
+        const cost = (root) => {
+            const notes = this.scaleNotes(root, scaleId);
+            if (!notes || !notes.length) return Infinity;
+            return notes.reduce((n, x) => {
+                const name = String(x);
+                return n + (name.slice(1).match(/[#b]/g) || []).length + (/^(E#|B#|Cb|Fb)/.test(name) ? 1 : 0);
+            }, 0);
+        };
+        const cs = cost(sharps[p]), cf = cost(flats[p]);
+        // a tie goes to the name keys are written in: D♭ E♭ A♭ B♭, and F♯
+        const pick = cs < cf ? sharps[p] : cf < cs ? flats[p] : (p === 6 ? sharps[p] : flats[p]);
+        this._rootNameCache[key] = pick;
+        return pick;
     }
 
     pitchValue(note) {
@@ -441,15 +490,18 @@ class ApproachEngine {
             const degIdx = cand.intervals.findIndex(iv => (((cand.rootPc + iv) % 12) + 12) % 12 === targetPc);
             if (degIdx < 0) continue;
 
-            const scaleNotes = this.scaleNotes(cand.scaleRoot, cand.scaleId);
+            // Named here, for the survivors only: A♯ major and B♭ major are one
+            // bitmask, and only one of them is a key anyone writes in.
+            const scaleRoot = this.rootNameFor(cand.rootPc, cand.scaleId);
+            const scaleNotes = this.scaleNotes(scaleRoot, cand.scaleId);
             if (!scaleNotes || !scaleNotes.length) continue;
 
             let pivotChord = null;
-            try { pivotChord = this.mt.getDiatonicChord(degIdx + 1, cand.scaleRoot, cand.scaleId); } catch (_) { continue; }
+            try { pivotChord = this.mt.getDiatonicChord(degIdx + 1, scaleRoot, cand.scaleId); } catch (_) { continue; }
             if (!pivotChord || this.pitchValue(pivotChord.root) !== targetPc) continue;
 
             out.push({
-                scaleRoot: cand.scaleRoot, scaleId: cand.scaleId, scaleNotes,
+                scaleRoot, scaleId: cand.scaleId, scaleNotes,
                 degree: degIdx + 1,
                 degreeCount: cand.size,
                 pivotChord,
@@ -470,7 +522,7 @@ class ApproachEngine {
      * the target's root". This asks the blunter question the approach-scales
      * mode needs: give me the scales rooted on THIS note, most familiar first
      * but not only the familiar ones — the whole point of the mode is that the
-     * approach material comes from the 1300+ library rather than from the nine
+     * approach material comes from the 2,048-scale library rather than from the nine
      * hand-listed modes the pivot family uses.
      *
      * Deduped by pitch-class SET, because one collection wears many names and
@@ -591,7 +643,7 @@ class ApproachEngine {
      *                   A♯m7♭5 is that same collection's chord a step below
      *                   the target. A fifth above the target is where a
      *                   dominant lives, so the collection rooted there already
-     *                   points at the chord; which of the 1300+ F♯ scales it
+     *                   points at the chord; which of the many F♯ scales it
      *                   is decides what the pointing sounds like.
      *
      *   parallelTarget  the advanced toggle. Draw from a scale rooted on the
@@ -1111,14 +1163,14 @@ class ApproachEngine {
     }
 
     buildCatalog(target, { maxBeats = 1.5, diatonicOnly = false, mode = null, advanced = false,
-                          homeScaleNotes = null, source = null, palette = null } = {}) {
+                          homeScaleNotes = null, source = null, palette = null, borrow = false } = {}) {
         // Both new keys go in the cache key. A catalog built for "the ones that
         // land, rooted on the target" is a different catalog from one built for
         // "the whole library, a fifth above", and keying only on `advanced`
         // would serve the first answer to the second question.
         const key = `${target.root}|${target.chordType || 'maj7'}|${maxBeats}|${diatonicOnly ? 'dia' : 'all'}`
             + `|${mode || 'default'}|${advanced ? 'adv' : 'std'}|${source || 'auto'}|${palette || 'lands'}`
-            + `|${(homeScaleNotes || []).join('')}`;
+            + `|${(homeScaleNotes || []).join('')}|${borrow ? 'borrow' : ''}`;
         if (this._catalogCache[key]) return this._catalogCache[key];
 
         // The mode REPLACES the catalog rather than adding to it. Mixing the
@@ -1155,6 +1207,51 @@ class ApproachEngine {
                 ['7', 'mixolydian', 0.45], ['9', 'mixolydian', 0.5], ['13', 'mixolydian', 0.53]
             ] }
         ];
+        // --- borrow: tonicize the target, take a chord from a scale ON it ---
+        //
+        // Make the target the 1 for a moment and borrow from another scale
+        // that starts on it: approaching Fmaj7, F bebop major's 2 chord is
+        // G°7; approaching Am, A diminished's chord a step under the root is
+        // G♯°7; approaching Dmaj7, D Mixolydian ♭6 gives F♯ø7 and Eø7. The
+        // target then arrives in place of that scale's own 1 chord. These are
+        // the scale's degree chords, so they are diatonic to their source and
+        // stay under diatonicOnly. Named scales only: this is the move the
+        // course teaches, and it should be near the top, not the 300th row.
+        // Asked for by the panel (`borrow`); the generator's plan() is left
+        // choosing from the families it always has.
+        if (borrow) {
+            const BORROW = minorTarget
+                ? [['harmonic_minor', [2, 5], 0.2], ['bebop_minor', [2, 'last'], 0.24], ['diminished', ['last'], 0.26],
+                   ['melodic_minor', [2, 4], 0.3]]
+                : dominantTarget
+                    ? [['diminished', ['last'], 0.26], ['mixolydian_b6', [2, 3], 0.3]]
+                    : [['bebop_major', [2, 'last'], 0.2], ['harmonic_major', [2, 'last'], 0.24], ['mixolydian_b6', [3, 2], 0.28],
+                       ['diminished', ['last'], 0.3]];
+            const targetTones = this.chordNotes(t, tq);
+            for (const [scaleId, degrees, spice] of BORROW) {
+                const notes = this.scaleNotes(t, scaleId);
+                if (!notes || !notes.length) continue;
+                degrees.forEach((d, k) => {
+                    const degree = d === 'last' ? notes.length : d;
+                    const c = this.scaleDegreeChord(t, scaleId, degree, notes);
+                    if (!c || !this.isPlainQuality(c.chordType)) return;
+                    const tones = c.chordNotes || c.diatonicNotes || [];
+                    if (tones.length < 3 || tones.some(x => /##|bb/.test(String(x)))) return;
+                    if (targetTones.length && this.sameChordNotes(tones, targetTones)) return;
+                    const label = d === 'last' ? 7 : d;     // the note under the root does a 7's job, in eight notes too
+                    const ev = () => ({
+                        ...c,
+                        duration: 0.5,
+                        roman: `${label}/${t} ${scaleId}`,
+                        scaleHint: { root: t, scaleName: scaleId, scaleNotes: notes, reason: 'tonicize-borrow' },
+                        explain: `${c.fullName} → ${target.fullName} — make ${t} the 1 and borrow the ${label} chord of ` +
+                                 `${t} ${this.prettyScale(scaleId)} (${notes.join(' ')}); ${target.fullName} lands in place of its 1 chord`
+                    });
+                    plans.push({ id: `borrow:${scaleId}:${degree}`, family: 'borrow', spice: spice + k * 0.03, beats: 0.5, build: () => [ev()] });
+                });
+            }
+        }
+
         for (const def of domDefs) {
             const domRoot = this.transpose(t, def.semis);
             for (const [qual, scale, spice] of def.quals) {

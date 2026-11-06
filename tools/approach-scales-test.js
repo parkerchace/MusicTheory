@@ -2,7 +2,7 @@
 //
 // The idea: base scale plain (major or aeolian), progression plain diatonic,
 // and every note that leaves the key arriving in the APPROACH into the next
-// chord — drawn from whatever scale in the 1300+ library sits a fifth above
+// chord — drawn from whatever scale in the 2,048-scale library sits a fifth above
 // that chord (F♯7 or A♯m7♭5 walking into Bm7 in A major). The advanced toggle
 // swaps that source for a scale rooted on the TARGET'S OWN root whose tonic
 // chord is withheld until the arrival (Ddim7 → Cmaj7, with Cdim7 never

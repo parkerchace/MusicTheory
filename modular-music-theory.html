@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="qwerty-keys.css">
     <link rel="stylesheet" href="look-builder.css">
     <link rel="stylesheet" href="course.css">
+    <link rel="stylesheet" href="guitar-tuning.css">
     <script src="generative-fractal.js"></script>
     <style>
 
@@ -344,16 +345,6 @@
             </div>
         </div>
 
-        <!-- Grading Mode (Simplified) -->
-        <div class="grading-section" style="display:flex; align-items:center; gap:8px;">
-            <select id="global-grading-type" class="form-input"
-                style="font-size:0.75rem; padding:4px 8px; min-width:120px;">
-                <option value="functional">Functional</option>
-                <option value="emotional">Emotional</option>
-                <option value="color">Color</option>
-            </select>
-        </div>
-
         <!-- Center slot: Key/Scale selector -->
         <div id="control-deck-keyscale-center"
             style="flex: 1 0 auto; display:flex; align-items:center; justify-content:center;"></div>
@@ -383,25 +374,12 @@
                             💡 Demo Mode
                         </button>
                     </div>
-                    <div class="module-toggle-item">
-                        <button id="grading-tutorial-btn"
-                            style="width:100%; text-align:left; background:transparent; border:none; color:var(--text-muted); padding:6px; cursor:pointer;">
-                            📚 Grading Tutorial
-                        </button>
-                    </div>
-                    <div class="module-toggle-item">
-                        <button id="grading-preview-btn"
-                            style="width:100%; text-align:left; background:transparent; border:none; color:var(--text-muted); padding:6px; cursor:pointer;">
-                            👁️ Grading Preview
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Hidden elements for compatibility -->
         <div style="display:none;">
-            <div id="grading-key-legend"></div>
             <div id="global-undo-btn"></div>
             <div id="global-redo-btn"></div>
             <div id="tools-dropdown-btn"></div>
@@ -544,14 +522,17 @@
                     <button class="skill-level-btn" data-level="all" role="tab">Whole course</button>
                 </div>
                 <div class="course-instrument">
-                    <label for="instrument-select">Instrument for the Learn pages:</label>
+                    <label for="instrument-select">Your instrument for the course:</label>
                     <select id="instrument-select">
                         <option value="piano">Piano</option>
                         <option value="guitar">Guitar</option>
                     </select>
                 </div>
+                <div class="course-tuning" id="course-tuning"></div>
                 <div id="course-path" data-level="beginner"></div>
             </section>
+            <script src="guitar-tuning.js"></script>
+            <script>document.getElementById('course-tuning').appendChild(GuitarTuning.control({ label: 'Guitar tuning:' }));</script>
             <script src="course.js"></script>
 
             <!-- THE TOOLS: every studio module, always available -->
@@ -712,15 +693,6 @@
 
         <!-- RIGHT SIDEBAR: TOOLS -->
         <div class="workspace-column right-sidebar">
-            <div class="studio-module mod-ref">
-                <div class="module-header">
-                    <span>REF::GRADING_KEY</span>
-                </div>
-                <div class="module-content" id="grading-key-sidebar">
-                    <!-- Will be populated dynamically -->
-                </div>
-            </div>
-
             <div class="studio-module mod-ref">
                 <div class="module-header">
                     <span>VISUAL::GUITAR_FRETBOARD</span>
@@ -2102,22 +2074,10 @@
     <style>
         /* Remove leftover mini solar containers */
         #solar-condensed,
-        #solar-under-grading,
         .solar-condensed {
             display: none !important;
         }
 
-        /* Keep grading sidebar compact and scrollable so it doesn't push layout */
-        #grading-key-sidebar {
-            max-height: 48vh;
-            overflow: auto;
-            font-size: 0.9rem;
-        }
-
-        #grading-key-sidebar .module-header {
-            font-size: 0.78rem;
-        }
-    
         .word-analysis-panel, .word-settings-panel { width: 320px !important; border-radius: 4px !important; box-shadow: -2px 0 10px rgba(0, 0, 0, 0.4) !important; } .word-analysis-panel .panel-header, .word-settings-panel .panel-header { padding: 8px 12px !important; font-size: 0.75rem !important; } .word-analysis-panel .panel-content, .word-settings-panel .panel-content { padding: 10px !important; } .analysis-section { margin-bottom: 8px !important; padding: 8px !important; } .analysis-section-title { font-size: 0.7rem !important; margin-bottom: 4px !important; } .analysis-item { padding: 2px 0 !important; font-size: 0.8rem !important; } .btn-close { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.2rem; line-height: 1; }
 </style>
     <script src="module-fit.js"></script>
@@ -2150,6 +2110,7 @@
     <script src="scales-loader-embedded.js"></script>
 
     <!-- Learning modules -->
+    <script src="learn-common.js"></script>
     <script src="learn-inversions.js"></script>
     <script src="learn-scales.js"></script>
     <script src="learn-piano-notes.js?v=3.8.0"></script>
@@ -2173,7 +2134,6 @@
     <script src="instrument-dock.js" defer></script>
     <script src="qwerty-keys.js" defer></script>
     <script src="qwerty-chords.js" defer></script>
-    <!-- <script src="grading-legend-help-system.js"></script> -->
     <!-- <script src="word-grading-visualization.js"></script> -->
     <!-- Bitwig MIDI removed as it is archived/legacy -->
 
@@ -2190,6 +2150,8 @@
     <script src="look-schema.js" defer></script>
     <script src="look-builder.js" defer></script>
     <script src="studio-looks.js" defer></script>
+    <script src="course-theory.js" defer></script>
+    <script src="course-widgets.js" defer></script>
     <script src="course-runner.js" defer></script>
 
     <script>
@@ -3842,11 +3804,7 @@
             const invBtn = document.getElementById('launch-learn-inversions-btn');
             if (invBtn) {
                 invBtn.addEventListener('click', () => {
-                    const landing = document.getElementById('landing-page');
-                    if (landing) landing.style.display = 'none';
-
-                    const page = document.getElementById('learn-inversions-page');
-                    if (page) page.style.display = 'block';
+                    window.showAppPage('learn-inversions-page');
 
                     if (!window.learnInversionsApp) {
                         // Try to reuse existing engine from global app if available

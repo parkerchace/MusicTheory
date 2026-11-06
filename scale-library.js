@@ -293,8 +293,29 @@ class ScaleLibrary {
     }
 
     // Recursive helper to flatten nested taxonomy structures (from elastic splitting)
+    // A leaf holds an id, or { id, label, note, mark } when a family knows the scale by another name
+    leafId(x) { return (x && typeof x === 'object') ? x.id : x; }
+
+    // One row of the picker. The family's own name comes first ("22 Kharaharapriya"), then the scale's
+    // display name when it differs; ≈ marks a twelve-note approximation and ? an unconfirmed name.
+    renderLeaf(item, currentScale, extraClass) {
+        const id = this.leafId(item);
+        const displayName = this.getScaleDisplayName(id);
+        const isActive = id === currentScale ? 'active' : '';
+        const fold = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        let label = item && typeof item === 'object' ? item.label : null;
+        const mark = item && typeof item === 'object' && item.mark ? `<span class="scale-row-mark" title="${item.mark === '≈' ? 'approximation in twelve notes' : 'name not confirmed for these notes'}">${item.mark}</span>` : '';
+        const note = item && typeof item === 'object' && item.note ? ` title="${esc(item.note)}"` : '';
+        if (label && fold(label) === fold(displayName)) label = null;
+        const body = label
+            ? `<span class="scale-row-label">${esc(label)}${mark}</span><span class="scale-row-main">${esc(displayName)}</span>`
+            : `${esc(displayName)}${mark}`;
+        return `<div class="scale-item ${extraClass || ''} ${isActive}" data-scale="${id}"${note}>${body}</div>`;
+    }
+
     flattenIds(input) {
-        if (Array.isArray(input)) return input;
+        if (Array.isArray(input)) return input.map(x => this.leafId(x));
         if (typeof input === 'object' && input !== null) {
             let flat = [];
             Object.values(input).forEach(v => flat = flat.concat(this.flattenIds(v)));
@@ -397,34 +418,17 @@ class ScaleLibrary {
         node = collapseSingleWrapper(node);
 
         if (Array.isArray(node)) {
-            const grouped = this.getVariationGroups(node, byScale);
-            return grouped.roots.map(scaleId => {
-                const displayName = this.getScaleDisplayName(scaleId);
-                const isActive = scaleId === currentScale ? 'active' : '';
-                const variants = grouped.groups.get(scaleId) || [];
-                if (!variants.length) {
-                    return `<div class="scale-item ${isActive}" data-scale="${scaleId}">${displayName}</div>`;
-                }
-
-                return `
-                    <div class="variation-group" data-root="${scaleId}">
-                        <button class="variation-toggle scale-item ${isActive}" data-scale="${scaleId}">
-                            <span>${displayName}</span>
-                            <span class="variation-count">${variants.length} variations</span>
-                        </button>
-                        <div class="variation-items">
-                            ${variants.map(variantId => {
-                                const variantName = this.getScaleDisplayName(variantId);
-                                const variantActive = variantId === currentScale ? 'active' : '';
-                                return `<div class="scale-item ${variantActive}" data-scale="${variantId}" data-variation="true">${variantName}</div>`;
-                            }).join('')}
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            // the catalogue already sorted each list (Melakarta number, thaat order, bright to dark)
+            return node.map(item => this.renderLeaf(item, currentScale, '')).join('');
         }
 
-        return Object.entries(node || {}).map(([label, nextNode]) => {
+        // "The 72 Melakarta :: Veda chakra (19–24)": sort by the number after the "::", or the first one
+        const numberIn = (k) => { const part = String(k).split(' :: ').pop(); const m = part.match(/\d+/); return m ? parseInt(m[0], 10) : null; };
+        const catOrder = (this.getTaxonomyMeta().categoryOrder) || [];
+        const rankOf = (k) => { const head = String(k).split(' :: ')[0]; const i = catOrder.indexOf(head); return i === -1 ? 999 : i; };
+        const entries = Object.entries(node || {}).map((e, i) => [e[0], e[1], i]);
+        entries.sort((a, b) => (rankOf(a[0]) - rankOf(b[0])) || ((numberIn(a[0]) ?? 1e9) - (numberIn(b[0]) ?? 1e9)) || (a[2] - b[2]));
+        return entries.map(([label, nextNode]) => {
             nextNode = collapseSingleWrapper(nextNode);
 
             // If this entry is a wrapper key, inline it (no extra click layer)
@@ -808,13 +812,16 @@ class ScaleLibrary {
                         <div class="scale-view-tabs">
                             <button class="scale-view-tab active" data-view="tree">Family Tree</button>
                             <button class="scale-view-tab" data-view="special">Special View</button>
+                            <button class="scale-view-tab" data-view="major">From Major</button>
+                            <button class="scale-view-tab" data-view="minor">From Minor</button>
                         </div>
+                        <div class="scale-picker-note">Names are collected from many sources; a scale from another tradition is an approximation in twelve notes. <span class="scale-row-mark">≈</span> approximate · <span class="scale-row-mark">?</span> unconfirmed</div>
                         <div class="scale-search-container">
                             <input 
                                 type="text" 
                                 id="scale-search-input" 
                                 class="scale-search-input" 
-                                placeholder="Search scales, traditions, intervals..."
+                                placeholder="Search any name: Kafi, bebop, b6…"
                                 autocomplete="off"
                             />
                         </div>
@@ -1343,6 +1350,18 @@ class ScaleLibrary {
                     transition: padding-left 0.12s ease, background 0.12s ease;
                 }
                 
+                .scale-row-label { font-weight: 600; }
+                .scale-row-main { opacity: 0.6; margin-left: 8px; font-size: 0.9em; }
+                .scale-row-main::before { content: '· '; }
+                .scale-row-mark { opacity: 0.7; margin-left: 4px; font-size: 0.85em; }
+                .scale-picker-note { flex-basis: 100%; order: 3; font-size: 0.72rem; opacity: 0.65; padding: 2px 4px 0; }
+                #scale-search-results { width: 100%; max-width: 760px; margin: 0 auto; }
+                .scale-search-summary { font-size: 0.85rem; opacity: 0.8; padding: 6px 10px 10px; }
+                .scale-item.search-hit { border: 1px solid var(--border-light); border-radius: 4px; margin: 3px 0; }
+                .distance-view-intro { font-size: 0.85rem; opacity: 0.75; padding: 6px 10px 10px; }
+                #scale-distance-view { width: 100%; }
+                #scale-distance-view > .nested-category-box { max-width: 760px; margin: 8px auto; }
+                #scale-distance-view .nested-category-content { max-height: 48vh; overflow-y: auto; }
                 .scale-item:last-child {
                     border-bottom: none;
                 }
@@ -1578,9 +1597,10 @@ class ScaleLibrary {
         // Search functionality
         const searchInput = document.getElementById('scale-search-input');
         if (searchInput) {
+            let searchTimer = null;
             searchInput.addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase().trim();
-                this.filterScales(query);
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => this.filterScales(e.target.value), 120);
             });
         }
 
@@ -1626,6 +1646,17 @@ class ScaleLibrary {
                 if (pyramidNow) pyramidNow.style.display = 'block';
             }
 
+            if (view === 'major' || view === 'minor') {
+                this._ensureDistanceViewRendered(view, currentScale);
+                if (grid) grid.classList.add('pyramid-view');   // one full-width column, like the tree
+                document.querySelectorAll('.category-box').forEach(box => { box.style.display = 'none'; });
+                const el = document.getElementById('scale-distance-view');
+                if (el) el.style.display = 'block';
+            } else {
+                const el = document.getElementById('scale-distance-view');
+                if (el) el.style.display = 'none';
+            }
+
             // Special View: Fallout-style columns (owned by a dedicated container)
             if (view === 'special') {
                 this._ensureFalloutSpecialViewRendered(currentScale);
@@ -1642,6 +1673,8 @@ class ScaleLibrary {
                 tab.classList.add('active');
                 const view = tab.dataset.view;
                 applyScalePickerView(view);
+                // a search in progress stays in front of whichever view was chosen
+                if (searchInput && searchInput.value.trim()) this.filterScales(searchInput.value);
             });
         });
         
@@ -1825,14 +1858,14 @@ class ScaleLibrary {
         const byScale = taxonomy.byScale || {};
         const familyOrder = Array.isArray(taxonomy.familyOrder) ? taxonomy.familyOrder : Object.keys(byFamily);
 
-        // Prefer the explicitly named tree family; fall back to the first family.
-        const treeFamily = byFamily['1. The Family Tree'] || byFamily['The Family Tree'] || byFamily[Object.keys(byFamily)[0]];
+        // The first family in the taxonomy's own order is the hub under Major.
+        const treeFamily = byFamily[familyOrder.find(name => byFamily[name])];
         const branches = treeFamily && treeFamily.categories ? treeFamily.categories : {};
 
         const familyKeys = Object.keys(byFamily || {});
         const otherFamilies = familyOrder
             .filter(name => familyKeys.includes(name))
-            .filter(name => name !== '1. The Family Tree' && name !== 'The Family Tree')
+            .filter(name => byFamily[name] !== treeFamily)
             .filter(name => !/special/i.test(name));
 
         const toTreeObj = (familyBucket) => {
@@ -1842,7 +1875,7 @@ class ScaleLibrary {
                 const subcats = catBucket?.subcategories || {};
                 Object.entries(subcats).forEach(([subName, subBucket]) => {
                     // Keep structure similar to buildCategoriesHTML: subName -> subSubcategories
-                    result[`${catName} :: ${subName}`] = (subBucket && subBucket.subSubcategories) ? subBucket.subSubcategories : {};
+                    result[subName ? `${catName} :: ${subName}` : catName] = (subBucket && subBucket.subSubcategories) ? subBucket.subSubcategories : {};
                 });
             });
             if (Object.keys(result).length) return result;
@@ -1983,6 +2016,58 @@ class ScaleLibrary {
         }
     }
 
+    // "From Major" / "From Minor": every scale by how it differs from the one you know.
+    _ensureDistanceViewRendered(view, currentScale) {
+        const grid = document.querySelector('#scale-picker-modal .categories-grid');
+        if (!grid) return;
+        let root = document.getElementById('scale-distance-view');
+        if (!root) {
+            root = document.createElement('div');
+            root.id = 'scale-distance-view';
+            root.style.display = 'none';
+            grid.appendChild(root);
+            root.addEventListener('click', (e) => {
+                const header = e.target.closest('.nested-category-header');
+                if (header && root.contains(header)) {
+                    e.preventDefault(); e.stopPropagation();
+                    const content = header.nextElementSibling;
+                    if (content && content.classList.contains('nested-category-content')) {
+                        const hidden = content.style.display === 'none';
+                        content.style.display = hidden ? 'block' : 'none';
+                        const icon = header.querySelector('.picker-icon');
+                        if (icon) icon.textContent = hidden ? '▲' : '▼';
+                    }
+                    return;
+                }
+                const item = e.target.closest('.scale-item');
+                if (item && root.contains(item) && item.dataset.scale) {
+                    const key = document.getElementById('key-select').value;
+                    this.setKeyAndScale(key, item.dataset.scale);
+                    const modal = document.getElementById('scale-picker-modal');
+                    const searchInput = document.getElementById('scale-search-input');
+                    if (modal) { modal.style.display = 'none'; if (searchInput) { searchInput.value = ''; this.filterScales(''); } }
+                }
+            });
+        }
+        const taxonomy = this.getTaxonomyMeta();
+        const family = (taxonomy.byFamily || {})[view === 'major' ? 'From Major' : 'From Minor'];
+        const order = ['The scale itself', '1 note changed', '1 note added', '1 note removed', '2 notes changed', '2 notes added', '2 notes removed', '3 notes changed', '3–4 differences', 'Further out'];
+        const tree = {};
+        order.forEach(cat => {
+            const bucket = family && family.categories[cat];
+            if (!bucket) return;
+            const subs = {};
+            Object.entries(bucket.subcategories).forEach(([sub, sb]) => {
+                const items = [].concat(...Object.values(sb.subSubcategories || {}));
+                if (sub) subs[sub] = items; else subs[''] = (subs[''] || []).concat(items);
+            });
+            const count = Object.values(subs).reduce((n, l) => n + l.length, 0);
+            tree[`${cat} (${count})`] = Object.keys(subs).length === 1 && subs[''] ? subs[''] : subs;
+        });
+        root.innerHTML = `<div class="distance-view-intro">${view === 'major' ? 'Start from Major' : 'Start from natural minor'} and step outward: each row says which note moved.</div>`
+            + this.renderRecursiveTaxonomy(tree, taxonomy.byScale || {}, currentScale);
+    }
+
     _ensureFalloutSpecialViewRendered(currentScale) {
         const grid = document.querySelector('#scale-picker-modal .categories-grid');
         if (!grid) return;
@@ -2044,25 +2129,25 @@ class ScaleLibrary {
             return `${prefix}-${safe}-${Math.floor(Math.random() * 100000)}`;
         };
 
-        const renderScaleItems = (ids) => {
-            return ids.map(id => {
-                const displayName = this.getScaleDisplayName(id);
-                const isActive = id === currentScale ? 'active' : '';
-                return `<div class="scale-item special-item ${isActive}" data-scale="${id}">${String(displayName).toUpperCase()}</div>`;
-            }).join('');
+        const renderScaleItems = (items) => items.map(item => this.renderLeaf(item, currentScale, 'special-item')).join('');
+        const catOrder = taxonomy.categoryOrder || [];
+        const sortKeys = (keys) => {
+            const numberIn = (k) => { const m = String(k).match(/\d+/); return m ? parseInt(m[0], 10) : 1e9; };
+            const rankOf = (k) => { const i = catOrder.indexOf(k); return i === -1 ? 999 : i; };
+            return keys.map((k, i) => [k, i]).sort((a, b) => (rankOf(a[0]) - rankOf(b[0])) || (numberIn(a[0]) - numberIn(b[0])) || (a[1] - b[1])).map(x => x[0]);
         };
 
         const renderDeep = (obj) => {
             if (!obj) return '';
             const items = obj.categories || obj.subcategories || obj.subSubcategories || obj;
-            const keys = Object.keys(items).sort((a, b) => a.localeCompare(b));
+            const keys = sortKeys(Object.keys(items));
             let html = '';
             keys.forEach((k) => {
                 const v = items[k];
                 if (Array.isArray(v)) {
                     html += renderScaleItems(v);
                 } else {
-                    html += `<div class="subcategory-title">${k}</div>`;
+                    if (String(k).trim()) html += `<div class="subcategory-title">${k}</div>`;
                     html += `<div class="sub-sub-block">${renderDeep(v)}</div>`;
                 }
             });
@@ -2072,7 +2157,7 @@ class ScaleLibrary {
         const renderSectionsCollapsed = (obj) => {
             if (!obj) return '';
             const items = obj.categories || obj.subcategories || obj.subSubcategories || obj;
-            const keys = Object.keys(items).sort((a, b) => a.localeCompare(b));
+            const keys = sortKeys(Object.keys(items));
             return keys.map((k) => {
                 const v = items[k];
                 const sectionId = createId('specialcat', k);
@@ -2093,7 +2178,7 @@ class ScaleLibrary {
 
         // Render columns
         root.innerHTML = '';
-        familyOrder.forEach((familyName, idx) => {
+        familyOrder.filter(f => byFamily[f]).forEach((familyName, idx) => {
             const bucket = byFamily[familyName];
             if (!bucket) return;
 
@@ -2122,8 +2207,115 @@ class ScaleLibrary {
         });
     }
     
+    // Every name a scale answers to, with the key search compares. Built once.
+    _searchIndex() {
+        if (this._searchRows) return this._searchRows;
+        const key = (t) => (window.ScaleTaxonomy && window.ScaleTaxonomy.searchKey) ? window.ScaleTaxonomy.searchKey(t) : String(t || '').toLowerCase().replace(/[^a-z0-9#]+/g, '');
+        const meta = this.musicTheory?.scalesMeta || {};
+        const records = meta.records || {};
+        const rows = [];
+        // the catalogue's own entries, not the engine's runtime extras (mixolydian_b6 doubles mixolydian_6)
+        const ids = Object.keys(records).length ? Object.keys(records) : Object.keys(this.musicTheory?.scales || {});
+        ids.forEach(id => {
+            const rec = records[id] || {};
+            const names = [{ text: this.getScaleDisplayName(id), kind: 'name', main: true }];
+            (rec.aliases || []).forEach(a => { if (Array.isArray(a)) names.push({ text: a[0], kind: a[1], unconfirmed: a[2] === 'u' }); });
+            (rec.ragas || []).forEach(r => names.push({ text: r.n, kind: r.s === 'h' ? 'hindustani raga' : 'carnatic raga' }));
+            if (typeof rec.melakarta === 'number') names.push({ text: rec.melakarta + ' ' + (rec.melaName || ''), kind: 'melakarta' });
+            names.forEach(n => { n.key = key(n.text); });
+            rows.push({ id, names });
+        });
+        this._searchRows = rows;
+        return rows;
+    }
+
+    // The scales a query finds, best first: a display name that starts with it, then one that
+    // contains it, then any other name. Each hit says which name matched.
+    searchScalesByName(query) {
+        const key = (t) => (window.ScaleTaxonomy && window.ScaleTaxonomy.searchKey) ? window.ScaleTaxonomy.searchKey(t) : String(t || '').toLowerCase().replace(/[^a-z0-9#]+/g, '');
+        const q = key(query);
+        if (!q) {
+            // "raga" on its own folds to nothing (the word is dropped so "raga bhim" meets "Bhimpalasi"):
+            // list every scale that carries a raga name instead
+            if (/r[aā]{1,2}g/i.test(query)) {
+                return this._searchIndex().filter(row => row.names.some(n => /r[aā]{1,2}g|raga$/i.test(n.text) || /raga/.test(n.kind)))
+                    .map(row => ({ id: row.id, rank: 3, matched: row.names.find(n => /r[aā]{1,2}g/i.test(n.text)) || row.names[0] }));
+            }
+            return [];
+        }
+        const hits = [];
+        this._searchIndex().forEach(row => {
+            let best = null;
+            row.names.forEach(n => {
+                if (!n.key.includes(q)) return;
+                const rank = n.main ? (n.key.startsWith(q) ? 0 : 1) : (n.key.startsWith(q) ? 2 : 3);
+                if (!best || rank < best.rank) best = { rank, name: n };
+            });
+            if (best) hits.push({ id: row.id, rank: best.rank, matched: best.name });
+        });
+        hits.sort((a, b) => a.rank - b.rank || this.getScaleDisplayName(a.id).localeCompare(this.getScaleDisplayName(b.id)));
+        return hits;
+    }
+
+    // A flat list of results in front of the current view while a search is typed.
+    _renderSearchResults(query, currentScale) {
+        const grid = document.querySelector('#scale-picker-modal .categories-grid');
+        if (!grid) return;
+        let root = document.getElementById('scale-search-results');
+        if (!root) {
+            root = document.createElement('div');
+            root.id = 'scale-search-results';
+            grid.appendChild(root);
+            root.addEventListener('click', (e) => {
+                const item = e.target.closest('.scale-item');
+                if (!item || !root.contains(item) || !item.dataset.scale) return;
+                const keySel = document.getElementById('key-select');
+                this.setKeyAndScale(keySel ? keySel.value : 'C', item.dataset.scale);
+                const modal = document.getElementById('scale-picker-modal');
+                const searchInput = document.getElementById('scale-search-input');
+                if (modal) { modal.style.display = 'none'; if (searchInput) { searchInput.value = ''; this.filterScales(''); } }
+            });
+        }
+        const hits = this.searchScalesByName(query);
+        const LIMIT = 150;
+        const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const KIND_LABEL = { western: 'Western name', jazz: 'jazz name', messiaen: 'Messiaen', carnatic: 'Carnatic name', hindustani: 'Hindustani name',
+            'hindustani raga': 'Hindustani raga that uses these notes', 'carnatic raga': 'Carnatic raga that uses these notes', melakarta: 'Melakarta number',
+            arabic: 'Arabic maqam (approximation)', turkish: 'Turkish makam', greek: 'Greek dromos', persian: 'Persian dastgah (name only)', azerbaijani: 'Azerbaijani mugham',
+            ethiopian: 'Ethiopian qenet', african: 'African name', japanese: 'Japanese name', chinese: 'Chinese name', korean: 'Korean name', seasian: 'Southeast Asian name (approximation)',
+            jewish: 'Jewish mode', spanish: 'Spanish / flamenco name', european: 'European folk name', american: 'American name', systematic: 'systematic name',
+            outsider: 'a label coined by Western theorists', invented: 'invented name', legacy: 'older spelling', other: 'other name' };
+        if (!hits.length) {
+            root.innerHTML = `<div class="scale-search-summary">No scale has a name containing “${esc(query.trim())}”. Try fewer letters, or another spelling.</div>`;
+            root.style.display = 'block';
+            return;
+        }
+        const shown = hits.slice(0, LIMIT);
+        const summary = hits.length === 1 ? '1 scale matches' : `${hits.length} scales match`;
+        root.innerHTML = `<div class="scale-search-summary">${summary} “${esc(query.trim())}”${hits.length > LIMIT ? `, showing the first ${LIMIT}` : ''}</div>`
+            + shown.map(h => {
+                const m = h.matched;
+                const item = m.main ? h.id : { id: h.id, label: m.text, mark: m.unconfirmed ? '?' : '', note: 'matched: ' + m.text + ' (' + (KIND_LABEL[m.kind] || m.kind) + ')' };
+                return this.renderLeaf(item, currentScale, 'search-hit');
+            }).join('');
+        root.style.display = 'block';
+    }
+
     filterScales(query) {
+        query = String(query || '').trim();
         const activeView = document.querySelector('.scale-view-tab.active')?.dataset.view || 'common';
+        const currentScale = this.state ? this.state.currentScale : null;
+        const results = document.getElementById('scale-search-results');
+        const views = ['scale-pyramid-tree', 'scale-special-view', 'scale-distance-view'].map(id => document.getElementById(id));
+        if (query) {
+            this._renderSearchResults(query, currentScale);
+            views.forEach(el => { if (el) el.style.display = 'none'; });
+            return;
+        }
+        if (results) results.style.display = 'none';
+        const want = { tree: 'scale-pyramid-tree', special: 'scale-special-view', major: 'scale-distance-view', minor: 'scale-distance-view' }[activeView];
+        views.forEach(el => { if (el) el.style.display = el.id === want ? (el.id === 'scale-special-view' ? 'flex' : 'block') : 'none'; });
+        query = '';
         const categoryBoxes = document.querySelectorAll('.category-box');
 
         const setMatches = (rootEl, q) => {

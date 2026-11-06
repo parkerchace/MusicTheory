@@ -4,6 +4,31 @@
  * Organizes modules by skill level and provides semantic intent matching
  */
 
+/**
+ * One page on screen at a time: the landing page, one Learn page, or the
+ * studio ('studio'). Every way between them comes through here. Each page
+ * used to hide only itself, so a Learn page opened from another Learn page
+ * (Learn Piano's "learn more about scales") stacked under it, and Home left
+ * it showing under the landing page.
+ */
+window.APP_PAGES = ['landing-page', 'learn-piano-page', 'learn-guitar-page', 'learn-scales-page', 'learn-chords-page', 'learn-inversions-page'];
+window.showAppPage = function (id) {
+    // The course card belongs to the studio: leaving it, by any way, ends the lesson
+    if (id !== 'studio' && window.CourseRunner && document.body.classList.contains('course-on')) {
+        try { window.CourseRunner.leave(); } catch (e) { console.warn('[showAppPage] leave lesson', e); }
+    }
+    window.APP_PAGES.forEach(function (p) {
+        const el = document.getElementById(p);
+        if (el) el.style.display = p === id ? 'block' : 'none';
+    });
+    const studio = id === 'studio' ? 'flex' : 'none';
+    ['.workspace', '.control-deck', '.bottom-deck'].forEach(function (sel) {
+        const el = document.querySelector(sel);
+        if (el) el.style.display = studio;
+    });
+    window.scrollTo(0, 0);
+};
+
 class ModuleSelector {
     constructor() {
         this.selectedModules = new Set();
@@ -495,31 +520,11 @@ class ModuleSelector {
     }
 
     showLandingPage() {
-        const landing = document.getElementById('landing-page');
-        const learn = document.getElementById('learn-piano-page');
-        const workspace = document.querySelector('.workspace');
-        const controlDeck = document.querySelector('.control-deck');
-        const bottomDeck = document.querySelector('.bottom-deck');
-
-        if (landing) landing.style.display = 'block';
-        if (learn) learn.style.display = 'none';
-        if (workspace) workspace.style.display = 'none';
-        if (controlDeck) controlDeck.style.display = 'none';
-        if (bottomDeck) bottomDeck.style.display = 'none';
+        window.showAppPage('landing-page');
     }
 
     launchLearnPiano() {
-        const landing = document.getElementById('landing-page');
-        const learn = document.getElementById('learn-piano-page');
-        const workspace = document.querySelector('.workspace');
-        const controlDeck = document.querySelector('.control-deck');
-        const bottomDeck = document.querySelector('.bottom-deck');
-
-        if (landing) landing.style.display = 'none';
-        if (learn) learn.style.display = 'block';
-        if (workspace) workspace.style.display = 'none';
-        if (controlDeck) controlDeck.style.display = 'none';
-        if (bottomDeck) bottomDeck.style.display = 'none';
+        window.showAppPage('learn-piano-page');
 
         // Lazy-mount the learn module
         try {
@@ -538,17 +543,7 @@ class ModuleSelector {
     }
 
     launchLearnChords() {
-        const landing = document.getElementById('landing-page');
-        const learn = document.getElementById('learn-chords-page');
-        const workspace = document.querySelector('.workspace');
-        const controlDeck = document.querySelector('.control-deck');
-        const bottomDeck = document.querySelector('.bottom-deck');
-
-        if (landing) landing.style.display = 'none';
-        if (learn) learn.style.display = 'block';
-        if (workspace) workspace.style.display = 'none';
-        if (controlDeck) controlDeck.style.display = 'none';
-        if (bottomDeck) bottomDeck.style.display = 'none';
+        window.showAppPage('learn-chords-page');
 
         // Lazy-mount the learn chords module
         try {
@@ -572,17 +567,7 @@ class ModuleSelector {
     }
 
     launchLearnScales() {
-        const landing = document.getElementById('landing-page');
-        const learn = document.getElementById('learn-scales-page');
-        const workspace = document.querySelector('.workspace');
-        const controlDeck = document.querySelector('.control-deck');
-        const bottomDeck = document.querySelector('.bottom-deck');
-
-        if (landing) landing.style.display = 'none';
-        if (learn) learn.style.display = 'block';
-        if (workspace) workspace.style.display = 'none';
-        if (controlDeck) controlDeck.style.display = 'none';
-        if (bottomDeck) bottomDeck.style.display = 'none';
+        window.showAppPage('learn-scales-page');
 
         // Lazy-mount the learn scales module
         try {
@@ -606,18 +591,7 @@ class ModuleSelector {
     }
 
     launchWorkspace(useSelectedOnly = false) {
-        const landing = document.getElementById('landing-page');
-        const learn = document.getElementById('learn-piano-page');
-        const workspace = document.querySelector('.workspace');
-        const controlDeck = document.querySelector('.control-deck');
-        const bottomDeck = document.querySelector('.bottom-deck');
-
-        if (landing) landing.style.display = 'none';
-
-        if (learn) learn.style.display = 'none';
-        if (workspace) workspace.style.display = 'flex';
-        if (controlDeck) controlDeck.style.display = 'flex';
-        if (bottomDeck) bottomDeck.style.display = 'flex';
+        window.showAppPage('studio');
 
         // If specific modules were selected and useSelectedOnly flag is true, hide non-selected modules.
         // Otherwise this is the full studio: undo any earlier selected launch.

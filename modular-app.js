@@ -1,21 +1,9 @@
 // Instrument module loader for landing menu
 window.showLearnNotesModule = function(instrument) {
-    // Hide landing and studio UI so the learn page becomes a full standalone view
-    const landing = document.getElementById('landing-page');
-    const workspace = document.querySelector('.workspace');
-    const controlDeck = document.querySelector('.control-deck');
-    const bottomDeck = document.querySelector('.bottom-deck');
-    if (landing) landing.style.display = 'none';
-    if (workspace) workspace.style.display = 'none';
-    if (controlDeck) controlDeck.style.display = 'none';
-    if (bottomDeck) bottomDeck.style.display = 'none';
-
-    // Hide all learn pages
-    document.getElementById('learn-piano-page').style.display = 'none';
-    document.getElementById('learn-guitar-page').style.display = 'none';
+    // The learn page becomes the one page on screen
+    window.showAppPage(instrument === 'guitar' ? 'learn-guitar-page' : 'learn-piano-page');
     // Show the selected instrument's learn page
     if (instrument === 'guitar') {
-        document.getElementById('learn-guitar-page').style.display = 'block';
         // Dynamically load the module only if the class isn't already available
         if (!window.LearnGuitarNotes) {
             const existingScript = document.querySelector('script[src="learn-guitar-notes.js"]');
@@ -32,7 +20,6 @@ window.showLearnNotesModule = function(instrument) {
             window.mountLearnModuleIfReady('guitar');
         }
     } else {
-        document.getElementById('learn-piano-page').style.display = 'block';
         // Dynamically load the module only if the class isn't already available
         if (!window.LearnPianoNotes) {
             const existingScript = document.querySelector('script[src="learn-piano-notes.js"]');
@@ -152,20 +139,6 @@ window.mountLearnModuleIfReady = function(instrument) {
 
                 this.sheetMusicGenerator = new SheetMusicGenerator(this.musicTheory);
 
-                // Initialize grading legend and help system (guard against missing module)
-                if (typeof GradingLegendHelpSystem === 'function') {
-                    try {
-                        this.gradingHelpSystem = new GradingLegendHelpSystem(this.musicTheory);
-                    } catch (e) {
-                        console.warn('GradingLegendHelpSystem construction failed:', e);
-                    }
-                } else {
-                    // Quietly skip if module not loaded
-                    console.info && console.info('GradingLegendHelpSystem not loaded; skipping.');
-                }
-
-
-
                 this.initialize();
             }
 
@@ -250,6 +223,15 @@ window.mountLearnModuleIfReady = function(instrument) {
                             label = this.degreeNumeral(degree);
                             cls = 'maj';
                         }
+                        // The symbols the course teaches: Bø7, D°7, B♭, not Bm7b5, Ddim7, Bb.
+                        chordName = chordName
+                            .replace(/m7b5|halfdim7/g, 'ø7')
+                            .replace(/dim7/g, '°7')
+                            .replace(/dim/g, '°')
+                            .replace(/^([A-G])b/, '$1♭')
+                            .replace(/\/([A-G])b/, '/$1♭')
+                            .replace(/b(?=\d)/g, '♭')
+                            .replace(/#/g, '♯');
                         items.push(`<div class=\"mini-chord-item ${cls}\" data-degree=\"${degree}\" title=\"Degree ${degree}\"><div class=\"mini-rn\">${label}</div><div class=\"mini-name\">${chordName}</div></div>`);
                     }
                     host.innerHTML = items.join('');
@@ -1872,36 +1854,6 @@ window.mountLearnModuleIfReady = function(instrument) {
             const app = window.modularApp;
             if (!app) return;
             
-            // Enhanced Grading View Selector
-            const gradingSelector = document.getElementById('global-grading-type');
-            if (gradingSelector && app.musicTheory) {
-                // Set initial value from music theory engine
-                gradingSelector.value = app.musicTheory.gradingMode || 'functional';
-                
-                gradingSelector.addEventListener('change', (e) => {
-                    app.musicTheory.setGradingMode(e.target.value);
-                    updateGradingDescription(e.target.value);
-                });
-                
-                // Update grading key legend when grading mode changes
-                app.musicTheory.subscribe((event, data) => {
-                    if (event === 'gradingModeChanged') {
-                        updateGradingKeyLegend();
-                        updateGradingDescription(data.mode);
-                    }
-                });
-                
-                // Initial render of grading key and description
-                updateGradingKeyLegend();
-                updateGradingDescription(gradingSelector.value);
-            }
-            
-            // Grading Influence Controls
-            setupGradingInfluenceControls(app);
-            
-            // Grading Preview and Tutorial
-            setupGradingPreviewAndTutorial(app);
-            
             // Global Manual Input
             const globalInput = document.getElementById('global-manual-numbers');
             if (globalInput && app.numberGenerator) {
@@ -1939,154 +1891,13 @@ window.mountLearnModuleIfReady = function(instrument) {
                     }
                 });
             }
-            
-            function updateGradingKeyLegend() {
-                const legend = document.getElementById('grading-key-legend');
-                if (legend && app.musicTheory) {
-                    const tiers = [4, 3, 2, 1, 0];
-                    const items = tiers.map(t => {
-                        const info = app.musicTheory.getGradingTierInfo(t);
-                        return `<div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
-                            <div style="display:flex; align-items:center; gap:4px;">
-                                <div style="width:12px; height:12px; background:${info.color}; border-radius:2px;"></div>
-                                <span style="color:${info.color}; font-weight:600;">${info.short}</span>
-                            </div>
-                            <span style="font-size:0.65rem; color:${info.color}; opacity:0.8; white-space:nowrap;">${info.name}</span>
-                        </div>`;
-                    });
-                    legend.innerHTML = items.join('');
-                }
-                
-                // Also update sidebar grading key
-                const sidebar = document.getElementById('grading-key-sidebar');
-                if (sidebar && app.musicTheory) {
-                    const mode = app.musicTheory.gradingMode || 'functional';
-                    const tiers = [4, 3, 2, 1, 0];
-                    const items = tiers.map(t => {
-                        const info = app.musicTheory.getGradingTierInfo(t);
-                        return `<div style="margin-bottom:12px;">
-                            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-                                <div style="width:16px; height:16px; background:${info.color}; border-radius:3px; flex-shrink:0;"></div>
-                                <span style="color:${info.color}; font-weight:bold; font-size:0.9rem;">${info.short} ${info.name}</span>
-                            </div>
-                            <div style="font-size:0.75rem; opacity:0.7; margin-left:22px;">${info.desc}</div>
-                        </div>`;
-                    });
-                    sidebar.innerHTML = `
-                        <div style="padding:10px;">
-                            <div style="margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; font-size:0.68rem; color:var(--text-secondary);">
-                                Chord Grading (${mode})
-                            </div>
-                            <div style="font-size:0.72rem; opacity:0.72; line-height:1.35; margin-bottom:10px;">
-                                Grades are relative to the current key/scale context. Higher tiers generally mean "more stable / more inside"; lower tiers mean "more tension / more outside".
-                                Use this as a guide for color and motion—not a hard rule.
-                            </div>
-                            ${items.join('')}
-                        </div>
-                    `;
-                }
-            }
-            
-            function updateGradingDescription(mode) {
-                // Update any grading description displays
-                const descriptions = {
-                    functional: 'Analyzes harmonic function and voice leading',
-                    emotional: 'Evaluates emotional impact and mood',
-                    color: 'Color-based visual organization'
-                };
-                
-                // Update tooltip or description if elements exist
-                const gradingSelector = document.getElementById('global-grading-type');
-                if (gradingSelector) {
-                    gradingSelector.title = descriptions[mode] || 'Grading analysis mode';
-                }
-                
-                // Update any description display elements
-                const descriptionElement = document.getElementById('grading-description');
-                if (descriptionElement) {
-                    descriptionElement.textContent = descriptions[mode] || '';
-                }
-            }
-            
-            function setupGradingInfluenceControls(app) {
-                // Setup visual influence slider
-                const visualSlider = document.getElementById('visual-influence');
-                const visualValue = document.getElementById('visual-influence-value');
-                
-                if (visualSlider && visualValue) {
-                    visualSlider.addEventListener('input', (e) => {
-                        const value = e.target.value;
-                        visualValue.textContent = value + '%';
-                        // Update app grading influence if method exists
-                        if (app.musicTheory && app.musicTheory.setVisualInfluence) {
-                            app.musicTheory.setVisualInfluence(value / 100);
-                        }
-                    });
-                }
-                
-                // Setup behavior influence slider
-                const behaviorSlider = document.getElementById('behavior-influence');
-                const behaviorValue = document.getElementById('behavior-influence-value');
-                
-                if (behaviorSlider && behaviorValue) {
-                    behaviorSlider.addEventListener('input', (e) => {
-                        const value = e.target.value;
-                        behaviorValue.textContent = value + '%';
-                        // Update app grading influence if method exists
-                        if (app.musicTheory && app.musicTheory.setBehaviorInfluence) {
-                            app.musicTheory.setBehaviorInfluence(value / 100);
-                        }
-                    });
-                }
-            }
-            
-            function setupGradingPreviewAndTutorial(app) {
-                // Setup grading preview button
-                const previewBtn = document.getElementById('grading-preview-btn');
-                if (previewBtn) {
-                    previewBtn.addEventListener('click', () => {
-                        // Show grading preview if method exists
-                        if (app.musicTheory && app.musicTheory.showGradingPreview) {
-                            app.musicTheory.showGradingPreview();
-                        } else {
-                            console.log('Grading preview functionality not yet implemented');
-                        }
-                    });
-                }
-                
-                // Setup grading tutorial button
-                const tutorialBtn = document.getElementById('grading-tutorial-btn');
-                if (tutorialBtn) {
-                    tutorialBtn.addEventListener('click', () => {
-                        // Show grading tutorial if method exists
-                        if (app.tutorialSystem && app.tutorialSystem.startGradingTutorial) {
-                            app.tutorialSystem.startGradingTutorial();
-                        } else {
-                            console.log('Grading tutorial functionality not yet implemented');
-                        }
-                    });
-                }
-            }
         }
         
         // Module toggle and dropdown controls
         function setupModuleControls() {
             // Setup Return to Landing Page button
             const returnBtn = document.getElementById('return-to-landing');
-            const returnToLanding = () => {
-                const landingPage = document.getElementById('landing-page');
-                const learnPage = document.getElementById('learn-piano-page');
-                const workspace = document.querySelector('.workspace');
-                const controlDeck = document.querySelector('.control-deck');
-                const bottomDeck = document.querySelector('.bottom-deck');
-                
-                // Show landing page, hide workspace
-                if (landingPage) landingPage.style.display = 'block';
-                if (learnPage) learnPage.style.display = 'none';
-                if (workspace) workspace.style.display = 'none';
-                if (controlDeck) controlDeck.style.display = 'none';
-                if (bottomDeck) bottomDeck.style.display = 'none';
-            };
+            const returnToLanding = () => window.showAppPage('landing-page');
             
             if (returnBtn) {
                 returnBtn.addEventListener('click', returnToLanding);

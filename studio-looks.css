@@ -567,6 +567,9 @@ body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-mod
 body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-module="solar"],
 body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-module="sheet"] { grid-row: span 2; }
 body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-module="chordstrip"] { grid-column: 1 / -1; }
+/* the last row fills: a wide generator beside the neck, wider still when the neck is in the dock */
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-module="numgen"] { grid-column: span 2; }
+body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > [data-module="fretboard"].look-absent + [data-module="numgen"] { grid-column: span 3; }
 body[data-look]:not([data-look="og"]) .look-zone[data-flow="mosaic"] > .look-item > .module-header {
     padding: 4px 8px;
     font-size: 0.66rem;

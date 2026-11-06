@@ -47,7 +47,7 @@
         },
         {
             title: 'Step 6: Choose a look',
-            content: 'The ⊞ button rearranges the same tools around a different idea: a signal chain, the score, your instrument, a lesson order. Remix any of them into a look of your own.',
+            content: 'The ⊞ button rearranges the same tools around a different idea: the score, your instrument, one tool at a time. Remix any of them into a look of your own.',
             target: '#toggle-layout',
             action: null
         },
@@ -104,17 +104,13 @@
             title: 'Chord and harmony settings',
             content: 'How the chords are voiced (the same choices as the sheet\'s Voicing menu, with voice leading from one chord to the next) and, for Harmonize, how often the chord changes and how long it rings.'
         },
-        '#global-grading-type': {
-            title: 'Grading View',
-            content: 'Change how chords are colored: Functional (tonic/dominant), Emotional (happy/sad), or Color (synesthesia-inspired).'
-        },
         '#theme-switcher': {
             title: 'Theme',
             content: 'Cycle through visual themes: Clean DAW, Channel Strip, Matrix FX, Steam 2000.'
         },
         '#toggle-layout': {
             title: 'Studio looks',
-            content: 'Rearrange the same tools around a different idea: the signal chain, the score, your instrument, a lesson order. OG is the original layout. You can remix any look into your own.'
+            content: 'Rearrange the same tools around a different idea: the score, your instrument, one tool at a time. OG is the original layout. You can remix any look into your own.'
         }
     };
     

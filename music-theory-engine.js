@@ -845,7 +845,7 @@ class MusicTheoryEngine {
         // plain augmented-TRIAD check (has(4)&&has(8)) fired first and
         // returned 'aug', discarding the seventh outright. That is exactly
         // the "triads instead of sevenths" failure — it doesn't matter
-        // whether the scale is common or one of the 1300+ exotic ones, any
+        // whether the scale is common or one of the 2,048 others, any
         // 7th chord whose shape wasn't one of the hand-picked few lost its
         // 7th the same way. Matching the exact set means a chord is only
         // ever named by ALL of its notes.

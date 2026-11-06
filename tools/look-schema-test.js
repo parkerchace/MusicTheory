@@ -17,7 +17,7 @@ var CustomEvent=function(){};
 load('look-schema.js');
 load('studio-looks.js');
 var S = window.LookSchema, LOOKS = window.StudioLooks.looks;
-var CTX = { modules: ['numgen','keyscale','circle','chords','relations','sheet','solar','grading','fretboard','chordstrip'], relocated: ['keyscale'] };
+var CTX = { modules: ['numgen','keyscale','circle','chords','relations','sheet','solar','fretboard','chordstrip'], relocated: ['keyscale'] };
 
 var out=[], failures=0;
 function say(s){ out.push(s); }
@@ -89,6 +89,17 @@ want('control characters are removed', clean && clean.zones.a.label.indexOf('\u0
 x = clone(base); x.onload = 'steal()'; x.zones.a.style = 'x'; x.grid.below = [{ width: 900, areas: ['a', 'b'], cols: '1fr', rows: 'auto auto', extra: 1 }];
 clean = S.validate(x, CTX).look;
 want('fields the format does not know are dropped', clean && clean.onload === undefined && clean.zones.a.style === undefined && clean.grid.below[0].extra === undefined);
+
+say('');
+say('A LOOK SAVED WHILE THE GRADING KEY EXISTED');
+x = clone(base); x.stage = 'grading';
+x.grid = { areas: ['a b c'], cols: '1fr 1fr 1fr', rows: '1fr' };
+x.zones.a.modules = ['circle', 'grading'];
+x.zones.c = { modules: ['grading'], steps: { grading: 'What the colours mean.' } };
+var old = S.validate(x, CTX);
+want('it still loads', old.ok, old.ok ? '' : old.errors.join(' | '));
+want('...without the key', old.ok && old.look.zones.a.modules.join() === 'circle' && old.look.zones.c.modules.length === 0 && !old.look.zones.c.steps);
+want('...and without the key as its stage', old.ok && !old.look.stage);
 
 say('');
 say('THE LAYOUT IN FORCE');
