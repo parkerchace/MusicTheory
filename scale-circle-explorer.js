@@ -10,18 +10,26 @@
  * @feature Real-time updates
  */
 
+// Key names for the bar, labels for what a wedge shows, and the geometry of the two rings.
+const CIRCLE_MODES = [
+    ['fifths', '5ths', 'Circle of Fifths: keys a perfect fifth apart', 'Clockwise adds a sharp; counterclockwise adds a flat.'],
+    ['fourths', '4ths', 'Circle of Fourths: keys a perfect fourth apart', 'Each step is a plagal move, IV to I.'],
+    ['chromatic', 'Chrom', 'Chromatic Circle: all 12 pitches by semitone', 'All 12 pitches, a half step apart.']
+];
+const CIRCLE_LABELS = [
+    ['notes', 'Notes', 'Show note names'],
+    ['numbers', '1 2 3', 'Show the scale as numbers'],
+    ['both', 'Both', 'Note names with the scale\'s numbers']
+];
+const CIRCLE_LABEL_KEY = 'circle-label-mode';
+const CIRCLE_LETTERS = 'CDEFGAB';
+const CIRCLE_NATURALS = [0, 2, 4, 5, 7, 9, 11];
+const CIRCLE_WEDGE = Math.PI / 6;
+
+const circlePretty = s => { s = String(s || ''); return s.charAt(0) + s.slice(1).replace(/b/g, '♭').replace(/#/g, '♯'); };
+const circleClamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
 class ScaleCircleExplorer {
-        // Redraw whenever the box the circle lives in changes size — a studio
-        // look moving the module, a divider drag, a mosaic tile zooming —
-        // not just when the window does.
-        setupResizeObserver() {
-            if (this._fitRO || !this.containerElement || !window.ModuleFit) return;
-            const target = this.containerElement.closest('.module-content') || this.containerElement;
-            this._fitRO = window.ModuleFit.observe(target, () => {
-                this._resizeCircleCanvasToContainer();
-                this.renderCircleCanvas();
-            });
-        }
     constructor(musicTheoryEngine) {
         if (!musicTheoryEngine) {
             throw new Error('ScaleCircleExplorer requires MusicTheoryEngine');
@@ -36,80 +44,29 @@ class ScaleCircleExplorer {
             scaleNotes: [],
             generatedNotes: [],
             showScaleLines: false,
-            hoveredKey: null
+            hoveredKey: null,
+            hoveredRing: null,
+            labelMode: this._loadLabelMode()
         };
 
         this.listeners = new Map();
         this.containerElement = null;
-
-        // Simple responsive canvas sizing
-        this._onWindowResize = null;
+        this.canvas = null;
+        this.ctx = null;
+        this.size = null;
+        this.frameId = null;
+        this.drawn = false;     // the first drawing snaps; later changes glide
+        this.anim = { wedges: {}, minor: 1, polygon: 0, marker: 0 };
+        this.theme = { text: '#ffffff', muted: '#cbd5e1', accent: '#60a5fa', lit: '#34d399', border: '#52525b', deep: '#09090b', font: 'Segoe UI, Arial, sans-serif' };
+        this.frame = this.frame.bind(this);
     }
 
-    _resizeCircleCanvasToContainer() {
-        if (!this.containerElement) return;
-        const canvas = this.containerElement.querySelector('#circle-canvas');
-        if (!canvas) return;
-
-        const viz = this.containerElement.querySelector('.circle-visualization-container') || this.containerElement;
-        let size;
-        const wrapper = this.containerElement.querySelector('.scale-circle-modern-wrapper');
-        const body = this.containerElement.closest('.module-content');
-        const fitting = !!(window.ModuleFit && window.ModuleFit.active());
-        if (wrapper && !fitting) wrapper.style.removeProperty('--circle-min');
-        if (fitting && wrapper && body) {
-            // Never wider than the box, so the circle is never cut off
-            // (hit-testing assumes CSS px == canvas px). Height depends on
-            // whether something outside the module fixes it:
-            //  - it doesn't (auto-height column): size from width, capped;
-            //  - it does, and the circle AND its controls fit at a useful
-            //    size: size to the space left beside/under the controls;
-            //  - it does, but that space is too small: the circle takes the
-            //    visible height and the controls scroll into view below it.
-            const fit = window.ModuleFit;
-            wrapper.style.setProperty('--circle-min', '0px');
-            const vizRoom = fit.measure(viz, canvas);
-            const bodyRoom = fit.measure(body, canvas);
-            if (!vizRoom.w) return;   // hidden (e.g. a closed drawer); the observer retries on show
-
-            let rowMin = 150;
-            if (!bodyRoom.definite) {
-                size = fit.fitAspect(vizRoom, 1, { min: 140, max: 720 }).w;
-            } else {
-                const leftover = vizRoom.definite ? vizRoom.h : 0;
-                if (leftover >= 140) {
-                    size = Math.min(vizRoom.w, leftover, 720);
-                } else {
-                    // Everything below the circle's own title scrolls; the
-                    // circle gets the visible height under that title.
-                    const zoom = parseFloat(body.style.zoom) || 1;
-                    const bcs = getComputedStyle(body);
-                    const vizTop = (viz.getBoundingClientRect().top - body.getBoundingClientRect().top) / zoom + body.scrollTop;
-                    const vizPad = 16;   // .circle-visualization-container padding
-                    const visible = body.clientHeight - vizTop - (parseFloat(bcs.paddingBottom) || 0) - vizPad - 4;
-                    size = Math.max(120, Math.min(vizRoom.w, visible, 720));
-                    rowMin = size + vizPad;
-                }
-            }
-            wrapper.style.setProperty('--circle-min', rowMin + 'px');
-        } else if (fitting) {
-            const room = window.ModuleFit.measure(viz, canvas);
-            if (!room.w) return;
-            size = window.ModuleFit.fitAspect(room, 1, { min: 140, max: 720 }).w;
-        } else {
-            // OG: the circle as it was built
-            const rect = viz.getBoundingClientRect();
-            const available = Math.floor((rect && rect.width ? rect.width : 460) - 16);
-            size = Math.max(240, Math.min(available, 360));
-        }
-
-        // Only touch the backing store if we actually changed size
-        if (canvas.width !== size || canvas.height !== size) {
-            canvas.width = size;
-            canvas.height = size;
-            canvas.style.width = size + 'px';
-            canvas.style.height = size + 'px';
-        }
+    _loadLabelMode() {
+        try {
+            const saved = localStorage.getItem(CIRCLE_LABEL_KEY);
+            if (CIRCLE_LABELS.some(m => m[0] === saved)) return saved;
+        } catch (_) {}
+        return 'both';
     }
 
     /**
@@ -128,8 +85,12 @@ class ScaleCircleExplorer {
      * Set current key
      */
     setKey(key, options = {}) {
-        if (!this.musicTheory.getKeys().includes(key)) return;
-        
+        // Any spelling of a pitch: a chromatic position may be C# where the list of keys says Db.
+        if (this._pitchClass(key) === null) return;
+        const real = this.musicTheory.getKeys().find(k => this._pitchClass(k) === this._pitchClass(key));
+        if (!real) return;
+        key = options.emitUserEvent ? real : key;
+
         this.state.currentKey = key;
         this.render();
         // Always emit keyChanged for programmatic listeners
@@ -157,38 +118,11 @@ class ScaleCircleExplorer {
     }
 
     /**
-     * Check if a note is in the scale, accounting for enharmonic equivalents
+     * Check if a note is in the scale, by pitch: the scale may spell it another way
      */
     isNoteInScale(note) {
-        if (!this.state.scaleNotes || this.state.scaleNotes.length === 0) return false;
-
-        // Enharmonic equivalents map
-        const enharmonics = {
-            'C': ['C', 'B#', 'Dbb'],
-            'C#': ['C#', 'Db', 'B##'],
-            'Db': ['Db', 'C#', 'B##'],
-            'D': ['D', 'C##', 'Ebb'],
-            'D#': ['D#', 'Eb', 'Fbb'],
-            'Eb': ['Eb', 'D#', 'Fbb'],
-            'E': ['E', 'Fb', 'D##'],
-            'F': ['F', 'E#', 'Gbb'],
-            'F#': ['F#', 'Gb', 'E##'],
-            'Gb': ['Gb', 'F#', 'E##'],
-            'G': ['G', 'F##', 'Abb'],
-            'G#': ['G#', 'Ab'],
-            'Ab': ['Ab', 'G#'],
-            'A': ['A', 'G##', 'Bbb'],
-            'A#': ['A#', 'Bb', 'Cbb'],
-            'Bb': ['Bb', 'A#', 'Cbb'],
-            'B': ['B', 'Cb', 'A##'],
-            'Cb': ['Cb', 'B', 'A##']
-        };
-
-        const possibleNames = enharmonics[note] || [note];
-        if (this.state.scaleNotes.some(scaleNote => possibleNames.includes(scaleNote))) return true;
-        // Any spelling the table does not list (E#, B#, double accidentals): by pitch.
         const pc = this._pitchClass(note);
-        return pc !== null && this.state.scaleNotes.some(n => this._pitchClass(n) === pc);
+        return pc !== null && (this.state.scaleNotes || []).some(n => this._pitchClass(n) === pc);
     }
 
     _pitchClass(note) {
@@ -214,77 +148,50 @@ class ScaleCircleExplorer {
     }
 
     /**
-     * Check if a note is in the generated notes, accounting for enharmonic equivalents
+     * Check if a note is in the generated notes, by pitch
      */
     isNoteGenerated(note) {
-        if (!this.state.generatedNotes || this.state.generatedNotes.length === 0) return false;
-
-        const enharmonics = {
-            'C': ['C', 'B#', 'Dbb'],
-            'C#': ['C#', 'Db', 'B##'],
-            'Db': ['Db', 'C#', 'B##'],
-            'D': ['D', 'C##', 'Ebb'],
-            'D#': ['D#', 'Eb', 'Fbb'],
-            'Eb': ['Eb', 'D#', 'Fbb'],
-            'E': ['E', 'Fb', 'D##'],
-            'F': ['F', 'E#', 'Gbb'],
-            'F#': ['F#', 'Gb', 'E##'],
-            'Gb': ['Gb', 'F#', 'E##'],
-            'G': ['G', 'F##', 'Abb'],
-            'G#': ['G#', 'Ab'],
-            'Ab': ['Ab', 'G#'],
-            'A': ['A', 'G##', 'Bbb'],
-            'A#': ['A#', 'Bb', 'Cbb'],
-            'Bb': ['Bb', 'A#', 'Cbb'],
-            'B': ['B', 'Cb', 'A##'],
-            'Cb': ['Cb', 'B', 'A##']
-        };
-
-        const possibleNames = enharmonics[note] || [note];
-        return this.state.generatedNotes.some(genNote => possibleNames.includes(genNote));
+        const pc = this._pitchClass(note);
+        return pc !== null && (this.state.generatedNotes || []).some(n => this._pitchClass(n) === pc);
     }
 
-    /**
-     * Find the key position for a note, accounting for enharmonic equivalents
-     */
-    findKeyPosition(note, keyPositions) {
-        // First try exact match
-        if (keyPositions[note]) {
-            return keyPositions[note];
-        }
+    /** A note's number in the current scale, or null if the scale doesn't have it. */
+    degreeOf(note) {
+        const pc = this._pitchClass(note);
+        const i = (this.state.scaleNotes || []).findIndex(n => this._pitchClass(n) === pc);
+        return i === -1 ? null : i + 1;
+    }
 
-        // Try enharmonic equivalents
-        const enharmonics = {
-            'C': ['C', 'B#', 'Dbb'],
-            'C#': ['C#', 'Db', 'B##'],
-            'Db': ['Db', 'C#', 'B##'],
-            'D': ['D', 'C##', 'Ebb'],
-            'D#': ['D#', 'Eb', 'Fbb'],
-            'Eb': ['Eb', 'D#', 'Fbb'],
-            'E': ['E', 'Fb', 'D##'],
-            'E#': ['E#', 'F', 'Gbb'],
-            'F': ['F', 'E#', 'Gbb'],
-            'F#': ['F#', 'Gb', 'E##'],
-            'Gb': ['Gb', 'F#', 'E##'],
-            'G': ['G', 'F##', 'Abb'],
-            'G#': ['G#', 'Ab'],
-            'Ab': ['Ab', 'G#'],
-            'A': ['A', 'G##', 'Bbb'],
-            'A#': ['A#', 'Bb', 'Cbb'],
-            'Bb': ['Bb', 'A#', 'Cbb'],
-            'B': ['B', 'Cb', 'A##'],
-            'Cb': ['Cb', 'B', 'A##']
-        };
+    /** The relative minor's root, spelled two letters below: C to A, F# to D#, Gb to Eb. */
+    relativeMinor(key) {
+        const letter = CIRCLE_LETTERS.indexOf(String(key).charAt(0));
+        const pc = this._pitchClass(key);
+        if (letter === -1 || pc === null) return key;
+        const target = (letter + 5) % 7;
+        const off = ((pc + 9 - CIRCLE_NATURALS[target]) % 12 + 18) % 12 - 6;
+        return CIRCLE_LETTERS[target] + (off > 0 ? '#'.repeat(off) : 'b'.repeat(-off));
+    }
 
-        const possibleNames = enharmonics[note] || [note];
-        
-        for (const name of possibleNames) {
-            if (keyPositions[name]) {
-                return keyPositions[name];
-            }
-        }
+    /** How a major key's signature reads: "2♯", "3♭", or "no ♯ or ♭". */
+    signatureText(key) {
+        const sig = this.musicTheory.keySignatures && this.musicTheory.keySignatures[key];
+        if (!sig) return '';
+        if (!sig.accidentals.length) return 'no ♯ or ♭';
+        return `${sig.accidentals.length}${sig.type === 'sharp' ? '♯' : '♭'}`;
+    }
 
-        return null;
+    /** The accidentals the current scale actually has. A aeolian has none, whatever A major has. */
+    scaleSignatureText() {
+        const notes = this.state.scaleNotes || [];
+        if (!notes.length) return this.signatureText(this.state.currentKey);
+        const count = mark => notes.reduce((n, note) => n + (String(note).slice(1).split(mark).length - 1), 0);
+        const sharps = count('#'), flats = count('b');
+        if (!sharps && !flats) return 'no ♯ or ♭';
+        return [sharps ? `${sharps}♯` : '', flats ? `${flats}♭` : ''].filter(Boolean).join(' ');
+    }
+
+    isMinorHome() {
+        return /minor|aeolian/i.test(this.state.scaleType || '');
     }
 
     /**
@@ -345,729 +252,94 @@ class ScaleCircleExplorer {
         }
 
         if (!container) return;
-        
+
         this.containerElement = container;
+        this.build();
         this.render();
-        this.setupResizeObserver();
+    }
+
+    /** The bar, the canvas and the tooltip are made once; a change of key redraws, it doesn't rebuild. */
+    build() {
+        const root = this.containerElement;
+        this.injectStyles();
+        root.classList.add('circle-root');
+        const seg = (items, attr) => items.map(m => `<button type="button" class="viz-btn" ${attr}="${m[0]}" title="${m[2]}">${m[1]}</button>`).join('');
+        root.innerHTML = `
+            <div class="viz-bar" id="circle-controls">
+                <button type="button" class="viz-btn" id="play-scale-btn" title="Play the scale">▶</button>
+                <span class="viz-seg" role="group" aria-label="How the keys are arranged">${seg(CIRCLE_MODES, 'data-mode')}</span>
+                <span class="viz-seg" role="group" aria-label="What the wedges show">${seg(CIRCLE_LABELS, 'data-label-mode')}</span>
+                <details class="viz-more">
+                    <summary class="viz-btn" title="Display options" aria-label="Display options">⋯</summary>
+                    <div class="viz-more-panel">
+                        <label class="viz-check" title="Join the scale's notes in order across the middle"><input type="checkbox" id="toggle-scale-polygon"> Scale polygon</label>
+                        <button type="button" class="viz-btn" id="random-key-btn">Random key</button>
+                        <button type="button" class="viz-btn" id="clear-highlights-btn">Clear highlights</button>
+                    </div>
+                </details>
+            </div>
+            <canvas id="circle-canvas" role="img"></canvas>
+            <div class="circle-side" hidden></div>
+            <div class="circle-tooltip" id="circle-tooltip"></div>
+        `;
+        this.canvas = root.querySelector('#circle-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.side = root.querySelector('.circle-side');
+        this.moreMenu = root.querySelector('.viz-more');
+        this.setupModernEventListeners();
+        this.readTheme();
+        if (window.ResizeObserver) {
+            this.resizeObserver = new ResizeObserver(() => this.handleResize());
+            this.resizeObserver.observe(this.canvas);
+        }
+        if (window.MutationObserver) {
+            this.themeObserver = new MutationObserver(() => this.readTheme());
+            this.themeObserver.observe(document.body, { attributes: true, attributeFilter: ['data-theme', 'data-look'] });
+        }
+        this.handleResize();
+    }
+
+    injectStyles() {
+        if (document.getElementById('circle-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'circle-styles';
+        style.textContent = `
+            .circle-root { display: flex; flex-direction: column; position: relative; min-width: 0; }
+            .circle-root > canvas { display: block; width: 100%; aspect-ratio: 1 / 1; min-height: 220px; max-height: min(680px, 70vh); }
+            .circle-side {
+                position: absolute; top: 36px; width: 236px; max-height: calc(100% - 42px); overflow: hidden auto; box-sizing: border-box; padding: 8px;
+                display: grid; gap: 8px; font-size: 11px; color: var(--text-main, #fff);
+                background: color-mix(in srgb, var(--bg-panel, #27272a) 88%, transparent); border: 1px solid var(--border-light, #52525b); border-radius: var(--radius-md, 4px);
+            }
+            .circle-side[hidden] { display: none; }
+            .circle-side-title { font-size: 13px; font-weight: 700; }
+            .circle-side-sig { color: var(--text-muted, #d4d4d8); font-weight: 400; font-size: 11px; }
+            .circle-side-head { color: var(--text-muted, #d4d4d8); margin-bottom: 3px; }
+            .circle-side-row { display: flex; flex-wrap: wrap; gap: 3px; }
+            .circle-chip { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+            .circle-chip b { display: inline-flex; align-items: center; justify-content: center; min-width: 15px; height: 15px; padding: 0 2px; box-sizing: border-box; border-radius: 8px; background: var(--accent-secondary, #34d399); color: #071018; font-size: 10px; }
+            .circle-chip.is-tonic b { background: #ffb02e; }
+            .circle-side .viz-btn { justify-content: flex-start; }
+            .circle-side-tip { color: var(--text-muted, #d4d4d8); font-size: 10px; line-height: 1.3; }
+            .circle-tooltip { position: absolute; display: none; pointer-events: none; z-index: 8; max-width: 240px; background: rgba(2,6,23,0.92); color: #e5e7eb; padding: 5px 8px; border-radius: 5px; font-size: 11px; line-height: 1.35; box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
+        `;
+        document.head.appendChild(style);
     }
 
     /**
-     * Render circle visualization with modern UI and pedagogical approach
+     * Bring the controls and the drawing up to date with the state.
      */
     render() {
-        if (!this.containerElement) return;
-        
-        // Build pedagogical context
-        const circleConfig = {
-            fifths: { 
-                title: 'Circle of Fifths', 
-                direction: 'clockwise', 
-                step: 7,
-                explanation: 'Keys arranged by perfect fifths - the foundation of Western harmony',
-                pedagogyTip: 'Moving clockwise adds sharps; counterclockwise adds flats',
-                musicalContext: 'Essential for understanding key signatures and chord progressions'
-            },
-            fourths: { 
-                title: 'Circle of Fourths', 
-                direction: 'counter-clockwise', 
-                step: 5,
-                explanation: 'Keys arranged by perfect fourths - the inverse of the circle of fifths',
-                pedagogyTip: 'Each step represents a plagal (IV-I) relationship',
-                musicalContext: 'Useful for understanding subdominant relationships'
-            },
-            chromatic: { 
-                title: 'Chromatic Circle', 
-                direction: 'clockwise', 
-                step: 1,
-                explanation: 'All 12 chromatic pitches arranged by semitones',
-                pedagogyTip: 'Shows the equal temperament system and enharmonic relationships',
-                musicalContext: 'Foundation for atonal and twelve-tone composition'
-            }
-        };
-        const config = circleConfig[this.state.mode];
-
-        // Get scale information for context
-        const currentScaleInfo = this.getCurrentScaleInfo();
-
-        this.containerElement.innerHTML = `
-            <div class="scale-circle-modern-wrapper">
-                <!-- Header with pedagogical context -->
-                <div class="circle-header">
-                    <h2 class="circle-title">${config.title}</h2>
-                    <p class="circle-explanation">${config.explanation}</p>
-                    
-                    <div class="pedagogy-insight">
-                        <div class="insight-icon">💡</div>
-                        <div>
-                            <strong>Learning Tip:</strong> ${config.pedagogyTip}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Current context display (moved to controls for compact layout) -->
-
-                <!-- Interactive circle visualization -->
-                <div class="circle-visualization-container">
-                    <canvas id="circle-canvas" width="460" height="460"></canvas>
-                    <div class="circle-tooltip" id="circle-tooltip"></div>
-                    
-                    <!-- Scale polygon overlay info -->
-                    ${this.state.showScaleLines ? this.renderScalePolygonInfo() : ''}
-                </div>
-
-                <!-- Modern control panel -->
-                <div class="circle-controls-modern">
-                    ${this.renderCurrentContext(currentScaleInfo)}
-                    <!-- Mode selection with pedagogical context -->
-                    <div class="control-section">
-                        <h3 class="control-section-title">Circle Mode</h3>
-                        <div class="mode-buttons">
-                            <button class="mode-btn ${this.state.mode === 'fifths' ? 'active' : ''}" 
-                                    data-mode="fifths" 
-                                    title="Circle of Fifths - ${circleConfig.fifths.explanation}">
-                                <span class="mode-icon">🎵</span>
-                                <span>Fifths</span>
-                            </button>
-                            <button class="mode-btn ${this.state.mode === 'fourths' ? 'active' : ''}" 
-                                    data-mode="fourths"
-                                    title="Circle of Fourths - ${circleConfig.fourths.explanation}">
-                                <span class="mode-icon">🎼</span>
-                                <span>Fourths</span>
-                            </button>
-                            <button class="mode-btn ${this.state.mode === 'chromatic' ? 'active' : ''}" 
-                                    data-mode="chromatic"
-                                    title="Chromatic Circle - ${circleConfig.chromatic.explanation}">
-                                <span class="mode-icon">🎹</span>
-                                <span>Chromatic</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Visualization options -->
-                    <div class="control-section">
-                        <h3 class="control-section-title">Visualization</h3>
-                        <div class="toggle-controls">
-                            <label class="toggle-control">
-                                <input type="checkbox" ${this.state.showScaleLines ? 'checked' : ''} 
-                                       id="toggle-scale-polygon">
-                                <span class="toggle-slider"></span>
-                                <span class="toggle-label">Scale Polygon</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Musical context -->
-                    <div class="control-section">
-                        <h3 class="control-section-title">Musical Context</h3>
-                        <div class="context-info">
-                            <div class="context-item">
-                                <strong>Current Key:</strong> 
-                                <span class="current-key-display">${this.state.currentKey}</span>
-                            </div>
-                            <div class="context-item">
-                                <strong>Scale Notes:</strong>
-                                <span class="scale-notes-display">
-                                    ${this.state.scaleNotes.join(' - ') || 'None selected'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Action buttons -->
-                    <div class="control-section">
-                        <div class="action-buttons">
-                            <button class="action-btn primary" id="play-scale-btn">
-                                <span>🎵</span> Play Scale
-                            </button>
-                            <button class="action-btn secondary" id="random-key-btn">
-                                <span>🎲</span> Random Key
-                            </button>
-                            <button class="action-btn secondary" id="clear-highlights-btn">
-                                <span>🧹</span> Clear
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Insights panel removed per user request -->
-            </div>
-
-            <style>
-                /* When the circle is placed inside a ".studio-module", inherit module styling */
-                .studio-module .scale-circle-modern-wrapper {
-                    background: transparent !important;
-                    padding: 0 !important;
-                    border-radius: 0 !important;
-                    border: none !important;
-                    box-shadow: none !important;
-                }
-
-                /* Make the circle header match other module headers */
-                .studio-module .scale-circle-modern-wrapper .circle-header {
-                    background: transparent !important;
-                    padding: 8px 10px !important;
-                    border: none !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: space-between !important;
-                }
-
-                .studio-module .scale-circle-modern-wrapper .circle-title {
-                    font-size: 0.95rem !important;
-                    margin: 0 !important;
-                    -webkit-text-fill-color: initial !important;
-                    background: none !important;
-                    color: inherit !important;
-                    -webkit-background-clip: unset !important;
-                }
-
-                .studio-module .scale-circle-modern-wrapper .circle-explanation {
-                    display: none !important; /* keep module headers compact; explanation shouldn't push layout */
-                }
-
-                .studio-module .scale-circle-modern-wrapper .circle-visualization-container {
-                    padding: 8px !important;
-                    border-radius: 0 !important;
-                    border: none !important;
-                    background: transparent !important;
-                }
-
-                /* Further simplify internal elements when embedded as a standard module */
-                .studio-module .scale-circle-modern-wrapper,
-                .studio-module .scale-circle-modern-wrapper * {
-                    color: inherit !important;
-                    font-family: inherit !important;
-                }
-
-                .studio-module .scale-circle-modern-wrapper .context-card {
-                    background: transparent !important;
-                    padding: 6px 8px !important;
-                    border: none !important;
-                    border-radius: 0 !important;
-                }
-
-                .studio-module .scale-circle-modern-wrapper .control-section {
-                    background: transparent !important;
-                    padding: 6px 8px !important;
-                    border: none !important;
-                    border-radius: 0 !important;
-                }
-
-                .studio-module .scale-circle-modern-wrapper .mode-btn {
-                    padding: 6px !important;
-                    min-height: 44px !important;
-                    gap: 6px !important;
-                    border-radius: 4px !important;
-                    border: 1px solid rgba(255,255,255,0.06) !important;
-                    background: transparent !important;
-                    color: inherit !important;
-                }
-
-                .studio-module .scale-circle-modern-wrapper .mode-btn.active {
-                    background: var(--accent-primary) !important;
-                    color: var(--color-on-accent, #000) !important;
-                    border-color: var(--accent-primary) !important;
-                    box-shadow: none !important;
-                }
-
-                .studio-module .scale-circle-modern-wrapper .pedagogy-insight {
-                    display: none !important; /* remove extra pedagogy row inside compact modules */
-                }
-
-                .studio-module .scale-circle-modern-wrapper #circle-canvas {
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
-                }
-
-                .scale-circle-modern-wrapper {
-                    /* Prefer global theme variables; fallback to previous dark palette */
-                    --color-bg-primary: var(--bg-panel, #0f172a);
-                    --color-bg-secondary: var(--bg-secondary, #1e293b);
-                    --color-bg-tertiary: var(--bg-tertiary, #334155);
-                    --color-text-primary: var(--text-main, #f1f5f9);
-                    --color-text-secondary: var(--text-muted, #cbd5e1);
-                    --color-text-muted: var(--text-muted, #64748b);
-                    --color-border: var(--border-light, #475569);
-                    --color-accent: var(--accent-primary, #3b82f6);
-                    --color-accent-secondary: var(--accent-secondary, #10b981);
-                    --color-warning: var(--warning, #f59e0b);
-                    --color-error: var(--error, #ef4444);
-                    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-                    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-                    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-                    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
-                    --radius-sm: 6px;
-                    --radius-md: 12px;
-                    --radius-lg: 16px;
-                    --spacing-xs: 0.5rem;
-                    --spacing-sm: 0.75rem;
-                    --spacing-md: 1rem;
-                    --spacing-lg: 1.5rem;
-                    --spacing-xl: 2rem;
-                    --spacing-2xl: 3rem;
-
-                    background: var(--bg-panel, var(--bg, var(--color-bg-primary)));
-                    color: var(--color-text-primary);
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-                    padding: var(--spacing-md); /* tightened */
-                    border-radius: var(--radius-lg);
-                    display: grid;
-                    grid-template-columns: minmax(480px, 1fr) 300px;
-                    grid-template-areas: "header header" "visual controls";
-                    gap: var(--spacing-md);
-                    max-width: 100%;
-                    width: 100%;
-                    margin: 0;
-                }
-
-                /* Header Section */
-                .circle-header {
-                    grid-area: header;
-                    display: flex;
-                    align-items: center;
-                    gap: var(--spacing-md);
-                    background: var(--bg-header, var(--bg-secondary, var(--bg-panel, var(--color-bg-secondary))));
-                    padding: calc(var(--spacing-md) / 1.2);
-                    border-radius: var(--radius-lg);
-                    border: 1px solid var(--color-border);
-                    justify-content: space-between;
-                }
-
-                .circle-title {
-                    font-size: 1.15rem;
-                    font-weight: 700;
-                    margin: 0 0 var(--spacing-xs) 0;
-                    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-secondary));
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                }
-
-                .circle-explanation {
-                    font-size: 0.9rem;
-                    color: var(--color-text-secondary);
-                    margin: 0;
-                    line-height: 1.4;
-                }
-
-                .pedagogy-insight {
-                    display: flex;
-                    align-items: center;
-                    gap: var(--spacing-sm);
-                    background: rgba(59, 130, 246, 0.06);
-                    padding: calc(var(--spacing-sm));
-                    border-radius: var(--radius-sm);
-                    border-left: 3px solid var(--color-accent);
-                    text-align: left;
-                    max-width: 420px;
-                    margin: 0;
-                }
-
-                .insight-icon {
-                    font-size: 1.25rem;
-                    flex-shrink: 0;
-                }
-
-                /* Current Context Display */
-                .current-context {
-                    /* placed inside controls column now */
-                    background: transparent;
-                    padding: 0 0 8px 0;
-                    border-radius: var(--radius-md);
-                    border: none;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
-                    width: 100%;
-                    align-items: stretch;
-                    justify-content: flex-start;
-                }
-
-                .context-card {
-                    background: var(--bg-input, var(--bg-panel, var(--color-bg-tertiary)));
-                    padding: var(--spacing-md);
-                    border-radius: var(--radius-sm);
-                    border: 1px solid var(--color-border);
-                }
-
-                .context-card h4 {
-                    margin: 0 0 var(--spacing-xs) 0;
-                    font-size: 0.875rem;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    color: var(--color-text-muted);
-                }
-
-                .context-value {
-                    font-size: 1.125rem;
-                    font-weight: 600;
-                    color: var(--color-accent);
-                }
-
-                /* Circle Visualization */
-                .circle-visualization-container {
-                    grid-area: visual;
-                    position: relative;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background: var(--bg-panel, var(--bg-secondary, var(--bg, var(--color-bg-secondary))));
-                    padding: var(--spacing-md);
-                    border-radius: var(--radius-lg);
-                    border: 1px solid var(--color-border);
-                    min-height: 320px; /* tightened */
-                }
-
-                #circle-canvas {
-                    width: 100%;
-                    max-width: 680px; /* allow larger visualization when space permits */
-                    height: auto;
-                    aspect-ratio: 1/1;
-                    border-radius: 50%;
-                    background: radial-gradient(circle at 50% 50%, var(--bg-secondary, var(--color-bg-secondary)) 0%, var(--bg-panel, var(--color-bg-primary)) 70%);
-                    box-shadow: var(--shadow-xl);
-                    cursor: pointer;
-                    transition: transform 0.12s ease;
-                    display: block;
-                }
-
-                #circle-canvas:hover {
-                    transform: scale(1.02);
-                }
-
-                .circle-tooltip {
-                    position: absolute;
-                    pointer-events: none;
-                    background: var(--bg-panel, var(--bg, var(--color-bg-primary)));
-                    color: var(--text-main, var(--color-text-primary));
-                    padding: 6px 8px;
-                    border-radius: var(--radius-sm);
-                    border: 1px solid var(--border-light, var(--color-border));
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    line-height: 1.2;
-                    transform: translate(-50%, -110%);
-                    white-space: nowrap;
-                    opacity: 0;
-                    transition: opacity 0.12s ease, transform 0.12s ease;
-                    z-index: 100;
-                }
-
-                .circle-tooltip.visible {
-                    opacity: 1;
-                }
-
-                /* Control Panel */
-                .circle-controls-modern {
-                    grid-area: controls;
-                    display: flex;
-                    flex-direction: column;
-                    gap: var(--spacing-sm);
-                    background: var(--bg-panel, var(--bg-secondary, var(--bg, var(--color-bg-secondary))));
-                    padding: var(--spacing-sm);
-                    border-radius: var(--radius-lg);
-                    border: 1px solid var(--color-border);
-                }
-
-                .control-section {
-                    background: var(--bg-input, var(--bg-panel, var(--color-bg-tertiary)));
-                    padding: var(--spacing-md);
-                    border-radius: var(--radius-md);
-                    border: 1px solid var(--color-border);
-                }
-
-                .control-section-title {
-                    margin: 0 0 var(--spacing-md) 0;
-                    font-size: 0.875rem;
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    color: var(--color-text-muted);
-                }
-
-                /* Mode Buttons */
-                .mode-buttons {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-                    gap: var(--spacing-xs);
-                }
-
-                .mode-btn {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: var(--spacing-xs);
-                    padding: 8px 10px;
-                    background: var(--bg-panel, var(--bg, var(--color-bg-primary)));
-                    color: var(--text-muted, var(--color-text-secondary));
-                    border: 2px solid var(--color-border);
-                    border-radius: var(--radius-md);
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    font-weight: 500;
-                    min-height: 56px;
-                    font-size: 0.9rem;
-                }
-
-                .mode-btn:hover {
-                    background: var(--bg-panel, var(--bg-secondary, var(--bg, var(--color-bg-secondary))));
-                    border-color: var(--color-accent);
-                    transform: translateY(-2px);
-                    box-shadow: var(--shadow-md);
-                }
-
-                .mode-btn.active {
-                    background: var(--color-accent);
-                    color: white;
-                    border-color: var(--color-accent);
-                    box-shadow: var(--shadow-lg);
-                }
-
-                .mode-icon {
-                    font-size: 1.15rem;
-                }
-
-                /* Toggle Controls */
-                .toggle-controls {
-                    display: flex;
-                    flex-direction: column;
-                    gap: var(--spacing-sm);
-                }
-
-                .toggle-control {
-                    display: flex;
-                    align-items: center;
-                    gap: var(--spacing-sm);
-                    cursor: pointer;
-                }
-
-                .toggle-control input {
-                    display: none;
-                }
-
-                .toggle-slider {
-                    position: relative;
-                    width: 40px;
-                    height: 20px;
-                    background: var(--color-border);
-                    border-radius: 24px;
-                    transition: background 0.2s ease;
-                }
-
-                .toggle-slider:before {
-                    content: '';
-                    position: absolute;
-                    width: 20px;
-                    height: 20px;
-                    background: white;
-                    border-radius: 50%;
-                    top: 2px;
-                    left: 2px;
-                    transition: transform 0.2s ease;
-                }
-
-                .toggle-control input:checked + .toggle-slider {
-                    background: var(--color-accent);
-                }
-
-                .toggle-control input:checked + .toggle-slider:before {
-                    transform: translateX(24px);
-                }
-
-                .toggle-label {
-                    font-weight: 500;
-                    color: var(--color-text-secondary);
-                }
-
-                /* Context Info */
-                .context-info {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 6px;
-                }
-
-                .context-item {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 4px 0;
-                    border-bottom: 1px solid var(--color-border);
-                }
-
-                .context-item:last-child {
-                    border-bottom: none;
-                }
-
-                .current-key-display {
-                    background: var(--accent-primary, var(--color-accent));
-                    color: var(--color-on-accent, #000);
-                    padding: 4px 8px;
-                    border-radius: 12px;
-                    font-weight: 700;
-                    font-size: 0.85rem;
-                }
-
-                .scale-notes-display {
-                    font-family: var(--font-ui, 'Courier New', monospace);
-                    color: var(--accent-secondary, var(--color-accent-secondary));
-                    font-weight: 600;
-                    font-size: 0.9rem;
-                }
-
-                /* Action Buttons */
-                .action-buttons {
-                    display: flex;
-                    gap: var(--spacing-xs);
-                    flex-wrap: wrap;
-                }
-
-                .action-btn {
-                    display: flex;
-                    align-items: center;
-                    gap: var(--spacing-xs);
-                    padding: 6px 10px;
-                    border: 2px solid var(--color-border);
-                    border-radius: var(--radius-md);
-                    cursor: pointer;
-                    font-weight: 500;
-                    transition: all 0.2s ease;
-                    min-height: 44px;
-                    flex: 1;
-                    justify-content: center;
-                }
-
-                .action-btn.primary {
-                    background: var(--color-accent);
-                    color: white;
-                    border-color: var(--color-accent);
-                }
-
-                .action-btn.primary:hover {
-                    background: var(--color-accent-hover, var(--color-accent));
-                    transform: translateY(-2px);
-                    box-shadow: var(--shadow-md);
-                }
-
-                .action-btn.secondary {
-                    background: var(--bg-panel, var(--bg, var(--color-bg-primary)));
-                    color: var(--color-text-secondary);
-                }
-
-                .action-btn.secondary:hover {
-                    background: var(--bg-panel, var(--bg-secondary, var(--bg, var(--color-bg-secondary))));
-                    border-color: var(--color-accent);
-                    color: var(--color-text-primary);
-                }
-
-                /* Insights Panel */
-                /* Insights panel removed - styles omitted */
-
-                /* Scale Polygon Info */
-                .scale-polygon-info {
-                    position: absolute;
-                    top: var(--spacing-md);
-                    right: var(--spacing-md);
-                    background: rgba(16, 185, 129, 0.1);
-                    padding: var(--spacing-sm);
-                    border-radius: var(--radius-sm);
-                    border: 1px solid var(--color-accent-secondary);
-                    font-size: 0.75rem;
-                    color: var(--color-accent-secondary);
-                    max-width: 200px;
-                }
-
-                /* Responsive Design */
-                @media (max-width: 768px) {
-                    .scale-circle-modern-wrapper {
-                        padding: var(--spacing-md);
-                        gap: var(--spacing-md);
-                    }
-
-                    .circle-header {
-                        padding: var(--spacing-lg);
-                    }
-
-                    .circle-title {
-                        font-size: 1.5rem;
-                    }
-
-                    .circle-controls-modern {
-                        grid-template-columns: 1fr;
-                    }
-
-                    .mode-buttons {
-                        grid-template-columns: repeat(3, 1fr);
-                    }
-
-                    .action-buttons {
-                        flex-direction: column;
-                    }
-
-                    .current-context {
-                        grid-template-columns: 1fr;
-                    }
-
-                    .insight-content {
-                        grid-template-columns: 1fr;
-                    }
-                }
-
-                /* Animation and transitions */
-                .fade-in {
-                    animation: fadeIn 0.4s ease-out;
-                }
-
-                @keyframes fadeIn {
-                    from {
-                        opacity: 0;
-                        transform: translateY(20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-
-                .pulse {
-                    animation: pulse 2s infinite;
-                }
-
-                @keyframes pulse {
-                    0%, 100% {
-                        opacity: 1;
-                    }
-                    50% {
-                        opacity: 0.6;
-                    }
-                }
-            </style>
-        `;
-
-        // Add fade-in animation
-        this.containerElement.querySelector('.scale-circle-modern-wrapper').classList.add('fade-in');
-
-        // Setup event listeners with modern approach
-        this.setupModernEventListeners();
-
-        // Resize canvas to fit the container before drawing
-        this._resizeCircleCanvasToContainer();
-        
-        // Render circle
-        this.renderCircleCanvas();
-
-        // Keep responsive on window resize
-        try {
-            if (!this._onWindowResize) {
-                this._onWindowResize = () => {
-                    try {
-                        this._resizeCircleCanvasToContainer();
-                        this.renderCircleCanvas();
-                    } catch (_) {}
-                };
-                window.addEventListener('resize', this._onWindowResize);
-            }
-        } catch (_) {}
+        if (!this.containerElement || !this.canvas) return;
+        const root = this.containerElement;
+        root.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === this.state.mode)));
+        root.querySelectorAll('[data-label-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.labelMode === this.state.labelMode)));
+        const polygon = root.querySelector('#toggle-scale-polygon');
+        if (polygon) polygon.checked = this.state.showScaleLines;
+        const notes = this.state.scaleNotes.length ? `Scale: ${this.state.scaleNotes.map((n, i) => `${i + 1} ${circlePretty(n)}`).join(', ')}.` : 'No scale selected.';
+        this.canvas.setAttribute('aria-label', `${this.getCircleConfig()[this.state.mode].title}, in ${circlePretty(this.state.currentKey)} ${this.formatScaleName()}. ${notes}`);
+        this.renderSide();
+        this.requestDraw();
     }
 
     getCurrentScaleInfo() {
@@ -1089,7 +361,7 @@ class ScaleCircleExplorer {
 
     formatScaleName() {
         if (!this.state.scaleType) return 'Unknown';
-        return this.state.scaleType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        return this.state.scaleType.replace(/_/g, ' ');
     }
 
     getKeySignatureInfo() {
@@ -1099,112 +371,73 @@ class ScaleCircleExplorer {
         return this.musicTheory.keySignatures[this.state.currentKey];
     }
 
-    renderCurrentContext(scaleInfo) {
-        return `
-            <div class="current-context">
-                <div class="context-card">
-                    <h4>Current Key</h4>
-                    <div class="context-value">${this.state.currentKey}</div>
+    /** With room beside the circle: the scale as numbers, and the keys closest to this one. */
+    renderSide() {
+        const side = this.side;
+        if (!side) return;
+        if (!this.containerElement.classList.contains('circle-wide')) {
+            side.hidden = true;
+            side.innerHTML = '';
+            this.layout = null;
+            return;
+        }
+        const key = this.state.currentKey;
+        const order = this.getKeyOrder();
+        const here = order.findIndex(k => this._pitchClass(k) === this._pitchClass(key));
+        const at = i => order[(here + i + 12) % 12];
+        // the major whose relative minor this key is: three semitones up
+        const relative = order.find(k => this._pitchClass(k) === (this._pitchClass(key) + 3) % 12) || key;
+        const chip = (k, text, extra = '') => `<button type="button" class="viz-btn" data-go-key="${k}" ${extra}>${text}</button>`;
+        const neighbours = this.state.mode === 'chromatic' ? '' : `
+            <div>
+                <div class="circle-side-head">Closest keys</div>
+                <div class="circle-side-row">
+                    ${chip(at(-1), `◀ ${circlePretty(at(-1))}`, `title="${circlePretty(at(-1))}: one step ${this.state.mode === 'fifths' ? 'counterclockwise' : 'back'}"`)}
+                    ${chip(at(1), `${circlePretty(at(1))} ▶`, `title="${circlePretty(at(1))}: one step ${this.state.mode === 'fifths' ? 'clockwise' : 'on'}"`)}
+                    ${this.isMinorHome() ? `<button type="button" class="viz-btn" data-go-major="${relative}" title="The relative major: the same notes, a new home">${circlePretty(relative)}</button>`
+                        : `<button type="button" class="viz-btn" data-go-minor="${this.relativeMinor(key)}" title="The relative minor: the same notes, a new home">${circlePretty(this.relativeMinor(key))}m</button>`}
                 </div>
-                
-                <div class="context-card">
-                    <h4>Circle Mode</h4>
-                    <div class="context-value">${this.state.mode.charAt(0).toUpperCase() + this.state.mode.slice(1)}</div>
-                </div>
-                
-                <div class="context-card">
-                    <h4>Scale</h4>
-                    <div class="context-value">${scaleInfo.hasScale ? scaleInfo.scaleName : 'None'}</div>
-                </div>
-                
-                <div class="context-card">
-                    <h4>Scale Notes</h4>
-                    <div class="context-value">${scaleInfo.hasScale ? scaleInfo.scaleNotesCount + ' notes' : 'N/A'}</div>
-                </div>
-            </div>
+            </div>`;
+        const notes = this.state.scaleNotes.map((n, i) => `<span class="circle-chip ${i === 0 ? 'is-tonic' : ''}"><b>${i + 1}</b>${circlePretty(n)}</span>`).join(' ');
+        const tip = CIRCLE_MODES.find(m => m[0] === this.state.mode)[3];
+        side.innerHTML = `
+            <div class="circle-side-title">${circlePretty(key)} ${this.formatScaleName()} <span class="circle-side-sig">${this.scaleSignatureText()}</span></div>
+            ${notes ? `<div><div class="circle-side-head">The scale</div><div class="circle-side-row">${notes}</div></div>` : ''}
+            ${neighbours}
+            <div class="circle-side-tip">${tip}</div>
         `;
+        side.hidden = false;
+        this.layout = null;
     }
 
-    renderScalePolygonInfo() {
-        if (!this.state.scaleNotes || this.state.scaleNotes.length === 0) return '';
-        
-        return `
-            <div class="scale-polygon-info">
-                <strong>Scale Polygon Active</strong>
-                <br>Showing ${this.state.scaleNotes.length} scale degrees
-                <br>Connected in diatonic order
-            </div>
-        `;
-    }
-
-    renderMusicalInsights(config) {
-        const insights = [];
-        
-        // Mode-specific insights
-        if (this.state.mode === 'fifths') {
-            insights.push({
-                title: 'Key Relationships',
-                content: 'Adjacent keys share 6 notes in common. Moving clockwise adds sharps, counterclockwise adds flats.'
-            });
-            
-            if (this.state.scaleNotes.length > 0) {
-                insights.push({
-                    title: 'Related Keys',
-                    content: `The dominant key (+1 sharp) and subdominant key (+1 flat) are your closest harmonic neighbors.`
-                });
-            }
-        } else if (this.state.mode === 'fourths') {
-            insights.push({
-                title: 'Subdominant Motion',
-                content: 'This circle shows plagal relationships (IV-I motion). Each step moves up a perfect fourth.'
-            });
-        } else if (this.state.mode === 'chromatic') {
-            insights.push({
-                title: 'Enharmonic Equivalents',
-                content: 'Some positions represent the same pitch with different names (e.g., F# = Gb).'
-            });
-        }
-        
-        // Scale-specific insights
-        if (this.state.showScaleLines && this.state.scaleNotes.length > 0) {
-            insights.push({
-                title: 'Scale Geometry',
-                content: `Your ${this.state.scaleNotes.length}-note scale creates a ${this.state.scaleNotes.length}-sided polygon. The shape reveals the scale's intervallic structure.`
-            });
-        }
-        
-        // Musical context insights
-        insights.push({
-            title: 'Practice Tip',
-            content: config.musicalContext || 'Explore different keys by clicking around the circle. Listen to how key signatures affect the same scale in different positions.'
-        });
-        
-        return insights.map(insight => `
-            <div class="insight-card">
-                <h4>${insight.title}</h4>
-                <p>${insight.content}</p>
-            </div>
-        `).join('');
+    /** A change of home and of scale together: the relative minor or major. */
+    goToRelative(root, scale) {
+        const real = this.musicTheory.getKeys().find(k => this._pitchClass(k) === this._pitchClass(root)) || root;
+        this.state.currentKey = real;
+        this.render();
+        this.emit('keyChanged', { key: real });
+        this.emit('keySelected', { key: real, scale });
     }
 
     setupModernEventListeners() {
-        // Mode buttons with smooth transitions
-        this.containerElement.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.setMode(btn.dataset.mode);
-            });
+        const root = this.containerElement;
+        root.querySelectorAll('[data-mode]').forEach(btn => {
+            btn.addEventListener('click', () => this.setMode(btn.dataset.mode));
         });
-        
+        root.querySelectorAll('[data-label-mode]').forEach(btn => {
+            btn.addEventListener('click', () => this.setLabelMode(btn.dataset.labelMode));
+        });
+
         // Scale polygon toggle
-        const polygonToggle = this.containerElement.querySelector('#toggle-scale-polygon');
+        const polygonToggle = root.querySelector('#toggle-scale-polygon');
         if (polygonToggle) {
             polygonToggle.addEventListener('change', () => {
                 this.toggleScaleLines();
             });
         }
-        
+
         // Action buttons
-        const playScaleBtn = this.containerElement.querySelector('#play-scale-btn');
+        const playScaleBtn = root.querySelector('#play-scale-btn');
         if (playScaleBtn) {
             playScaleBtn.addEventListener('click', () => {
                 const notesToPlay = (this.state.scaleNotes && this.state.scaleNotes.length) ? this.state.scaleNotes : [this.state.currentKey];
@@ -1222,8 +455,8 @@ class ScaleCircleExplorer {
                 });
             });
         }
-        
-        const randomKeyBtn = this.containerElement.querySelector('#random-key-btn');
+
+        const randomKeyBtn = root.querySelector('#random-key-btn');
         if (randomKeyBtn) {
             randomKeyBtn.addEventListener('click', () => {
                 const keys = this.musicTheory.getKeys();
@@ -1231,8 +464,8 @@ class ScaleCircleExplorer {
                 this.setKey(randomKey, { emitUserEvent: true });
             });
         }
-        
-        const clearBtn = this.containerElement.querySelector('#clear-highlights-btn');
+
+        const clearBtn = root.querySelector('#clear-highlights-btn');
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
                 this.state.highlightedKeys = [];
@@ -1241,14 +474,26 @@ class ScaleCircleExplorer {
                 this.render();
             });
         }
-        
-        // Canvas events with improved handling
-        const canvas = this.containerElement.querySelector('#circle-canvas');
-        if (canvas) {
-            canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
-            canvas.addEventListener('mousemove', (e) => this.handleCanvasHover(e));
-            canvas.addEventListener('mouseleave', () => this.handleCanvasLeave());
-        }
+
+        this.side.addEventListener('click', (e) => {
+            const go = e.target.closest && e.target.closest('[data-go-key]');
+            if (go) { this.setKey(go.dataset.goKey, { emitUserEvent: true }); return; }
+            const minor = e.target.closest && e.target.closest('[data-go-minor]');
+            if (minor) { this.goToRelative(minor.dataset.goMinor, 'aeolian'); return; }
+            const major = e.target.closest && e.target.closest('[data-go-major]');
+            if (major) this.goToRelative(major.dataset.goMajor, 'major');
+        });
+
+        this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleCanvasHover(e));
+        this.canvas.addEventListener('mouseleave', () => this.handleCanvasLeave());
+    }
+
+    setLabelMode(mode) {
+        if (!CIRCLE_LABELS.some(m => m[0] === mode)) return;
+        this.state.labelMode = mode;
+        try { localStorage.setItem(CIRCLE_LABEL_KEY, mode); } catch (_) {}
+        this.render();
     }
 
     /**
@@ -1279,7 +524,8 @@ class ScaleCircleExplorer {
                 return ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'B', 'E', 'A', 'D', 'G'];
             
             case 'chromatic':
-                // True chromatic circle
+                // True chromatic circle, in the accidentals its key uses
+                if (flat) return ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
                 return ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
             
             default:
@@ -1356,360 +602,470 @@ class ScaleCircleExplorer {
         const keyOrder = this.getKeyOrder();
         const positions = {};
         const count = keyOrder.length;
-        
+
         keyOrder.forEach((key, index) => {
             positions[key] = {
                 angle: (index / count) * 2 * Math.PI,
                 distance: 1.0
             };
         });
-        
+
         return positions;
     }
 
+    /* ---------- sizing ------------------------------------------------- */
+
     /**
-     * Render circle on canvas
+     * The rings in a W x H box. The circle stays round and as big as the box
+     * allows. If the box is wide enough to spare it, the scale panel sits
+     * beside the circle and the pair is centred.
      */
-    renderCircleCanvas() {
-        const canvas = this.containerElement.querySelector('#circle-canvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        // Resolve theme-aware colors from the wrapper or container
-        const cssRoot = this.containerElement.querySelector('.scale-circle-modern-wrapper') || this.containerElement;
-        const cs = window.getComputedStyle(cssRoot);
-        const getColor = (prop, fallback) => {
-            const v = cs.getPropertyValue(prop);
-            if (v && v.trim()) return v.trim();
-            return fallback;
+    computeLayout(W, H, sideW, showMinor = 1) {
+        const R = Math.max(40, Math.min(W - (sideW ? sideW + 14 : 0), H) / 2 - 5);
+        const group = 2 * R + (sideW ? sideW + 14 : 0);
+        const cx = (W - group) / 2 + R;
+        const cy = H / 2;
+        const r1 = R * 0.7;
+        const r2 = r1 - (r1 - R * 0.44) * showMinor;
+        return { W, H, R, r1, r2, cx, cy, sideLeft: cx + R + 14 };
+    }
+
+    handleResize() {
+        if (!this.canvas) return;
+        const rect = this.canvas.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        const dpr = window.devicePixelRatio || 1;
+        const bw = Math.round(rect.width * dpr), bh = Math.round(rect.height * dpr);
+        if (this.canvas.width !== bw || this.canvas.height !== bh) {
+            this.canvas.width = bw;
+            this.canvas.height = bh;
+        }
+        this.dpr = dpr;
+        this.size = { w: rect.width, h: rect.height };
+        const wide = rect.width >= rect.height + 256 && rect.height >= 220;
+        if (this.containerElement.classList.contains('circle-wide') !== wide) {
+            this.containerElement.classList.toggle('circle-wide', wide);
+            this.renderSide();
+        }
+        this.containerElement.classList.toggle('viz-narrow', rect.width < 400);
+        this.layout = null;
+        this.draw();
+    }
+
+    readTheme() {
+        if (!document.body) return;
+        const cs = getComputedStyle(document.body);
+        const v = (name, fallback) => (cs.getPropertyValue(name) || '').trim() || fallback;
+        this.theme = {
+            text: v('--text-main', '#ffffff'),
+            muted: v('--text-muted', '#cbd5e1'),
+            accent: v('--accent-primary', '#60a5fa'),
+            lit: v('--accent-secondary', '#34d399'),
+            border: v('--border-light', '#52525b'),
+            deep: v('--bg-input', '#09090b'),
+            font: v('--font-ui', 'Segoe UI, Arial, sans-serif')
         };
-        const hexToRgba = (hex, a) => {
-            if (!hex) return `rgba(255,255,255,${a})`;
-            hex = hex.trim();
-            if (hex.startsWith('rgb')) {
-                return hex.replace('rgb(', 'rgba(').replace(')', `, ${a})`);
-            }
-            if (hex[0] === '#') {
-                const h = hex.substring(1);
-                const bigint = parseInt(h.length === 3 ? h.split('').map(ch => ch+ch).join('') : h, 16);
-                const r = (bigint >> 16) & 255;
-                const g = (bigint >> 8) & 255;
-                const b = bigint & 255;
-                return `rgba(${r}, ${g}, ${b}, ${a})`;
-            }
-            return hex;
+        this.requestDraw();
+    }
+
+    currentLayout() {
+        if (this.layout && this.layout.showMinor === this.anim.minor) return this.layout;
+        const sideW = this.side && !this.side.hidden ? this.side.offsetWidth : 0;
+        const g = this.computeLayout(this.size.w, this.size.h, sideW, this.anim.minor);
+        g.showMinor = this.anim.minor;
+        if (sideW) {
+            this.side.style.left = `${Math.round(g.sideLeft)}px`;
+            const bar = this.canvas.offsetTop;
+            this.side.style.top = `${bar + Math.max(6, (this.size.h - this.side.offsetHeight) / 2)}px`;
+        }
+        this.layout = g;
+        return g;
+    }
+
+    /* ---------- motion ------------------------------------------------- */
+
+    /** What every wedge is heading for: its place in the current order, and how lit it should be. */
+    wedgeTargets() {
+        const tonic = this._pitchClass(this.state.currentKey);
+        return this.getKeyOrder().map((key, i) => {
+            const pc = this._pitchClass(key);
+            return {
+                key, pc,
+                angle: i * CIRCLE_WEDGE,
+                lit: this.isNoteInScale(key) ? 1 : 0,
+                tonic: pc === tonic ? 1 : 0
+            };
+        });
+    }
+
+    requestDraw() {
+        if (this.frameId || !this.ctx || typeof requestAnimationFrame === 'undefined') return;
+        this.lastFrame = 0;
+        this.frameId = requestAnimationFrame(this.frame);
+    }
+
+    frame(now) {
+        this.frameId = null;
+        if (!this.ctx || !this.size || !this.canvas.getClientRects().length) return;
+        const dt = this.lastFrame ? circleClamp((now - this.lastFrame) / 16.67, 0, 3) : 1;
+        this.lastFrame = now;
+        const moving = this.step(dt);
+        this.draw();
+        if (moving) this.frameId = requestAnimationFrame(this.frame);
+    }
+
+    /** Eases everything a step toward its target; returns whether anything is still moving. */
+    step(dt) {
+        const ease = 1 - Math.pow(0.82, dt);
+        const targets = this.wedgeTargets();
+        const anim = this.anim;
+        let moving = false;
+        const toward = (now, goal) => {
+            const d = goal - now;
+            if (Math.abs(d) < 0.004) return goal;
+            moving = true;
+            return now + d * ease;
         };
-        const colorBorder = getColor('--color-border', '#6b7280');
-        const colorTextPrimary = getColor('--color-text-primary', '#ffffff');
-        const colorTextSecondary = getColor('--color-text-secondary', '#cbd5e1');
-        const colorTextMuted = getColor('--color-text-muted', '#6b7280');
-        const colorAccent = getColor('--color-accent', '#3b82f6');
-        const colorAccentSecondary = getColor('--color-accent-secondary', '#10b981');
-        const colorWarning = getColor('--color-warning', '#f59e0b');
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const radius = Math.min(centerX, centerY) * 0.8;
-        // In a studio look the circle can be any size, so its dots and labels
-        // scale with it (tuned at 360px). OG draws them at their built size.
-        const u = (window.ModuleFit && window.ModuleFit.active())
-            ? Math.max(0.75, Math.min(1.6, canvas.width / 360))
-            : 1;
-        
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw circle
+        const shortest = (from, to) => from + ((to - from + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+        const snap = !this.drawn;
+        targets.forEach(t => {
+            const w = anim.wedges[t.pc] || (anim.wedges[t.pc] = { angle: t.angle, lit: t.lit, tonic: t.tonic });
+            w.key = t.key;
+            if (snap) { w.angle = t.angle; w.lit = t.lit; w.tonic = t.tonic; return; }
+            w.angle = toward(w.angle, shortest(w.angle, t.angle));
+            w.lit = toward(w.lit, t.lit);
+            w.tonic = toward(w.tonic, t.tonic);
+        });
+        const minor = this.state.mode === 'chromatic' ? 0 : 1;
+        const polygon = this.state.showScaleLines && this.state.scaleNotes.length ? 1 : 0;
+        const tonicWedge = anim.wedges[this._pitchClass(this.state.currentKey)];
+        if (snap) {
+            anim.minor = minor; anim.polygon = polygon;
+            if (tonicWedge) anim.marker = tonicWedge.angle;
+        } else {
+            anim.minor = toward(anim.minor, minor);
+            anim.polygon = toward(anim.polygon, polygon);
+            if (tonicWedge) anim.marker = toward(anim.marker, shortest(anim.marker, tonicWedge.angle));
+        }
+        this.drawn = true;
+        return moving;
+    }
+
+    /* ---------- drawing ------------------------------------------------ */
+
+    wedgePath(ctx, g, angle, outer, inner, pop = 0) {
+        const a = angle - Math.PI / 2;
+        const half = CIRCLE_WEDGE / 2;
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-        ctx.strokeStyle = colorBorder;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        const keyPositions = this.getKeyPositions();
-        const keys = Object.keys(keyPositions);
-        
-        // Draw connecting lines for circle of fifths/fourths
-        if (this.state.mode !== 'chromatic') {
+        ctx.arc(g.cx, g.cy, outer + pop, a - half, a + half);
+        ctx.arc(g.cx, g.cy, inner, a + half, a - half, true);
+        ctx.closePath();
+    }
+
+    polar(g, angle, r) {
+        const a = angle - Math.PI / 2;
+        return { x: g.cx + r * Math.cos(a), y: g.cy + r * Math.sin(a) };
+    }
+
+    centredText(ctx, text, x, y, size, weight, color) {
+        ctx.font = `${weight} ${size}px ${this.theme.font}`;
+        // A note name's accidental comes from a wider font; pull it in. Not in words ("no ♯ or ♭").
+        ctx.letterSpacing = /^[A-G][♭♯]/.test(text) ? `${-size * 0.14}px` : '0px';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = color;
+        ctx.fillText(text, x, y);
+    }
+
+    draw() {
+        const ctx = this.ctx;
+        if (!ctx || !this.size) return;
+        if (!this.drawn) this.step(1);
+        const g = this.currentLayout();
+        const dpr = this.dpr || 1;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, g.W, g.H);
+
+        const wedges = this.getKeyOrder().map(k => this.anim.wedges[this._pitchClass(k)]).filter(Boolean);
+        this.drawOuterRing(ctx, g, wedges);
+        if (this.anim.minor > 0.01) this.drawMinorRing(ctx, g, wedges);
+        this.drawCore(ctx, g);
+        if (this.anim.polygon > 0.01) this.drawPolygon(ctx, g);
+        this.drawMarker(ctx, g);
+    }
+
+    drawOuterRing(ctx, g, wedges) {
+        const t = this.theme;
+        const band = g.R - g.r1;
+        const mode = this.state.labelMode;
+        const hover = this.state.hoveredRing === 'major' ? this._pitchClass(this.state.hoveredKey) : null;
+        wedges.forEach(w => {
+            const hovered = hover === this._pitchClass(w.key);
+            const pop = hovered ? 3 : 0;
+
+            this.wedgePath(ctx, g, w.angle, g.R, g.r1, pop);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = t.deep;
+            ctx.fill();
+            ctx.fillStyle = t.muted;
+            ctx.globalAlpha = hovered ? 0.3 : 0.14;
+            ctx.fill();
+            if (w.lit > 0.01) {
+                ctx.fillStyle = t.lit;
+                ctx.globalAlpha = w.lit * (hovered ? 1 : 0.88);
+                ctx.fill();
+            }
+            if (w.tonic > 0.01) {
+                const mid = this.polar(g, w.angle, (g.R + g.r1) / 2);
+                const warm = ctx.createRadialGradient(mid.x, mid.y, 0, mid.x, mid.y, band);
+                warm.addColorStop(0, '#ffd25e');
+                warm.addColorStop(1, '#f2811d');
+                ctx.fillStyle = warm;
+                ctx.globalAlpha = w.tonic;
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = t.deep;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            if (this.state.highlightedKeys.includes(w.key)) {
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            this.drawWedgeLabel(ctx, g, w, band, mode);
+        });
+        ctx.globalAlpha = 1;
+    }
+
+    /**
+     * Inside a wedge: its number in the scale above its name. In numbers mode a
+     * scale tone is its number alone, and any other wedge keeps its name, small,
+     * so it can still be found.
+     */
+    drawWedgeLabel(ctx, g, w, band, mode) {
+        const t = this.theme;
+        const onLight = w.lit > 0.5 || w.tonic > 0.5;
+        const ink = onLight ? '#071018' : t.text;
+        const dim = onLight ? '#071018' : t.muted;
+        const label = circlePretty(this.labelForKey(w.key));
+        const degree = this.degreeOf(w.key);
+        const main = circleClamp(band * 0.42, 11, 28);
+        const small = circleClamp(band * 0.2, 8.5, 13);
+        const mid = (g.R + g.r1) / 2;
+
+        if (mode === 'numbers' && degree) {
+            const p = this.polar(g, w.angle, mid);
+            this.centredText(ctx, String(degree), p.x, p.y + 0.5, main * 1.1, 800, ink);
+        } else if (mode === 'numbers') {
+            const p = this.polar(g, w.angle, mid);
+            this.centredText(ctx, label, p.x, p.y + 0.5, small, 600, dim);
+        } else {
+            const withNumber = mode === 'both' && degree;
+            const nameR = withNumber ? mid - band * 0.1 : mid;
+            const p = this.polar(g, w.angle, nameR);
+            this.centredText(ctx, label, p.x, p.y + 0.5, main, 700, degree || w.tonic > 0.5 ? ink : t.muted);
+            if (withNumber) {
+                const n = this.polar(g, w.angle, g.R - band * 0.16);
+                this.centredText(ctx, String(degree), n.x, n.y + 0.5, small, 800, ink);
+            }
+        }
+        if (this.isNoteGenerated(w.key)) {
+            const dot = this.polar(g, w.angle + CIRCLE_WEDGE * 0.32, g.R - 7);
             ctx.beginPath();
-            keys.forEach((key, i) => {
-                const nextKey = keys[(i + 1) % keys.length];
-                const pos1 = keyPositions[key];
-                const pos2 = keyPositions[nextKey];
-                
-                const x1 = centerX + radius * pos1.distance * Math.cos(pos1.angle - Math.PI/2);
-                const y1 = centerY + radius * pos1.distance * Math.sin(pos1.angle - Math.PI/2);
-                const x2 = centerX + radius * pos2.distance * Math.cos(pos2.angle - Math.PI/2);
-                const y2 = centerY + radius * pos2.distance * Math.sin(pos2.angle - Math.PI/2);
-                
-                if (i === 0) {
-                    ctx.moveTo(x1, y1);
-                }
-                ctx.lineTo(x2, y2);
-            });
-            ctx.strokeStyle = hexToRgba(colorTextPrimary, 0.22);
+            ctx.arc(dot.x, dot.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#facc15';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.6)';
             ctx.lineWidth = 1;
             ctx.stroke();
         }
-        
-        // Draw scale lines
-        if (this.state.showScaleLines && this.state.scaleNotes && this.state.scaleNotes.length > 0) {
-            ctx.beginPath();
-            
-            // Get scale notes in diatonic order (1-2-3-4-5-6-7)
-            const scaleNoteOrder = this.state.scaleNotes; // Already in diatonic order
-            
-            // Find positions of scale notes IN DIATONIC ORDER (with enharmonic matching)
-            const scalePositions = [];
-            scaleNoteOrder.forEach(note => {
-                const pos = this.findKeyPosition(note, keyPositions);
-                if (pos) {
-                    const x = centerX + radius * pos.distance * Math.cos(pos.angle - Math.PI/2);
-                    const y = centerY + radius * pos.distance * Math.sin(pos.angle - Math.PI/2);
-                    scalePositions.push({x, y, note});
-                }
-            });
-            
-            // Draw connecting lines in scale order
-            if (scalePositions.length > 1) {
-                ctx.beginPath();
-                ctx.moveTo(scalePositions[0].x, scalePositions[0].y);
-                
-                for (let i = 1; i < scalePositions.length; i++) {
-                    ctx.lineTo(scalePositions[i].x, scalePositions[i].y);
-                }
-                
-                // Close back to root
-                ctx.lineTo(scalePositions[0].x, scalePositions[0].y);
-                
-                ctx.strokeStyle = hexToRgba(colorAccentSecondary, 0.6);
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-        }
-        
-        // Draw keys
-        let hoverHit = null;
-        keys.forEach(key => {
-            const pos = keyPositions[key];
-            const x = centerX + radius * pos.distance * Math.cos(pos.angle - Math.PI/2);
-            const y = centerY + radius * pos.distance * Math.sin(pos.angle - Math.PI/2);
-            
-            // Determine highlight type (using enharmonic-aware checks)
-            let highlightType = 'none';
-            const isInScale = this.isNoteInScale(key);
-            const isGenerated = this.isNoteGenerated(key);
-            
-            if (isInScale) {
-                highlightType = 'scale';
-            }
-            if (isGenerated) {
-                highlightType = 'numbers';
-            }
-            if (isInScale && isGenerated) {
-                highlightType = 'both';
-            }
-            
-            // Removed highlight rings for scale and generated notes.
-            // Only the current key will have a ring drawn below.
-            
-            // Detect hover hit area (15px radius)
-            if (this._lastMouse) {
-                const dx = this._lastMouse.x - x;
-                const dy = this._lastMouse.y - y;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist <= 16 * u) hoverHit = key;
-            }
+    }
 
-            // Draw key point
-            ctx.beginPath();
-            ctx.arc(x, y, 12 * u, 0, 2 * Math.PI);
-            ctx.fillStyle = this.state.highlightedKeys.includes(key) ? colorWarning : 
-                            (this.isNoteInScale(key)) ? colorAccentSecondary : colorTextMuted;
+    drawMinorRing(ctx, g, wedges) {
+        const t = this.theme;
+        const band = g.r1 - g.r2;
+        const tonicPc = this._pitchClass(this.state.currentKey);
+        const minorHome = this.isMinorHome();
+        const hover = this.state.hoveredRing === 'minor' ? this._pitchClass(this.state.hoveredKey) : null;
+        wedges.forEach(w => {
+            const root = this.relativeMinor(w.key);
+            const isHome = minorHome && this._pitchClass(root) === tonicPc;
+            const isRelative = !minorHome && this._pitchClass(w.key) === tonicPc;
+            const hovered = hover === this._pitchClass(w.key);
+            this.wedgePath(ctx, g, w.angle, g.r1, g.r2, 0);
+            ctx.globalAlpha = this.anim.minor;
+            ctx.fillStyle = t.deep;
             ctx.fill();
-            
-            // Draw key label with improved contrast and size
-            ctx.fillStyle = colorTextPrimary;
-            ctx.font = `bold ${Math.round(16 * u)}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            // Add subtle dark stroke for readability over complex backgrounds
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = 'rgba(0,0,0,0.75)';
-            
-            // A pitch the current scale uses is labelled the way the scale
-            // spells it (G# in E major, E# in C# major); any other position
-            // keeps its key name.
-            const displayKey = this.labelForKey(key);
-            
-            ctx.strokeText(displayKey, x, y);
-            ctx.fillText(displayKey, x, y);
-            
-            // Draw dice emoji for generated notes
-            if (this.isNoteGenerated(key)) {
-                ctx.font = `${Math.round(20 * u)}px Arial`;
-                ctx.fillText('🎲', x + 15 * u, y - 15 * u);
-            }
-            
-            // Hover ring for hovered key
-            if (this.state.hoveredKey === key) {
-                ctx.beginPath();
-                ctx.arc(x, y, 18 * u, 0, 2 * Math.PI);
-                ctx.strokeStyle = colorAccent;
-                ctx.lineWidth = 2;
-                ctx.stroke();
+            ctx.fillStyle = isHome ? '#f2811d' : (isRelative ? t.accent : t.muted);
+            ctx.globalAlpha = this.anim.minor * (isHome ? 0.95 : isRelative ? 0.5 : hovered ? 0.24 : 0.07);
+            ctx.fill();
+            ctx.globalAlpha = this.anim.minor;
+            ctx.strokeStyle = t.deep;
+            ctx.lineWidth = 1.25;
+            ctx.stroke();
+            if (band >= 16) {
+                const p = this.polar(g, w.angle, (g.r1 + g.r2) / 2);
+                this.centredText(ctx, `${circlePretty(root)}m`, p.x, p.y + 0.5, circleClamp(band * 0.33, 9, 16), 600, isHome ? '#071018' : (isRelative ? t.text : t.muted));
             }
         });
-        // Update cursor based on hover
-        canvas.style.cursor = hoverHit ? 'pointer' : 'default';
-        
-        // Highlight current key (only one ring, red/orange)
-        const currentKeyIndex = keys.indexOf(this.state.currentKey);
-        if (currentKeyIndex !== -1) {
-            const pos = keyPositions[this.state.currentKey];
-            const x = centerX + radius * pos.distance * Math.cos(pos.angle - Math.PI/2);
-            const y = centerY + radius * pos.distance * Math.sin(pos.angle - Math.PI/2);
-            
-            ctx.beginPath();
-            ctx.arc(x, y, 15, 0, 2 * Math.PI);
-            ctx.strokeStyle = colorWarning;
-            ctx.lineWidth = 3;
-            ctx.stroke();
-        }
+        ctx.globalAlpha = 1;
+    }
+
+    drawCore(ctx, g) {
+        const t = this.theme;
+        const r = g.r2 - 3;
+        ctx.beginPath();
+        ctx.arc(g.cx, g.cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = t.deep;
+        ctx.fill();
+        ctx.strokeStyle = t.border;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        const fade = 1 - this.anim.polygon * 0.55;
+        ctx.globalAlpha = fade;
+        const key = circleClamp(r * 0.56, 14, 54);
+        this.centredText(ctx, circlePretty(this.state.currentKey), g.cx, g.cy - r * 0.2, key, 800, t.text);
+        // the scale's name, shrunk until it fits across the middle
+        const name = this.formatScaleName();
+        let size = circleClamp(r * 0.2, 8.5, 15);
+        ctx.font = `600 ${size}px ${t.font}`;
+        const fits = r * 1.7;
+        const tw = ctx.measureText(name).width;
+        if (tw > fits) size = Math.max(7.5, size * fits / tw);
+        this.centredText(ctx, name, g.cx, g.cy + r * 0.26, size, 600, t.muted);
+        const sig = this.scaleSignatureText();
+        if (sig) this.centredText(ctx, sig, g.cx, g.cy + r * 0.52, circleClamp(r * 0.18, 8.5, 14), 500, t.muted);
+        ctx.globalAlpha = 1;
+    }
+
+    /** The scale in order, as a shape across the middle. */
+    drawPolygon(ctx, g) {
+        const r = g.r2 - 8;
+        const points = this.state.scaleNotes.map(n => {
+            const w = this.anim.wedges[this._pitchClass(n)];
+            return w ? this.polar(g, w.angle, r) : null;
+        }).filter(Boolean);
+        if (points.length < 2) return;
+        ctx.globalAlpha = this.anim.polygon;
+        ctx.beginPath();
+        points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+        ctx.closePath();
+        ctx.fillStyle = this.theme.lit;
+        ctx.globalAlpha = this.anim.polygon * 0.14;
+        ctx.fill();
+        ctx.globalAlpha = this.anim.polygon * 0.85;
+        ctx.strokeStyle = this.theme.lit;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+    }
+
+    /** A bright arc on the rim that travels to the current key when it changes. */
+    drawMarker(ctx, g) {
+        const a = this.anim.marker - Math.PI / 2;
+        ctx.beginPath();
+        ctx.arc(g.cx, g.cy, g.R + 2, a - CIRCLE_WEDGE * 0.46, a + CIRCLE_WEDGE * 0.46);
+        ctx.strokeStyle = '#ffb02e';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+    }
+
+    /* ---------- pointer ------------------------------------------------ */
+
+    /** Which wedge a point is on: the key, and whether it is the major or the relative-minor ring. */
+    wedgeAt(x, y) {
+        if (!this.size) return null;
+        const g = this.currentLayout();
+        const dist = Math.hypot(x - g.cx, y - g.cy);
+        if (dist > g.R + 4 || dist < g.r2) return null;
+        const ring = dist >= g.r1 || this.state.mode === 'chromatic' ? 'major' : 'minor';
+        const angle = Math.atan2(y - g.cy, x - g.cx) + Math.PI / 2;
+        const i = ((Math.round(angle / CIRCLE_WEDGE) % 12) + 12) % 12;
+        return { key: this.getKeyOrder()[i], ring };
+    }
+
+    /** Where a key's wedge is on the page, for whatever needs to point at it. */
+    keyPoint(key) {
+        if (!this.size || !this.canvas) return null;
+        const g = this.currentLayout();
+        const i = this.getKeyOrder().findIndex(k => this._pitchClass(k) === this._pitchClass(key));
+        if (i === -1) return null;
+        const r = this.canvas.getBoundingClientRect();
+        const p = this.polar(g, i * CIRCLE_WEDGE, (g.R + g.r1) / 2);
+        return { x: r.left + p.x, y: r.top + p.y };
+    }
+
+    pointerIn(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
 
     /**
      * Handle canvas click
      */
     handleCanvasClick(e) {
-        const canvas = this.containerElement.querySelector('#circle-canvas');
-        if (!canvas) return;
-        
-        const rect = canvas.getBoundingClientRect();
-        // canvas px per screen px (differs when a studio look scales the module)
-        const k = rect.width ? canvas.width / rect.width : 1;
-        const x = (e.clientX - rect.left) * k;
-        const y = (e.clientY - rect.top) * k;
-        
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const radius = Math.min(centerX, centerY) * 0.8;
-        
-        // Check if click is within circle (the key dots sit on its edge)
-        const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
-        if (distance > radius + 20) return;
-        
-        // The key whose dot is nearest, measured the way the dots are drawn
-        // (from 12 o'clock). The old angle maths measured from 3 o'clock, so
-        // most clicks picked a different key than the one under the pointer.
-        const keyPositions = this.getKeyPositions();
-        let clickedKey = null;
-        let nearest = Infinity;
-        Object.keys(keyPositions).forEach(key => {
-            const pos = keyPositions[key];
-            const kx = centerX + radius * pos.distance * Math.cos(pos.angle - Math.PI/2);
-            const ky = centerY + radius * pos.distance * Math.sin(pos.angle - Math.PI/2);
-            const d = Math.hypot(x - kx, y - ky);
-            if (d < nearest) { nearest = d; clickedKey = key; }
-        });
-        if (!clickedKey) return;
-        this.setKey(clickedKey, { emitUserEvent: true });
+        if (this.moreMenu) this.moreMenu.open = false;
+        const { x, y } = this.pointerIn(e);
+        const hit = this.wedgeAt(x, y);
+        if (!hit) return;
+        if (hit.ring === 'minor') this.goToRelative(this.relativeMinor(hit.key), 'aeolian');
+        else this.setKey(hit.key, { emitUserEvent: true });
     }
 
     handleCanvasHover(e) {
-        const canvas = this.containerElement.querySelector('#circle-canvas');
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const k = rect.width ? canvas.width / rect.width : 1;
-        const x = (e.clientX - rect.left) * k;
-        const y = (e.clientY - rect.top) * k;
-        this._lastMouse = { x, y };
-
-        // Identify nearest key similar to click logic but with hit test threshold
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const radius = Math.min(centerX, centerY) * 0.8;
-        const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
-        if (distance > radius + 20) { // outside
-            this.state.hoveredKey = null;
-            this.showTooltip(null);
-            this.renderCircleCanvas();
-            return;
+        const { x, y } = this.pointerIn(e);
+        const hit = this.wedgeAt(x, y);
+        const key = hit ? hit.key : null, ring = hit ? hit.ring : null;
+        this.canvas.style.cursor = hit ? 'pointer' : '';
+        if (key !== this.state.hoveredKey || ring !== this.state.hoveredRing) {
+            this.state.hoveredKey = key;
+            this.state.hoveredRing = ring;
+            this.requestDraw();
         }
-
-        const keyPositions = this.getKeyPositions();
-        const keys = Object.keys(keyPositions);
-        let nearest = null;
-        let nearestDist = Infinity;
-        keys.forEach(key => {
-            const pos = keyPositions[key];
-            const kx = centerX + radius * pos.distance * Math.cos(pos.angle - Math.PI/2);
-            const ky = centerY + radius * pos.distance * Math.sin(pos.angle - Math.PI/2);
-            const d = Math.hypot(x - kx, y - ky);
-            if (d < nearestDist) { nearestDist = d; nearest = { key, x: kx, y: ky, d }; }
-        });
-
-        // hit radius follows the dot size (dots scale with the circle in a look)
-        const u = (window.ModuleFit && window.ModuleFit.active())
-            ? Math.max(0.75, Math.min(1.6, canvas.width / 360))
-            : 1;
-        if (nearest && nearest.d <= 18 * u) {
-            if (this.state.hoveredKey !== nearest.key) {
-                this.state.hoveredKey = nearest.key;
-                this.renderCircleCanvas();
-            }
-            this.showTooltip({ key: nearest.key, x, y });
-        } else {
-            if (this.state.hoveredKey) {
-                this.state.hoveredKey = null;
-                this.renderCircleCanvas();
-            }
-            this.showTooltip(null);
-        }
+        this.showTooltip(hit ? { key, ring, event: e } : null);
     }
 
     handleCanvasLeave() {
         this.state.hoveredKey = null;
-        this._lastMouse = null;
+        this.state.hoveredRing = null;
         this.showTooltip(null);
-        this.renderCircleCanvas();
+        this.requestDraw();
+    }
+
+    describeKey(key, ring) {
+        const here = circlePretty(this.state.currentKey);
+        if (ring === 'minor') {
+            return `${circlePretty(this.relativeMinor(key))} minor: the relative minor of ${circlePretty(key)}, the same notes with a new home`;
+        }
+        const degree = this.degreeOf(key);
+        const sig = this.signatureText(key);
+        const name = circlePretty(this.labelForKey(key));
+        const major = sig ? ` (${circlePretty(key)} major has ${sig})` : '';
+        if (this._pitchClass(key) === this._pitchClass(this.state.currentKey)) return `${name}: home${major}`;
+        return `${name}: ${degree ? `the ${degree} in ${here} ${this.formatScaleName()}` : `not in ${here} ${this.formatScaleName()}`}${major}`;
     }
 
     showTooltip(info) {
         const tooltip = this.containerElement.querySelector('#circle-tooltip');
         if (!tooltip) return;
-        
-        if (!info) { 
-            tooltip.style.display = 'none'; 
-            tooltip.classList.remove('visible');
-            return; 
+
+        if (!info) {
+            tooltip.style.display = 'none';
+            return;
         }
-        
-        // Enhanced tooltip with musical context
-        let content = `<strong>${info.key}</strong>`;
-        
-        // Add key signature info if available
-        if (this.musicTheory.keySignatures && this.musicTheory.keySignatures[info.key]) {
-            const keySig = this.musicTheory.keySignatures[info.key];
-            if (keySig.accidentals.length > 0) {
-                const accidentalText = keySig.type === 'sharp' ? '♯' : '♭';
-                content += `<br><small>${keySig.accidentals.length} ${accidentalText}</small>`;
-            } else {
-                content += `<br><small>Natural</small>`;
-            }
-        }
-        
-        // Add scale relationship info if a scale is active
-        if (this.state.scaleNotes.length > 0 && this.isNoteInScale(info.key)) {
-            const scaleIndex = this.state.scaleNotes.indexOf(info.key);
-            if (scaleIndex >= 0) {
-                content += `<br><small>Scale degree ${scaleIndex + 1}</small>`;
-            }
-        }
-        
-        tooltip.innerHTML = content;
-        tooltip.style.left = `${info.x}px`;
-        tooltip.style.top = `${info.y}px`;
+
+        tooltip.textContent = this.describeKey(info.key, info.ring);
         tooltip.style.display = 'block';
-        tooltip.classList.add('visible');
+        const box = this.containerElement.getBoundingClientRect();
+        const left = info.event.clientX - box.left + 14;
+        const top = info.event.clientY - box.top + 14;
+        tooltip.style.left = `${Math.max(4, Math.min(left, box.width - tooltip.offsetWidth - 6))}px`;
+        tooltip.style.top = `${top + tooltip.offsetHeight > box.height ? top - tooltip.offsetHeight - 24 : top}px`;
     }
 
     /**

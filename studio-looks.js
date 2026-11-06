@@ -38,9 +38,9 @@
        MODULE REGISTRY
        Keyed by the stable inner container id already present in the HTML.
        minW / minH / idealW: measured from each module's own render code —
-         circle     scale-circle-explorer.js sizes a square canvas off its width;
-                    under 272px it overflows its box
-         solar      draws from min(width, height), so it wants a square
+         circle     draws from min(width, height) and needs its bar above that;
+                    under 272px its wedge labels crowd
+         solar      fills any box, flattening its rings, but wants about a square
          sheet      survives narrow (it scrolls) but is only useful wide
          fretboard  very wide aspect
        They reach the stylesheet as --m-min-w / --m-min-h / --m-ideal-w.

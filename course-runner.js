@@ -167,12 +167,8 @@
 
     /** Where a planet is drawn on the Solar System's canvas, in page coordinates. */
     function planetPoint(note) {
-        var v = solarViz(), cv = v && v.canvas;
-        var p = v && v.state && v.state.planets.filter(function (x) { return x.note === note; })[0];
-        if (!cv || !p) return null;
-        var r = cv.getBoundingClientRect();
-        var a = p.angle - Math.PI / 2;
-        return { x: r.left + r.width / 2 + p.orbitRadius * Math.cos(a), y: r.top + r.height / 2 + p.orbitRadius * Math.sin(a), size: p.size || 10 };
+        var v = solarViz();
+        return v ? v.planetPoint(note) : null;
     }
 
     var TARGETS = {

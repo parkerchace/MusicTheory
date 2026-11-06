@@ -691,7 +691,8 @@ window.mountLearnModuleIfReady = function(instrument) {
                 });
 
                 this.scaleCircleExplorer.on('keySelected', (data) => {
-                    this.scaleLibrary.setKey(data.key);
+                    if (data.scale) this.scaleLibrary.setKeyAndScale(data.key, data.scale);
+                    else this.scaleLibrary.setKey(data.key);
                 });
 
                 // Connect chord explorer / container chord tool to sheet music
@@ -950,15 +951,11 @@ window.mountLearnModuleIfReady = function(instrument) {
                         }
                     });
                     // (condensed sidebar solar removed)
-                    // Mobile autodetect: add class and slightly reduce solar size scale
+                    // Mobile autodetect: add class (the solar map sizes itself to its box)
                     safe('SolarSystem.ui', () => {
-                        // Mobile autodetect: add class and slightly reduce solar size scale
                         const applyMobileClass = () => {
                             const isMobile = window.matchMedia('(max-width: 768px)').matches || /Mobi|Android/i.test(navigator.userAgent);
                             document.body.classList.toggle('is-mobile', !!isMobile);
-                            if (this.solarSystem && typeof this.solarSystem.setSizeScale === 'function') {
-                                this.solarSystem.setSizeScale(isMobile ? 0.9 : 1.0);
-                            }
                         };
                         applyMobileClass();
                         window.addEventListener('resize', () => {

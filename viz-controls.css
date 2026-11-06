@@ -1,0 +1,31 @@
+/* ==========================================================================
+   The one-line bar over a drawing (solar map, circle of fifths): small buttons,
+   segmented switches, and a menu for what doesn't need to be on show.
+   ========================================================================== */
+.viz-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 3px 4px; min-height: 28px; box-sizing: border-box; flex: 0 0 auto; font-family: var(--font-ui, sans-serif); }
+.viz-btn {
+    all: unset; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    height: 22px; min-width: 24px; padding: 0 6px; font-size: 11px; line-height: 1; white-space: nowrap;
+    color: var(--text-muted, #cbd5e1); border: 1px solid var(--border-light, #475569); border-radius: var(--radius-sm, 3px); background: transparent;
+}
+.viz-btn[hidden] { display: none; }
+.viz-btn:hover { color: var(--text-main, #fff); border-color: var(--border-hover, #60a5fa); }
+.viz-btn:focus-visible { outline: 2px solid var(--accent-primary, #60a5fa); outline-offset: 1px; }
+.viz-narrow .viz-btn { padding: 0 4px; }
+.viz-seg { display: inline-flex; }
+.viz-seg .viz-btn { border-radius: 0; margin-left: -1px; }
+.viz-seg .viz-btn:first-child { margin-left: 0; border-radius: var(--radius-sm, 3px) 0 0 var(--radius-sm, 3px); }
+.viz-seg .viz-btn:last-child { border-radius: 0 var(--radius-sm, 3px) var(--radius-sm, 3px) 0; }
+.viz-seg .viz-btn[aria-pressed="true"] { background: var(--accent-primary, #60a5fa); border-color: var(--accent-primary, #60a5fa); color: var(--bg-input, #05070d); font-weight: 700; position: relative; }
+.viz-more { position: relative; }
+.viz-more > summary { list-style: none; }
+.viz-more > summary::-webkit-details-marker { display: none; }
+.viz-more-panel {
+    position: absolute; top: 26px; left: 0; z-index: 7; display: grid; gap: 6px; width: 170px; padding: 8px;
+    background: var(--bg-panel, #1e293b); border: 1px solid var(--border-light, #475569); border-radius: var(--radius-md, 4px); box-shadow: 0 6px 16px rgba(0,0,0,0.45);
+    font-size: 11px; color: var(--text-main, #fff);
+}
+.viz-narrow .viz-more-panel { left: auto; right: 0; }
+.viz-more-panel label { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 6px; }
+.viz-more-panel label.viz-check { display: flex; }
+.viz-more-panel input[type="range"], .viz-more-panel select { width: 100%; min-width: 0; margin: 0; }

@@ -53,65 +53,23 @@ body[data-look]:not([data-look="og"]) .look-item :is(input:not([type="checkbox"]
     min-width: 0;
 }
 
-/* ---------- circle of fifths ----------------------------------------------- */
-/* The module's own responsive design (header over circle over controls below
-   768px; circle beside controls above it) keyed to the MODULE's width
-   instead of the window's. Its grid shipped as minmax(480px,1fr) 300px, a
-   780px minimum that no look's zone can give it. */
-body[data-look]:not([data-look="og"]) .look-item #scale-circle-container {
-    display: flex;
-    flex-direction: column;
-}
-body[data-look]:not([data-look="og"]) .look-item .scale-circle-modern-wrapper {
-    flex: 1 1 auto;
-    min-height: 0;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "header" "visual" "controls";
-    grid-template-rows: auto 1fr auto;
-}
-body[data-look]:not([data-look="og"]) .look-item .scale-circle-modern-wrapper .circle-visualization-container {
-    min-width: 0;
-    /* --circle-min comes from scale-circle-explorer.js: 150px normally, or the
-       whole circle when a short zone makes it put the circle first and let
-       the controls scroll below it */
-    min-height: var(--circle-min, 150px);
-}
-/* Wide: the circle runs the full height on the left; its title and controls
-   share the column beside it (and the controls scroll there if they must). */
-@container module (min-width: 620px) {
-    body[data-look]:not([data-look="og"]) .look-item .scale-circle-modern-wrapper {
-        grid-template-columns: minmax(0, 1fr) clamp(240px, 34cqi, 300px);
-        grid-template-areas: "visual header" "visual controls";
-        grid-template-rows: auto 1fr;
-    }
-    body[data-look]:not([data-look="og"]) .look-item .scale-circle-modern-wrapper .circle-controls-modern {
-        overflow: auto;
-        min-height: 0;
-    }
-}
-
-/* ---------- solar map ------------------------------------------------------ */
-/* The module was built to put its controls "in a dedicated host below the
-   viewport" and falls back to floating them over the planets when there is
-   none. In a look, give it that: controls under the map, map fills the rest.
-   The canvas draws from min(width, height), so it stays round in any box. */
+/* ---------- solar map and circle ------------------------------------------- */
+/* One thin bar over the drawing; the drawing fills the rest. Each canvas lays
+   itself out in whatever box it gets, so any shape works. */
+/* A look decides where the map lives; undocking would only empty its slot. */
+body[data-look]:not([data-look="og"]) #dock-solar { display: none; }
 body[data-look]:not([data-look="og"]) .look-item > .module-content:has(> #solar-dock-viewport) { min-height: 0 !important; }
-body[data-look]:not([data-look="og"]) #solar-dock-viewport {
+body[data-look]:not([data-look="og"]) :is(#solar-dock-viewport, #scale-circle-container) {
     display: flex;
     flex-direction: column;
     min-height: 0 !important;
 }
-body[data-look]:not([data-look="og"]) #solar-dock-viewport > #solar-controls {
-    position: static !important;
-    order: 1;
-    flex: 0 0 auto;
-    margin-top: 6px;
-    box-shadow: none !important;
-}
-body[data-look]:not([data-look="og"]) #solar-dock-viewport > canvas {
+body[data-look]:not([data-look="og"]) :is(#solar-dock-viewport, #scale-circle-container) > canvas {
     flex: 1 1 0;
     width: 100% !important;
     height: 0 !important;
+    aspect-ratio: auto;
+    max-height: none;
     /* module-fit.js replaces this: fill a fixed-height box, or about square
        in an auto-height column */
     min-height: clamp(200px, 86cqi, 560px);

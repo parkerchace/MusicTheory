@@ -1227,10 +1227,10 @@ CHECKS.update({
         await new Promise(r => setTimeout(r, 400));
         const c = window.modularApp.scaleCircleExplorer;
         const order = c.getKeyOrder();
-        const ctx = (document.querySelector('.current-context') || {}).textContent || '';
+        const ctx = document.getElementById('circle-canvas').getAttribute('aria-label') || '';
         const lit = c.state.scaleNotes.every(n => c.isNoteInScale(n));
         const ok = c.state.scaleType === 'dorian' && !order.includes('E#') && c.isNoteInScale('F') && c.labelForKey('F') === 'F'
-                   && !/sharp|flat/i.test(ctx) && lit;
+                   && /D dorian/.test(ctx) && lit;
         return { ok, detail: { scaleType: c.state.scaleType, order, ctx: ctx.replace(/\\s+/g, ' ').trim().slice(0, 80) } };
       })()"""),
     'circle: fourths mode names real keys': ({'music-theory-look': 'og'}, True, """
@@ -1599,6 +1599,101 @@ def chk_course_keys_chip(b):
     return {'ok': ok, 'detail': {'wrong': wrong, 'folded': folded, 'unfolded': unfolded, 'asks': asks, 'left': left,
                                  'page': page, 'learn_chip': learn_chip, 'plays': plays}}
 
+
+def chk_solar_rings_in_every_look(b):
+    """In every look: the drawing is as big as its box (never stretched) and at
+    least usable, every note has its own ring inside the box, the bar is one
+    line, and clicking a planet moves in on its moons with their numbers."""
+    res = b.cdp.js("""(async () => {
+      const w = (ms) => new Promise(r => setTimeout(r, ms));
+      const bad = [], sizes = {};
+      for (const look of StudioLooks.looks.map(l => l.id)) {
+        StudioLooks.apply(look); await w(900);
+        const tab = [...document.querySelectorAll('.look-tabbar button')].find(x => /solar/i.test(x.textContent));
+        if (tab) tab.click();
+        const rail = document.querySelector('.look-zone[data-flow="rail"] > [data-module="solar"] > .module-header');
+        if (rail) rail.click();
+        const drawer = document.querySelector('.look-zone[data-flow="drawer"]:has([data-module="solar"]) > .look-drawer-handle');
+        if (drawer) drawer.click();
+        await w(900);
+        const s = window.modularApp.solarSystem, c = s.canvas, r = c.getBoundingClientRect();
+        sizes[look] = [Math.round(r.width), Math.round(r.height)];
+        if (Math.abs(c.width / (window.devicePixelRatio || 1) - r.width) > 2 || Math.abs(c.height / (window.devicePixelRatio || 1) - r.height) > 2) bad.push(look + ': buffer ' + c.width + 'x' + c.height + ' in a ' + r.width + 'x' + r.height + ' box');
+        if (r.width < 280 || r.height < 200) bad.push(look + ': only ' + r.width + 'x' + r.height);
+        const radii = s.state.planets.map(p => p.orbitRadius);
+        if (new Set(radii.map(Math.round)).size !== s.state.notes.length) bad.push(look + ': rings ' + radii.map(Math.round));
+        if (radii.some((v, i) => i && v <= radii[i - 1])) bad.push(look + ': rings do not widen ' + radii.map(Math.round));
+        const outer = Math.max(...radii);
+        if (outer > r.width / 2 || outer * s.geo.flatten > r.height / 2) bad.push(look + ': outer ring leaves the box');
+        if (document.getElementById('solar-controls').offsetHeight > 34) bad.push(look + ': the bar wrapped');
+        const pt = s.planetPoint('D');
+        c.dispatchEvent(new MouseEvent('click', { clientX: pt.x, clientY: pt.y, bubbles: true }));
+        await w(1000);
+        if (s.state.focusPlanet !== 'D' || s.cam.z < 1.3) bad.push(look + ': no move in on D, zoom ' + s.cam.z);
+        const five = s.moonPanel.querySelector('[data-idx="4"]');
+        if (s.moonPanel.hidden || !five || !/5\\s*A7/.test(five.textContent.replace(/\\s+/g, ' '))) bad.push(look + ': the 5 moon reads ' + (five && five.textContent));
+        const after = s.planetPoint('D');
+        c.dispatchEvent(new MouseEvent('click', { clientX: after.x, clientY: after.y, bubbles: true }));
+        await w(800);
+        if (s.state.focusPlanet || s.state.expandedPlanets.length || s.cam.z !== 1) bad.push(look + ': did not come back out');
+        if (drawer) drawer.click();
+      }
+      return { bad, sizes };
+    })()""")
+    return {'ok': not res['bad'], 'detail': res}
+
+
+def chk_circle_in_every_look(b):
+    """In every look: nothing is cut off or scrolled sideways, the drawing is crisp
+    for its box and the whole circle fits in it; clicking a wedge changes the key
+    without rebuilding the module, and the relative-minor ring changes the scale."""
+    res = b.cdp.js("""(async () => {
+      const w = (ms) => new Promise(r => setTimeout(r, ms));
+      const bad = [], sizes = {};
+      const app = window.modularApp, c = app.scaleCircleExplorer;
+      const hit = (x, y) => c.canvas.dispatchEvent(new MouseEvent('click', { clientX: x, clientY: y, bubbles: true }));
+      for (const look of StudioLooks.looks.map(l => l.id)) {
+        app.scaleLibrary.setKeyAndScale('C', 'major');
+        StudioLooks.apply(look); await w(900);
+        const tab = [...document.querySelectorAll('.look-tabbar button')].find(x => /circle/i.test(x.textContent));
+        if (tab) tab.click();
+        const rail = document.querySelector('.look-zone[data-flow="rail"] > [data-module="circle"] > .module-header');
+        if (rail) rail.click();
+        const drawer = document.querySelector('.look-zone[data-flow="drawer"]:has([data-module="circle"]) > .look-drawer-handle');
+        if (drawer) drawer.click();
+        await w(900);
+        const cv = c.canvas, r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+        const body = cv.closest('.module-content');
+        sizes[look] = [Math.round(r.width), Math.round(r.height)];
+        if (Math.abs(cv.width - r.width * dpr) > 2 || Math.abs(cv.height - r.height * dpr) > 2) bad.push(look + ': buffer ' + cv.width + 'x' + cv.height + ' in a ' + r.width + 'x' + r.height + ' box');
+        if (body.scrollWidth > body.clientWidth + 1) bad.push(look + ': sideways ' + body.scrollWidth + ' in ' + body.clientWidth);
+        if (r.width < 200 || r.height < 200) bad.push(look + ': only ' + r.width + 'x' + r.height);
+        const g = c.currentLayout();
+        if (g.cx - g.R < -1 || g.cy - g.R < -1 || g.cx + g.R > g.W + 1 || g.cy + g.R > g.H + 1) bad.push(look + ': circle leaves its box');
+        cv.scrollIntoView({ block: 'center' }); await w(150);
+        const node = cv, pt = c.keyPoint('G');
+        hit(pt.x, pt.y); await w(500);
+        if (c.state.currentKey !== 'G' || app.scaleLibrary.getCurrentKey() !== 'G') bad.push(look + ': clicking G gave ' + c.state.currentKey);
+        if (document.getElementById('circle-canvas') !== node) bad.push(look + ': the key change rebuilt the module');
+        const g2 = c.currentLayout(), r2 = c.canvas.getBoundingClientRect(), p = c.polar(g2, 0, (g2.r1 + g2.r2) / 2);
+        hit(r2.left + p.x, r2.top + p.y); await w(500);
+        if (c.state.currentKey !== 'A' || app.scaleLibrary.getCurrentScale() !== 'aeolian') bad.push(look + ': the Am wedge gave ' + c.state.currentKey + ' ' + app.scaleLibrary.getCurrentScale());
+        if (c.scaleSignatureText() !== 'no ♯ or ♭') bad.push(look + ': A aeolian reads ' + c.scaleSignatureText());
+        if (drawer) drawer.click();
+      }
+      app.scaleLibrary.setKeyAndScale('C', 'major');
+      return { bad, sizes };
+    })()""")
+    return {'ok': not res['bad'], 'detail': res}
+
+
+CHECKS.update({
+    'circle: fits every look, whole and crisp, and its wedges change the key': ({'music-theory-look': 'og'}, True, chk_circle_in_every_look),
+})
+
+CHECKS.update({
+    'solar: every note its own ring and every moon its number, in every look': ({'music-theory-look': 'og'}, True, chk_solar_rings_in_every_look),
+})
 
 CHECKS.update({
     'course: the keyboard chip is only in the lessons played on it, and never on a Learn page': ({'music-theory-look': 'og'}, True, chk_course_keys_chip),

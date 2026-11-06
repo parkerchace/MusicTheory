@@ -118,32 +118,50 @@
     }
 
     /* ------------------------------------------------------------------
-       SOLAR MAP
-       The solar canvas draws from min(width, height), so any box keeps the
-       system round; what it needs is the right box. With a fixed height (a
-       mosaic tile, the orrery's orbit) it fills what its controls leave, or
-       the whole visible height if they leave only a sliver. In an
-       auto-height column there is nothing to fill, so it is given a roughly
-       square height from its width.
+       SOLAR MAP AND CIRCLE
+       Each draws to whatever box its canvas gets, so what it needs is the
+       right box. With a fixed height (a mosaic tile, a Focus tab) it fills
+       what its one-line bar leaves, or the whole visible height if that is
+       only a sliver. In an auto-height column there is nothing to fill, so
+       it is given a height from its width (`shape`: height per unit of width).
        ------------------------------------------------------------------ */
-    function fitSolar() {
-        var slot = document.getElementById('solar-dock-viewport');
+    function fitDrawingSlot(id, shape) {
+        var slot = document.getElementById(id);
         var canvas = slot && slot.querySelector(':scope > canvas');
         if (!canvas) return;
         if (!active()) { canvas.style.removeProperty('min-height'); return; }
+        // Its flex-basis of 0 would ignore the probe's height and make every box look fixed.
+        canvas.style.setProperty('flex', '0 0 auto', 'important');
         var room = measure(slot, canvas);
+        canvas.style.removeProperty('flex');
         if (!room.w) return;
+        var controls = slot.querySelector(':scope > .viz-bar');
+        var bar = controls ? controls.offsetHeight : 0;
         var floor;
         if (!room.definite) {
-            floor = Math.round(Math.max(200, Math.min(room.w * 0.86, 560)));
+            floor = Math.max(200, Math.min(room.w * shape, 560, window.innerHeight * 0.55));
+            // A zone may still cap the module (the compact rail, a fly-out): stay inside it, not scroll past it.
+            var cs = getComputedStyle(slot.parentElement);
+            var cap = parseFloat(cs.maxHeight);
+            if (cap) floor = Math.min(floor, cap - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - bar);
+            // In a short scrolling zone the whole drawing must fit on screen at once, under the zone's sticky label.
+            var zone = slot.closest('.look-zone[data-fixed]');
+            if (zone) {
+                var label = zone.querySelector(':scope > .look-zone-label');
+                floor = Math.min(floor, Math.max(160, zone.clientHeight - (label ? label.offsetHeight : 0) - 8));
+            }
+            floor = Math.round(floor);
         } else {
-            var controls = slot.querySelector(':scope > #solar-controls');
-            var leftover = room.h - (controls ? controls.offsetHeight + 6 : 0);
+            var leftover = room.h - bar;
             floor = leftover >= 150
                 ? 120
                 : Math.round(Math.max(160, Math.min(room.w, room.h)));
         }
         if (canvas.style.minHeight !== floor + 'px') canvas.style.minHeight = floor + 'px';
+    }
+    var DRAWING_SLOTS = [['solar-dock-viewport', 0.86], ['scale-circle-container', 1]];
+    function fitDrawingSlots() {
+        DRAWING_SLOTS.forEach(function (d) { fitDrawingSlot(d[0], d[1]); });
     }
 
     /* ------------------------------------------------------------------
@@ -196,7 +214,6 @@
         st.setProperty('height', px + 'px', 'important');
         st.setProperty('min-height', px + 'px', 'important');
         st.setProperty('max-height', px + 'px', 'important');
-        if (el.id === 'circle-canvas') st.setProperty('width', px + 'px', 'important');
         return function () {
             saved.forEach(function (s) { if (s[1]) st.setProperty(s[0], s[1], s[2]); else st.removeProperty(s[0]); });
         };
@@ -356,17 +373,19 @@
     }
 
     function init() {
-        var slot = document.getElementById('solar-dock-viewport');
-        var target = slot && (slot.closest('.module-content') || slot);
-        if (target) {
-            observe(target, fitSolar, 60);
+        DRAWING_SLOTS.forEach(function (d) {
+            var slot = document.getElementById(d[0]);
+            var target = slot && (slot.closest('.module-content') || slot);
+            if (!target) return;
+            var fit = function () { fitDrawingSlot(d[0], d[1]); };
+            observe(target, fit, 60);
             // the canvas is created later, by the app
-            new MutationObserver(function () { fitSolar(); }).observe(slot, { childList: true });
-        }
+            new MutationObserver(fit).observe(slot, { childList: true });
+        });
         // After a look is applied the visualizers re-measure over ~700ms
         // (StudioLooks nudges them); fit around that and once it settles.
         window.addEventListener('studio:lookchange', function () {
-            fitSolar();
+            fitDrawingSlots();
             [40, 360, 900].forEach(function (ms) { setTimeout(refitAll, ms); });
         });
         window.addEventListener('resize', function () { refitSoon(160); });
@@ -378,6 +397,6 @@
 
     window.ModuleFit = {
         measure: measure, fitAspect: fitAspect, observe: observe,
-        active: active, fitSolar: fitSolar, refit: refitAll
+        active: active, refit: refitAll
     };
 })();

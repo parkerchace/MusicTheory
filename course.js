@@ -458,7 +458,7 @@
                                 { label: 'G → Cm → G, the reverent ending', seq: [['G3', 'B3', 'D4'], ['G3', 'C4', 'Eb4'], ['G3', 'B3', 'D4']] }
                             ],
                             steps: [
-                                { text: 'In the <b>Solar System</b>, click the <b>D</b> planet: its satellites appear, and <b>V/D</b> is its five-of, A7.', at: 'solar', set: { planet: 'D' } },
+                                { text: 'In the <b>Solar System</b>, click the <b>D</b> planet: its moons appear, numbered from D. The moon numbered <b>5</b> is its five-of, A7.', at: 'solar', set: { planet: 'D' } },
                                 { text: 'Open <b>🔍 Where the music comes from</b>, with the score. In <b>🎯 Approach a progression</b>, type <b>1 2</b>, press <b>Build</b> and click <b>Dm7</b>.', at: 'prov-approach', set: { approach: '1 2' } },
                                 { text: 'Set its menu to <b>dominant</b>: the five-of, A7, is in the list. Press <b>▶</b> to hear it lead in.', at: 'prov-approach' }
                             ],
@@ -480,7 +480,7 @@
                                 { label: 'Cmaj9 ↔ E♭maj9', seq: [['C3', 'E4', 'G4', 'B4', 'D5'], ['Eb3', 'G4', 'Bb4', 'D5', 'F5'], ['C3', 'E4', 'G4', 'B4', 'D5']] }
                             ],
                             steps: [
-                                { text: 'In the <b>Solar System</b>, click the <b>C</b> planet: the <b>CM</b> satellites are its chromatic mediants.', at: 'solar', set: { planet: 'C' } },
+                                { text: 'In the <b>Solar System</b>, click the <b>C</b> planet: its pink moons, numbered <b>♭3, 3, ♭6, 6</b>, are its chromatic mediants.', at: 'solar', set: { planet: 'C' } },
                                 { text: 'In <b>Scale Relationships</b>, type <b>Cmaj7</b> and press <b>Analyze</b>.', at: 'sre-input', set: { analyze: 'Cmaj7' } },
                                 { text: 'Under the results, click the <b>3/6 Mediant</b> filter: the scales a third away that hold it.', at: 'sre-mediant', set: { filter: 'mediant' } }
                             ],
