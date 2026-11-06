@@ -8,4 +8,4 @@ defaults:
   - scope:
       path: ""
     values:
-      image: /media/studio-signal-chain.jpg
+      image: /media/studio-stage-wings.jpg

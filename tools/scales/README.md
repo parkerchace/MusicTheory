@@ -16,7 +16,7 @@ One entry per set of notes that contains the root: 2,048 in all.
 | `id` | stable key used by code; an id that existed before keeps the notes it resolved to |
 | `name` | the display name: the name a learner is most likely to know |
 | `aliases` | every other name, as `[text, kind]` or `[text, kind, "u"]` when the name is not confirmed for these notes |
-| `wellKnown` | on the hand-listed scales; the word generator chooses only among these |
+| `wellKnown` | on the hand-listed scales; the picker sorts these first. The word generator uses the whole catalogue |
 | `melakarta` | the Carnatic parent-scale number, 1–72 |
 | `ragas` | ragas that use these notes: `n` name, `s` system (`h`/`c`), `p` parent thaat or melakarta number, `alt` other parents sources give, `up`/`dn` ascent and descent as written, `pu`/`pd` the same as semitones when they could be read, `j` jati, `w` weakly sourced, `u` unconfirmed |
 | `maqam` | for Arabic names, the family by first jins |
