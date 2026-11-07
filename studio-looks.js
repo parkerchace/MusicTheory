@@ -1389,6 +1389,31 @@
             new ResizeObserver(publishHeader).observe(deck);
             publishHeader();
         }
+
+        // Under 900px the bar is sticky and several rows tall, a quarter of a
+        // phone's screen. It slides away while the page scrolls down and comes
+        // back on any scroll up — never while one of its menus is open.
+        if (deck) {
+            var narrow = window.matchMedia('(max-width: 900px)');
+            var lastY = 0;
+            var menuOpen = function () {
+                if (deck.querySelector('.open, [aria-expanded="true"]')) return true;
+                var modal = document.getElementById('scale-picker-modal');
+                return !!(modal && deck.contains(modal) && getComputedStyle(modal).display !== 'none');
+            };
+            document.addEventListener('scroll', function (e) {
+                var t = e.target;
+                // the page itself, not a keyboard or panel scrolling sideways
+                if (t !== document && t !== document.body && t !== document.documentElement) return;
+                var y = t === document ? (document.scrollingElement || document.documentElement).scrollTop : t.scrollTop;
+                var dy = y - lastY;
+                if (Math.abs(dy) < 8) return;
+                lastY = y;
+                var tuck = narrow.matches && dy > 0 && y > deck.offsetHeight && !menuOpen();
+                deck.classList.toggle('deck-tucked', tuck);
+            }, { capture: true, passive: true });
+            narrow.addEventListener('change', function () { deck.classList.remove('deck-tucked'); });
+        }
     }
 
     /* ==================================================================

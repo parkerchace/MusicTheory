@@ -2288,6 +2288,59 @@ CHECKS.update({
 })
 
 
+def finger(b, kind, x=None, y=None):
+    points = [] if kind == 'touchEnd' else [{'x': x, 'y': y}]
+    b.cdp.call('Input.dispatchTouchEvent', type=kind, touchPoints=points)
+
+
+def chk_phone_piano(b):
+    """On a phone: keys wide enough for a finger, a swipe scrolls and plays nothing, a tap plays and wakes the audio."""
+    size = b.cdp.js('[innerWidth, innerHeight]')
+    url = b.cdp.js('location.href')
+    SPOT = """(() => { const k = [...document.querySelectorAll('#piano-container .piano-white-key')]
+        .find(k => { const r = k.getBoundingClientRect(); return r.x > 100 && r.right < innerWidth - 20; });
+      const r = k.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * 0.8, w: r.width }; })()"""
+    try:
+        b.cdp.call('Emulation.setDeviceMetricsOverride', width=390, height=844, deviceScaleFactor=2, mobile=True)
+        b.cdp.call('Emulation.setTouchEmulationEnabled', enabled=True, maxTouchPoints=5)
+        b.cdp.call('Page.navigate', url=url)
+        b.cdp.js(WAIT_READY)
+        b.cdp.js(LAUNCH)
+        b.cdp.js("""(() => {
+          window.__notes = 0;
+          modularApp.pianoVisualizer.on('noteClicked', () => window.__notes++);
+          window.scrollTo(0, 400);
+          document.querySelectorAll('.tour-offer, .tour-popover').forEach(e => e.remove());
+          return true; })()""")
+        time.sleep(0.5)
+        key = b.cdp.js(SPOT)
+        before = b.cdp.js('scrollY')
+        finger(b, 'touchStart', key['x'], key['y'])
+        for i in range(1, 11):
+            finger(b, 'touchMove', key['x'], key['y'] - i * 12)
+            time.sleep(0.016)
+        finger(b, 'touchEnd')
+        time.sleep(0.6)
+        swiped = b.cdp.js('({ y: scrollY, notes: window.__notes })')
+        key = b.cdp.js(SPOT)
+        finger(b, 'touchStart', key['x'], key['y'])
+        time.sleep(0.03)
+        finger(b, 'touchEnd')
+        time.sleep(0.4)
+        tapped = b.cdp.js("""({ notes: window.__notes, audio: modularApp.audioEngine.ctx.state })""")
+        ok = (key['w'] >= 25 and swiped['y'] > before and swiped['notes'] == 0
+              and tapped['notes'] == 1 and tapped['audio'] == 'running')
+        return {'ok': ok, 'detail': {'keyWidth': key['w'], 'before': before, 'swiped': swiped, 'tapped': tapped}}
+    finally:
+        b.cdp.call('Emulation.setTouchEmulationEnabled', enabled=False)
+        b.cdp.call('Emulation.setDeviceMetricsOverride', width=size[0], height=size[1], deviceScaleFactor=1, mobile=False)
+
+
+CHECKS.update({
+    'phone: the keys fit a finger, a swipe scrolls silently, a tap plays and wakes the audio': ({'music-theory-look': 'og', 'music-theory-visited': 'true'}, False, chk_phone_piano),
+})
+
+
 def run_checks(b, url, only, relaunch=None, shard=(0, 1)):
     fails = 0
     errors = []

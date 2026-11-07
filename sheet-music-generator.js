@@ -1105,6 +1105,7 @@ class SheetMusicGenerator {
 		// Playback & MIDI controls wrapper
 		const midiWrap = document.createElement('div');
 		midiWrap.style.display = 'flex';
+		midiWrap.style.flexWrap = 'wrap';
 		midiWrap.style.alignItems = 'center';
 		midiWrap.style.gap = '6px';
 		midiWrap.style.marginLeft = '12px';

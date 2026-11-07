@@ -397,15 +397,8 @@ class LearnPianoNotes {
                     key.appendChild(degreeLabel);
                 }
                 
-                // Add click handler for sound (when not dragging)
-                key.addEventListener('click', (e) => {
-                    if (!this._isDragging) {
-                        const midi = parseInt(key.getAttribute('data-midi'));
-                        if (!isNaN(midi)) {
-                            this.playNote(midi);
-                        }
-                    }
-                });
+                // The piano's mousedown plays the key (_wirePianoDrag); a click
+                // handler here played every tap a second time.
 
                 // Add hover effects and drag support for glissando
                 key.addEventListener('mouseenter', (e) => {

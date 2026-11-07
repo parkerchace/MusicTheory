@@ -695,6 +695,7 @@
 
     /* ---------- engagement -------------------------------------------- */
     function onPointerDown(e) {
+        if (e.pointerType === 'touch') return;   // a finger on the keys has no typing keyboard to arm
         var t = e.target;
         if (!t || !t.closest) return;
         if (t.closest('.qk-chip') || t.closest('.gt-control')) return;   // the tuning dropdown sits on the neck: not the instrument

@@ -154,6 +154,41 @@
         @media (max-width: 1500px) {
             .control-deck .app-brand > span { display: none; }
         }
+        /* Under 900px the bar is sticky over a scrolling page. It is solid and
+           above the modules (the circle's canvas drew over a see-through bar),
+           and it slides away while the page scrolls down and comes back on
+           any scroll up (studio-looks.js sets .deck-tucked). */
+        @media (max-width: 900px) {
+            .control-deck {
+                z-index: 95;
+                background: rgb(5, 10, 15);
+                transition: transform 0.2s ease;
+            }
+            .control-deck.deck-tucked { transform: translateY(-100%); }
+            /* what is scrolled into view (a lesson's target, the tour) stops below the bar */
+            html { scroll-padding-top: var(--header-height); }
+        }
+        /* A phone: four tight rows instead of six loose ones —
+           Home/course, input mode, words | method, Generate, theme/layout/help
+           | the quick actions | key and scale */
+        @media (max-width: 600px) {
+            .control-deck { padding: 4px 8px !important; gap: 4px 6px; }
+            .control-deck .primary-input-section,
+            .control-deck .secondary-controls { display: contents !important; }
+            .control-deck .app-brand { order: 1; gap: 4px !important; }
+            .control-deck .input-mode-toggle { order: 2; }
+            .control-deck .input-mode-btn { padding: 2px 8px; font-size: 1rem; }
+            .control-deck :is(#global-word-input, #global-manual-numbers) {
+                order: 3;
+                flex: 1 1 90px;
+                width: auto !important;
+                min-width: 0;
+            }
+            .control-deck .primary-input-section > div:has(#generation-method) { order: 4; flex: 1 1 auto; }
+            .control-deck .secondary-controls > * { order: 5; }
+            .control-deck .quick-actions { order: 6; flex-basis: 100%; }
+            .control-deck #control-deck-keyscale-center { order: 7; }
+        }
 
         /* Hide internal titles since we have module headers */
         #number-generator-container h3 { display: none; }

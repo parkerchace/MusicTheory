@@ -82,9 +82,21 @@
     let courseGuitar = false;   // a lesson, with the guitar chosen: the dock shows just the guitar
     let reapply = null;
 
+    // Side by side on a phone, each instrument is too narrow to play: the dock shows
+    // one at a time, with a button to swap. The stored choice is untouched.
+    const phoneWidth = window.matchMedia('(max-width: 600px)');
+    let phonePane = null;   // null until swapped: follows the instrument chosen for the course
+    let showSwap = null;
+
+    function paneOnPhone() {
+        if (phonePane) return phonePane;
+        return window.LearnCommon && window.LearnCommon.instrument() === 'guitar' ? 'guitar' : 'piano';
+    }
+
     function applyDockMode(mode) {
         if (courseGuitar) mode = 'guitar';
         else if (guitarClaimed) mode = 'piano';
+        else if (mode === 'both' && phoneWidth.matches) mode = paneOnPhone();
         const dockGrid = $('instrument-dock');
         const panePiano = $('instrument-pane-piano');
         const paneGuitar = $('instrument-pane-guitar');
@@ -131,6 +143,8 @@
             if (dockGuitarContainer) moveGuitarMount('guitar-dock-container');
             nudgeVisualizersToResize('both');
         }
+
+        if (showSwap) showSwap();
 
         // The fretboard module was just shown or hidden; a studio look lays
         // out only what is present, so tell it.
@@ -201,8 +215,22 @@
             setTimeout(() => applyDockMode(mode), 1000);
         };
 
+        const swap = document.createElement('button');
+        swap.type = 'button';
+        swap.className = 'btn-icon dock-phone-swap';
+        if (toolbar) toolbar.insertBefore(swap, toolbar.firstChild);
+        showSwap = () => {
+            swap.hidden = guitarClaimed || courseGuitar || !(cbPiano.checked && cbGuitar.checked);
+            swap.textContent = paneOnPhone() === 'guitar' ? '🎹 Piano' : '🎸 Guitar';
+        };
+        swap.addEventListener('click', () => {
+            phonePane = paneOnPhone() === 'guitar' ? 'piano' : 'guitar';
+            reapply();
+        });
+
         applyFromCheckboxes();
         reapply = () => applyDockMode(getModeFromSelection(cbPiano.checked, cbGuitar.checked));
+        phoneWidth.addEventListener('change', reapply);
 
         cbPiano.addEventListener('change', applyFromCheckboxes);
         cbGuitar.addEventListener('change', applyFromCheckboxes);

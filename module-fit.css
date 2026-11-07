@@ -186,3 +186,28 @@ body[data-look]:not([data-look="og"]) .look-zone[data-flow="bench"] > [data-modu
    half the deck and leaves the rest black.
    ========================================================================== */
 #instrument-dock-root > #instrument-dock { flex: 1 1 auto; min-width: 0; }
+
+/* A phone shows one instrument at a time (instrument-dock.js) */
+.dock-phone-swap { display: none; }
+@media (max-width: 600px) {
+    .dock-phone-swap:not([hidden]) {
+        display: inline-block;
+        font-size: 0.72rem;
+        padding: 2px 8px;
+        white-space: nowrap;
+    }
+    /* solid, so the instrument's own controls pass cleanly underneath */
+    #instrument-dock-root .instrument-dock-settings {
+        top: 8px;
+        right: 12px;
+        background: var(--bg-panel);
+        box-shadow: -6px 0 8px var(--bg-panel);
+    }
+
+    /* The voicing panel is a fixed 180px column beside the staff and toolbar,
+       which at this width lie underneath it, Play button included. Under them
+       it takes the width instead (the looks do this by zone width, above). */
+    #sheet-music-container > div:has(> .sheet-music-voicing-panel) { flex-direction: column; }
+    .sheet-music-voicing-panel { width: auto !important; }
+    .sheet-music-voicing-panel > div:first-child[style*="position: absolute"] { display: none; }
+}

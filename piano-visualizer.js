@@ -386,9 +386,35 @@ class PianoVisualizer {
                     return null;
                 };
 
+                // A finger coming down may be the start of a scroll, so it only plays
+                // once it has stayed put for a moment or lifted without moving. The
+                // browser owns the drag (touch-action below), so no glissando by touch.
+                const touches = new Map();   // pointerId -> { x, y, note, midi, timer }
+                const dropTouch = (id) => {
+                    const t = touches.get(id);
+                    if (t) clearTimeout(t.timer);
+                    touches.delete(id);
+                };
+                const playTouch = (id) => {
+                    const t = touches.get(id);
+                    if (!t || t.played) return;
+                    t.played = true;
+                    this.handleNoteClick(t.note, t.midi);
+                };
+
                 this.pianoElement.addEventListener('pointerdown', (evt) => {
                     // only primary button
                     if (evt.button && evt.button !== 0) return;
+                    if (evt.pointerType === 'touch') {
+                        const key = findKeyFromElement(evt.target);
+                        const midi = key ? parseInt(key.dataset.midi, 10) : NaN;
+                        if (isNaN(midi)) return;
+                        touches.set(evt.pointerId, {
+                            x: evt.clientX, y: evt.clientY, note: key.dataset.note, midi,
+                            timer: setTimeout(() => playTouch(evt.pointerId), 70)
+                        });
+                        return;
+                    }
                     evt.preventDefault();
                     this._isPointerDown = true;
                     this._lastMidiUnderPointer = null;
@@ -408,6 +434,8 @@ class PianoVisualizer {
                 }, { passive: false });
 
                 this.pianoElement.addEventListener('pointermove', (evt) => {
+                    const t = touches.get(evt.pointerId);
+                    if (t && Math.hypot(evt.clientX - t.x, evt.clientY - t.y) > 10) dropTouch(evt.pointerId);
                     if (!this._isPointerDown) return;
                     evt.preventDefault();
                     const el = document.elementFromPoint(evt.clientX, evt.clientY);
@@ -422,6 +450,11 @@ class PianoVisualizer {
                 }, { passive: false });
 
                 const endPointer = (evt) => {
+                    if (touches.has(evt.pointerId)) {
+                        if (evt.type === 'pointerup') playTouch(evt.pointerId);
+                        dropTouch(evt.pointerId);
+                        return;
+                    }
                     this._isPointerDown = false;
                     this._lastMidiUnderPointer = null;
                     try { evt.target.releasePointerCapture && evt.target.releasePointerCapture(evt.pointerId); } catch(_){}
@@ -446,6 +479,30 @@ class PianoVisualizer {
                     --piano-label-black-size: 11px;
                     --piano-degree-bg: rgba(255,255,255,0.92);
                     --piano-degree-color: #111;
+                }
+                /* Swiping on the keys moves the page or the keyboard; a tap plays */
+                .piano-visualizer {
+                    touch-action: manipulation;
+                    -webkit-touch-callout: none;
+                    -webkit-tap-highlight-color: transparent;
+                }
+                /* Wrapped on a phone, these buttons took more height than the keys */
+                @media (max-width: 600px) {
+                    .pv-fingering-row {
+                        flex: 0 0 auto;
+                        width: 100%;
+                        box-sizing: border-box;
+                        flex-wrap: nowrap !important;
+                        overflow-x: auto;
+                        scrollbar-width: none;
+                        padding-right: 120px !important;   /* clear of the dock's toolbar */
+                    }
+                    .pv-fingering-row::-webkit-scrollbar { display: none; }
+                    .pv-fingering-buttons {
+                        flex-wrap: nowrap !important;
+                        margin-left: 0 !important;
+                    }
+                    .pv-fingering-buttons > button { flex: 0 0 auto; white-space: nowrap; }
                 }
                 .piano-visualizer .piano-white-key > div {
                     color: #000 !important;
@@ -582,11 +639,13 @@ class PianoVisualizer {
 
                     const topPadding = 28; // must match keysInner.paddingTop
                     const chrome = 10; // a little breathing room
-                    const usable = hostHeight - rowH - chrome;
+                    // A keyboard held wide for fingers is drawn at this scale: fill the height as drawn
+                    const drawn = this._pv_scrollScale || 1;
+                    const usable = (hostHeight - rowH - chrome) / drawn;
 
                     const minWhite = 110;
                     // Keep the dock keyboard comfortable; don't let it balloon.
-                    const maxWhite = 170;
+                    const maxWhite = 170 / drawn;
                     const desiredWhite = Math.max(minWhite, Math.min(maxWhite, Math.round(usable - topPadding)));
 
                     if (desiredWhite > 0 && this._pv_lastAutoWhiteHeight !== desiredWhite) {
@@ -646,6 +705,14 @@ class PianoVisualizer {
             const maxScale = 1.65;
             scale = Math.max(minScale, Math.min(maxScale, scale));
 
+            // A fingertip cannot play keys narrower than this: rather than shrink
+            // the whole range to fit, keep them this wide and let the keyboard scroll.
+            const touchScale = window.matchMedia('(pointer: coarse)').matches ? 26 / this.options.whiteKeyWidth : 0;
+            scale = Math.max(scale, touchScale);
+            const scrolls = totalWidth * scale > containerWidth + 1;
+            this.pianoElement.style.overflowX = scrolls ? 'auto' : 'visible';
+            this.pianoElement.style.overflowY = scrolls ? 'hidden' : 'visible';
+
             // When height (or maxScale) is the limit, the keyboard keeps its
             // shape and is narrower than the host: centre it rather than
             // leaving all the spare width on the right.
@@ -657,6 +724,7 @@ class PianoVisualizer {
 
             // Prevent the element itself from forcing horizontal scroll on its parent
             this.pianoElement.style.minWidth = '0';
+            this._pv_scrollScale = scrolls ? scale : 0;
         } else {
             this.keysInner.style.transform = '';
             this.pianoElement.style.height = `${totalHeight}px`;
@@ -671,11 +739,27 @@ class PianoVisualizer {
 
         // Apply current state
         this.applyState();
-        
+        this._scrollToRoot();
+
         // Emit rendered event for connectors
         requestAnimationFrame(() => {
             this.emit('rendered', { startMidi, endMidi });
         });
+    }
+
+    /**
+     * A keyboard wider than its host opens on the key's root, and moves only when
+     * the root does, so a redraw never takes it away from where the finger left it.
+     */
+    _scrollToRoot() {
+        if (!this._pv_scrollScale) return;
+        const root = typeof this._pv_forcedRootMidi === 'number' ? this._pv_forcedRootMidi : this.state.centerLowMidi;
+        if (typeof root !== 'number' || root === this._pv_scrolledToRoot) return;
+        const left = this._whiteKeyPositions.get(root);
+        const x = left !== undefined ? left : this._whiteKeyPositions.get(root - 1);
+        if (x === undefined) return;
+        this._pv_scrolledToRoot = root;
+        this.pianoElement.scrollLeft = (x - this.options.whiteKeyWidth) * this._pv_scrollScale;
     }
 
     /**
@@ -2226,6 +2310,7 @@ class PianoVisualizer {
         
         // Fingering controls moved above piano to sit left of keyboard
         const fingeringRow = document.createElement('div');
+        fingeringRow.className = 'pv-fingering-row';
         this._pv_fingeringRow = fingeringRow;
         fingeringRow.style.display = 'flex';
         fingeringRow.style.flexDirection = 'row';
@@ -2243,6 +2328,7 @@ class PianoVisualizer {
         
         // Create section for buttons (centered)
         const buttonSection = document.createElement('div');
+        buttonSection.className = 'pv-fingering-buttons';
         buttonSection.style.display = 'flex';
         buttonSection.style.alignItems = 'center';
         buttonSection.style.justifyContent = 'center';

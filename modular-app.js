@@ -1681,59 +1681,11 @@ window.mountLearnModuleIfReady = function(instrument) {
             window.containerChordTool = window.modularApp.containerChordTool;
             // debugLog('Application started');
             
-            // Initialize audio engine and show loading notification for samples
+            // Initialize audio engine
             if (window.modularApp.audioEngine) {
                 window.modularApp.audioEngine.init();
-                
-                // Show loading notification if using sampled piano
-                if (typeof PianoSampleEngine !== 'undefined' && window.modularApp.audioEngine instanceof PianoSampleEngine) {
-                    const notification = document.createElement('div');
-                    notification.id = 'audio-loading-notification';
-                    notification.style.cssText = `
-                        position: fixed;
-                        bottom: 20px;
-                        right: 20px;
-                        background: rgba(0, 150, 255, 0.95);
-                        color: white;
-                        padding: 12px 20px;
-                        border-radius: 8px;
-                        font-family: var(--font-tech, monospace);
-                        font-size: 0.9rem;
-                        z-index: 10000;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                        transition: opacity 0.3s ease;
-                    `;
-                    notification.textContent = '🎹 Loading piano samples...';
-                    document.body.appendChild(notification);
-                    
-                    // Check loading progress
-                    const checkProgress = setInterval(() => {
-                        if (window.modularApp.audioEngine.isReady()) {
-                            notification.style.background = 'rgba(0, 200, 100, 0.95)';
-                            notification.textContent = '✓ Piano samples loaded';
-                            setTimeout(() => {
-                                notification.style.opacity = '0';
-                                setTimeout(() => notification.remove(), 300);
-                            }, 2000);
-                            clearInterval(checkProgress);
-                        }
-                    }, 500);
-                    
-                    // Timeout after 10 seconds (samples might have failed to load)
-                    setTimeout(() => {
-                        if (!window.modularApp.audioEngine.isReady()) {
-                            notification.style.background = 'rgba(255, 150, 0, 0.95)';
-                            notification.textContent = '⚠ Using synthesized piano';
-                            setTimeout(() => {
-                                notification.style.opacity = '0';
-                                setTimeout(() => notification.remove(), 300);
-                            }, 3000);
-                            clearInterval(checkProgress);
-                        }
-                    }, 10000);
-                }
             }
-            
+
             // Initialize MIDI input
             if (window.modularApp.midiManager) {
                 window.modularApp.midiManager.statusCallback = (status, message) => {
@@ -1757,6 +1709,7 @@ window.mountLearnModuleIfReady = function(instrument) {
                             z-index: 10000;
                             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
                             transition: all 0.3s ease;
+                            pointer-events: none;
                         `;
                         document.body.appendChild(indicator);
                     }
@@ -1791,8 +1744,9 @@ window.mountLearnModuleIfReady = function(instrument) {
                     indicator.style.background = bgColor;
                     indicator.textContent = `${icon} ${message}`;
                     
-                    // Auto-hide after 5 seconds for non-error states
-                    if (status !== 'error' && status !== 'ready') {
+                    // Auto-hide after 5 seconds. Errors too: a phone has no Web MIDI at all,
+                    // and this sits on top of the keys.
+                    if (status !== 'ready') {
                         setTimeout(() => {
                             if (indicator && indicator.parentNode) {
                                 indicator.style.opacity = '0';

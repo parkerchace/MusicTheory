@@ -41,6 +41,7 @@
   const CAMERA_MS = 700;
   const WIDE_PANEL_W = 600;      // a box this wide puts the moon list beside the map instead of under it
   const LABEL_KEY = 'solar-label-mode';
+  const BEAM_SPEED = 0.065;      // radians per frame at speed 1: one turn in about 4s at the default speed (0.4)
 
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -75,7 +76,10 @@
         labelMode: this.loadLabelMode()
       };
       this.isPlaying = false;
+      this.sounding = false;     // ▶ pressed: the beam sounds the planets
+      this.beam = 0;
       this.resumeOnMount = false;
+      this.resumeSound = false;
       this.stars = [];
       this.geo = null;
       this.cam = { x: 0, y: 0, z: 1, vx: 0, vy: 0 };
@@ -142,7 +146,7 @@
       }
 
       this.handleResize();
-      if (this.resumeOnMount) { this.resumeOnMount = false; this.start(); }
+      if (this.resumeOnMount) { this.resumeOnMount = false; this.start(); this.sounding = this.resumeSound; this.syncPlayButton(); }
     }
 
     unmount(){
@@ -155,6 +159,7 @@
       if (this.resizeObserver) { this.resizeObserver.disconnect(); this.resizeObserver = null; }
       if (this.themeObserver) { this.themeObserver.disconnect(); this.themeObserver = null; }
       this.resumeOnMount = this.isPlaying;
+      this.resumeSound = this.sounding;
       this.stop();
       if(this.container){ this.container.innerHTML = ''; this.container.classList.remove('solar-root', 'solar-wide', 'solar-narrow', 'viz-narrow'); }
       this.canvas = null; this.ctx = null; this.tooltip = null; this.moonPanel = null; this.controls = null; this.geo = null; this.canvasSize = null;
@@ -352,16 +357,72 @@
       return sat;
     }
 
+    /** The orbits move. The app starts them on load, silently; only ▶ (play) adds the sound. */
     start(){ this.isPlaying = true; this.syncPlayButton(); this.requestDraw(); }
-    stop(){ this.isPlaying = false; if(this.animId){ cancelAnimationFrame(this.animId); this.animId = null; } this.syncPlayButton(); this.requestDraw(); }
+    stop(){ this.isPlaying = false; this.sounding = false; if(this.animId){ cancelAnimationFrame(this.animId); this.animId = null; } this.syncPlayButton(); this.requestDraw(); }
+
+    /** ▶: the beam turns from the top and the sun sounds the key it circles. */
+    play(){
+      this.sounding = true;
+      this.beam = 0;
+      this.sound([this.midiOf(this.state.key) - 12], 1.2);
+      this.start();
+    }
 
     syncPlayButton(){
       const btn = this.controls && this.controls.querySelector('#solar-play');
       if (btn){
-        btn.textContent = this.isPlaying ? '❚❚' : '▶';
-        btn.title = this.isPlaying ? 'Pause the orbits' : 'Play the orbits';
-        btn.setAttribute('aria-pressed', this.isPlaying ? 'true' : 'false');
+        const on = this.isPlaying && this.sounding;
+        btn.textContent = on ? '❚❚' : '▶';
+        btn.title = on ? 'Stop' : 'Play: a beam turns round the sun and sounds each planet it passes';
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
       }
+    }
+
+    /* ---------- sound -------------------------------------------------- */
+    /** A note of the scale, in the octave from the key up: inner planets low, outer ones high. */
+    midiOf(note){
+      const values = this.musicTheory.noteValues;
+      const home = values[this.state.key] || 0;
+      const v = values[note];
+      return 48 + home + (v === undefined ? 0 : (v - home + 12) % 12);
+    }
+
+    /** A moon's chord, stacked up from its root. */
+    chordMidis(display){
+      const m = String(display || '').match(/^([A-G](?:#|b)?)(.*)$/);
+      if (!m) return [];
+      let notes = [];
+      try { notes = this.musicTheory.getChordNotes(m[1], (m[2] || '').trim()) || []; } catch(_) {}
+      const values = this.musicTheory.noteValues;
+      const out = [];
+      notes.forEach(n => {
+        if (values[n] === undefined) return;
+        let midi = 48 + values[n];
+        while (out.length && midi <= out[out.length - 1]) midi += 12;
+        out.push(midi);
+      });
+      return out;
+    }
+
+    sound(midis, duration){
+      const app = typeof window !== 'undefined' && window.modularApp;
+      const engine = app && app.audioEngine;
+      if (!engine || typeof engine.playNote !== 'function') return;
+      try { if (typeof engine.resume === 'function') engine.resume(); } catch(_) {}
+      midis.forEach((m, i) => { try { engine.playNote(m, duration, i * 0.012, 0.7); } catch(_) {} });
+    }
+
+    /** The beam turns every few seconds (faster with the speed slider) and sounds each planet it passes. The planets keep moving, so the pattern slowly drifts. */
+    sweep(dt){
+      const TAU = Math.PI * 2;
+      const turn = BEAM_SPEED * this.state.speedScale * dt;
+      const from = this.beam;
+      this.state.planets.forEach(p => {
+        const ahead = ((p.angle - from) % TAU + TAU) % TAU;
+        if (ahead < turn){ this.sound([this.midiOf(p.note)], 0.7); p.flash = 1; }
+      });
+      this.beam = (from + turn) % TAU;
     }
 
     /** One frame soon, whether or not the system is playing. Repeats while playing or while something is still moving. */
@@ -388,6 +449,7 @@
     isSettling(){
       if (this.camAnim) return true;
       return this.state.planets.some(p => {
+        if (p.flash > 0) return true;
         const wants = this.state.expandedPlanets.indexOf(p.note) !== -1 ? 1 : 0;
         return Math.abs(p.radius - p.orbitRadius) > 0.1 || Math.abs(p.open - wants) > 0.01;
       });
@@ -401,10 +463,12 @@
         p.radius = Math.abs(p.radius - p.orbitRadius) > 0.1 ? lerp(p.radius, p.orbitRadius, ease) : p.orbitRadius;
         const wants = this.state.expandedPlanets.indexOf(p.note) !== -1 ? 1 : 0;
         p.open = Math.abs(p.open - wants) > 0.01 ? lerp(p.open, wants, ease) : wants;
+        if (p.flash > 0) p.flash = Math.max(0, p.flash - 0.035 * dt);
         if (!moving) return;
         p.angle += p.angularSpeed * this.state.speedScale * dt;
         if (p.open > 0) p.moons.forEach(s => { s.angle += s.speed * this.state.speedScale * dt; });
       });
+      if (moving && this.sounding) this.sweep(dt);
     }
 
     /* ---------- camera ------------------------------------------------- */
@@ -561,9 +625,11 @@
       if (this.moreMenu) this.moreMenu.open = false;
       const rect = this.canvas.getBoundingClientRect();
       const hit = this.hitTest(e.clientX - rect.left, e.clientY - rect.top);
-      if (hit && hit.moon){ this.handleSatelliteSelect(hit.planet.note, hit.moon); return; }
+      if (hit && hit.moon){ this.sound(this.chordMidis(hit.moon.display), 1.1); this.handleSatelliteSelect(hit.planet.note, hit.moon); return; }
+      if (hit && hit.sun) this.sound([this.midiOf(this.state.key) - 12], 1.2);
       if (hit && hit.planet){
         const note = hit.planet.note;
+        this.sound([this.midiOf(note)], 0.8);
         const expanded = this.state.expandedPlanets.indexOf(note) !== -1;
         if (!expanded){
           this.state.expandedPlanets.push(note);
@@ -632,6 +698,7 @@
       ctx.clearRect(0, 0, W, H);
       this.drawStars(ctx);
       this.drawRings(ctx);
+      if (this.sounding) this.drawBeam(ctx);
       this.drawSun(ctx);
       const ordered = this.orderedPlanets();
       ordered.forEach(p => { if (p.note !== this.state.focusPlanet) this.drawPlanetSystem(ctx, p); });
@@ -680,6 +747,29 @@
           ctx.stroke();
         }
       });
+      ctx.restore();
+    }
+
+    /** The beam that sounds the planets: a line out from the sun with a fading sweep behind it. */
+    drawBeam(ctx){
+      const geo = this.geo, f = geo.flatten, z = this.cam.z;
+      const sun = this.toScreen(0, 0);
+      const reach = (geo.outer + geo.disc * 2) * z;
+      const a = this.beam - Math.PI / 2;
+      const at = t => ({ x: sun.x + reach * Math.cos(t), y: sun.y + reach * f * Math.sin(t) });
+      ctx.save();
+      ctx.fillStyle = this.theme.accent;
+      for (let k = 0, parts = 6, span = 0.35; k < parts; k++){
+        const t0 = a - span * (k + 1) / parts, t1 = a - span * k / parts;
+        ctx.globalAlpha = 0.1 * (1 - k / parts);
+        ctx.beginPath(); ctx.moveTo(sun.x, sun.y);
+        ctx.ellipse(sun.x, sun.y, reach, reach * f, 0, t0, t1);
+        ctx.closePath(); ctx.fill();
+      }
+      const end = at(a);
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = this.theme.accent; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(sun.x, sun.y); ctx.lineTo(end.x, end.y); ctx.stroke();
       ctx.restore();
     }
 
@@ -773,6 +863,14 @@
       }
 
       this.drawBody(ctx, pos.x, pos.y, size, color, light);
+      // a ring spreading out from a planet the beam has just sounded
+      if (p.flash > 0){
+        ctx.save();
+        ctx.globalAlpha = dim * p.flash;
+        ctx.beginPath(); ctx.arc(pos.x, pos.y, size + 3 + 9 * (1 - p.flash), 0, Math.PI * 2);
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+        ctx.restore();
+      }
 
       const name = pretty(p.note);
       const onDisc = mode === 'notes' ? name : String(p.number);
@@ -909,7 +1007,8 @@
       this.controls = controls;
       this.moreMenu = controls.querySelector('.viz-more');
 
-      controls.querySelector('#solar-play').onclick = () => { this.isPlaying ? this.stop() : this.start(); };
+      // The orbits already turn silently; ▶ is play with sound, ❚❚ stops both.
+      controls.querySelector('#solar-play').onclick = () => { this.isPlaying && this.sounding ? this.stop() : this.play(); };
       controls.querySelector('#solar-back').onclick = () => this.setFocus(null);
       controls.querySelectorAll('[data-label-mode]').forEach(b => { b.onclick = () => this.setLabelMode(b.getAttribute('data-label-mode')); });
       const traj = controls.querySelector('#solar-traj'), size = controls.querySelector('#solar-size');

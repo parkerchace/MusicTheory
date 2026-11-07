@@ -509,7 +509,9 @@ class GuitarFretboardVisualizer {
                     }
                     this.emit('noteClicked', { note: cell.dataset.note, midi: midiNum });
                 };
-                cell.addEventListener('pointerdown', onPick, { passive: false });
+                // A finger coming down may be a scroll; its tap arrives as the click below
+                cell.style.touchAction = 'manipulation';
+                cell.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') onPick(e); }, { passive: false });
                 cell.addEventListener('click', onPick);
 
                 // Hover styling

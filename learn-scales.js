@@ -966,6 +966,7 @@ class LearnScales {
         // Mobile: allow horizontal scrolling with native momentum scrolling
         if (isMobile) {
             pianoContainer.style.overflowX = 'auto';
+            pianoContainer.style.overflowY = 'hidden';   // or a swipe down the page stops here
             pianoContainer.style.webkitOverflowScrolling = 'touch';
             pianoContainer.style.paddingBottom = '8px';
         } else {
@@ -981,16 +982,16 @@ class LearnScales {
             this._localPiano.pianoElement.style.display = 'block';
         }
 
-        // Add click handlers
-        if (this._localPiano.pianoElement) {
-            const keys = this._localPiano.pianoElement.querySelectorAll('[data-note]');
-            keys.forEach(key => {
-                key.addEventListener('click', () => {
-                    const midi = parseInt(key.getAttribute('data-midi'));
-                    if (!isNaN(midi)) {
-                        this.playNote(midi);
-                    }
-                });
+        // Play on the piano element, which a redraw keeps: every redraw rebuilds the
+        // keys, and it redraws by itself whenever its container resizes.
+        if (this._localPiano.pianoElement && !this._keysWired) {
+            this._keysWired = true;
+            this._localPiano.pianoElement.addEventListener('click', (e) => {
+                const key = e.target.closest('[data-midi]');
+                const midi = key ? parseInt(key.getAttribute('data-midi')) : NaN;
+                if (!isNaN(midi)) {
+                    this.playNote(midi);
+                }
             });
         }
 

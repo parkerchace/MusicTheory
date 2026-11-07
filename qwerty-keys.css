@@ -22,6 +22,10 @@
     color: var(--text-muted);
 }
 .qk-chip[hidden] { display: none; }
+/* a phone has no typing keyboard, and here the chip only covers the keys */
+@media (max-width: 600px) and (pointer: coarse) {
+    .qk-chip { display: none; }
+}
 
 /* in the dock it overlays the top of the instruments: give it a solid toolbar */
 #instrument-dock-root .qk-chip {
